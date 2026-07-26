@@ -1,0 +1,7 @@
+{
+  "tools": {
+    "web_search": {
+      "enabled": false
+    }
+  }
+}

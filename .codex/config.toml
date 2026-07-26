@@ -1,0 +1,20 @@
+
+[mcp_servers.playwright-headed]
+command = "npx"
+args = [
+  "-y",
+  "@playwright/mcp@latest",
+  "--user-data-dir",
+  ".tmp/playwright"
+]
+default_tools_approval_mode = "approve"
+
+[mcp_servers.playwright-headless]
+command = "npx"
+args = [
+  "-y",
+  "@playwright/mcp@latest",
+  "--headless",
+  "--isolated"
+]
+default_tools_approval_mode = "approve"
