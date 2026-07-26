@@ -2,7 +2,7 @@ import { Vector3, type Scene } from "three";
 import type { System } from "../../ecs/System";
 import type { World } from "../../ecs/World";
 import { Comp, Faction } from "../components";
-import type { Transform, RigidBody, WeaponMount, ThrusterInput, Targeting } from "../components";
+import type { Transform, WeaponMount, ThrusterInput, Targeting } from "../components";
 import { spawnProjectile, spawnMissile } from "../weapons/projectileFactory";
 import type { EventBus } from "../../util/EventBus";
 
@@ -56,10 +56,9 @@ export class WeaponSystem implements System {
     t: Transform,
     faction: Faction,
   ): void {
-    const rb = world.get<RigidBody>(entity, Comp.RigidBody);
-    // 弾速 = 砲口速度(前方) + 自機速度成分 (簡易)。
+    // 弾速は機首方向への純粋な砲口速度 (自機速度は加算しない)。
+    // これによりリードインジケータ/AIの偏差計算が弾道と一致し、命中が安定する。
     projVel.copy(fwd).multiplyScalar(wm.gunProjectileSpeed);
-    if (rb) projVel.add(rb.velocity);
 
     for (const hp of wm.hardpoints) {
       muzzleWorld.copy(hp).applyQuaternion(t.quaternion).add(t.position);

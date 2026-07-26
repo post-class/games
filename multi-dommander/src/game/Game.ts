@@ -21,6 +21,13 @@ export class Game {
   /** 経過ゲーム時間 (秒)。シールド再生等の時刻基準に使う。 */
   simTime = 0;
 
+  /**
+   * 固定ステップ (物理・AI等) を回すかの判定。
+   * ブリーフィング/デブリーフ/メニュー中は false にしてシミュレーションを凍結する。
+   * 可変ステップ (描画・HUD) は常に実行される。
+   */
+  shouldRunFixed: () => boolean = () => true;
+
   constructor(readonly render: RenderContext) {}
 
   start(): void {
@@ -40,14 +47,19 @@ export class Game {
 
     const frameTime = Math.min((nowMs - this.lastMs) / 1000, PHYSICS.maxFrameTime);
     this.lastMs = nowMs;
-    this.accumulator += frameTime;
 
-    let steps = 0;
-    while (this.accumulator >= PHYSICS.fixedDt && steps < PHYSICS.maxSubSteps) {
-      this.scheduler.runFixed(this.world, PHYSICS.fixedDt);
-      this.simTime += PHYSICS.fixedDt;
-      this.accumulator -= PHYSICS.fixedDt;
-      steps++;
+    if (this.shouldRunFixed()) {
+      this.accumulator += frameTime;
+      let steps = 0;
+      while (this.accumulator >= PHYSICS.fixedDt && steps < PHYSICS.maxSubSteps) {
+        this.scheduler.runFixed(this.world, PHYSICS.fixedDt);
+        this.simTime += PHYSICS.fixedDt;
+        this.accumulator -= PHYSICS.fixedDt;
+        steps++;
+      }
+    } else {
+      // 凍結中は蓄積をリセットし、再開時のバースト積分を防ぐ。
+      this.accumulator = 0;
     }
 
     const alpha = this.accumulator / PHYSICS.fixedDt;

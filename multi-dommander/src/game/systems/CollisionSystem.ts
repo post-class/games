@@ -4,11 +4,15 @@ import type { World } from "../../ecs/World";
 import { Comp, Faction } from "../components";
 import type { Transform, Health, Collider, Projectile, Missile } from "../components";
 import { applyDamage } from "./DamageSystem";
+import { isHostile } from "../factions";
 import type { EventBus } from "../../util/EventBus";
 
 const seg = new Vector3();
 const toCenter = new Vector3();
 const closest = new Vector3();
+
+/** エネルギー砲の命中許容 (弾のかすりを命中扱いにして手数を活かす)。 */
+const GUN_HIT_PAD = 14;
 
 /**
  * 線分(前フレーム位置->現在位置)と球の交差判定。高速弾のすり抜け対策。
@@ -57,11 +61,11 @@ export class CollisionSystem implements System {
       const p = world.getOrThrow<Projectile>(proj, Comp.Projectile);
       for (const target of targets) {
         if (target === p.source) continue;
-        const tf = world.get<Faction>(target, Comp.Faction);
-        if (tf === p.sourceFaction) continue;
+        const tf = world.getOrThrow<Faction>(target, Comp.Faction);
+        if (!isHostile(p.sourceFaction, tf)) continue;
         const tt = world.getOrThrow<Transform>(target, Comp.Transform);
         const col = world.getOrThrow<Collider>(target, Comp.Collider);
-        if (segmentSphereHit(pt.prevPosition, pt.position, tt.position, col.radius)) {
+        if (segmentSphereHit(pt.prevPosition, pt.position, tt.position, col.radius + GUN_HIT_PAD)) {
           this.hit(world, target, proj, p.source, p.damage, tt.position, now);
           world.destroyEntity(proj);
           break;
@@ -78,8 +82,8 @@ export class CollisionSystem implements System {
       const mcol = world.getOrThrow<Collider>(mis, Comp.Collider);
       for (const target of targets) {
         if (target === m.source) continue;
-        const tf = world.get<Faction>(target, Comp.Faction);
-        if (tf === m.sourceFaction) continue;
+        const tf = world.getOrThrow<Faction>(target, Comp.Faction);
+        if (!isHostile(m.sourceFaction, tf)) continue;
         const tt = world.getOrThrow<Transform>(target, Comp.Transform);
         const col = world.getOrThrow<Collider>(target, Comp.Collider);
         const r = col.radius + mcol.radius;

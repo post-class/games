@@ -81,6 +81,17 @@ describe("FlightModelSystem: 6DOFニュートン積分", () => {
     expect(speed).toBeLessThanOrEqual(200 + 1e-3); // maxLinearSpeed
   });
 
+  it("正のピッチ入力で機首が上を向く (機首上げ規約)", () => {
+    const world = new World();
+    const sys = new FlightModelSystem();
+    const { t, ti } = makeShip(world, true);
+    ti.angular.set(1, 0, 0); // pitch +1 = 機首上げ
+    step(sys, world, 20);
+    // 機首(+z)方向のワールドベクトルの y 成分が正 = 上を向いている。
+    const fwd = new Vector3(0, 0, 1).applyQuaternion(t.quaternion);
+    expect(fwd.y).toBeGreaterThan(0.1);
+  });
+
   it("ヨー入力で姿勢クォータニオンが変化する", () => {
     const world = new World();
     const sys = new FlightModelSystem();

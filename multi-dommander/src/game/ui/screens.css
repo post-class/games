@@ -1,0 +1,61 @@
+.screen {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: "Courier New", monospace;
+  color: #cfe;
+  background: radial-gradient(ellipse at center, rgba(2, 10, 24, 0.85), rgba(0, 2, 8, 0.97));
+  text-align: center;
+  padding: 40px;
+}
+.screen.show {
+  display: flex;
+}
+
+.screen-title {
+  font-size: 30px;
+  letter-spacing: 0.12em;
+  color: #7fffd4;
+  text-shadow: 0 0 10px rgba(0, 255, 200, 0.5);
+  margin-bottom: 18px;
+}
+.screen-body {
+  max-width: 720px;
+  font-size: 16px;
+  line-height: 1.9;
+}
+.screen-body .obj {
+  color: #ffd23f;
+}
+.screen-prompt {
+  margin-top: 30px;
+  font-size: 15px;
+  color: #7fffd4;
+  animation: blink 1.2s steps(2, start) infinite;
+}
+@keyframes blink {
+  50% { opacity: 0.3; }
+}
+
+.screen-hero {
+  font-size: 64px;
+  letter-spacing: 0.14em;
+  margin-bottom: 8px;
+}
+.screen-hero.ok { color: #7fffd4; text-shadow: 0 0 12px rgba(0, 255, 200, 0.6); }
+.screen-hero.ng { color: #ff5b5b; text-shadow: 0 0 12px rgba(255, 60, 60, 0.6); }
+
+.screen-stat { font-size: 18px; margin-top: 6px; }
+.screen-sub { font-size: 14px; opacity: 0.8; margin-top: 10px; }
+
+.screen-list {
+  text-align: left;
+  display: inline-block;
+  margin-top: 14px;
+}
+.screen-list .done { color: #5bff8f; }
+.screen-list .fail { color: #ff5b5b; }

@@ -51,6 +51,15 @@ export class ExplosionSystem implements System {
     this.effects.push({ mesh, age: 0, ttl, maxScale: size, material });
   }
 
+  /** 全エフェクトを即時除去する (ミッション切替時)。 */
+  reset(): void {
+    for (const fx of this.effects) {
+      this.scene.remove(fx.mesh);
+      fx.material.dispose();
+    }
+    this.effects.length = 0;
+  }
+
   update(_world: World, dt: number): void {
     for (let i = this.effects.length - 1; i >= 0; i--) {
       const fx = this.effects[i];

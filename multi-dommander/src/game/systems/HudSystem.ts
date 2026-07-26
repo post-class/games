@@ -12,37 +12,51 @@ import type {
   Targeting,
   ShipInfo,
 } from "../components";
-import type { HudView, HudData, RadarContact, HudTargetData } from "../../hud/HudView";
+import { isHostile, isFriendly } from "../factions";
+import type { HudView, HudData, RadarContact, HudTargetData, HudNav } from "../../hud/HudView";
 import { computeLeadPosition, projectToScreen, computeOffscreenIndicator } from "../../hud/ReticleCalc";
 import type { GameStateData } from "../GameState";
+import type { MissionManager } from "../mission/MissionManager";
 
 const leadPos = new Vector3();
 const relPos = new Vector3();
 const invQ = new Quaternion();
 
-/** ECS の状態を集約し HudView に渡す (可変レート系)。 */
+/** ECS + ミッション状態を集約し HudView に渡す (可変レート系)。 */
 export class HudSystem implements System {
   readonly name = "HudSystem";
 
   constructor(
     private readonly view: HudView,
     private readonly camera: PerspectiveCamera,
-    private readonly getPlayer: () => EntityId | null,
+    private readonly mission: MissionManager,
     private readonly state: GameStateData,
+    private readonly getSimTime: () => number,
   ) {}
 
   update(world: World): void {
-    const player = this.getPlayer();
+    const player = this.mission.getPlayer();
     const w = window.innerWidth;
     const h = window.innerHeight;
+    const def = this.mission.getMission();
 
-    const enemiesLeft = world
-      .query(Comp.Faction, Comp.Health)
-      .filter((e) => world.get<Faction>(e, Comp.Faction) === Faction.Enemy).length;
+    const base = {
+      kills: this.state.kills,
+      enemiesLeft: this.mission.enemiesAlive(),
+      missionName: def?.name ?? "",
+      objectives: this.mission.objectives.map((o) => ({
+        label: o.label,
+        status: o.status,
+        optional: o.optional,
+      })),
+      messages: this.mission.activeMessages(this.getSimTime()),
+      phase: this.state.phase,
+      result: this.state.result,
+      resultText: this.state.resultText,
+    };
 
-    if (player === null || !world.isAlive(player)) {
-      // プレイヤー消滅時も最低限の表示は維持。
-      this.view.update(this.emptyData(enemiesLeft));
+    if (player === null) {
+      this.view.update(this.emptyData(base));
       return;
     }
 
@@ -56,8 +70,10 @@ export class HudSystem implements System {
     const speed = rb.velocity.length();
     const target = this.buildTargetData(world, t, wm, targeting, w, h);
     const radar = this.buildRadar(world, player, t);
+    const nav = this.buildNav(t, w, h);
 
     const data: HudData = {
+      ...base,
       speed,
       maxSpeed: fm.afterburnerMaxSpeed,
       throttlePct: Math.min(1, speed / fm.maxLinearSpeed),
@@ -68,13 +84,25 @@ export class HudSystem implements System {
       hullPct: health.hull / health.hullMax,
       energyPct: wm.energy / wm.energyMax,
       missiles: wm.missiles,
-      kills: this.state.kills,
-      enemiesLeft,
       target,
       radar,
-      phase: this.state.phase,
+      nav,
     };
     this.view.update(data);
+  }
+
+  private buildNav(pt: Transform, w: number, h: number): HudNav | null {
+    const nav = this.mission.activeNav();
+    if (!nav) return null;
+    const ind = computeOffscreenIndicator(nav.position, this.camera, w, h);
+    return {
+      x: ind.x,
+      y: ind.y,
+      angleRad: ind.angleRad,
+      onScreen: ind.onScreen,
+      distance: pt.position.distanceTo(nav.position),
+      label: nav.label,
+    };
   }
 
   private buildTargetData(
@@ -94,8 +122,6 @@ export class HudSystem implements System {
     const trb = world.get<RigidBody>(tgt, Comp.RigidBody);
 
     const distance = pt.position.distanceTo(tt.position);
-
-    // リード位置 (自機の砲口速度で予測)。
     const tvel = trb ? trb.velocity : new Vector3();
     computeLeadPosition(pt.position, wm.gunProjectileSpeed, tt.position, tvel, leadPos);
 
@@ -130,15 +156,18 @@ export class HudSystem implements System {
         x: relPos.x,
         y: relPos.y,
         z: relPos.z,
-        hostile: f !== playerFaction && f !== Faction.Neutral,
+        hostile: isHostile(playerFaction, f),
+        friendly: isFriendly(playerFaction, f),
         isTarget: targeting?.target === e,
       });
     }
     return contacts;
   }
 
-  private emptyData(enemiesLeft: number): HudData {
+  private emptyData(base: Pick<HudData,
+    "kills" | "enemiesLeft" | "missionName" | "objectives" | "messages" | "phase" | "result" | "resultText">): HudData {
     return {
+      ...base,
       speed: 0,
       maxSpeed: 1,
       throttlePct: 0,
@@ -149,11 +178,9 @@ export class HudSystem implements System {
       hullPct: 0,
       energyPct: 0,
       missiles: 0,
-      kills: this.state.kills,
-      enemiesLeft,
       target: null,
       radar: [],
-      phase: this.state.phase,
+      nav: null,
     };
   }
 }

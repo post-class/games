@@ -11,7 +11,7 @@ export const SHIP_DEFS: Record<string, ShipDefinition> = {
     displayName: "Rapier II",
     mass: 14,
     inertia: [10, 12, 8],
-    radius: 6,
+    radius: 10,
     hardpoints: [
       [-4, -0.5, 6],
       [4, -0.5, 6],
@@ -60,7 +60,7 @@ export const SHIP_DEFS: Record<string, ShipDefinition> = {
     displayName: "Dralthi",
     mass: 11,
     inertia: [8, 9, 7],
-    radius: 6,
+    radius: 10,
     hardpoints: [
       [-5, 0, 4],
       [5, 0, 4],
@@ -103,13 +103,59 @@ export const SHIP_DEFS: Record<string, ShipDefinition> = {
     },
   },
 
+  // 味方輸送艦: 大きく鈍重で護衛対象。低機動・高耐久。
+  transport: {
+    id: "transport",
+    displayName: "Drayman 輸送艦",
+    mass: 200,
+    inertia: [400, 400, 300],
+    radius: 22,
+    hardpoints: [[0, -4, 20]],
+    flight: {
+      maxLinearSpeed: 60,
+      afterburnerMaxSpeed: 90,
+      linearThrust: [200, 200, 600],
+      angularThrust: [40, 40, 50],
+      linearDamping: 0.9,
+      angularDamping: 2.0,
+    },
+    health: {
+      shieldMax: 200,
+      shieldRegenRate: 6,
+      shieldRegenDelay: 6,
+      armorMax: 200,
+      hullMax: 300,
+    },
+    weapon: {
+      gunFireInterval: 0.5,
+      gunDamage: 6,
+      gunProjectileSpeed: 1000,
+      gunRange: 1200,
+      energyMax: 60,
+      energyRegen: 10,
+      energyPerShot: 6,
+      missiles: 0,
+      missileFireInterval: 5,
+    },
+    visual: {
+      kind: "primitive",
+      primitive: {
+        bodyColor: 0x8a8f9a,
+        accentColor: 0x66ccff,
+        scale: [16, 12, 48],
+        shape: "heavy",
+        engineGlow: 0x66ccff,
+      },
+    },
+  },
+
   // 敵重戦闘機: 硬いが鈍い。
   gratha: {
     id: "gratha",
     displayName: "Gratha",
     mass: 20,
     inertia: [16, 18, 14],
-    radius: 8,
+    radius: 13,
     hardpoints: [
       [-6, -1, 5],
       [6, -1, 5],

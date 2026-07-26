@@ -4,13 +4,14 @@ import type { World } from "../../ecs/World";
 import type { EntityId } from "../../ecs/Entity";
 import { Comp, Faction } from "../components";
 import type { Transform, Targeting, WeaponMount } from "../components";
+import { isHostile } from "../factions";
 
-/** 敵性エンティティ (自陣営でなく Health を持つ) の一覧。 */
+/** 敵性エンティティ (敵対関係かつ Health を持つ) の一覧。 */
 function hostiles(world: World, myFaction: Faction): EntityId[] {
   const candidates = world.query(Comp.Transform, Comp.Health, Comp.Faction);
   return candidates.filter((e) => {
     const f = world.get<Faction>(e, Comp.Faction);
-    return f !== undefined && f !== myFaction && f !== Faction.Neutral;
+    return f !== undefined && isHostile(myFaction, f);
   });
 }
 

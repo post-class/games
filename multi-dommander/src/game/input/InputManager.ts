@@ -22,6 +22,9 @@ export interface EdgeActions {
   cycleTargetNext: boolean;
   cycleTargetNearest: boolean;
   targetFront: boolean;
+  cmdFormUp: boolean;
+  cmdAttackTarget: boolean;
+  cmdEngage: boolean;
 }
 
 /**
@@ -127,6 +130,9 @@ export class InputManager {
       cycleTargetNext: this.justPressed.has("cycleTargetNext"),
       cycleTargetNearest: this.justPressed.has("cycleTargetNearest"),
       targetFront: this.justPressed.has("targetFront"),
+      cmdFormUp: this.justPressed.has("cmdFormUp"),
+      cmdAttackTarget: this.justPressed.has("cmdAttackTarget"),
+      cmdEngage: this.justPressed.has("cmdEngage"),
     };
   }
 

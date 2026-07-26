@@ -1,0 +1,152 @@
+import type { MissionDefinition } from "./MissionDefinition";
+
+/**
+ * ミッションデータ。ここを増やすだけで新ミッションを追加できる。
+ * 座標系: +z 前方, +y 上, +x 右。
+ */
+export const MISSIONS: Record<string, MissionDefinition> = {
+  // M1: 哨戒 — 全機撃墜。ウェーブ制で増援が来る。
+  patrol: {
+    id: "patrol",
+    name: "哨戒任務 — Gimle 宙域",
+    briefing: [
+      "Gimle 宙域で Kilrathi の偵察部隊が確認された。",
+      "全機撃墜し、宙域の安全を確保せよ。",
+      "第2波の増援に注意すること。",
+    ],
+    playerShipId: "rapier",
+    playerSpawn: [0, 0, 0],
+    wingmen: [
+      { shipId: "rapier", position: [-45, 0, -40], combatant: true },
+      { shipId: "rapier", position: [45, 0, -40], combatant: true },
+    ],
+    neutrals: [],
+    navPoints: [],
+    waves: [
+      {
+        trigger: { type: "start" },
+        announce: "敵編隊を捕捉。交戦開始。",
+        ships: [
+          { shipId: "dralthi", position: [-120, 30, 700] },
+          { shipId: "dralthi", position: [120, -20, 780] },
+          { shipId: "dralthi", position: [0, 60, 900] },
+        ],
+      },
+      {
+        trigger: { type: "afterWave", wave: 0 },
+        announce: "警告: 第2波接近！",
+        ships: [
+          { shipId: "gratha", position: [-200, -40, 1000] },
+          { shipId: "gratha", position: [220, 20, 1050] },
+        ],
+      },
+    ],
+    objectives: [{ id: "kill", label: "敵機を全滅させる", type: "destroyAll" }],
+    successText: "宙域を制圧した。よくやった、パイロット。",
+    failText: "機体を失った…",
+  },
+
+  // M2: 護衛 — 輸送艦を守りつつ襲撃を撃退。
+  escort: {
+    id: "escort",
+    name: "護衛任務 — Drayman 輸送艦",
+    briefing: [
+      "Drayman 輸送艦を敵襲から護衛せよ。",
+      "輸送艦が撃沈されれば任務失敗だ。",
+      "全ての襲撃機を排除して輸送艦を守り抜け。",
+    ],
+    playerShipId: "rapier",
+    playerSpawn: [40, 0, -60],
+    neutrals: [
+      { shipId: "transport", position: [0, 0, 0], tag: "convoy", combatant: false },
+    ],
+    wingmen: [{ shipId: "rapier", position: [60, 0, -50], combatant: true }],
+    navPoints: [],
+    waves: [
+      {
+        trigger: { type: "start" },
+        announce: "襲撃機、複数接近中！",
+        ships: [
+          { shipId: "dralthi", position: [-300, 40, 900] },
+          { shipId: "dralthi", position: [300, -30, 950] },
+        ],
+      },
+      {
+        trigger: { type: "time", seconds: 25 },
+        announce: "第2波: 重戦闘機が輸送艦を狙っている！",
+        ships: [
+          { shipId: "gratha", position: [0, 80, 1100] },
+          { shipId: "dralthi", position: [-260, -60, 1000] },
+        ],
+      },
+    ],
+    objectives: [
+      { id: "protect", label: "輸送艦 Drayman を守る", type: "protect", tag: "convoy" },
+      { id: "kill", label: "襲撃機を全滅させる", type: "destroyAll" },
+    ],
+    successText: "輸送艦は無事だ。護衛成功。",
+    failText: "輸送艦を守れなかった…",
+  },
+
+  // M3: 強襲 — ナビポイントへ進出し、敵拠点部隊を撃破。
+  strike: {
+    id: "strike",
+    name: "強襲任務 — 敵前哨の破壊",
+    briefing: [
+      "ナビポイント Alpha へ進出し、駐留する Kilrathi 部隊を撃破せよ。",
+      "到達後、増援が展開する。全機撃墜せよ。",
+    ],
+    playerShipId: "rapier",
+    playerSpawn: [0, 0, 0],
+    wingmen: [{ shipId: "rapier", position: [-45, 0, -40], combatant: true }],
+    neutrals: [],
+    navPoints: [{ id: "alpha", label: "NAV ALPHA", position: [0, 0, 2600], radius: 260 }],
+    waves: [
+      {
+        trigger: { type: "start" },
+        ships: [
+          { shipId: "gratha", position: [-150, 40, 2900] },
+          { shipId: "gratha", position: [150, -30, 2950] },
+        ],
+      },
+      {
+        trigger: { type: "afterWave", wave: 0 },
+        announce: "敵増援が展開！",
+        ships: [
+          { shipId: "dralthi", position: [0, 90, 3050] },
+          { shipId: "dralthi", position: [-260, -50, 2850] },
+        ],
+      },
+    ],
+    objectives: [
+      { id: "nav", label: "NAV ALPHA へ進出", type: "reachNav", nav: "alpha" },
+      { id: "kill", label: "敵前哨部隊を全滅", type: "destroyAll" },
+    ],
+    successText: "敵前哨を制圧した。帰投せよ。",
+    failText: "任務失敗。",
+  },
+};
+
+/** ミッション表示順 (ブリーフィングの「X/Y」表示に使用)。 */
+export const MISSION_ORDER = ["patrol", "escort", "strike"] as const;
+
+/**
+ * キャンペーン分岐グラフ。
+ * 各ノードの success/failure で次のミッションIDを指定する。
+ * - 文字列: そのミッションへ遷移
+ * - "retry": 同ミッションを再挑戦
+ * - null: キャンペーン終了 (success からなら完全クリア、failure からなら敗北終了)
+ */
+export interface CampaignNode {
+  success: string | null;
+  failure: string | "retry" | null;
+}
+
+export const CAMPAIGN: { start: string; nodes: Record<string, CampaignNode> } = {
+  start: "patrol",
+  nodes: {
+    patrol: { success: "escort", failure: "retry" },
+    escort: { success: "strike", failure: "retry" },
+    strike: { success: null, failure: "retry" },
+  },
+};

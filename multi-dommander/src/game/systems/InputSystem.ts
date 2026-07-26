@@ -4,18 +4,22 @@ import type { World } from "../../ecs/World";
 import type { EntityId } from "../../ecs/Entity";
 import { Comp, Faction } from "../components";
 import type { ThrusterInput, FlightModel, Transform, Targeting } from "../components";
+import type { AIController, WingOrder } from "../components/AIController";
 import type { InputManager } from "../input/InputManager";
 import { selectNextTarget, selectNearestTarget, selectFrontTarget } from "./TargetingSystem";
 
 /**
  * プレイヤー入力を PlayerControlled エンティティの ThrusterInput に反映する。
- * フライトアシスト切替・ターゲット選択などのエッジ操作もここで処理する。
+ * フライトアシスト切替・ターゲット選択・僚機コマンドなどのエッジ操作もここで処理する。
  */
 export class InputSystem implements System {
   readonly name = "InputSystem";
   private readonly forward = new Vector3(0, 0, 1);
 
-  constructor(private readonly input: InputManager) {}
+  constructor(
+    private readonly input: InputManager,
+    private readonly announce: (text: string) => void = () => {},
+  ) {}
 
   update(world: World, dt: number): void {
     const players = world.query(Comp.PlayerControlled, Comp.ThrusterInput, Comp.FlightModel);
@@ -44,7 +48,36 @@ export class InputSystem implements System {
       this.handleTargeting(world, entity, edges);
     }
 
+    this.handleWingCommands(world, edges);
+
     this.input.clearEdges();
+  }
+
+  /** 僚機 (Ally AIController) へ指示を伝達する。 */
+  private handleWingCommands(world: World, edges: ReturnType<InputManager["sampleEdges"]>): void {
+    let order: WingOrder | null = null;
+    let text = "";
+    if (edges.cmdFormUp) {
+      order = "formUp";
+      text = "僚機: 編隊を組め";
+    } else if (edges.cmdAttackTarget) {
+      order = "attackTarget";
+      text = "僚機: 私の敵を攻撃せよ";
+    } else if (edges.cmdEngage) {
+      order = "engage";
+      text = "僚機: 各自交戦せよ";
+    }
+    if (order === null) return;
+
+    let count = 0;
+    for (const e of world.query(Comp.AIController, Comp.Faction)) {
+      if (world.get<Faction>(e, Comp.Faction) !== Faction.Ally) continue;
+      const ai = world.getOrThrow<AIController>(e, Comp.AIController);
+      if (ai.role !== "ally") continue;
+      ai.order = order;
+      count++;
+    }
+    if (count > 0) this.announce(text);
   }
 
   private handleTargeting(

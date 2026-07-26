@@ -5,22 +5,31 @@ import {
   ConeGeometry,
   BoxGeometry,
   CylinderGeometry,
+  TorusGeometry,
   Object3D,
   Vector3,
   SphereGeometry,
   MeshBasicMaterial,
   AdditiveBlending,
 } from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { ShipDefinition } from "../game/ships/ShipDefinition";
 
+/** GLTF ローダとモデルキャッシュ (同一URLの多重ロードを防ぐ)。 */
+const gltfLoader = new GLTFLoader();
+const gltfCache = new Map<string, Object3D>();
+
 /**
- * ShipDefinition からプログラマアートの機体メッシュを生成する。
- * 機首は +z 方向。将来 GLTF に差し替える際はここだけ変更する。
+ * ShipDefinition から機体メッシュを生成する。機首は +z 方向。
+ * - kind: "primitive" → プログラマアートを同期生成 (既定)。
+ * - kind: "gltf" → 空の Group を即返しつつ非同期ロードし、完了時に差し替える
+ *   (ロード失敗時はプリミティブ相当のフォールバックを表示)。
+ * これによりアセットを用意すれば ShipDefinition の visual を差し替えるだけで移行できる。
  */
 export function createShipMesh(def: ShipDefinition): Object3D {
   const v = def.visual;
   if (v.kind === "gltf") {
-    throw new Error("GLTF loading not yet implemented");
+    return createGltfShipMesh(def);
   }
   const p = v.primitive!;
   const [w, h, l] = p.scale;
@@ -99,6 +108,68 @@ export function createProjectileMesh(color: number): Object3D {
   const mesh = new Mesh(new SphereGeometry(1, 6, 6), mat);
   mesh.scale.set(1.2, 1.2, 6); // 弾を進行方向(+z)に伸ばす。
   return mesh;
+}
+
+/** GLTF モデルで機体を生成 (非同期ロード + フォールバック)。 */
+function createGltfShipMesh(def: ShipDefinition): Object3D {
+  const group = new Group();
+  group.name = `ship:${def.id}`;
+  const url = def.visual.gltf?.url;
+  if (!url) {
+    group.add(buildFallbackMesh());
+    return group;
+  }
+
+  const cached = gltfCache.get(url);
+  if (cached) {
+    group.add(cached.clone(true));
+    return group;
+  }
+
+  gltfLoader.load(
+    url,
+    (gltf) => {
+      const model = gltf.scene;
+      gltfCache.set(url, model);
+      group.add(model.clone(true));
+    },
+    undefined,
+    () => {
+      // ロード失敗時は簡易フォールバックを表示 (ゲーム進行を止めない)。
+      group.add(buildFallbackMesh());
+    },
+  );
+  return group;
+}
+
+/** GLTF ロード前/失敗時の簡易フォールバック形状。 */
+function buildFallbackMesh(): Object3D {
+  const mesh = new Mesh(
+    new ConeGeometry(4, 12, 6),
+    new MeshStandardMaterial({ color: 0x9aa4b2, metalness: 0.5, roughness: 0.5, flatShading: true }),
+  );
+  mesh.rotation.x = Math.PI / 2;
+  return mesh;
+}
+
+/** ナビポイント用のリングマーカー (2重トーラス)。 */
+export function createNavMarker(radius: number): Object3D {
+  const group = new Group();
+  const mat = new MeshBasicMaterial({
+    color: 0x66ccff,
+    transparent: true,
+    opacity: 0.5,
+    blending: AdditiveBlending,
+    depthWrite: false,
+  });
+  for (let i = 0; i < 2; i++) {
+    const ring = new Mesh(new TorusGeometry(radius, radius * 0.03, 6, 32), mat);
+    ring.rotation.x = i === 0 ? 0 : Math.PI / 2;
+    group.add(ring);
+  }
+  group.name = "navMarker";
+  group.frustumCulled = false;
+  return group;
 }
 
 /** ミサイル用メッシュ。 */

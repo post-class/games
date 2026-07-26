@@ -43,7 +43,9 @@ export class FlightModelSystem implements System {
 
       // --- 角運動 (両モード共通) ---
       // トルク = 入力 * 最大トルク。角加速度 = トルク / 慣性。
-      rb.angularVelocity.x += (ti.angular.x * fm.angularThrust.x / rb.inertia.x) * dt;
+      // ピッチ(x軸)は「+入力=機首上げ」の規約に合わせて符号を反転する
+      // (機体+x軸まわりの正回転は幾何的に機首を下げるため)。
+      rb.angularVelocity.x += (-ti.angular.x * fm.angularThrust.x / rb.inertia.x) * dt;
       rb.angularVelocity.y += (ti.angular.y * fm.angularThrust.y / rb.inertia.y) * dt;
       rb.angularVelocity.z += (ti.angular.z * fm.angularThrust.z / rb.inertia.z) * dt;
 

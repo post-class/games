@@ -1,11 +1,12 @@
 import "./hud.css";
+import type { GamePhase, MissionResult } from "../game/GameState";
 
 export interface RadarContact {
-  /** プレイヤーローカル座標での方向 (正規化不要、描画側で距離圧縮)。 */
   x: number;
   y: number;
   z: number;
   hostile: boolean;
+  friendly: boolean;
   isTarget: boolean;
 }
 
@@ -15,12 +16,24 @@ export interface HudTargetData {
   shieldPct: number;
   hullPct: number;
   lockProgress: number;
-  /** ターゲット枠のスクリーン座標。 */
   box: { x: number; y: number; onScreen: boolean };
-  /** リード(命中予測)のスクリーン座標。 */
   lead: { x: number; y: number; onScreen: boolean };
-  /** 画面外方向矢印。 */
   arrow: { x: number; y: number; angleRad: number; onScreen: boolean };
+}
+
+export interface HudObjective {
+  label: string;
+  status: "active" | "complete" | "failed";
+  optional: boolean;
+}
+
+export interface HudNav {
+  x: number;
+  y: number;
+  angleRad: number;
+  onScreen: boolean;
+  distance: number;
+  label: string;
 }
 
 export interface HudData {
@@ -36,9 +49,15 @@ export interface HudData {
   missiles: number;
   kills: number;
   enemiesLeft: number;
+  missionName: string;
   target: HudTargetData | null;
   radar: RadarContact[];
-  phase: "Playing" | "Victory" | "GameOver";
+  objectives: HudObjective[];
+  messages: string[];
+  nav: HudNav | null;
+  phase: GamePhase;
+  result: MissionResult;
+  resultText: string;
 }
 
 const RADAR_SIZE = 150;
@@ -55,7 +74,10 @@ export class HudView {
   private readonly targetBox: HTMLDivElement;
   private readonly lockRing: HTMLDivElement;
   private readonly arrow: HTMLDivElement;
+  private readonly navArrow: HTMLDivElement;
+  private readonly navLabel: HTMLDivElement;
   private readonly targetInfo: HTMLDivElement;
+  private readonly messagesEl: HTMLDivElement;
   private readonly radarCanvas: HTMLCanvasElement;
   private readonly radarCtx: CanvasRenderingContext2D;
   private readonly centerMsg: HTMLDivElement;
@@ -74,7 +96,10 @@ export class HudView {
     this.lockRing = el("div", "lock");
     this.targetBox.appendChild(this.lockRing);
     this.arrow = el("div", "hud-arrow");
+    this.navArrow = el("div", "hud-arrow hud-navarrow");
+    this.navLabel = el("div", "hud-navlabel");
     this.targetInfo = el("div", "hud-targetinfo");
+    this.messagesEl = el("div", "hud-messages");
 
     this.radarCanvas = document.createElement("canvas");
     this.radarCanvas.className = "hud-radar";
@@ -85,7 +110,6 @@ export class HudView {
     this.centerMsg = el("div", "hud-center-msg");
     this.centerMsg.innerHTML = "<h1></h1><p></p>";
 
-    // 画面中央のクロスヘアを固定表示。
     this.reticle.style.left = "50%";
     this.reticle.style.top = "50%";
 
@@ -98,7 +122,10 @@ export class HudView {
       this.lead,
       this.targetBox,
       this.arrow,
+      this.navArrow,
+      this.navLabel,
       this.targetInfo,
+      this.messagesEl,
       this.radarCanvas,
       this.centerMsg,
     );
@@ -106,27 +133,75 @@ export class HudView {
   }
 
   update(d: HudData): void {
-    const abTag = d.afterburner ? ' <span class="hud-warn">A/B</span>' : "";
-    const faTag = d.flightAssist ? "MODE:WC" : '<span class="hud-warn">MODE:NEWTON</span>';
-    this.speedEl.innerHTML =
-      `SPD <b>${d.speed.toFixed(0)}</b> / ${d.maxSpeed.toFixed(0)}${abTag}<br>` +
-      `THR ${(d.throttlePct * 100).toFixed(0)}%<br>${faTag}`;
+    const playing = d.phase === "Playing";
+    // プレイ中以外は飛行系HUDを隠す。
+    this.setFlightHudVisible(playing);
 
-    this.statusEl.innerHTML =
-      bar("SHLD", "bar-shield", d.shieldPct) +
-      bar("ARMR", "bar-armor", d.armorPct) +
-      bar("HULL", "bar-hull", d.hullPct);
+    if (playing) {
+      const abTag = d.afterburner ? ' <span class="hud-warn">A/B</span>' : "";
+      const faTag = d.flightAssist ? "MODE:WC" : '<span class="hud-warn">MODE:NEWTON</span>';
+      this.speedEl.innerHTML =
+        `SPD <b>${d.speed.toFixed(0)}</b> / ${d.maxSpeed.toFixed(0)}${abTag}<br>` +
+        `THR ${(d.throttlePct * 100).toFixed(0)}%<br>${faTag}`;
 
-    this.weaponEl.innerHTML =
-      bar("ENGY", "bar-energy", d.energyPct) +
-      `MSL <b>${d.missiles}</b>`;
+      this.statusEl.innerHTML =
+        bar("SHLD", "bar-shield", d.shieldPct) +
+        bar("ARMR", "bar-armor", d.armorPct) +
+        bar("HULL", "bar-hull", d.hullPct);
 
-    this.objectiveEl.innerHTML =
-      `KILLS <b>${d.kills}</b><br>ENEMIES <b>${d.enemiesLeft}</b>`;
+      this.weaponEl.innerHTML =
+        bar("ENGY", "bar-energy", d.energyPct) + `MSL <b>${d.missiles}</b>`;
 
-    this.updateTarget(d);
-    this.drawRadar(d.radar);
+      this.objectiveEl.innerHTML = this.renderObjectives(d);
+      this.updateTarget(d);
+      this.updateNav(d.nav);
+      this.drawRadar(d.radar);
+      this.renderMessages(d.messages);
+    } else {
+      this.messagesEl.textContent = "";
+    }
+
     this.updateCenterMsg(d);
+  }
+
+  private setFlightHudVisible(v: boolean): void {
+    const disp = v ? "" : "none";
+    for (const e of [
+      this.speedEl,
+      this.statusEl,
+      this.weaponEl,
+      this.objectiveEl,
+      this.reticle,
+      this.radarCanvas,
+    ]) {
+      e.style.display = disp;
+    }
+    if (!v) {
+      this.targetBox.style.display = "none";
+      this.lead.style.display = "none";
+      this.arrow.style.display = "none";
+      this.navArrow.style.display = "none";
+      this.navLabel.style.display = "none";
+      this.targetInfo.textContent = "";
+    }
+  }
+
+  private renderObjectives(d: HudData): string {
+    const head = `<div class="hud-mission">${d.missionName}</div>KILLS <b>${d.kills}</b>  ENEMIES <b>${d.enemiesLeft}</b>`;
+    const items = d.objectives
+      .map((o) => {
+        const mark = o.status === "complete" ? "✓" : o.status === "failed" ? "✗" : "•";
+        const cls =
+          o.status === "complete" ? "obj-done" : o.status === "failed" ? "obj-fail" : "obj-active";
+        const opt = o.optional ? " (任意)" : "";
+        return `<div class="hud-obj ${cls}">${mark} ${o.label}${opt}</div>`;
+      })
+      .join("");
+    return `${head}<div class="hud-objlist">${items}</div>`;
+  }
+
+  private renderMessages(messages: string[]): void {
+    this.messagesEl.innerHTML = messages.map((m) => `<div>${m}</div>`).join("");
   }
 
   private updateTarget(d: HudData): void {
@@ -138,14 +213,15 @@ export class HudView {
       this.targetInfo.textContent = "";
       return;
     }
-
-    // ターゲット情報テキスト。
     this.targetInfo.innerHTML =
       `${t.name}  ${t.distance.toFixed(0)}m<br>` +
       `SHLD ${(t.shieldPct * 100).toFixed(0)}%  HULL ${(t.hullPct * 100).toFixed(0)}%` +
-      (t.lockProgress >= 1 ? '  <span class="hud-warn">LOCK</span>' : t.lockProgress > 0 ? `  LOCK ${(t.lockProgress * 100).toFixed(0)}%` : "");
+      (t.lockProgress >= 1
+        ? '  <span class="hud-warn">LOCK</span>'
+        : t.lockProgress > 0
+          ? `  LOCK ${(t.lockProgress * 100).toFixed(0)}%`
+          : "");
 
-    // ターゲット枠。
     if (t.box.onScreen) {
       this.targetBox.style.display = "block";
       this.targetBox.style.left = `${t.box.x}px`;
@@ -155,7 +231,6 @@ export class HudView {
       this.targetBox.style.display = "none";
     }
 
-    // リードインジケータ。
     if (t.lead.onScreen) {
       this.lead.style.display = "block";
       this.lead.style.left = `${t.lead.x}px`;
@@ -164,15 +239,31 @@ export class HudView {
       this.lead.style.display = "none";
     }
 
-    // 画面外矢印。
     if (!t.arrow.onScreen) {
       this.arrow.style.display = "block";
       this.arrow.style.left = `${t.arrow.x}px`;
       this.arrow.style.top = `${t.arrow.y}px`;
-      // 矢印は上向き(border-bottom)なので +90度補正。
       this.arrow.style.transform = `rotate(${t.arrow.angleRad + Math.PI / 2}rad)`;
     } else {
       this.arrow.style.display = "none";
+    }
+  }
+
+  private updateNav(nav: HudNav | null): void {
+    if (!nav) {
+      this.navArrow.style.display = "none";
+      this.navLabel.style.display = "none";
+      return;
+    }
+    this.navLabel.style.display = "block";
+    this.navLabel.textContent = `${nav.label}  ${nav.distance.toFixed(0)}m`;
+    if (!nav.onScreen) {
+      this.navArrow.style.display = "block";
+      this.navArrow.style.left = `${nav.x}px`;
+      this.navArrow.style.top = `${nav.y}px`;
+      this.navArrow.style.transform = `rotate(${nav.angleRad + Math.PI / 2}rad)`;
+    } else {
+      this.navArrow.style.display = "none";
     }
   }
 
@@ -181,7 +272,6 @@ export class HudView {
     const s = RADAR_SIZE;
     const c = s / 2;
     ctx.clearRect(0, 0, s, s);
-    // 背景円。
     ctx.strokeStyle = "rgba(127,255,212,0.4)";
     ctx.fillStyle = "rgba(0,40,40,0.35)";
     ctx.lineWidth = 1;
@@ -189,19 +279,20 @@ export class HudView {
     ctx.arc(c, c, c - 2, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-    // 十字線と前方インジケータ。
     ctx.beginPath();
-    ctx.moveTo(c, 4); ctx.lineTo(c, s - 4);
-    ctx.moveTo(4, c); ctx.lineTo(s - 4, c);
+    ctx.moveTo(c, 4);
+    ctx.lineTo(c, s - 4);
+    ctx.moveTo(4, c);
+    ctx.lineTo(s - 4, c);
     ctx.stroke();
-    // 自機 (中央、上が前方)。
     ctx.fillStyle = "#7fffd4";
     ctx.beginPath();
-    ctx.moveTo(c, c - 5); ctx.lineTo(c - 4, c + 4); ctx.lineTo(c + 4, c + 4);
+    ctx.moveTo(c, c - 5);
+    ctx.lineTo(c - 4, c + 4);
+    ctx.lineTo(c + 4, c + 4);
     ctx.closePath();
     ctx.fill();
 
-    // コンタクト。ローカル座標を上面図(z=前=上, x=右)に投影し、距離を対数圧縮。
     const maxR = c - 8;
     for (const k of contacts) {
       const dist = Math.hypot(k.x, k.y, k.z);
@@ -210,25 +301,21 @@ export class HudView {
       if (horiz < 1e-3) continue;
       const px = c + (k.x / horiz) * norm * maxR;
       const py = c - (k.z / horiz) * norm * maxR;
-      ctx.fillStyle = k.isTarget ? "#ffe14d" : k.hostile ? "#ff5b5b" : "#3fd0ff";
+      ctx.fillStyle = k.isTarget
+        ? "#ffe14d"
+        : k.hostile
+          ? "#ff5b5b"
+          : k.friendly
+            ? "#5bff8f"
+            : "#3fd0ff";
       const size = k.isTarget ? 4 : 3;
       ctx.fillRect(px - size / 2, py - size / 2, size, size);
-      // 上下(y)の高低を色濃度で示すのは省略。
     }
   }
 
-  private updateCenterMsg(d: HudData): void {
-    if (d.phase === "Playing") {
-      this.centerMsg.style.display = "none";
-      return;
-    }
-    this.centerMsg.style.display = "flex";
-    this.centerMsg.className =
-      "hud-center-msg " + (d.phase === "Victory" ? "victory" : "gameover");
-    const h1 = this.centerMsg.querySelector("h1")!;
-    const p = this.centerMsg.querySelector("p")!;
-    h1.textContent = d.phase === "Victory" ? "MISSION COMPLETE" : "SHIP DESTROYED";
-    p.textContent = `撃墜数: ${d.kills}   —   R キーでリスタート`;
+  private updateCenterMsg(_d: HudData): void {
+    // デブリーフ表示は MissionScreens が担うため、HUD 中央メッセージは常に非表示。
+    this.centerMsg.style.display = "none";
   }
 
   dispose(): void {

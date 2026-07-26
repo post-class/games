@@ -16,7 +16,10 @@ export type Action =
   | "toggleFlightAssist"
   | "cycleTargetNext"
   | "cycleTargetNearest"
-  | "targetFront";
+  | "targetFront"
+  | "cmdFormUp"
+  | "cmdAttackTarget"
+  | "cmdEngage";
 
 /**
  * デフォルトキーバインド (ウィングコマンダー方式 / キーボードのみ)。
@@ -56,6 +59,10 @@ export const DEFAULT_BINDINGS: Record<string, Action> = {
   KeyY: "targetFront",
   // モード切替 (WCアーケード ⇄ ニュートン慣性)。
   KeyZ: "toggleFlightAssist",
+  // 僚機コマンド。
+  Comma: "cmdFormUp", // , 編隊を組め
+  Period: "cmdAttackTarget", // . 私の敵を攻撃
+  Slash: "cmdEngage", // / 自由に交戦
 } as const;
 
 /**
