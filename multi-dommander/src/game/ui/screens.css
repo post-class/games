@@ -59,3 +59,68 @@
 }
 .screen-list .done { color: #5bff8f; }
 .screen-list .fail { color: #ff5b5b; }
+
+/* 縦並びメニュー (トップメニュー) */
+.screen-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 24px;
+}
+.screen-menu .item {
+  min-width: 240px;
+  padding: 10px 26px;
+  font-size: 20px;
+  letter-spacing: 0.08em;
+  color: #9fb6c8;
+  border: 1px solid rgba(127, 255, 212, 0.18);
+  border-radius: 6px;
+  transition: all 0.12s;
+}
+.screen-menu .item.sel {
+  color: #001018;
+  background: #7fffd4;
+  border-color: #7fffd4;
+  box-shadow: 0 0 16px rgba(0, 255, 200, 0.55);
+}
+
+/* 難易度チップ (設定) */
+.diff-opts {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin: 8px 0 4px;
+}
+.diff-opts .opt {
+  padding: 8px 22px;
+  font-size: 18px;
+  color: #9fb6c8;
+  border: 1px solid rgba(127, 255, 212, 0.25);
+  border-radius: 20px;
+}
+.diff-opts .opt.sel {
+  color: #001018;
+  background: #7fffd4;
+  border-color: #7fffd4;
+  box-shadow: 0 0 14px rgba(0, 255, 200, 0.5);
+}
+
+/* 操作説明の2カラム一覧 */
+.controls {
+  display: inline-block;
+  text-align: left;
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.controls .row {
+  display: flex;
+  gap: 16px;
+}
+.controls .k {
+  flex: 0 0 190px;
+  color: #7fffd4;
+}
+.controls .a {
+  color: #cfe;
+}

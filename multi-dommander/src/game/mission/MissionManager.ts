@@ -8,6 +8,7 @@ import { SHIP_DEFS } from "../ships/shipDefinitions";
 import { spawnShip } from "../ships/ShipFactory";
 import { createNavMarker } from "../../render/MeshFactory";
 import type { MissionDefinition, ShipSpawn, AllySpawn } from "./MissionDefinition";
+import { DIFFICULTIES, type DifficultyMods } from "../Settings";
 
 export type MissionOutcome = "active" | "success" | "failure";
 
@@ -47,6 +48,8 @@ export class MissionManager {
   outcome: MissionOutcome = "active";
   private startTime = 0;
   private announcements: Announcement[] = [];
+  /** 現ミッションの難易度補正 (敵/自機の spawn に反映)。既定は等倍 (normal)。 */
+  private mods: DifficultyMods = DIFFICULTIES.normal;
 
   constructor(
     private readonly world: World,
@@ -61,9 +64,10 @@ export class MissionManager {
     return this.def;
   }
 
-  /** ミッションを読み込み、初期エンティティを生成する。 */
-  load(def: MissionDefinition, simTime: number): void {
+  /** ミッションを読み込み、初期エンティティを生成する。mods 省略時は等倍 (normal)。 */
+  load(def: MissionDefinition, simTime: number, mods: DifficultyMods = DIFFICULTIES.normal): void {
     this.def = def;
+    this.mods = mods;
     this.startTime = simTime;
     this.outcome = "active";
     this.wingmen = [];
@@ -72,13 +76,19 @@ export class MissionManager {
     this.tagEntities.clear();
     this.announcements = [];
 
-    // プレイヤー。
+    // プレイヤー (難易度で耐久を補正)。
     const pDef = SHIP_DEFS[def.playerShipId];
-    this.player = spawnShip(this.world, this.scene, pDef, {
-      position: new Vector3(...def.playerSpawn),
-      quaternion: this.yaw(def.playerFacingYaw ?? 0),
-      faction: Faction.Player,
-    });
+    this.player = spawnShip(
+      this.world,
+      this.scene,
+      pDef,
+      {
+        position: new Vector3(...def.playerSpawn),
+        quaternion: this.yaw(def.playerFacingYaw ?? 0),
+        faction: Faction.Player,
+      },
+      { healthMul: this.mods.playerHealthMul },
+    );
     this.world.add(this.player, Comp.PlayerControlled, true);
     this.world.add<Targeting>(this.player, Comp.Targeting, {
       target: null,
@@ -243,17 +253,27 @@ export class MissionManager {
   private spawnEnemy(s: ShipSpawn): EntityId {
     const def = SHIP_DEFS[s.shipId];
     const q = s.facingYaw !== undefined ? this.yaw(s.facingYaw) : this.yaw(Math.PI);
-    const e = spawnShip(this.world, this.scene, def, {
-      position: new Vector3(...s.position),
-      quaternion: q,
-      faction: Faction.Enemy,
-    });
+    const e = spawnShip(
+      this.world,
+      this.scene,
+      def,
+      {
+        position: new Vector3(...s.position),
+        quaternion: q,
+        faction: Faction.Enemy,
+      },
+      {
+        healthMul: this.mods.enemyHealthMul,
+        damageMul: this.mods.enemyDamageMul,
+        fireIntervalMul: this.mods.enemyFireIntervalMul,
+      },
+    );
     const ai: AIController = {
       role: "enemy",
       state: "Idle",
       target: null,
       stateTimer: 0,
-      aggression: 0.4 + Math.random() * 0.5,
+      aggression: this.mods.enemyAggression + Math.random() * 0.3,
       evadeDir: null,
       detectRange: 3500,
       attackRange: def.weapon.gunRange,

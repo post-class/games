@@ -29,16 +29,12 @@ export const MISSIONS: Record<string, MissionDefinition> = {
         ships: [
           { shipId: "dralthi", position: [-120, 30, 700] },
           { shipId: "dralthi", position: [120, -20, 780] },
-          { shipId: "dralthi", position: [0, 60, 900] },
         ],
       },
       {
         trigger: { type: "afterWave", wave: 0 },
         announce: "警告: 第2波接近！",
-        ships: [
-          { shipId: "gratha", position: [-200, -40, 1000] },
-          { shipId: "gratha", position: [220, 20, 1050] },
-        ],
+        ships: [{ shipId: "dralthi", position: [0, 20, 1000] }],
       },
     ],
     objectives: [{ id: "kill", label: "敵機を全滅させる", type: "destroyAll" }],

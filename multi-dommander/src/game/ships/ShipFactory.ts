@@ -23,13 +23,29 @@ export interface SpawnOptions {
   faction: Faction;
 }
 
+/**
+ * 難易度によるステータス補正。省略した項目は等倍 (=補正なし)。
+ * - healthMul: シールド/アーマー/ハルの最大値・現在値に乗算。
+ * - damageMul: 砲ダメージに乗算。
+ * - fireIntervalMul: 連射間隔に乗算 (大きいほど遅い)。
+ */
+export interface SpawnMods {
+  healthMul?: number;
+  damageMul?: number;
+  fireIntervalMul?: number;
+}
+
 /** ShipDefinition から ECS エンティティを生成し、メッシュをシーンに追加する。 */
 export function spawnShip(
   world: World,
   scene: Scene,
   def: ShipDefinition,
   opts: SpawnOptions,
+  mods: SpawnMods = {},
 ): EntityId {
+  const healthMul = mods.healthMul ?? 1;
+  const damageMul = mods.damageMul ?? 1;
+  const fireIntervalMul = mods.fireIntervalMul ?? 1;
   const entity = world.createEntity();
   const quaternion = opts.quaternion ?? new Quaternion();
 
@@ -69,23 +85,26 @@ export function spawnShip(
   };
   world.add(entity, Comp.ThrusterInput, input);
 
+  const shieldMax = def.health.shieldMax * healthMul;
+  const armorMax = def.health.armorMax * healthMul;
+  const hullMax = def.health.hullMax * healthMul;
   const health: Health = {
-    shield: def.health.shieldMax,
-    shieldMax: def.health.shieldMax,
+    shield: shieldMax,
+    shieldMax,
     shieldRegenRate: def.health.shieldRegenRate,
     shieldRegenDelay: def.health.shieldRegenDelay,
-    armor: def.health.armorMax,
-    armorMax: def.health.armorMax,
-    hull: def.health.hullMax,
-    hullMax: def.health.hullMax,
+    armor: armorMax,
+    armorMax,
+    hull: hullMax,
+    hullMax,
     lastHitTime: -999,
   };
   world.add(entity, Comp.Health, health);
 
   const weapon: WeaponMount = {
     gunCooldown: 0,
-    gunFireInterval: def.weapon.gunFireInterval,
-    gunDamage: def.weapon.gunDamage,
+    gunFireInterval: def.weapon.gunFireInterval * fireIntervalMul,
+    gunDamage: def.weapon.gunDamage * damageMul,
     gunProjectileSpeed: def.weapon.gunProjectileSpeed,
     gunRange: def.weapon.gunRange,
     energy: def.weapon.energyMax,

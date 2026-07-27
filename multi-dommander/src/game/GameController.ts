@@ -5,6 +5,12 @@ import type { MissionScreens } from "./ui/MissionScreens";
 import type { ExplosionSystem } from "./systems/ExplosionSystem";
 import { MISSIONS, MISSION_ORDER, CAMPAIGN } from "./mission/missions";
 import { SaveManager } from "./SaveManager";
+import { DIFFICULTIES, SettingsStore, type Difficulty } from "./Settings";
+
+/** 難易度を保持する可変ホルダ (設定画面で更新)。 */
+export interface SettingsHolder {
+  difficulty: Difficulty;
+}
 
 /**
  * ゲーム全体の進行を統括する。
@@ -22,16 +28,46 @@ export class GameController {
     private readonly mission: MissionManager,
     private readonly screens: MissionScreens,
     private readonly explosions: ExplosionSystem,
+    private readonly settings: SettingsHolder,
   ) {}
 
-  /** タイトル画面から開始。セーブがあれば「続きから」を提示。 */
+  /** 起動時: 「開始 / 設定」のトップメニューを表示。 */
   start(): void {
+    this.showMainMenu();
+  }
+
+  private showMainMenu(): void {
     this.state.phase = "Menu";
+    this.screens.showMainMenu(
+      DIFFICULTIES[this.settings.difficulty].label,
+      () => this.onStart(),
+      () => this.openSettings(),
+    );
+  }
+
+  /** 「開始」選択時。セーブがあれば「続きから / 最初から」を提示。 */
+  private onStart(): void {
     const save = SaveManager.load();
-    this.screens.showTitle(
-      save !== null,
-      () => this.continueFromSave(),
-      () => this.beginNewCampaign(),
+    if (save !== null) {
+      this.screens.showTitle(
+        true,
+        () => this.continueFromSave(),
+        () => this.beginNewCampaign(),
+      );
+    } else {
+      this.beginNewCampaign();
+    }
+  }
+
+  /** 「設定」選択時。難易度変更は即 localStorage に保存し、戻るとメニューへ。 */
+  private openSettings(): void {
+    this.screens.showSettings(
+      this.settings.difficulty,
+      (d) => {
+        this.settings.difficulty = d;
+        SettingsStore.save(d);
+      },
+      () => this.showMainMenu(),
     );
   }
 
@@ -80,7 +116,7 @@ export class GameController {
   private launch(): void {
     const def = MISSIONS[this.currentMissionId];
     this.state.kills = 0;
-    this.mission.load(def, this.game.simTime);
+    this.mission.load(def, this.game.simTime, DIFFICULTIES[this.settings.difficulty]);
     this.state.phase = "Playing";
     this.screens.hide();
   }
@@ -115,7 +151,7 @@ export class GameController {
         this.mission.dispose();
         this.explosions.reset();
         this.state.phase = "Menu";
-        this.screens.showCampaignComplete(this.totalKills, () => this.beginNewCampaign());
+        this.screens.showCampaignComplete(this.totalKills, () => this.showMainMenu());
         return;
       }
     }

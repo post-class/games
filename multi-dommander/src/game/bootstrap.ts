@@ -5,6 +5,7 @@ import { AudioManager } from "./AudioManager";
 import { MissionManager } from "./mission/MissionManager";
 import { MissionScreens } from "./ui/MissionScreens";
 import { GameController } from "./GameController";
+import { SettingsStore } from "./Settings";
 
 // systems
 import { InputSystem } from "./systems/InputSystem";
@@ -44,7 +45,8 @@ export function bootstrap(game: Game, container: HTMLElement): void {
   // --- UI・進行管理 ---
   const screens = new MissionScreens(container);
   const explosions = new ExplosionSystem(render.scene, events);
-  const controller = new GameController(game, state, mission, screens, explosions);
+  const settings = { difficulty: SettingsStore.load() };
+  const controller = new GameController(game, state, mission, screens, explosions, settings);
 
   // --- 固定ステップ系 (順序が重要) ---
   scheduler
