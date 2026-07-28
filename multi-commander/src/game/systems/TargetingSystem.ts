@@ -5,6 +5,7 @@ import type { EntityId } from "../../ecs/Entity";
 import { Comp, Faction } from "../components";
 import type { Transform, Targeting, WeaponMount } from "../components";
 import { isHostile } from "../factions";
+import type { MissionManager } from "../mission/MissionManager";
 
 /** 敵性エンティティ (敵対関係かつ Health を持つ) の一覧。 */
 function hostiles(world: World, myFaction: Faction): EntityId[] {
@@ -80,13 +81,33 @@ export class TargetingSystem implements System {
   private readonly forward = new Vector3(0, 0, 1);
   private readonly dir = new Vector3();
 
+  /**
+   * @param mission 難易度補正 (autoTarget/missileLockTimeMul) の参照元。
+   *   省略時は自動ターゲット無効・ロック時間等倍で動作する (テスト等での単体利用向け)。
+   */
+  constructor(private readonly mission?: MissionManager) {}
+
   update(world: World, dt: number): void {
+    const mods = this.mission?.getMods();
+    const autoTarget = mods?.autoTarget ?? false;
+    const lockTimeMul = mods?.missileLockTimeMul ?? 1.0;
+
     const entities = world.query(Comp.Targeting, Comp.Transform);
     for (const entity of entities) {
       const targeting = world.getOrThrow<Targeting>(entity, Comp.Targeting);
       if (targeting.target === null) {
-        targeting.lockProgress = 0;
-        continue;
+        // 自動ターゲット: 前方の最寄り敵のみを候補にし、画面外の敵へ不意に切り替えない。
+        if (autoTarget) {
+          const t = world.getOrThrow<Transform>(entity, Comp.Transform);
+          const myFaction = world.get<Faction>(entity, Comp.Faction) ?? Faction.Player;
+          const fwd = this.forward.clone().applyQuaternion(t.quaternion);
+          const auto = selectFrontTarget(world, myFaction, t.position, fwd);
+          if (auto !== null) targeting.target = auto;
+        }
+        if (targeting.target === null) {
+          targeting.lockProgress = 0;
+          continue;
+        }
       }
       // ターゲットが消滅していたら解除。
       if (!world.isAlive(targeting.target) || !world.has(targeting.target, Comp.Transform)) {
@@ -103,16 +124,17 @@ export class TargetingSystem implements System {
       if (dist > 1e-3) this.dir.divideScalar(dist);
       const dot = this.dir.dot(fwd);
 
-      // ミサイルロックの射程/角度条件。
+      // ミサイルロックの射程/角度条件。難易度により所要時間を補正 (Easyは速い)。
       const wm = world.get<WeaponMount>(entity, Comp.WeaponMount);
       const lockRange = wm ? wm.gunRange * 1.5 : 2500;
+      const lockDuration = 1.2 * lockTimeMul;
       const withinCone = dot > 0.96 && dist < lockRange;
       if (withinCone) {
         targeting.lockTime += dt;
-        targeting.lockProgress = Math.min(1, targeting.lockTime / 1.2);
+        targeting.lockProgress = Math.min(1, targeting.lockTime / lockDuration);
       } else {
         targeting.lockTime = Math.max(0, targeting.lockTime - dt * 2);
-        targeting.lockProgress = Math.min(1, targeting.lockTime / 1.2);
+        targeting.lockProgress = Math.min(1, targeting.lockTime / lockDuration);
       }
     }
   }

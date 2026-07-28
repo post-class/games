@@ -1,4 +1,4 @@
-export type GamePhase = "Menu" | "Briefing" | "Playing" | "Debrief";
+export type GamePhase = "Menu" | "Briefing" | "Playing" | "Paused" | "Debrief";
 
 export type MissionResult = "success" | "failure" | null;
 

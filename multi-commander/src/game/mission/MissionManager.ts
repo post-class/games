@@ -2,7 +2,7 @@ import { Vector3, Quaternion, type Scene, type Object3D } from "three";
 import type { World } from "../../ecs/World";
 import type { EntityId } from "../../ecs/Entity";
 import { Comp, Faction } from "../components";
-import type { Targeting, ShipInfo } from "../components";
+import type { Targeting, ShipInfo, ThrusterInput, Health } from "../components";
 import type { AIController } from "../components/AIController";
 import { SHIP_DEFS } from "../ships/shipDefinitions";
 import { spawnShip } from "../ships/ShipFactory";
@@ -43,6 +43,8 @@ export class MissionManager {
   private wingmen: EntityId[] = [];
   private waveSpawned: boolean[] = [];
   private waveEntities: EntityId[][] = [];
+  /** waveDelayOnThreat 有効時、遅延中に一度だけ告知を出すためのフラグ。 */
+  private waveDelayAnnounced: boolean[] = [];
   private tagEntities = new Map<string, EntityId>();
   private navMarkers = new Map<string, Object3D>();
   objectives: ObjectiveState[] = [];
@@ -65,6 +67,11 @@ export class MissionManager {
     return this.def;
   }
 
+  /** 現ミッションに適用中の難易度補正。TargetingSystem/WeaponSystem/AISystem から参照される。 */
+  getMods(): DifficultyMods {
+    return this.mods;
+  }
+
   /** ミッションを読み込み、初期エンティティを生成する。mods 省略時は等倍 (normal)。 */
   load(def: MissionDefinition, simTime: number, mods: DifficultyMods = DIFFICULTIES.normal, loadout?: LoadoutChoice): void {
     this.def = def;
@@ -74,6 +81,7 @@ export class MissionManager {
     this.wingmen = [];
     this.waveSpawned = def.waves.map(() => false);
     this.waveEntities = def.waves.map(() => []);
+    this.waveDelayAnnounced = def.waves.map(() => false);
     this.tagEntities.clear();
     this.announcements = [];
 
@@ -100,6 +108,9 @@ export class MissionManager {
       lockProgress: 0,
       lockTime: 0,
     });
+    // 出撃時スロットル (Easyは慣性ペースを緩めるため低めから開始)。
+    const playerThrust = this.world.get<ThrusterInput>(this.player, Comp.ThrusterInput);
+    if (playerThrust) playerThrust.linear.z = this.mods.initialThrottle;
 
     // 僚機・中立(被護衛)。
     for (const ally of [...def.wingmen, ...def.neutrals]) {
@@ -196,6 +207,18 @@ export class MissionManager {
     return null;
   }
 
+  /** 護衛目標 (protect) の対象が直近 `window` 秒以内に被弾しているか (HintSystem 用)。 */
+  escortInDanger(now: number, window = 3): boolean {
+    for (const obj of this.objectives) {
+      if (obj.type !== "protect" || obj.status !== "active" || !obj.tag) continue;
+      const ent = this.tagEntities.get(obj.tag);
+      if (ent === undefined || !this.world.isAlive(ent)) continue;
+      const health = this.world.get<Health>(ent, Comp.Health);
+      if (health && now - health.lastHitTime <= window) return true;
+    }
+    return false;
+  }
+
   announce(text: string, simTime: number, duration = 4): void {
     this.announcements.push({ text, expireAt: simTime + duration });
   }
@@ -227,6 +250,16 @@ export class MissionManager {
     if (!this.def || this.waveSpawned[index]) return;
     const wave = this.def.waves[index];
     if (!this.triggerReady(wave.trigger, simTime)) return;
+
+    // waveDelayOnThreat: 前ウェーブの残存敵がいる間は次ウェーブのスポーンを遅延する。
+    if (this.mods.waveDelayOnThreat && index > 0 && this.enemiesAlive() > 0) {
+      if (!this.waveDelayAnnounced[index]) {
+        this.announce("残存敵排除後に次ウェーブ", simTime);
+        this.waveDelayAnnounced[index] = true;
+      }
+      return;
+    }
+
     this.waveSpawned[index] = true;
     for (const s of wave.ships) {
       const id = this.spawnEnemy(s);

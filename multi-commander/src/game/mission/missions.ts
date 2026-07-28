@@ -1,4 +1,5 @@
 import type { MissionDefinition } from "./MissionDefinition";
+import { DIFFICULTIES, type DifficultyMods } from "../Settings";
 
 /**
  * ミッションデータ。ここを増やすだけで新ミッションを追加できる。
@@ -202,6 +203,37 @@ export const MISSIONS: Record<string, MissionDefinition> = {
     successText: "Victory は健在だ。全攻撃波を撃退した。",
     failText: "Victory が…我々は敗北した。",
   },
+};
+
+// T0: 訓練ミッション — 5分以内で基本操作を体験する。敵は無力化済みで撃墜されない。
+export const TUTORIAL_MISSION: MissionDefinition = {
+  id: "tutorial",
+  name: "基礎訓練",
+  briefing: ["基本操作を練習しよう。", "指示に従って旋回・スロットル・射撃・ミサイルを試すこと。"],
+  playerShipId: "rapier",
+  playerSpawn: [0, 0, 0],
+  wingmen: [],
+  neutrals: [],
+  navPoints: [],
+  waves: [
+    {
+      trigger: { type: "start" },
+      ships: [{ shipId: "dralthi", position: [0, 0, 500] }],
+    },
+  ],
+  objectives: [{ id: "kill", label: "訓練標的を撃墜する", type: "destroyAll" }],
+  successText: "訓練完了。実戦へ出撃せよ。",
+  failText: "訓練中に機体を失った…",
+};
+
+/** 訓練ミッション用の難易度補正: 敵は無害・低耐久にし、操作待ちで撃墜されないようにする。 */
+export const TUTORIAL_MODS: DifficultyMods = {
+  ...DIFFICULTIES.easy,
+  label: "訓練",
+  enemyHealthMul: 0.15,
+  enemyDamageMul: 0,
+  enemyAccuracyMul: 0,
+  enemyAggression: 0,
 };
 
 /** ミッション表示順 (ブリーフィングの「X/Y」表示に使用)。 */

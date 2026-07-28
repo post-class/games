@@ -5,7 +5,7 @@ import type { EntityId } from "../../ecs/Entity";
 import { Comp, Faction } from "../components";
 import type { ThrusterInput, FlightModel, Transform, Targeting, WeaponMount } from "../components";
 import type { AIController, WingOrder } from "../components/AIController";
-import type { InputManager } from "../input/InputManager";
+import type { InputManager, FlightAxes, DiscreteActions, EdgeActions } from "../input/InputManager";
 import { selectNextTarget, selectNearestTarget, selectFrontTarget } from "./TargetingSystem";
 
 /**
@@ -20,6 +20,16 @@ export class InputSystem implements System {
     private readonly input: InputManager,
     private readonly announce: (text: string) => void = () => {},
     private readonly onDropFlare?: () => void,
+    /** 訓練モード用: 毎フレームの入力サンプルとターゲット有無を通知する (GameController.updateTutorial へ橋渡し)。 */
+    private readonly onTutorialCheck?: (
+      axes: FlightAxes,
+      discrete: DiscreteActions,
+      edges: EdgeActions,
+      hasTarget: boolean,
+      dt: number,
+    ) => void,
+    /** Esc (pause エッジ) が入力された際に呼ぶ (GameController.pause への橋渡し)。 */
+    private readonly onPause?: () => void,
   ) {}
 
   update(world: World, dt: number): void {
@@ -66,9 +76,24 @@ export class InputSystem implements System {
       }
 
       this.handleTargeting(world, entity, edges);
+
+      if (this.onTutorialCheck) {
+        const targeting = world.get<Targeting>(entity, Comp.Targeting);
+        const hasTarget =
+          !!targeting && targeting.target !== null && world.isAlive(targeting.target);
+        this.onTutorialCheck(axes, discrete, edges, hasTarget, dt);
+      }
     }
 
     this.handleWingCommands(world, edges);
+
+    if (edges.pause) this.onPause?.();
+
+    if (edges.toggleMouseFlight) {
+      this.input.mouseFlightEnabled = !this.input.mouseFlightEnabled;
+      if (this.input.mouseFlightEnabled) this.input.mouse.resetToCenter();
+      this.announce(this.input.mouseFlightEnabled ? "マウス操縦: ON" : "マウス操縦: OFF");
+    }
 
     this.input.clearEdges();
   }

@@ -8,6 +8,8 @@ import type { AIController } from "../components/AIController";
 import { isHostile } from "../factions";
 import { computeLeadPosition } from "../../hud/ReticleCalc";
 import { clamp } from "../../util/math";
+import type { MissionManager } from "../mission/MissionManager";
+import { DIFFICULTIES, type DifficultyMods } from "../Settings";
 
 const dirWorld = new Vector3();
 const dirLocal = new Vector3();
@@ -130,8 +132,12 @@ const FORMATION_SLOTS: Array<[number, number, number]> = [
 export class AISystem implements System {
   readonly name = "AISystem";
 
+  /** @param mission 難易度補正 (maxSimultaneousAttackers/enemyAccuracyMul) の参照元。省略時は normal 相当。 */
+  constructor(private readonly mission?: MissionManager) {}
+
   update(world: World, dt: number): void {
     const player = this.findPlayer(world);
+    const mods = this.mission?.getMods() ?? DIFFICULTIES.normal;
     const entities = world.query(
       Comp.AIController,
       Comp.Transform,
@@ -150,7 +156,7 @@ export class AISystem implements System {
       if (ai.role === "ally") {
         this.updateAlly(world, entity, ai, t, ti, myFaction, player);
       } else {
-        this.updateEnemy(world, entity, ai, t, ti, myFaction);
+        this.updateEnemy(world, entity, ai, t, ti, myFaction, player, mods);
       }
     }
   }
@@ -164,6 +170,8 @@ export class AISystem implements System {
     t: Transform,
     ti: ThrusterInput,
     myFaction: Faction,
+    player: EntityId | null,
+    mods: DifficultyMods,
   ): void {
     // 士気初期化 (初回のみ)。
     if (ai.morale === undefined) ai.morale = 1.0;
@@ -188,12 +196,35 @@ export class AISystem implements System {
     }
 
     if (!this.targetValid(world, ai.target)) {
-      ai.target = this.findNearestHostile(world, self, myFaction, t.position, ai.detectRange);
+      // 同時攻撃制限: プレイヤーを攻撃中の敵数が上限に達していたら、プレイヤーを新規targetにしない。
+      const capReached =
+        player !== null &&
+        this.countAttackersOnPlayer(world, player) >= mods.maxSimultaneousAttackers;
+      ai.target = this.findNearestHostile(
+        world,
+        self,
+        myFaction,
+        t.position,
+        ai.detectRange,
+        capReached ? player : null,
+      );
     }
     const ctx = this.buildContext(world, ai.target, t);
     const next = this.transition(ai, ctx);
     this.applyStateChange(next, ai, world, self, ctx);
-    this.combatAction(world, self, ai, ctx, ti, t);
+    this.combatAction(world, self, ai, ctx, ti, t, mods.enemyAccuracyMul);
+  }
+
+  /** プレイヤーを target にして Pursue/Attack 中の enemy AI 数。 */
+  private countAttackersOnPlayer(world: World, player: EntityId): number {
+    let count = 0;
+    for (const e of world.query(Comp.AIController)) {
+      const ai = world.getOrThrow<AIController>(e, Comp.AIController);
+      if (ai.role === "enemy" && ai.target === player && (ai.state === "Pursue" || ai.state === "Attack")) {
+        count++;
+      }
+    }
+    return count;
   }
 
   private updateMorale(world: World, self: EntityId, ai: AIController, myFaction: Faction): void {
@@ -328,11 +359,13 @@ export class AISystem implements System {
     myFaction: Faction,
     pos: Vector3,
     range: number,
+    exclude?: EntityId | null,
   ): EntityId | null {
     let best: EntityId | null = null;
     let bestDist = range * range;
     for (const e of world.query(Comp.Transform, Comp.Health, Comp.Faction)) {
       if (e === self) continue;
+      if (exclude !== undefined && exclude !== null && e === exclude) continue;
       const f = world.getOrThrow<Faction>(e, Comp.Faction);
       if (!isHostile(myFaction, f)) continue;
       const tt = world.getOrThrow<Transform>(e, Comp.Transform);
@@ -428,6 +461,7 @@ export class AISystem implements System {
     ctx: AIContext,
     ti: ThrusterInput,
     t: Transform,
+    accuracyMul = 1.0,
   ): void {
     if (!ctx.hasTarget || !ctx.targetPos) {
       ti.linear.z = 0.3;
@@ -490,7 +524,11 @@ export class AISystem implements System {
 
     // 予測点に機首が合っていて射撃帯内なら発砲。
     // 技量が低いほど閾値を緩める (0.96 → 0.92 程度)。技量高いほど厳しく (0.96 → 0.97)。
-    const leadThreshold = 0.96 + (skill - 0.5) * 0.02; // skill=0→0.95, skill=1→0.97
+    const skillThreshold = 0.96 + (skill - 0.5) * 0.02; // skill=0→0.95, skill=1→0.97
+    // 難易度の enemyAccuracyMul を許容誤差 (1-threshold) に掛ける。
+    // Easy(0.5)は許容誤差が半分になり閾値が上がって発砲機会が減る (下手になる)。
+    // Hard(1.3)は許容誤差が広がり閾値が下がって発砲機会が増える (上手くなる)。
+    const leadThreshold = 1 - (1 - skillThreshold) * accuracyMul;
     if (leadDot > leadThreshold && ctx.distance < firingBand * 2) {
       ti.firePrimary = true;
     }

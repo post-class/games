@@ -8,7 +8,7 @@ import { AudioManager } from "./AudioManager";
 import { MissionManager } from "./mission/MissionManager";
 import { MissionScreens } from "./ui/MissionScreens";
 import { GameController } from "./GameController";
-import { SettingsStore } from "./Settings";
+import { SettingsStoreV2 } from "./Settings";
 
 // systems
 import { InputSystem } from "./systems/InputSystem";
@@ -23,6 +23,7 @@ import { TargetingSystem } from "./systems/TargetingSystem";
 import { MissionSystem } from "./systems/MissionSystem";
 import { SyncTransformSystem } from "./systems/SyncTransformSystem";
 import { HudSystem } from "./systems/HudSystem";
+import { HintSystem } from "./systems/HintSystem";
 import { AudioSystem } from "./systems/AudioSystem";
 import { ExplosionSystem } from "./systems/ExplosionSystem";
 import { MuzzleFlashSystem } from "./systems/MuzzleFlashSystem";
@@ -47,10 +48,22 @@ export function bootstrap(game: Game, container: HTMLElement): void {
   const mission = new MissionManager(world, render.scene);
   const getPlayer = () => mission.getPlayer();
 
+  // --- 設定 (v2) ---
+  const loadedSettings = SettingsStoreV2.load();
+
   // --- 入力・サウンド ---
   const input = new InputManager(container);
+  input.mouseFlightEnabled = loadedSettings.controls.mouseEnabled;
+  input.advancedFlightEnabled = loadedSettings.controls.advancedFlight;
+  input.mouse.setConfig({
+    sensitivity: loadedSettings.controls.mouseSensitivity,
+    invertY: loadedSettings.controls.invertMouseY,
+  });
   const audio = new AudioManager(events);
   window.addEventListener("keydown", () => audio.enable(), { once: true });
+  audio.setMasterVolume(loadedSettings.audio.master);
+  audio.setCategoryVolume("music", loadedSettings.audio.music);
+  audio.setCategoryVolume("sfx", loadedSettings.audio.sfx);
 
   // --- VFX (プール付き視覚効果マネージャ) ---
   const vfx = new VfxManager(render.scene);
@@ -59,8 +72,18 @@ export function bootstrap(game: Game, container: HTMLElement): void {
   // --- UI・進行管理 ---
   const screens = new MissionScreens(container);
   const explosions = new ExplosionSystem(events, vfx);
-  const settings = { difficulty: SettingsStore.load() };
-  const controller = new GameController(game, state, mission, screens, explosions, settings);
+  const settings = { difficulty: loadedSettings.difficulty, contextualHints: loadedSettings.assists.contextualHints };
+  const controller = new GameController(
+    game,
+    state,
+    mission,
+    screens,
+    explosions,
+    settings,
+    input,
+    audio,
+    loadedSettings,
+  );
 
   // --- 固定ステップ系 (順序が重要) ---
   scheduler
@@ -76,16 +99,19 @@ export function bootstrap(game: Game, container: HTMLElement): void {
             spawnDecoy(world, render.scene, t.position, Faction.Player);
           }
         },
+        (axes, discrete, edges, hasTarget, dt) =>
+          controller.updateTutorial(axes, discrete, edges, hasTarget, dt),
+        () => controller.pause(),
       ),
     )
-    .addFixed(new AISystem())
-    .addFixed(new WeaponSystem(render.scene, events))
+    .addFixed(new AISystem(mission))
+    .addFixed(new WeaponSystem(render.scene, events, mission))
     .addFixed(new FlightModelSystem())
     .addFixed(new ProjectileSystem())
     .addFixed(new MissileSystem())
     .addFixed(new CollisionSystem(events, simTime))
     .addFixed(new DamageSystem(events, simTime))
-    .addFixed(new TargetingSystem())
+    .addFixed(new TargetingSystem(mission))
     .addFixed(new MissionSystem(mission, state, events, simTime, (r) => controller.onMissionEnd(r)));
 
   // --- 可変ステップ系 (描画同期・カメラ・VFX・HUD) ---
@@ -135,7 +161,22 @@ export function bootstrap(game: Game, container: HTMLElement): void {
     .addVariable(explosions)
     .addVariable(vfx)
     .addVariable(new AudioSystem(audio, render.camera, getPlayer, () => state.phase))
-    .addVariable(new HudSystem(hudView, render.camera, mission, state, simTime))
+    .addVariable(
+      new HudSystem(
+        hudView,
+        render.camera,
+        mission,
+        state,
+        simTime,
+        () => controller.getTutorialInstructionText(),
+        () => ({
+          mouseFlight: input.mouseFlightEnabled,
+          flightMode: input.advancedFlightEnabled ? "NEWTON可" : "WC",
+          aimAssist: controller.getAimAssistLabel(),
+        }),
+      ),
+    )
+    .addVariable(new HintSystem(mission, hudView, settings, simTime, () => controller.isTutorialActive()))
     .addVariable(perf);
 
   // タイトル画面から開始。

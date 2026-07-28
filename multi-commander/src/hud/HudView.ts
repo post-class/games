@@ -96,6 +96,10 @@ export class HudView {
   private readonly killfeedEl: HTMLDivElement;
   private readonly damageVignette: HTMLDivElement;
   private readonly missileWarnEl: HTMLDivElement;
+  private readonly toastEl: HTMLDivElement;
+  private readonly tutorialEl: HTMLDivElement;
+  private readonly statusInfoEl: HTMLDivElement;
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
   private killFeed: KillFeedEntry[] = [];
 
   constructor(container: HTMLElement) {
@@ -132,6 +136,9 @@ export class HudView {
     this.damageVignette = el("div", "hud-damage-vignette");
     this.missileWarnEl = el("div", "hud-missile-warning");
     this.missileWarnEl.textContent = "⚠ MISSILE";
+    this.toastEl = el("div", "hud-toast");
+    this.tutorialEl = el("div", "hud-tutorial");
+    this.statusInfoEl = el("div", "hud-corner hud-statusinfo");
 
     this.reticle.style.left = "50%";
     this.reticle.style.top = "50%";
@@ -156,8 +163,40 @@ export class HudView {
       this.killfeedEl,
       this.damageVignette,
       this.missileWarnEl,
+      this.toastEl,
+      this.tutorialEl,
+      this.statusInfoEl,
     );
     container.appendChild(this.root);
+  }
+
+  /** 短時間表示のトースト通知 (例: マウス操縦ON/OFF)。 */
+  showToast(text: string, durationMs = 1500): void {
+    if (this.toastTimer !== null) clearTimeout(this.toastTimer);
+    this.toastEl.textContent = text;
+    this.toastEl.classList.add("show");
+    this.toastTimer = setTimeout(() => {
+      this.toastEl.classList.remove("show");
+      this.toastTimer = null;
+    }, durationMs);
+  }
+
+  /** 訓練中の現在指示テキスト。null なら非表示 (訓練モード以外)。 */
+  setTutorialInstruction(text: string | null): void {
+    if (text === null) {
+      this.tutorialEl.classList.remove("show");
+      return;
+    }
+    this.tutorialEl.textContent = text;
+    this.tutorialEl.classList.add("show");
+  }
+
+  /** 画面右下の状態表示 (マウス操縦/操作モード/照準アシスト)。 */
+  setStatusInfo(info: { mouseFlight: boolean; flightMode: string; aimAssist: string }): void {
+    this.statusInfoEl.innerHTML =
+      `MOUSE ${info.mouseFlight ? "ON" : "OFF"}<br>` +
+      `MODE ${info.flightMode}<br>` +
+      `AIM ${info.aimAssist}`;
   }
 
   update(d: HudData): void {
@@ -229,6 +268,8 @@ export class HudView {
       this.navArrow.style.display = "none";
       this.navLabel.style.display = "none";
       this.targetInfo.textContent = "";
+      this.tutorialEl.classList.remove("show");
+      this.statusInfoEl.innerHTML = "";
     }
   }
 

@@ -310,3 +310,56 @@
   50% { opacity: 0.25; }
   100% { opacity: 1; }
 }
+
+.hud-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 120px;
+  transform: translateX(-50%);
+  padding: 6px 16px;
+  font-size: 15px;
+  color: #7fffd4;
+  border: 1px solid rgba(127, 255, 212, 0.6);
+  border-radius: 3px;
+  text-shadow: 0 0 6px rgba(127, 255, 212, 0.7);
+  background: rgba(0, 40, 40, 0.4);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease-out;
+}
+.hud-toast.show {
+  opacity: 1;
+}
+
+/* 訓練モードの現在指示 */
+.hud-tutorial {
+  position: absolute;
+  left: 50%;
+  top: 120px;
+  transform: translateX(-50%);
+  padding: 8px 20px;
+  font-size: 16px;
+  font-weight: bold;
+  letter-spacing: 0.03em;
+  color: #ffe14d;
+  border: 1px solid rgba(255, 225, 77, 0.7);
+  border-radius: 3px;
+  text-shadow: 0 0 6px rgba(255, 225, 77, 0.8);
+  background: rgba(50, 40, 0, 0.35);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease-out;
+  text-align: center;
+}
+.hud-tutorial.show {
+  opacity: 1;
+}
+
+/* 右下の操作状態表示 (マウス操縦/操作モード/照準アシスト) */
+.hud-statusinfo {
+  right: 24px;
+  bottom: 140px;
+  text-align: right;
+  font-size: 11px;
+  opacity: 0.75;
+}

@@ -12,6 +12,7 @@ const MUSIC_PHASE: Record<GamePhase, "menu" | "briefing" | "playing" | "debrief"
   Menu: "menu",
   Briefing: "briefing",
   Playing: "playing",
+  Paused: "playing",
   Debrief: "debrief",
 };
 

@@ -1,16 +1,47 @@
-import { Vector3, type Scene } from "three";
+import { Vector3, Quaternion, type Scene } from "three";
 import type { System } from "../../ecs/System";
 import type { World } from "../../ecs/World";
+import type { EntityId } from "../../ecs/Entity";
 import { Comp, Faction } from "../components";
-import type { Transform, WeaponMount, ThrusterInput, Targeting } from "../components";
+import type { Transform, WeaponMount, ThrusterInput, Targeting, RigidBody } from "../components";
 import type { AIController } from "../components/AIController";
 import { spawnProjectile, spawnMissile } from "../weapons/projectileFactory";
 import { WEAPON_DEFS } from "../weapons/WeaponDefs";
 import type { EventBus } from "../../util/EventBus";
+import type { MissionManager } from "../mission/MissionManager";
+import type { AimAssist } from "../Settings";
+import { computeLeadPosition } from "../../hud/ReticleCalc";
 
 const fwd = new Vector3();
 const muzzleWorld = new Vector3();
 const projVel = new Vector3();
+const leadPos = new Vector3();
+const leadDir = new Vector3();
+const assistAxis = new Vector3();
+const assistQuat = new Quaternion();
+const zeroVel = new Vector3();
+
+/** aimAssist 強度ごとの最大補正角 (ラジアン)。 */
+const AIM_ASSIST_MAX_ANGLE: Record<AimAssist, number> = {
+  strong: (5 * Math.PI) / 180,
+  light: (2 * Math.PI) / 180,
+  off: 0,
+};
+
+/**
+ * from を to の方向へ最大 maxAngle だけ回転させる (球面補間の単純版)。
+ * from/to がほぼ平行/反平行で回転軸が定まらない場合は補正しない (from のまま)。
+ */
+function rotateTowards(from: Vector3, to: Vector3, maxAngle: number, out: Vector3): Vector3 {
+  const angle = from.angleTo(to);
+  if (angle < 1e-4 || maxAngle <= 0) return out.copy(from);
+  assistAxis.crossVectors(from, to);
+  if (assistAxis.lengthSq() < 1e-8) return out.copy(from); // 反平行等、軸が定まらない場合は無補正。
+  assistAxis.normalize();
+  const step = Math.min(maxAngle, angle);
+  assistQuat.setFromAxisAngle(assistAxis, step);
+  return out.copy(from).applyQuaternion(assistQuat).normalize();
+}
 
 /**
  * 発射入力に応じてエネルギー砲/ミサイルを発射する。
@@ -22,9 +53,11 @@ export class WeaponSystem implements System {
   constructor(
     private readonly scene: Scene,
     private readonly events: EventBus,
+    private readonly mission?: MissionManager,
   ) {}
 
   update(world: World, dt: number): void {
+    const aimAssist = this.mission?.getMods().aimAssist ?? "off";
     const entities = world.query(Comp.WeaponMount, Comp.Transform, Comp.ThrusterInput);
     for (const entity of entities) {
       const wm = world.getOrThrow<WeaponMount>(entity, Comp.WeaponMount);
@@ -39,6 +72,14 @@ export class WeaponSystem implements System {
 
       fwd.set(0, 0, 1).applyQuaternion(t.quaternion);
 
+      // 照準アシスト: 発射方向をリード点方向へ小さく補正 (プレイヤーの Targeting がある機体のみ)。
+      if (aimAssist !== "off") {
+        const targeting = world.get<Targeting>(entity, Comp.Targeting);
+        if (targeting && targeting.target !== null) {
+          this.applyAimAssist(world, t, wm, targeting.target, aimAssist);
+        }
+      }
+
       // エネルギー砲。
       if (ti.firePrimary && wm.gunCooldown <= 0 && wm.energy >= wm.energyPerShot) {
         this.fireGun(world, entity, wm, t, faction);
@@ -49,6 +90,28 @@ export class WeaponSystem implements System {
         this.fireMissile(world, entity, wm, t, faction);
       }
     }
+  }
+
+  /**
+   * fwd (発射方向) をリード点方向へ最大数度だけ寄せる。
+   * 小角度補正のみなので、プレイヤー入力(機首方向)と反対方向へ振れることはない。
+   */
+  private applyAimAssist(
+    world: World,
+    t: Transform,
+    wm: WeaponMount,
+    target: EntityId,
+    aimAssist: AimAssist,
+  ): void {
+    if (!world.isAlive(target) || !world.has(target, Comp.Transform)) return;
+    const tt = world.getOrThrow<Transform>(target, Comp.Transform);
+    const trb = world.get<RigidBody>(target, Comp.RigidBody);
+    const tvel = trb ? trb.velocity : zeroVel;
+    computeLeadPosition(t.position, wm.gunProjectileSpeed, tt.position, tvel, leadPos);
+    leadDir.copy(leadPos).sub(t.position);
+    if (leadDir.lengthSq() < 1e-6) return;
+    leadDir.normalize();
+    rotateTowards(fwd, leadDir, AIM_ASSIST_MAX_ANGLE[aimAssist], fwd);
   }
 
   private fireGun(

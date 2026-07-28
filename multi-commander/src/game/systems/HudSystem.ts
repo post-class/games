@@ -33,6 +33,11 @@ export class HudSystem implements System {
     private readonly mission: MissionManager,
     private readonly state: GameStateData,
     private readonly getSimTime: () => number,
+    /** 訓練中の現在指示テキスト (訓練モードでなければ null を返す)。 */
+    private readonly getTutorialText: () => string | null = () => null,
+    /** 画面右下の操作状態表示。null なら非表示。 */
+    private readonly getStatusInfo: () => { mouseFlight: boolean; flightMode: string; aimAssist: string } | null = () =>
+      null,
   ) {}
 
   update(world: World): void {
@@ -59,8 +64,13 @@ export class HudSystem implements System {
     if (player === null) {
       this.view.update(this.emptyData(base));
       this.view.setMissileWarning(false);
+      this.view.setTutorialInstruction(null);
       return;
     }
+
+    this.view.setTutorialInstruction(this.state.phase === "Playing" ? this.getTutorialText() : null);
+    const statusInfo = this.state.phase === "Playing" ? this.getStatusInfo() : null;
+    if (statusInfo) this.view.setStatusInfo(statusInfo);
 
     const t = world.getOrThrow<Transform>(player, Comp.Transform);
     const rb = world.getOrThrow<RigidBody>(player, Comp.RigidBody);
