@@ -1,4 +1,4 @@
-# Multi-Dommander
+# Multi-Commander
 
 ブラウザで動く 3D 宇宙戦闘ゲーム。ウィングコマンダー系のドッグファイトを、ニュートン力学ベース（フライトアシスト切替つき）で再現した縦切りプロトタイプ。TypeScript + Three.js + 自作軽量 ECS。
 

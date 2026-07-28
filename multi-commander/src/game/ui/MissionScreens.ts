@@ -116,7 +116,7 @@ export class MissionScreens {
         .map((label, i) => `<div class="item${i === idx ? " sel" : ""}">${label}</div>`)
         .join("");
       this.root.innerHTML = `
-        <div class="screen-title">MULTI-DOMMANDER</div>
+        <div class="screen-title">MULTI-COMMANDER</div>
         <div class="screen-body">
           Terran Confederation 所属パイロットとして Kilrathi との戦いに挑め。
         </div>
@@ -173,7 +173,7 @@ export class MissionScreens {
       ? '<div class="screen-prompt">▶ ENTER / 1: 続きから　　2: 最初から</div>'
       : '<div class="screen-prompt">▶ ENTER で作戦開始</div>';
     this.root.innerHTML = `
-      <div class="screen-title">MULTI-DOMMANDER</div>
+      <div class="screen-title">MULTI-COMMANDER</div>
       <div class="screen-body">
         Terran Confederation 所属パイロットとして Kilrathi との戦いに挑め。<br>
         3つのミッションから成るキャンペーンだ。
