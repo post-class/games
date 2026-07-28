@@ -3,7 +3,9 @@ import type { System } from "../../ecs/System";
 import type { World } from "../../ecs/World";
 import { Comp, Faction } from "../components";
 import type { Transform, WeaponMount, ThrusterInput, Targeting } from "../components";
+import type { AIController } from "../components/AIController";
 import { spawnProjectile, spawnMissile } from "../weapons/projectileFactory";
+import { WEAPON_DEFS } from "../weapons/WeaponDefs";
 import type { EventBus } from "../../util/EventBus";
 
 const fwd = new Vector3();
@@ -42,8 +44,8 @@ export class WeaponSystem implements System {
         this.fireGun(world, entity, wm, t, faction);
       }
 
-      // ミサイル。
-      if (ti.fireMissile && wm.missileCooldown <= 0 && wm.missiles > 0) {
+      // ミサイル (副兵装)。
+      if (ti.fireMissile && wm.missileCooldown <= 0 && this.hasSecondaryAmmo(wm)) {
         this.fireMissile(world, entity, wm, t, faction);
       }
     }
@@ -56,10 +58,9 @@ export class WeaponSystem implements System {
     t: Transform,
     faction: Faction,
   ): void {
-    // 弾速は機首方向への純粋な砲口速度 (自機速度は加算しない)。
-    // これによりリードインジケータ/AIの偏差計算が弾道と一致し、命中が安定する。
     projVel.copy(fwd).multiplyScalar(wm.gunProjectileSpeed);
 
+    const color = wm.gunColor ?? (faction === Faction.Player || faction === Faction.Ally ? 0x66ffcc : 0xff5533);
     for (const hp of wm.hardpoints) {
       muzzleWorld.copy(hp).applyQuaternion(t.quaternion).add(t.position);
       spawnProjectile(
@@ -71,13 +72,19 @@ export class WeaponSystem implements System {
         entity,
         faction,
         wm.gunRange,
+        color,
       );
     }
     wm.energy -= wm.energyPerShot;
     wm.gunCooldown = wm.gunFireInterval;
+    const muzzle = wm.hardpoints[0]
+      ? muzzleWorld.copy(wm.hardpoints[0]).applyQuaternion(t.quaternion).add(t.position)
+      : t.position;
     this.events.emit("weaponFired", {
       shooter: entity,
       position: t.position.clone(),
+      muzzlePosition: muzzle.clone(),
+      direction: fwd.clone(),
       kind: "gun",
     });
   }
@@ -90,19 +97,57 @@ export class WeaponSystem implements System {
     faction: Faction,
   ): void {
     const targeting = world.get<Targeting>(entity, Comp.Targeting);
-    // ロック完了時のみ誘導対象を付与。未ロックでも無誘導で発射可能。
-    const target =
-      targeting && targeting.lockProgress >= 1 ? targeting.target : null;
+
+    // 副兵装のWeaponDefを解決。
+    const secId = wm.secondaries?.[wm.activeSecondary ?? 0];
+    const secDef = secId ? WEAPON_DEFS[secId] : undefined;
+
+    // ロック要否をWeaponDefから判定。
+    const lockRequired = secDef?.lockRequired ?? true;
+    let target = targeting && targeting.lockProgress >= 1 ? targeting.target : null;
+    if (!lockRequired && target === null) {
+      target = targeting?.target ?? null;
+    }
+    // AI(敵/僚機)は Targeting を持たないため、AIの現在ターゲットを誘導対象にする。
+    if (target === null) {
+      const ai = world.get<AIController>(entity, Comp.AIController);
+      if (ai && ai.target !== null && world.isAlive(ai.target)) target = ai.target;
+    }
+
+    // 残弾チェック (secondaryAmmo がある場合はそちらを消費)。
+    if (wm.secondaryAmmo && secId) {
+      const ammo = wm.secondaryAmmo[secId] ?? 0;
+      if (ammo <= 0) return;
+      wm.secondaryAmmo[secId] = ammo - 1;
+    } else {
+      wm.missiles -= 1;
+    }
+
     const origin = wm.hardpoints[0]
       ? muzzleWorld.copy(wm.hardpoints[0]).applyQuaternion(t.quaternion).add(t.position).clone()
       : t.position.clone();
-    spawnMissile(world, this.scene, origin, fwd.clone(), target, wm.gunDamage * 3.5, entity, faction);
-    wm.missiles -= 1;
-    wm.missileCooldown = wm.missileFireInterval;
+    const damage = secDef?.damage ?? wm.gunDamage * 3.5;
+    const speed = secDef?.projectileSpeed ?? 320;
+    const turnRate = secDef?.turnRate ?? 2.2;
+    const seeker = secDef?.seeker ?? "heat";
+    spawnMissile(world, this.scene, origin, fwd.clone(), target, damage, entity, faction, {
+      speed, turnRate, seeker,
+    });
+    wm.missileCooldown = secDef?.fireInterval ?? wm.missileFireInterval;
     this.events.emit("weaponFired", {
       shooter: entity,
       position: t.position.clone(),
+      muzzlePosition: origin.clone(),
+      direction: fwd.clone(),
       kind: "missile",
     });
+  }
+
+  private hasSecondaryAmmo(wm: WeaponMount): boolean {
+    if (wm.secondaryAmmo && wm.secondaries) {
+      const secId = wm.secondaries[wm.activeSecondary ?? 0];
+      if (secId) return (wm.secondaryAmmo[secId] ?? 0) > 0;
+    }
+    return wm.missiles > 0;
   }
 }

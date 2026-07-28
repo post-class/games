@@ -10,6 +10,7 @@ import type { EventBus } from "../../util/EventBus";
 const seg = new Vector3();
 const toCenter = new Vector3();
 const closest = new Vector3();
+const hitNormal = new Vector3();
 
 /** エネルギー砲の命中許容 (弾のかすりを命中扱いにして手数を活かす)。 */
 const GUN_HIT_PAD = 14;
@@ -66,7 +67,7 @@ export class CollisionSystem implements System {
         const tt = world.getOrThrow<Transform>(target, Comp.Transform);
         const col = world.getOrThrow<Collider>(target, Comp.Collider);
         if (segmentSphereHit(pt.prevPosition, pt.position, tt.position, col.radius + GUN_HIT_PAD)) {
-          this.hit(world, target, proj, p.source, p.damage, tt.position, now);
+          this.hit(world, target, proj, p.source, p.damage, pt.position, tt.position, now);
           world.destroyEntity(proj);
           break;
         }
@@ -88,7 +89,7 @@ export class CollisionSystem implements System {
         const col = world.getOrThrow<Collider>(target, Comp.Collider);
         const r = col.radius + mcol.radius;
         if (segmentSphereHit(mt.prevPosition, mt.position, tt.position, r)) {
-          this.hit(world, target, mis, m.source, m.damage, tt.position, now);
+          this.hit(world, target, mis, m.source, m.damage, mt.position, tt.position, now);
           world.destroyEntity(mis);
           break;
         }
@@ -102,11 +103,26 @@ export class CollisionSystem implements System {
     _projectile: number,
     source: number,
     damage: number,
-    position: Vector3,
+    impact: Vector3,
+    center: Vector3,
     now: number,
   ): void {
     const health = world.getOrThrow<Health>(target, Comp.Health);
+    // キル帰属: とどめを刺した相手を記録 (destroyed イベントで参照)。
+    health.lastHitBy = source;
+    const hadShield = health.shield > 0;
     applyDamage(health, damage, now);
-    this.events.emit("hit", { target, source, damage, position: position.clone() });
+    this.events.emit("hit", { target, source, damage, position: impact.clone() });
+    // シールドが吸収した瞬間はリップル演出用に別イベントを発火。
+    if (hadShield) {
+      hitNormal.copy(impact).sub(center);
+      if (hitNormal.lengthSq() < 1e-9) hitNormal.set(0, 0, 1);
+      else hitNormal.normalize();
+      this.events.emit("shieldHit", {
+        entity: target,
+        position: impact.clone(),
+        normal: hitNormal.clone(),
+      });
+    }
   }
 }

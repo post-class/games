@@ -28,4 +28,12 @@ export interface AIController {
   order: WingOrder;
   /** 編隊スロット番号 (ally のみ、隊形位置の決定に使う)。 */
   formationSlot: number;
+  /** 技量 0..1。命中判定と機動精度に反映 (省略時は aggression から導出)。 */
+  skill?: number;
+  /** 現在実行中の回避機動名 (break/jink/barrelRoll/extend 等)。Evade入場時に選択される。 */
+  evadeManeuver?: string;
+  /** 士気 0..1。HP低下・孤立で低下し、閾値以下で離脱行動に移る。 */
+  morale?: number;
+  /** 離脱中フラグ。true のとき戦闘放棄して逃走する。 */
+  fleeing?: boolean;
 }

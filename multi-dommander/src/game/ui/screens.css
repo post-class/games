@@ -124,3 +124,61 @@
 .controls .a {
   color: #cfe;
 }
+
+/* ロードアウト画面 */
+.loadout-section {
+  margin: 12px 0;
+  text-align: left;
+  display: inline-block;
+  min-width: 420px;
+}
+.loadout-label {
+  font-size: 13px;
+  color: #7fffd4;
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(127, 255, 212, 0.3);
+  padding-bottom: 2px;
+}
+.loadout-item {
+  padding: 6px 14px;
+  font-size: 15px;
+  color: #9fb6c8;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  margin: 3px 0;
+  transition: all 0.1s;
+}
+.loadout-item .stat {
+  float: right;
+  font-size: 11px;
+  opacity: 0.6;
+  margin-left: 16px;
+}
+.loadout-item.sel {
+  color: #001018;
+  background: #7fffd4;
+  border-color: #7fffd4;
+  box-shadow: 0 0 10px rgba(0, 255, 200, 0.4);
+}
+.loadout-item.sel .stat {
+  opacity: 0.8;
+}
+.loadout-item.active-row:not(.sel) {
+  border-color: rgba(127, 255, 212, 0.35);
+}
+.loadout-launch {
+  margin-top: 18px;
+  padding: 10px 30px;
+  font-size: 20px;
+  color: #9fb6c8;
+  border: 1px solid rgba(127, 255, 212, 0.2);
+  border-radius: 6px;
+  display: inline-block;
+}
+.loadout-launch.sel {
+  color: #001018;
+  background: #7fffd4;
+  border-color: #7fffd4;
+  box-shadow: 0 0 14px rgba(0, 255, 200, 0.5);
+}

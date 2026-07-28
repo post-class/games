@@ -13,6 +13,8 @@ export type Action =
   | "afterburner"
   | "firePrimary"
   | "fireMissile"
+  | "dropFlare"
+  | "cycleSecondary"
   | "toggleFlightAssist"
   | "cycleTargetNext"
   | "cycleTargetNearest"
@@ -53,6 +55,8 @@ export const DEFAULT_BINDINGS: Record<string, Action> = {
   Tab: "afterburner",
   Space: "firePrimary",
   Enter: "fireMissile",
+  KeyC: "dropFlare",
+  KeyX: "cycleSecondary",
   // ターゲッティング。
   KeyT: "cycleTargetNext",
   KeyR: "cycleTargetNearest",

@@ -54,6 +54,55 @@ export const SHIP_DEFS: Record<string, ShipDefinition> = {
     },
   },
 
+  // プレイヤー機: 重戦闘機。Rapier II より低速だが硬く火力も高い。
+  scimitar: {
+    id: "scimitar",
+    displayName: "Scimitar",
+    mass: 18,
+    inertia: [14, 16, 11],
+    radius: 12,
+    hardpoints: [
+      [-5, -1, 7],
+      [5, -1, 7],
+    ],
+    flight: {
+      maxLinearSpeed: 180,
+      afterburnerMaxSpeed: 380,
+      linearThrust: [140, 140, 360],
+      angularThrust: [20, 17, 26],
+      linearDamping: 0.9,
+      angularDamping: 2.8,
+    },
+    health: {
+      shieldMax: 140,
+      shieldRegenRate: 10,
+      shieldRegenDelay: 4,
+      armorMax: 100,
+      hullMax: 120,
+    },
+    weapon: {
+      gunFireInterval: 0.14,
+      gunDamage: 12,
+      gunProjectileSpeed: 1350,
+      gunRange: 1900,
+      energyMax: 120,
+      energyRegen: 22,
+      energyPerShot: 7,
+      missiles: 8,
+      missileFireInterval: 1.0,
+    },
+    visual: {
+      kind: "primitive",
+      primitive: {
+        bodyColor: 0x6a7f8a,
+        accentColor: 0x44ddff,
+        scale: [11, 4, 16],
+        shape: "heavy",
+        engineGlow: 0x44ccff,
+      },
+    },
+  },
+
   // 敵機: 軽量で機敏な Kilrathi 系戦闘機。
   dralthi: {
     id: "dralthi",

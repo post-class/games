@@ -3,7 +3,7 @@ import type { System } from "../../ecs/System";
 import type { World } from "../../ecs/World";
 import type { EntityId } from "../../ecs/Entity";
 import { Comp, Faction } from "../components";
-import type { ThrusterInput, FlightModel, Transform, Targeting } from "../components";
+import type { ThrusterInput, FlightModel, Transform, Targeting, WeaponMount } from "../components";
 import type { AIController, WingOrder } from "../components/AIController";
 import type { InputManager } from "../input/InputManager";
 import { selectNextTarget, selectNearestTarget, selectFrontTarget } from "./TargetingSystem";
@@ -19,6 +19,7 @@ export class InputSystem implements System {
   constructor(
     private readonly input: InputManager,
     private readonly announce: (text: string) => void = () => {},
+    private readonly onDropFlare?: () => void,
   ) {}
 
   update(world: World, dt: number): void {
@@ -44,6 +45,25 @@ export class InputSystem implements System {
       ti.fireMissile = discrete.fireMissile;
 
       if (edges.toggleFlightAssist) fm.flightAssist = !fm.flightAssist;
+
+      // フレア射出。
+      if (edges.dropFlare && world.has(entity, Comp.WeaponMount)) {
+        const wm = world.getOrThrow<WeaponMount>(entity, Comp.WeaponMount);
+        if (wm.flares > 0) {
+          wm.flares--;
+          this.onDropFlare?.();
+        }
+      }
+
+      // 副兵装(ミサイル種)の巡回切替。
+      if (edges.cycleSecondary && world.has(entity, Comp.WeaponMount)) {
+        const wm = world.getOrThrow<WeaponMount>(entity, Comp.WeaponMount);
+        const secondaries = wm.secondaries;
+        if (secondaries && secondaries.length > 0) {
+          const current = wm.activeSecondary ?? 0;
+          wm.activeSecondary = (current + 1) % secondaries.length;
+        }
+      }
 
       this.handleTargeting(world, entity, edges);
     }

@@ -2,6 +2,7 @@ import "./screens.css";
 import type { MissionDefinition } from "../mission/MissionDefinition";
 import type { ObjectiveState } from "../mission/MissionManager";
 import { DIFFICULTIES, DIFFICULTY_ORDER, type Difficulty } from "../Settings";
+import { createLoadoutController, type LoadoutChoice } from "./LoadoutScreen";
 
 type Handlers = Record<string, () => void>;
 
@@ -51,6 +52,7 @@ export class MissionScreens {
   private readonly root: HTMLDivElement;
   private handlers: Handlers = {};
   private menu: MenuState | null = null;
+  private loadoutCleanup: (() => void) | null = null;
 
   constructor(container: HTMLElement) {
     this.root = document.createElement("div");
@@ -184,6 +186,16 @@ export class MissionScreens {
     }
   }
 
+  showLoadout(initial: LoadoutChoice, onConfirm: (choice: LoadoutChoice) => void): void {
+    this.handlers = {};
+    this.menu = null;
+    this.root.classList.add("show");
+    this.loadoutCleanup = createLoadoutController(this.root, initial, (choice) => {
+      this.loadoutCleanup = null;
+      onConfirm(choice);
+    });
+  }
+
   showBriefing(def: MissionDefinition, index: number, total: number, onLaunch: () => void): void {
     const brief = def.briefing.join("<br>");
     const objs = def.objectives
@@ -250,6 +262,10 @@ export class MissionScreens {
   hide(): void {
     this.handlers = {};
     this.menu = null;
+    if (this.loadoutCleanup) {
+      this.loadoutCleanup();
+      this.loadoutCleanup = null;
+    }
     this.root.classList.remove("show");
   }
 }

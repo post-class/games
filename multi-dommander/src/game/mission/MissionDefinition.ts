@@ -6,6 +6,8 @@ export interface ShipSpawn {
   position: Vec3Tuple;
   /** Y軸回転(ラジアン)。省略時はプレイヤー方向を向く。 */
   facingYaw?: number;
+  /** エースとして生成する (固有名・高技量・高耐久)。撃墜すればキルフィードに名が残る。 */
+  ace?: { name: string; skill?: number; aggression?: number; healthMul?: number };
 }
 
 /** ウェーブ出現トリガー。 */

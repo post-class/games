@@ -6,6 +6,7 @@ import type { ExplosionSystem } from "./systems/ExplosionSystem";
 import { MISSIONS, MISSION_ORDER, CAMPAIGN } from "./mission/missions";
 import { SaveManager } from "./SaveManager";
 import { DIFFICULTIES, SettingsStore, type Difficulty } from "./Settings";
+import type { LoadoutChoice } from "./ui/LoadoutScreen";
 
 /** 難易度を保持する可変ホルダ (設定画面で更新)。 */
 export interface SettingsHolder {
@@ -21,6 +22,7 @@ export class GameController {
   private currentMissionId = CAMPAIGN.start;
   private totalKills = 0;
   private cleared: string[] = [];
+  private lastLoadout: LoadoutChoice = { shipId: "rapier", gunId: "laser", secondaries: ["heat-seeker"] };
 
   constructor(
     private readonly game: Game,
@@ -110,13 +112,20 @@ export class GameController {
 
     const def = MISSIONS[this.currentMissionId];
     const index = Math.max(0, MISSION_ORDER.indexOf(this.currentMissionId as never));
-    this.screens.showBriefing(def, index, MISSION_ORDER.length, () => this.launch());
+    this.screens.showBriefing(def, index, MISSION_ORDER.length, () => this.toLoadout());
+  }
+
+  private toLoadout(): void {
+    this.screens.showLoadout(this.lastLoadout, (choice) => {
+      this.lastLoadout = choice;
+      this.launch();
+    });
   }
 
   private launch(): void {
     const def = MISSIONS[this.currentMissionId];
     this.state.kills = 0;
-    this.mission.load(def, this.game.simTime, DIFFICULTIES[this.settings.difficulty]);
+    this.mission.load(def, this.game.simTime, DIFFICULTIES[this.settings.difficulty], this.lastLoadout);
     this.state.phase = "Playing";
     this.screens.hide();
   }

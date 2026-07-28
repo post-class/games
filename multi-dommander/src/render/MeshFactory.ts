@@ -41,6 +41,8 @@ export function createShipMesh(def: ShipDefinition): Object3D {
     metalness: 0.6,
     roughness: 0.45,
     flatShading: true,
+    // scene.environment (PMREM) の反射強度。金属パネルの質感を出す。
+    envMapIntensity: 0.9,
   });
   const accent = new MeshStandardMaterial({
     color: p.accentColor,
@@ -49,51 +51,227 @@ export function createShipMesh(def: ShipDefinition): Object3D {
     emissive: p.accentColor,
     emissiveIntensity: 0.25,
     flatShading: true,
+    envMapIntensity: 0.9,
   });
 
   if (p.shape === "interceptor") {
-    // 細長い紡錘形の胴体 + 翼。
-    const hull = new Mesh(new ConeGeometry(h * 0.6, l, 6), body);
-    hull.rotation.x = Math.PI / 2; // 円錐の先端を +z に。
-    hull.scale.set(1, 1, 1);
+    // 細長い紡錘形の胴体 + 翼 (Rapier 風の鋭角戦闘機)。
+    // 主胴体: 細長い円錐形。
+    const hull = new Mesh(new CylinderGeometry(h * 0.4, h * 0.5, l * 0.6, 6), body);
+    hull.rotation.x = Math.PI / 2;
+    hull.position.z = -l * 0.05;
     group.add(hull);
-    const wing = new Mesh(new BoxGeometry(w, h * 0.3, l * 0.4), accent);
-    wing.position.z = -l * 0.1;
-    group.add(wing);
+
+    // 機首: 鋭く尖った円錐。
+    const nose = new Mesh(new ConeGeometry(h * 0.4, l * 0.4, 6), body);
+    nose.rotation.x = Math.PI / 2;
+    nose.position.z = l * 0.45;
+    group.add(nose);
+
+    // キャノピー: 中央上部のコックピット窓 (発光アクセント)。
+    const canopy = new Mesh(new SphereGeometry(h * 0.35, 6, 6), accent);
+    canopy.scale.set(0.8, 1.2, 1.4);
+    canopy.position.set(0, h * 0.3, l * 0.15);
+    group.add(canopy);
+
+    // 主翼: 後退翼 (左右対称)。
+    const wingL = new Mesh(new BoxGeometry(w * 0.35, h * 0.12, l * 0.4), body);
+    wingL.position.set(-w * 0.35, -h * 0.15, -l * 0.05);
+    wingL.rotation.z = -0.1;
+    group.add(wingL);
+    const wingR = wingL.clone();
+    wingR.position.x = w * 0.35;
+    wingR.rotation.z = 0.1;
+    group.add(wingR);
+
+    // 翼端アクセント (小さなエルロン/翼端灯)。
+    const wingTipL = new Mesh(new BoxGeometry(w * 0.08, h * 0.06, l * 0.15), accent);
+    wingTipL.position.set(-w * 0.47, -h * 0.15, -l * 0.05);
+    group.add(wingTipL);
+    const wingTipR = wingTipL.clone();
+    wingTipR.position.x = w * 0.47;
+    group.add(wingTipR);
+
+    // エンジンナセル (双発)。
+    const nacelleL = new Mesh(new CylinderGeometry(h * 0.25, h * 0.3, l * 0.35, 6), body);
+    nacelleL.rotation.x = Math.PI / 2;
+    nacelleL.position.set(-w * 0.25, -h * 0.1, -l * 0.25);
+    group.add(nacelleL);
+    const nacelleR = nacelleL.clone();
+    nacelleR.position.x = w * 0.25;
+    group.add(nacelleR);
+
+    // ナセルの発光排気口 (双発エンジングローに置き換え)。
+    const glowMat = new MeshBasicMaterial({
+      color: p.engineGlow,
+      transparent: true,
+      opacity: 0.55,
+      blending: AdditiveBlending,
+      depthWrite: false,
+    });
+    const glowL = new Mesh(new SphereGeometry(h * 0.28, 8, 8), glowMat);
+    glowL.position.set(-w * 0.25, -h * 0.1, -l * 0.45);
+    glowL.scale.set(1, 1, 1.5);
+    glowL.name = "engineGlow";
+    group.add(glowL);
+    const glowR = glowL.clone();
+    glowR.position.x = w * 0.25;
+    glowR.name = "engineGlow";
+    group.add(glowR);
+
+    // 胴体ディテール: 上部装甲パネル (グリーブル)。
+    const panel = new Mesh(new BoxGeometry(w * 0.12, h * 0.08, l * 0.25), body);
+    panel.position.set(0, h * 0.4, -l * 0.15);
+    group.add(panel);
+    return group;
   } else if (p.shape === "wedge") {
-    // 平たいデルタ翼 (Kilrathi Dralthi 風)。
-    const hull = new Mesh(new ConeGeometry(w * 0.5, l, 3), body);
+    // 平たいデルタ翼 (Kilrathi Dralthi 風の円盤型戦闘機)。
+    // 主胴体: 平たい三角錐 (上面を潰した形)。
+    const hull = new Mesh(new ConeGeometry(w * 0.45, l * 0.7, 3), body);
     hull.rotation.x = Math.PI / 2;
     hull.rotation.z = Math.PI;
+    hull.scale.set(1, 0.5, 1);
+    hull.position.z = -l * 0.05;
     group.add(hull);
-    const cockpit = new Mesh(new SphereGeometry(h * 0.6, 8, 6), accent);
-    cockpit.position.z = l * 0.1;
+
+    // 中央コックピット: 球状の発光キャノピー。
+    const cockpit = new Mesh(new SphereGeometry(h * 0.7, 8, 6), accent);
+    cockpit.scale.set(1, 0.8, 1.2);
+    cockpit.position.set(0, h * 0.1, l * 0.15);
     group.add(cockpit);
-  } else {
-    // heavy: 箱型の重戦闘機。
-    const hull = new Mesh(new BoxGeometry(w, h, l), body);
-    group.add(hull);
-    const nose = new Mesh(new ConeGeometry(h * 0.5, l * 0.4, 4), accent);
+
+    // 機首: 小さな尖った装甲。
+    const nose = new Mesh(new ConeGeometry(h * 0.3, l * 0.25, 4), body);
     nose.rotation.x = Math.PI / 2;
-    nose.position.z = l * 0.6;
+    nose.position.z = l * 0.42;
     group.add(nose);
+
+    // 左右の広い翼 (デルタ翼の張り出し部)。
+    const wingL = new Mesh(new BoxGeometry(w * 0.3, h * 0.15, l * 0.5), body);
+    wingL.position.set(-w * 0.38, 0, -l * 0.08);
+    wingL.rotation.z = -0.08;
+    group.add(wingL);
+    const wingR = wingL.clone();
+    wingR.position.x = w * 0.38;
+    wingR.rotation.z = 0.08;
+    group.add(wingR);
+
+    // 翼端武器マウント (小さなアクセント)。
+    const mountL = new Mesh(new BoxGeometry(w * 0.06, h * 0.2, l * 0.12), accent);
+    mountL.position.set(-w * 0.52, 0, 0);
+    group.add(mountL);
+    const mountR = mountL.clone();
+    mountR.position.x = w * 0.52;
+    group.add(mountR);
+
+    // 後部エンジン (中央単発)。
+    const engine = new Mesh(new CylinderGeometry(h * 0.35, h * 0.4, l * 0.3, 6), body);
+    engine.rotation.x = Math.PI / 2;
+    engine.position.z = -l * 0.3;
+    group.add(engine);
+
+    // 胴体側面ディテール (装甲グリーブル 左右2個)。
+    const detailL = new Mesh(new BoxGeometry(w * 0.08, h * 0.1, l * 0.2), body);
+    detailL.position.set(-w * 0.15, -h * 0.25, l * 0.05);
+    group.add(detailL);
+    const detailR = detailL.clone();
+    detailR.position.x = w * 0.15;
+    group.add(detailR);
+
+    // エンジングロー (中央単発なので1個のみ維持)。
+    const glowMat = new MeshBasicMaterial({
+      color: p.engineGlow,
+      transparent: true,
+      opacity: 0.55,
+      blending: AdditiveBlending,
+      depthWrite: false,
+    });
+    const glow = new Mesh(new SphereGeometry(h * 0.42, 8, 8), glowMat);
+    glow.position.z = -l * 0.48;
+    glow.scale.set(1, 1, 1.5);
+    glow.name = "engineGlow";
+    group.add(glow);
+    return group;
+  } else {
+    // heavy: 箱型の重戦闘機 (Gratha 風) と大型輸送艦 (Transport)。
+    // 主胴体: 角張った太い箱。
+    const hull = new Mesh(new BoxGeometry(w * 0.7, h * 0.8, l * 0.6), body);
+    hull.position.z = -l * 0.05;
+    group.add(hull);
+
+    // 機首装甲: 段差のある前方ブロック。
+    const noseFront = new Mesh(new BoxGeometry(w * 0.5, h * 0.6, l * 0.25), body);
+    noseFront.position.z = l * 0.38;
+    group.add(noseFront);
+    const noseTip = new Mesh(new ConeGeometry(h * 0.4, l * 0.2, 4), accent);
+    noseTip.rotation.x = Math.PI / 2;
+    noseTip.position.z = l * 0.55;
+    group.add(noseTip);
+
+    // コックピット: 上部中央の小窓 (発光)。
+    const canopy = new Mesh(new BoxGeometry(w * 0.2, h * 0.15, l * 0.18), accent);
+    canopy.position.set(0, h * 0.45, l * 0.12);
+    group.add(canopy);
+
+    // 側面装甲パネル (左右対称のディテール)。
+    const panelL = new Mesh(new BoxGeometry(w * 0.08, h * 0.5, l * 0.4), body);
+    panelL.position.set(-w * 0.39, 0, -l * 0.05);
+    group.add(panelL);
+    const panelR = panelL.clone();
+    panelR.position.x = w * 0.39;
+    group.add(panelR);
+
+    // エンジンナセル (双発・大型)。
+    const nacelleL = new Mesh(new CylinderGeometry(h * 0.35, h * 0.4, l * 0.4, 6), body);
+    nacelleL.rotation.x = Math.PI / 2;
+    nacelleL.position.set(-w * 0.3, -h * 0.15, -l * 0.25);
+    group.add(nacelleL);
+    const nacelleR = nacelleL.clone();
+    nacelleR.position.x = w * 0.3;
+    group.add(nacelleR);
+
+    // 上部装甲ブロック (重戦闘機らしいディテール)。
+    const topArmor = new Mesh(new BoxGeometry(w * 0.3, h * 0.12, l * 0.3), body);
+    topArmor.position.set(0, h * 0.46, -l * 0.15);
+    group.add(topArmor);
+
+    // 後部カーゴベイ or 装甲ブロック (Transport向けに大きめ)。
+    if (w > 15) {
+      // Transport (scale [16,12,48]) の場合は大型コンテナブロックを追加。
+      const cargo1 = new Mesh(new BoxGeometry(w * 0.6, h * 0.7, l * 0.25), body);
+      cargo1.position.z = -l * 0.3;
+      group.add(cargo1);
+      const cargo2 = new Mesh(new BoxGeometry(w * 0.5, h * 0.6, l * 0.15), body);
+      cargo2.position.z = -l * 0.48;
+      group.add(cargo2);
+      // 輸送艦の側面コンテナ (左右)。
+      const containerL = new Mesh(new BoxGeometry(w * 0.12, h * 0.4, l * 0.2), accent);
+      containerL.position.set(-w * 0.41, 0, -l * 0.3);
+      group.add(containerL);
+      const containerR = containerL.clone();
+      containerR.position.x = w * 0.41;
+      group.add(containerR);
+    }
+
+    // ナセルの双発エンジングロー (左右2個)。
+    const glowMat = new MeshBasicMaterial({
+      color: p.engineGlow,
+      transparent: true,
+      opacity: 0.55,
+      blending: AdditiveBlending,
+      depthWrite: false,
+    });
+    const glowL = new Mesh(new SphereGeometry(h * 0.38, 8, 8), glowMat);
+    glowL.position.set(-w * 0.3, -h * 0.15, -l * 0.48);
+    glowL.scale.set(1, 1, 1.5);
+    glowL.name = "engineGlow";
+    group.add(glowL);
+    const glowR = glowL.clone();
+    glowR.position.x = w * 0.3;
+    glowR.name = "engineGlow";
+    group.add(glowR);
+    return group;
   }
-
-  // エンジングロー (機体後方の発光球)。
-  const glowMat = new MeshBasicMaterial({
-    color: p.engineGlow,
-    transparent: true,
-    opacity: 0.9,
-    blending: AdditiveBlending,
-    depthWrite: false,
-  });
-  const glow = new Mesh(new SphereGeometry(h * 0.5, 8, 8), glowMat);
-  glow.position.z = -l * 0.55;
-  glow.scale.set(1, 1, 1.6);
-  glow.name = "engineGlow";
-  group.add(glow);
-
-  return group;
 }
 
 /** 弾(曳光弾)用の小さな発光メッシュ。 */

@@ -3,7 +3,7 @@ import type { System } from "../../ecs/System";
 import type { World } from "../../ecs/World";
 import type { EntityId } from "../../ecs/Entity";
 import { Comp, Faction } from "../components";
-import type { Transform, ThrusterInput, Targeting, RigidBody, WeaponMount } from "../components";
+import type { Transform, ThrusterInput, Targeting, RigidBody, WeaponMount, Health } from "../components";
 import type { AIController } from "../components/AIController";
 import { isHostile } from "../factions";
 import { computeLeadPosition } from "../../hud/ReticleCalc";
@@ -16,6 +16,95 @@ const fwdZ = new Vector3(0, 0, 1);
 const slotWorld = new Vector3();
 const leadPos = new Vector3();
 const zeroVel = new Vector3();
+const toTarget = new Vector3();
+
+/** 回避機動の定義: ThrusterInput への反映と持続時間。 */
+interface EvadeManeuver {
+  /** 機動名 (ログ/デバッグ用)。 */
+  name: string;
+  /** 機動の想定継続時間(秒)。経過後 Pursue へ戻る。 */
+  duration: number;
+  /**
+   * 機動を ThrusterInput に反映する関数。
+   * ctx: 敵との方向・距離など、t: 自機Transform、ti: 入力、stateTimer: Evade入場からの経過時間。
+   */
+  apply: (ctx: AIContext, t: Transform, ti: ThrusterInput, stateTimer: number, skill: number) => void;
+}
+
+/** 機動ライブラリ。状況に応じて Evade 入場時に選択される。 */
+const EVASIVE_MANEUVERS: Record<string, EvadeManeuver> = {
+  /** 敵と反対方向へ急旋回して離脱 (至近距離で有効)。 */
+  break: {
+    name: "break",
+    duration: 1.8,
+    apply: (ctx, t, ti, _stateTimer, skill) => {
+      if (!ctx.targetPos) return;
+      // 敵の反対方向へ機首を向ける入力 (ローカル座標で反転)。
+      toTarget.copy(ctx.targetPos).sub(t.position).normalize().negate();
+      invQ.copy(t.quaternion).conjugate();
+      dirLocal.copy(toTarget).applyQuaternion(invQ);
+      const yawErr = Math.atan2(dirLocal.x, dirLocal.z);
+      const pitchErr = Math.atan2(dirLocal.y, dirLocal.z);
+      // 技量が低いと入力に微小ノイズを加える (精度低下)。
+      const noise = (1 - skill) * 0.15 * (Math.random() - 0.5);
+      ti.angular.x = clamp(pitchErr * 2.5 + noise, -1, 1);
+      ti.angular.y = clamp(yawErr * 2.5 + noise, -1, 1);
+      ti.linear.z = 1;
+      ti.afterburner = true;
+    },
+  },
+  /** 小刻みに機首を振って弾を避ける (被弾中に有効)。 */
+  jink: {
+    name: "jink",
+    duration: 1.2,
+    apply: (_ctx, _t, ti, stateTimer, skill) => {
+      // 周期的に pitch/yaw を反転させる (サイン波)。
+      const freq = 3.5 + skill * 1.5; // 技量高いほど高周波で機敏。
+      const phase = stateTimer * freq * Math.PI;
+      const amp = 0.7 + skill * 0.2; // 技量高いほど振幅大。
+      ti.angular.x = Math.sin(phase) * amp;
+      ti.angular.y = Math.cos(phase * 1.3) * amp; // 位相をずらして不規則に。
+      ti.linear.z = 0.9;
+      ti.afterburner = false;
+    },
+  },
+  /** ロールしながら前進 (弾幕をかわしつつ距離を維持)。 */
+  barrelRoll: {
+    name: "barrelRoll",
+    duration: 2.0,
+    apply: (_ctx, _t, ti, stateTimer, skill) => {
+      // ロール入力 + 軽い pitch で螺旋軌道。
+      const rollSpeed = 1.8 + skill * 0.5;
+      ti.angular.z = rollSpeed;
+      ti.angular.x = 0.3 * Math.sin(stateTimer * rollSpeed * Math.PI);
+      ti.linear.z = 0.85;
+      ti.afterburner = false;
+    },
+  },
+  /** 全開+ABで距離を取り仕切り直し (劣勢時)。 */
+  extend: {
+    name: "extend",
+    duration: 2.5,
+    apply: (ctx, t, ti, _stateTimer, skill) => {
+      // 敵から遠ざかる方向へ機首を向けつつ全開加速。
+      if (!ctx.targetPos) {
+        ti.linear.z = 1;
+        ti.afterburner = true;
+        return;
+      }
+      toTarget.copy(ctx.targetPos).sub(t.position).normalize().negate();
+      invQ.copy(t.quaternion).conjugate();
+      dirLocal.copy(toTarget).applyQuaternion(invQ);
+      const yawErr = Math.atan2(dirLocal.x, dirLocal.z);
+      const pitchErr = Math.atan2(dirLocal.y, dirLocal.z);
+      const noise = (1 - skill) * 0.1 * (Math.random() - 0.5);
+      ti.angular.x = clamp(pitchErr * 2.0 + noise, -1, 1);
+      ti.angular.y = clamp(yawErr * 2.0 + noise, -1, 1);
+      ti.linear.z = 1;
+      ti.afterburner = true;
+    },
+  },
+};
 
 interface AIContext {
   hasTarget: boolean;
@@ -76,13 +165,61 @@ export class AISystem implements System {
     ti: ThrusterInput,
     myFaction: Faction,
   ): void {
+    // 士気初期化 (初回のみ)。
+    if (ai.morale === undefined) ai.morale = 1.0;
+
+    // 士気計算: HP低下と孤立で低下。
+    this.updateMorale(world, self, ai, myFaction);
+
+    // 離脱中は戦闘放棄して逃走。
+    if (ai.fleeing) {
+      ti.linear.z = 1;
+      ti.afterburner = true;
+      // 敵から離れる方向へ旋回。
+      if (ai.target && this.targetValid(world, ai.target)) {
+        const tt = world.getOrThrow<Transform>(ai.target, Comp.Transform);
+        toTarget.copy(tt.position).sub(t.position).normalize().negate();
+        invQ.copy(t.quaternion).conjugate();
+        dirLocal.copy(toTarget).applyQuaternion(invQ);
+        ti.angular.y = clamp(Math.atan2(dirLocal.x, dirLocal.z) * 2, -1, 1);
+        ti.angular.x = clamp(Math.atan2(dirLocal.y, dirLocal.z) * 2, -1, 1);
+      }
+      return;
+    }
+
     if (!this.targetValid(world, ai.target)) {
       ai.target = this.findNearestHostile(world, self, myFaction, t.position, ai.detectRange);
     }
     const ctx = this.buildContext(world, ai.target, t);
     const next = this.transition(ai, ctx);
-    this.applyStateChange(ai, next);
+    this.applyStateChange(next, ai, world, self, ctx);
     this.combatAction(world, self, ai, ctx, ti, t);
+  }
+
+  private updateMorale(world: World, self: EntityId, ai: AIController, myFaction: Faction): void {
+    const health = world.get<Health>(self, Comp.Health);
+    if (!health) return;
+
+    const hpRatio = (health.shield + health.armor + health.hull) /
+      (health.shieldMax + health.armorMax + health.hullMax);
+
+    // HP低下で士気ダメージ。
+    const hpPenalty = (1 - hpRatio) * 0.4;
+
+    // 孤立ペナルティ: 味方が少ないほど士気低下。
+    const allies = world.query(Comp.Faction, Comp.Health)
+      .filter(e => e !== self && world.get<Faction>(e, Comp.Faction) === myFaction);
+    const isolationPenalty = allies.length === 0 ? 0.25 : allies.length === 1 ? 0.1 : 0;
+
+    // 技量が高い(エース)ほど士気が維持される。
+    const skillBonus = (ai.skill ?? 0.5) * 0.2;
+
+    ai.morale = clamp(1.0 - hpPenalty - isolationPenalty + skillBonus, 0, 1);
+
+    // 士気閾値で離脱判定。
+    if (!ai.fleeing && ai.morale < 0.25) {
+      ai.fleeing = true;
+    }
   }
 
   // ---- ally (僚機) ----
@@ -117,7 +254,7 @@ export class AISystem implements System {
       ai.target = target;
       const ctx = this.buildContext(world, target, t);
       const next = this.transition(ai, ctx);
-      this.applyStateChange(ai, next);
+      this.applyStateChange(next, ai, world, self, ctx);
       this.combatAction(world, self, ai, ctx, ti, t);
       return;
     }
@@ -221,16 +358,46 @@ export class AISystem implements System {
     return { hasTarget: true, distance, aimDot, targetPos: tt.position };
   }
 
-  private transition(ai: AIController, ctx: AIContext): AIController["state"] {
-    return evaluateTransition(ai, ctx);
+  private transition(controller: AIController, ctx: AIContext): AIController["state"] {
+    return evaluateTransition(controller, ctx);
   }
 
-  private applyStateChange(ai: AIController, next: AIController["state"]): void {
-    if (next !== ai.state) {
-      ai.state = next;
+  /**
+   * 状況に応じて回避機動を選択する (Evade入場時)。
+   * - 至近距離: break (反対方向へ急旋回)
+   * - 被弾中/中距離: jink (小刻みに機首を振る) または barrelRoll (ロール回避)
+   * - 劣勢/遠距離: extend (全開で距離を取る)
+   */
+  private selectEvadeManeuver(_ai: AIController, ctx: AIContext, world: World, self: EntityId): string {
+    const health = world.get<{ current: number; max: number }>(self, Comp.Health);
+    const hpRatio = health ? health.current / health.max : 1.0;
+    const dist = ctx.distance;
+    const rand = Math.random();
+
+    // 至近距離 (<150m) は break 優先。
+    if (dist < 150) {
+      return rand < 0.7 ? "break" : "jink";
+    }
+    // 被弾して HP 50% 以下なら jink で弾避け優先。
+    if (hpRatio < 0.5) {
+      return rand < 0.6 ? "jink" : "barrelRoll";
+    }
+    // 劣勢 (HP 70% 以下) または遠距離 (>400m) は extend で離脱。
+    if (hpRatio < 0.7 || dist > 400) {
+      return rand < 0.7 ? "extend" : "break";
+    }
+    // 中距離・互角: jink/barrelRoll をランダム。
+    return rand < 0.5 ? "jink" : "barrelRoll";
+  }
+
+  private applyStateChange(newState: AIController["state"], ai: AIController, world: World, self: EntityId, ctx: AIContext): void {
+    if (newState !== ai.state) {
+      ai.state = newState;
       ai.stateTimer = 0;
-      if (next === "Evade") {
-        ai.evadeDir = new Vector3(Math.random() * 2 - 1, Math.random() * 2 - 1, 0.3).normalize();
+      if (newState === "Evade") {
+        // 機動選択 (旧 evadeDir 乱数は廃止)。
+        ai.evadeManeuver = this.selectEvadeManeuver(ai, ctx, world, self);
+        ai.evadeDir = null; // 機動ライブラリ側で制御するため不要。
       }
     }
   }
@@ -267,11 +434,19 @@ export class AISystem implements System {
       return;
     }
 
-    if (ai.state === "Evade" && ai.evadeDir) {
-      ti.angular.x = clamp(ai.evadeDir.y, -1, 1);
-      ti.angular.y = clamp(ai.evadeDir.x, -1, 1);
-      ti.linear.z = 1;
-      ti.afterburner = true;
+    // 技量の導出 (未設定時は aggression から)。
+    const skill = ai.skill !== undefined ? ai.skill : 0.4 + ai.aggression * 0.5;
+
+    if (ai.state === "Evade") {
+      // 機動ライブラリを使用 (旧 evadeDir 方式は廃止)。
+      const maneuver = ai.evadeManeuver ? EVASIVE_MANEUVERS[ai.evadeManeuver] : undefined;
+      if (maneuver) {
+        maneuver.apply(ctx, t, ti, ai.stateTimer, skill);
+      } else {
+        // フォールバック (未定義時は全開離脱)。
+        ti.linear.z = 1;
+        ti.afterburner = true;
+      }
       return;
     }
 
@@ -287,6 +462,13 @@ export class AISystem implements System {
     this.aimAt(t, dirWorld, ti, rb.angularVelocity);
     const fwd = fwdZ.clone().applyQuaternion(t.quaternion);
     const leadDot = dirWorld.dot(fwd);
+
+    // Attack 中にたまに軽い jink を混ぜて直線的すぎない動き (10%の確率で微小な振動)。
+    if (ai.state === "Attack" && Math.random() < 0.1) {
+      const jinkAmp = 0.15 * skill; // 技量高いほど振幅小 (精密)。
+      ti.angular.x += (Math.random() - 0.5) * jinkAmp;
+      ti.angular.y += (Math.random() - 0.5) * jinkAmp;
+    }
 
     // ジョスト方式のスロットル制御:
     // - 至近距離で減速して団子化するのを避け、全速で突き抜けて離脱 (extension)。
@@ -307,32 +489,43 @@ export class AISystem implements System {
     }
 
     // 予測点に機首が合っていて射撃帯内なら発砲。
-    if (leadDot > 0.96 && ctx.distance < firingBand * 2) {
+    // 技量が低いほど閾値を緩める (0.96 → 0.92 程度)。技量高いほど厳しく (0.96 → 0.97)。
+    const leadThreshold = 0.96 + (skill - 0.5) * 0.02; // skill=0→0.95, skill=1→0.97
+    if (leadDot > leadThreshold && ctx.distance < firingBand * 2) {
       ti.firePrimary = true;
+    }
+
+    // 中距離で正面を捉えたらミサイルを撃つ (残弾/クールダウンは WeaponSystem が管理)。
+    if (wm && wm.missiles > 0 && leadDot > 0.9 && ctx.distance > 250 && ctx.distance < 1400) {
+      ti.fireMissile = true;
     }
   }
 }
 
 /** 状態遷移の純関数。現状態とコンテキストから次状態を返す。 */
-export function evaluateTransition(ai: AIController, ctx: AIContext): AIController["state"] {
+export function evaluateTransition(controller: AIController, ctx: AIContext): AIController["state"] {
   if (!ctx.hasTarget) return "Idle";
 
-  switch (ai.state) {
+  switch (controller.state) {
     case "Idle":
     case "Form":
       return "Pursue";
     case "Pursue":
-      if (ctx.aimDot > 0.9 && ctx.distance < ai.attackRange) return "Attack";
+      if (ctx.aimDot > 0.9 && ctx.distance < controller.attackRange) return "Attack";
       return "Pursue";
     case "Attack":
-      if (ai.stateTimer > 3 + ai.aggression * 2 && ctx.distance < ai.attackRange * 0.45) {
+      if (controller.stateTimer > 3 + controller.aggression * 2 && ctx.distance < controller.attackRange * 0.45) {
         return "Evade";
       }
-      if (ctx.aimDot < 0.55 || ctx.distance > ai.attackRange * 1.25) return "Pursue";
+      if (ctx.aimDot < 0.55 || ctx.distance > controller.attackRange * 1.25) return "Pursue";
       return "Attack";
-    case "Evade":
-      if (ai.stateTimer > 1.5) return "Pursue";
+    case "Evade": {
+      // 機動ごとの持続時間を参照 (未定義時は 1.5秒)。
+      const maneuver = controller.evadeManeuver ? EVASIVE_MANEUVERS[controller.evadeManeuver] : undefined;
+      const duration = maneuver ? maneuver.duration : 1.5;
+      if (controller.stateTimer > duration) return "Pursue";
       return "Evade";
+    }
     default:
       return "Pursue";
   }

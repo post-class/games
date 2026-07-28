@@ -25,6 +25,18 @@
   bottom: 24px;
   text-align: right;
 }
+
+.hud-secondary {
+  position: absolute;
+  right: 24px;
+  bottom: 88px;
+  text-align: right;
+  font-size: 12px;
+  color: #3fd0ff;
+  text-shadow: 0 0 4px rgba(63, 208, 255, 0.6);
+  letter-spacing: 0.05em;
+  display: none;
+}
 .hud-top-left {
   left: 24px;
   top: 20px;
@@ -188,4 +200,113 @@
   color: #3fd0ff;
   text-shadow: 0 0 4px rgba(63, 208, 255, 0.6);
   display: none;
+}
+
+/* ヒットマーカー */
+.hud-hitmarker {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 32px;
+  height: 32px;
+  margin: -16px 0 0 -16px;
+  pointer-events: none;
+  opacity: 0;
+}
+.hud-hitmarker::before,
+.hud-hitmarker::after {
+  content: "";
+  position: absolute;
+  background: rgba(255, 255, 100, 0.9);
+  box-shadow: 0 0 6px rgba(255, 255, 100, 0.8);
+}
+.hud-hitmarker::before {
+  left: 50%;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  transform: translateX(-50%);
+}
+.hud-hitmarker::after {
+  top: 50%;
+  left: 0;
+  height: 2px;
+  width: 100%;
+  transform: translateY(-50%);
+}
+.hud-hitmarker.flash {
+  animation: hitmarkerFlash 0.15s ease-out;
+}
+@keyframes hitmarkerFlash {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+
+/* キルフィード */
+.hud-killfeed {
+  position: absolute;
+  right: 28px;
+  top: 160px;
+  text-align: right;
+  font-size: 14px;
+  color: #ffe14d;
+  text-shadow: 0 0 4px rgba(255, 225, 77, 0.7);
+  pointer-events: none;
+}
+.hud-killfeed-entry {
+  margin-bottom: 6px;
+  transition: opacity 0.3s ease-out;
+}
+.hud-killfeed-entry.ace {
+  color: #ffd700;
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.6);
+  font-weight: bold;
+}
+
+/* ダメージビネット */
+.hud-damage-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: inset 0 0 120px 60px rgba(255, 60, 60, var(--intensity, 0.4));
+  border-radius: 2px;
+}
+.hud-damage-vignette.flash-shield {
+  box-shadow: inset 0 0 120px 60px rgba(60, 180, 255, var(--intensity, 0.3));
+}
+.hud-damage-vignette.flash {
+  animation: vignetteFlash 0.4s ease-out;
+}
+@keyframes vignetteFlash {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* 被ロック(ミサイル飛来)警告 */
+.hud-missile-warning {
+  position: absolute;
+  left: 50%;
+  top: 96px;
+  transform: translateX(-50%);
+  padding: 3px 12px;
+  font-size: 18px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  color: #ff4d4d;
+  border: 1px solid rgba(255, 77, 77, 0.7);
+  border-radius: 3px;
+  text-shadow: 0 0 8px rgba(255, 77, 77, 0.9);
+  background: rgba(60, 0, 0, 0.25);
+  pointer-events: none;
+  display: none;
+}
+.hud-missile-warning.active {
+  display: block;
+  animation: missileWarnBlink 0.5s steps(1) infinite;
+}
+@keyframes missileWarnBlink {
+  0% { opacity: 1; }
+  50% { opacity: 0.25; }
+  100% { opacity: 1; }
 }

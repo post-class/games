@@ -18,7 +18,6 @@ export const MISSIONS: Record<string, MissionDefinition> = {
     playerSpawn: [0, 0, 0],
     wingmen: [
       { shipId: "rapier", position: [-45, 0, -40], combatant: true },
-      { shipId: "rapier", position: [45, 0, -40], combatant: true },
     ],
     neutrals: [],
     navPoints: [],
@@ -29,12 +28,20 @@ export const MISSIONS: Record<string, MissionDefinition> = {
         ships: [
           { shipId: "dralthi", position: [-120, 30, 700] },
           { shipId: "dralthi", position: [120, -20, 780] },
+          { shipId: "dralthi", position: [0, 60, 820] },
         ],
       },
       {
         trigger: { type: "afterWave", wave: 0 },
-        announce: "警告: 第2波接近！",
-        ships: [{ shipId: "dralthi", position: [0, 20, 1000] }],
+        announce: "警告: 敵エース «Khajja» を確認！",
+        ships: [
+          {
+            shipId: "dralthi",
+            position: [-80, 20, 1000],
+            ace: { name: "Khajja nar Ragitika", skill: 0.9, aggression: 0.85, healthMul: 1.5 },
+          },
+          { shipId: "dralthi", position: [90, -30, 1050] },
+        ],
       },
     ],
     objectives: [{ id: "kill", label: "敵機を全滅させる", type: "destroyAll" }],
@@ -101,7 +108,11 @@ export const MISSIONS: Record<string, MissionDefinition> = {
       {
         trigger: { type: "start" },
         ships: [
-          { shipId: "gratha", position: [-150, 40, 2900] },
+          {
+            shipId: "gratha",
+            position: [-150, 40, 2900],
+            ace: { name: "Dakhath «Deathstroke»", skill: 0.97, aggression: 0.95, healthMul: 1.8 },
+          },
           { shipId: "gratha", position: [150, -30, 2950] },
         ],
       },
@@ -121,10 +132,80 @@ export const MISSIONS: Record<string, MissionDefinition> = {
     successText: "敵前哨を制圧した。帰投せよ。",
     failText: "任務失敗。",
   },
+
+  // M4: 防衛 — 母艦を波状攻撃から守り抜く。
+  defense: {
+    id: "defense",
+    name: "防衛戦 — TCS Victory",
+    briefing: [
+      "我が母艦 TCS Victory が Kilrathi の大規模攻撃を受けている。",
+      "波状攻撃を撃退し、Victory を守り抜け。",
+      "4波にわたる攻撃が予想される。持ちこたえろ。",
+    ],
+    playerShipId: "rapier",
+    playerSpawn: [0, 0, -80],
+    wingmen: [
+      { shipId: "rapier", position: [-50, 0, -60], combatant: true },
+      { shipId: "rapier", position: [50, 0, -60], combatant: true },
+    ],
+    neutrals: [
+      { shipId: "transport", position: [0, 0, 200], tag: "victory", combatant: false },
+    ],
+    navPoints: [],
+    waves: [
+      {
+        trigger: { type: "start" },
+        announce: "第1波、接近中！",
+        ships: [
+          { shipId: "dralthi", position: [-200, 40, 1200] },
+          { shipId: "dralthi", position: [200, -30, 1250] },
+          { shipId: "dralthi", position: [0, 60, 1300] },
+        ],
+      },
+      {
+        trigger: { type: "time", seconds: 30 },
+        announce: "第2波: 重戦闘機を含む編隊！",
+        ships: [
+          { shipId: "gratha", position: [-150, 20, 1400] },
+          { shipId: "dralthi", position: [150, -40, 1350] },
+          { shipId: "dralthi", position: [0, 80, 1500] },
+        ],
+      },
+      {
+        trigger: { type: "time", seconds: 60 },
+        announce: "第3波: 左右から挟撃！",
+        ships: [
+          { shipId: "dralthi", position: [-400, 0, 800] },
+          { shipId: "gratha", position: [400, 0, 800] },
+          { shipId: "dralthi", position: [-350, 50, 900] },
+        ],
+      },
+      {
+        trigger: { type: "time", seconds: 90 },
+        announce: "最終波: エース «Bhurak» 率いる精鋭部隊！",
+        ships: [
+          {
+            shipId: "gratha",
+            position: [0, 40, 1600],
+            ace: { name: "Bhurak nar Caxki", skill: 0.95, aggression: 0.9, healthMul: 2.0 },
+          },
+          { shipId: "gratha", position: [-180, -20, 1550] },
+          { shipId: "dralthi", position: [180, 60, 1650] },
+          { shipId: "dralthi", position: [0, -60, 1700] },
+        ],
+      },
+    ],
+    objectives: [
+      { id: "protect", label: "TCS Victory を守る", type: "protect", tag: "victory" },
+      { id: "kill", label: "全攻撃波を撃退", type: "destroyAll" },
+    ],
+    successText: "Victory は健在だ。全攻撃波を撃退した。",
+    failText: "Victory が…我々は敗北した。",
+  },
 };
 
 /** ミッション表示順 (ブリーフィングの「X/Y」表示に使用)。 */
-export const MISSION_ORDER = ["patrol", "escort", "strike"] as const;
+export const MISSION_ORDER = ["patrol", "escort", "strike", "defense"] as const;
 
 /**
  * キャンペーン分岐グラフ。
@@ -143,6 +224,7 @@ export const CAMPAIGN: { start: string; nodes: Record<string, CampaignNode> } = 
   nodes: {
     patrol: { success: "escort", failure: "retry" },
     escort: { success: "strike", failure: "retry" },
-    strike: { success: null, failure: "retry" },
+    strike: { success: "defense", failure: "retry" },
+    defense: { success: null, failure: "retry" },
   },
 };

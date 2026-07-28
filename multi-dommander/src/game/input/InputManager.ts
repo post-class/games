@@ -18,6 +18,8 @@ export interface DiscreteActions {
 
 /** エッジ検出付きの1回だけ発火するアクション。 */
 export interface EdgeActions {
+  dropFlare: boolean;
+  cycleSecondary: boolean;
   toggleFlightAssist: boolean;
   cycleTargetNext: boolean;
   cycleTargetNearest: boolean;
@@ -126,6 +128,8 @@ export class InputManager {
   /** エッジアクションを取り出す。呼び出し側は毎フレーム clearEdges() すること。 */
   sampleEdges(): EdgeActions {
     return {
+      dropFlare: this.justPressed.has("dropFlare"),
+      cycleSecondary: this.justPressed.has("cycleSecondary"),
       toggleFlightAssist: this.justPressed.has("toggleFlightAssist"),
       cycleTargetNext: this.justPressed.has("cycleTargetNext"),
       cycleTargetNearest: this.justPressed.has("cycleTargetNearest"),

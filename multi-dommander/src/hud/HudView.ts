@@ -1,5 +1,7 @@
 import "./hud.css";
 import type { GamePhase, MissionResult } from "../game/GameState";
+import type { EventBus } from "../util/EventBus";
+import type { EntityId } from "../ecs/Entity";
 
 export interface RadarContact {
   x: number;
@@ -47,6 +49,9 @@ export interface HudData {
   hullPct: number;
   energyPct: number;
   missiles: number;
+  flares: number;
+  secondaryName: string;
+  secondaryAmmo: number;
   kills: number;
   enemiesLeft: number;
   missionName: string;
@@ -62,12 +67,18 @@ export interface HudData {
 
 const RADAR_SIZE = 150;
 
+interface KillFeedEntry {
+  text: string;
+  timestamp: number;
+}
+
 /** DOM/CSS ベースの HUD。3D空間の座標計算は呼び出し側 (HudSystem) が行う。 */
 export class HudView {
   private readonly root: HTMLDivElement;
   private readonly speedEl: HTMLDivElement;
   private readonly statusEl: HTMLDivElement;
   private readonly weaponEl: HTMLDivElement;
+  private readonly secondaryEl: HTMLDivElement;
   private readonly objectiveEl: HTMLDivElement;
   private readonly reticle: HTMLDivElement;
   private readonly lead: HTMLDivElement;
@@ -81,6 +92,11 @@ export class HudView {
   private readonly radarCanvas: HTMLCanvasElement;
   private readonly radarCtx: CanvasRenderingContext2D;
   private readonly centerMsg: HTMLDivElement;
+  private readonly hitMarker: HTMLDivElement;
+  private readonly killfeedEl: HTMLDivElement;
+  private readonly damageVignette: HTMLDivElement;
+  private readonly missileWarnEl: HTMLDivElement;
+  private killFeed: KillFeedEntry[] = [];
 
   constructor(container: HTMLElement) {
     this.root = el("div", "hud");
@@ -88,6 +104,7 @@ export class HudView {
     this.speedEl = el("div", "hud-corner hud-bottom-left");
     this.statusEl = el("div", "hud-corner hud-top-left");
     this.weaponEl = el("div", "hud-corner hud-bottom-right");
+    this.secondaryEl = el("div", "hud-secondary");
     this.objectiveEl = el("div", "hud-corner hud-top-right");
 
     this.reticle = el("div", "hud-reticle");
@@ -110,6 +127,12 @@ export class HudView {
     this.centerMsg = el("div", "hud-center-msg");
     this.centerMsg.innerHTML = "<h1></h1><p></p>";
 
+    this.hitMarker = el("div", "hud-hitmarker");
+    this.killfeedEl = el("div", "hud-killfeed");
+    this.damageVignette = el("div", "hud-damage-vignette");
+    this.missileWarnEl = el("div", "hud-missile-warning");
+    this.missileWarnEl.textContent = "⚠ MISSILE";
+
     this.reticle.style.left = "50%";
     this.reticle.style.top = "50%";
 
@@ -117,6 +140,7 @@ export class HudView {
       this.speedEl,
       this.statusEl,
       this.weaponEl,
+      this.secondaryEl,
       this.objectiveEl,
       this.reticle,
       this.lead,
@@ -128,6 +152,10 @@ export class HudView {
       this.messagesEl,
       this.radarCanvas,
       this.centerMsg,
+      this.hitMarker,
+      this.killfeedEl,
+      this.damageVignette,
+      this.missileWarnEl,
     );
     container.appendChild(this.root);
   }
@@ -150,18 +178,35 @@ export class HudView {
         bar("HULL", "bar-hull", d.hullPct);
 
       this.weaponEl.innerHTML =
-        bar("ENGY", "bar-energy", d.energyPct) + `MSL <b>${d.missiles}</b>`;
+        bar("ENGY", "bar-energy", d.energyPct) +
+        `MSL <b>${d.missiles}</b>  FLR <b>${d.flares}</b>`;
+
+      if (d.secondaryName) {
+        this.secondaryEl.style.display = "block";
+        this.secondaryEl.textContent = `▸ ${d.secondaryName} [${d.secondaryAmmo}]`;
+      } else {
+        this.secondaryEl.style.display = "none";
+        this.secondaryEl.textContent = "";
+      }
 
       this.objectiveEl.innerHTML = this.renderObjectives(d);
       this.updateTarget(d);
       this.updateNav(d.nav);
       this.drawRadar(d.radar);
       this.renderMessages(d.messages);
+      this.updateKillFeed();
     } else {
       this.messagesEl.textContent = "";
+      this.killFeed = [];
+      this.killfeedEl.innerHTML = "";
     }
 
     this.updateCenterMsg(d);
+  }
+
+  /** 被ロック(誘導ミサイル飛来)警告の表示切替。プレイ中のみ表示。 */
+  setMissileWarning(on: boolean): void {
+    this.missileWarnEl.classList.toggle("active", on);
   }
 
   private setFlightHudVisible(v: boolean): void {
@@ -170,6 +215,7 @@ export class HudView {
       this.speedEl,
       this.statusEl,
       this.weaponEl,
+      this.secondaryEl,
       this.objectiveEl,
       this.reticle,
       this.radarCanvas,
@@ -316,6 +362,104 @@ export class HudView {
   private updateCenterMsg(_d: HudData): void {
     // デブリーフ表示は MissionScreens が担うため、HUD 中央メッセージは常に非表示。
     this.centerMsg.style.display = "none";
+  }
+
+  /**
+   * HUD演出フィードバックの購読。bootstrap から呼ぶ想定。
+   * @param events - EventBus インスタンス
+   * @param isPlayer - エンティティがプレイヤーか判定する関数
+   * @param resolveName - エンティティ名を解決する関数(optional)
+   */
+  subscribeFeedback(
+    events: EventBus,
+    isPlayer: (id: EntityId) => boolean,
+    resolveName?: (id: EntityId) => string,
+  ): void {
+    events.on("hit", (e) => {
+      // プレイヤーが命中させた→ヒットマーカー表示
+      if (isPlayer(e.source)) {
+        this.flashHitMarker();
+      }
+      // プレイヤーが被弾→ダメージビネット(赤)
+      if (isPlayer(e.target)) {
+        this.flashDamageVignette(0.4, "damage");
+      }
+    });
+
+    events.on("destroyed", (e) => {
+      // プレイヤーが撃墜した→キルフィード追加
+      if (e.source && isPlayer(e.source)) {
+        const text = this.buildKillFeedText(e.entity, e.faction, resolveName);
+        this.addKillFeed(text);
+      }
+    });
+
+    events.on("shieldHit", (e) => {
+      // プレイヤーのシールド被弾→ビネット(青系で差別化)
+      if (isPlayer(e.entity)) {
+        this.flashDamageVignette(0.3, "shield");
+      }
+    });
+  }
+
+  private buildKillFeedText(
+    entity: EntityId,
+    faction: number,
+    resolveName?: (id: EntityId) => string,
+  ): string {
+    if (resolveName) {
+      const name = resolveName(entity);
+      return `撃墜: ${name}`;
+    }
+    // Faction: Player=0, Ally=1, Enemy=2, Neutral=3
+    switch (faction) {
+      case 2:
+        return "敵機撃墜";
+      case 1:
+        return "友軍機撃墜"; // 本来起きないが念のため
+      case 3:
+        return "中立機撃墜";
+      default:
+        return "撃墜";
+    }
+  }
+
+  private flashHitMarker(): void {
+    this.hitMarker.classList.remove("flash");
+    void this.hitMarker.offsetWidth; // reflow
+    this.hitMarker.classList.add("flash");
+  }
+
+  private flashDamageVignette(intensity: number, kind: "damage" | "shield"): void {
+    this.damageVignette.classList.remove("flash", "flash-damage", "flash-shield");
+    this.damageVignette.style.setProperty("--intensity", String(intensity));
+    void this.damageVignette.offsetWidth;
+    this.damageVignette.classList.add("flash", kind === "shield" ? "flash-shield" : "flash-damage");
+  }
+
+  private addKillFeed(text: string): void {
+    const now = performance.now();
+    this.killFeed.push({ text, timestamp: now });
+    // 最大5件に制限
+    if (this.killFeed.length > 5) {
+      this.killFeed.shift();
+    }
+  }
+
+  private updateKillFeed(): void {
+    const now = performance.now();
+    const MAX_AGE = 5000; // 5秒でフェードアウト
+    // 寿命切れを除去
+    this.killFeed = this.killFeed.filter((e) => now - e.timestamp < MAX_AGE);
+    // 再描画
+    this.killfeedEl.innerHTML = this.killFeed
+      .map((e) => {
+        const age = now - e.timestamp;
+        const opacity = Math.max(0, 1 - age / MAX_AGE);
+        const cls = e.text.startsWith("撃墜: ★") ? "hud-killfeed-entry ace" : "hud-killfeed-entry";
+        return `<div class="${cls}" style="opacity:${opacity.toFixed(2)}">${e.text}</div>`;
+      })
+      .join("");
   }
 
   dispose(): void {

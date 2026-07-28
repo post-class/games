@@ -1,9 +1,12 @@
 import type { System } from "../../ecs/System";
 import type { World } from "../../ecs/World";
 import type { EntityId } from "../../ecs/Entity";
+import { Vector3 } from "three";
 import { Comp, Faction } from "../components";
-import type { Health, Transform } from "../components";
+import type { Health, Transform, RigidBody } from "../components";
 import type { EventBus } from "../../util/EventBus";
+
+const zeroVel = new Vector3();
 
 /**
  * ダメージを shield -> armor -> hull の順に適用する純関数。
@@ -61,10 +64,14 @@ export class DamageSystem implements System {
     // 呼び出し元が Transform 保有をクエリ済み。
     const t = world.getOrThrow<Transform>(entity, Comp.Transform);
     const faction = world.get<Faction>(entity, Comp.Faction) ?? Faction.Neutral;
+    const rb = world.get<RigidBody>(entity, Comp.RigidBody);
+    const health = world.get<Health>(entity, Comp.Health);
     this.events.emit("destroyed", {
       entity,
       position: t.position.clone(),
       faction,
+      velocity: (rb ? rb.velocity : zeroVel).clone(),
+      source: health?.lastHitBy ?? null,
     });
     world.destroyEntity(entity);
   }

@@ -16,6 +16,7 @@ import type {
 import type { ShipDefinition } from "./ShipDefinition";
 import { createShipMesh } from "../../render/MeshFactory";
 import type { Scene } from "three";
+import { WEAPON_DEFS } from "../weapons/WeaponDefs";
 
 export interface SpawnOptions {
   position: Vector3;
@@ -33,6 +34,10 @@ export interface SpawnMods {
   healthMul?: number;
   damageMul?: number;
   fireIntervalMul?: number;
+  /** 搭載する砲の WeaponDef ID (省略時は ShipWeaponDef からアダプタ)。 */
+  gunId?: string;
+  /** 搭載する副兵装 WeaponDef ID リスト (省略時は既定 heat-seeker)。 */
+  secondaries?: string[];
 }
 
 /** ShipDefinition から ECS エンティティを生成し、メッシュをシーンに追加する。 */
@@ -101,20 +106,36 @@ export function spawnShip(
   };
   world.add(entity, Comp.Health, health);
 
+  const gunId = mods.gunId;
+  const gunDef = gunId ? WEAPON_DEFS[gunId] : undefined;
+  const secondaries = mods.secondaries ?? ["heat-seeker"];
+  const secondaryAmmo: Record<string, number> = {};
+  for (const sid of secondaries) {
+    const wd = WEAPON_DEFS[sid];
+    if (wd) secondaryAmmo[sid] = wd.ammoMax ?? 0;
+  }
+
   const weapon: WeaponMount = {
     gunCooldown: 0,
-    gunFireInterval: def.weapon.gunFireInterval * fireIntervalMul,
-    gunDamage: def.weapon.gunDamage * damageMul,
-    gunProjectileSpeed: def.weapon.gunProjectileSpeed,
-    gunRange: def.weapon.gunRange,
+    gunFireInterval: (gunDef?.fireInterval ?? def.weapon.gunFireInterval) * fireIntervalMul,
+    gunDamage: (gunDef?.damage ?? def.weapon.gunDamage) * damageMul,
+    gunProjectileSpeed: gunDef?.projectileSpeed ?? def.weapon.gunProjectileSpeed,
+    gunRange: gunDef?.range ?? def.weapon.gunRange,
     energy: def.weapon.energyMax,
     energyMax: def.weapon.energyMax,
     energyRegen: def.weapon.energyRegen,
-    energyPerShot: def.weapon.energyPerShot,
+    energyPerShot: gunDef?.energyPerShot ?? def.weapon.energyPerShot,
     hardpoints: def.hardpoints.map((h) => new Vector3(...h)),
     missiles: def.weapon.missiles,
     missileCooldown: 0,
     missileFireInterval: def.weapon.missileFireInterval,
+    flares: 8,
+    gunId: gunId,
+    secondaries,
+    activeSecondary: 0,
+    secondaryAmmo,
+    gunColor: gunDef?.color,
+    gunVisual: gunDef?.projectileVisual,
   };
   world.add(entity, Comp.WeaponMount, weapon);
 

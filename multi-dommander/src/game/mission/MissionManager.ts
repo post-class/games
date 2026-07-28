@@ -2,13 +2,14 @@ import { Vector3, Quaternion, type Scene, type Object3D } from "three";
 import type { World } from "../../ecs/World";
 import type { EntityId } from "../../ecs/Entity";
 import { Comp, Faction } from "../components";
-import type { Targeting } from "../components";
+import type { Targeting, ShipInfo } from "../components";
 import type { AIController } from "../components/AIController";
 import { SHIP_DEFS } from "../ships/shipDefinitions";
 import { spawnShip } from "../ships/ShipFactory";
 import { createNavMarker } from "../../render/MeshFactory";
 import type { MissionDefinition, ShipSpawn, AllySpawn } from "./MissionDefinition";
 import { DIFFICULTIES, type DifficultyMods } from "../Settings";
+import type { LoadoutChoice } from "../ui/LoadoutScreen";
 
 export type MissionOutcome = "active" | "success" | "failure";
 
@@ -65,7 +66,7 @@ export class MissionManager {
   }
 
   /** ミッションを読み込み、初期エンティティを生成する。mods 省略時は等倍 (normal)。 */
-  load(def: MissionDefinition, simTime: number, mods: DifficultyMods = DIFFICULTIES.normal): void {
+  load(def: MissionDefinition, simTime: number, mods: DifficultyMods = DIFFICULTIES.normal, loadout?: LoadoutChoice): void {
     this.def = def;
     this.mods = mods;
     this.startTime = simTime;
@@ -76,8 +77,8 @@ export class MissionManager {
     this.tagEntities.clear();
     this.announcements = [];
 
-    // プレイヤー (難易度で耐久を補正)。
-    const pDef = SHIP_DEFS[def.playerShipId];
+    // プレイヤー (難易度で耐久を補正 + ロードアウト反映)。
+    const pDef = SHIP_DEFS[loadout?.shipId ?? def.playerShipId];
     this.player = spawnShip(
       this.world,
       this.scene,
@@ -87,7 +88,11 @@ export class MissionManager {
         quaternion: this.yaw(def.playerFacingYaw ?? 0),
         faction: Faction.Player,
       },
-      { healthMul: this.mods.playerHealthMul },
+      {
+        healthMul: this.mods.playerHealthMul,
+        gunId: loadout?.gunId,
+        secondaries: loadout?.secondaries,
+      },
     );
     this.world.add(this.player, Comp.PlayerControlled, true);
     this.world.add<Targeting>(this.player, Comp.Targeting, {
@@ -263,7 +268,8 @@ export class MissionManager {
         faction: Faction.Enemy,
       },
       {
-        healthMul: this.mods.enemyHealthMul,
+        // エースは耐久を上乗せ。
+        healthMul: this.mods.enemyHealthMul * (s.ace?.healthMul ?? 1),
         damageMul: this.mods.enemyDamageMul,
         fireIntervalMul: this.mods.enemyFireIntervalMul,
       },
@@ -273,14 +279,27 @@ export class MissionManager {
       state: "Idle",
       target: null,
       stateTimer: 0,
-      aggression: this.mods.enemyAggression + Math.random() * 0.3,
+      aggression: s.ace?.aggression ?? this.mods.enemyAggression + Math.random() * 0.3,
       evadeDir: null,
       detectRange: 3500,
       attackRange: def.weapon.gunRange,
       order: "engage",
       formationSlot: 0,
+      // 技量: エースは高技量、通常は難易度ベース+分散。
+      skill: s.ace?.skill ?? 0.4 + this.mods.enemyAggression * 0.5 + Math.random() * 0.15,
+      evadeManeuver: undefined,
+      morale: 1.0,
+      fleeing: false,
     };
     this.world.add(e, Comp.AIController, ai);
+    // エースは固有名をキルフィード/ターゲット表示に反映。
+    if (s.ace) {
+      const info = this.world.get<ShipInfo>(e, Comp.ShipInfo);
+      if (info) {
+        info.displayName = s.ace.name;
+        info.isAce = true;
+      }
+    }
     return e;
   }
 
@@ -303,6 +322,8 @@ export class MissionManager {
         attackRange: def.weapon.gunRange,
         order: "engage",
         formationSlot: this.wingmen.length,
+        skill: 0.7 + Math.random() * 0.15, // 僚機はやや高め
+        evadeManeuver: undefined,
       };
       this.world.add(e, Comp.AIController, ai);
       this.wingmen.push(e);

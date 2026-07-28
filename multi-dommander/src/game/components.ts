@@ -16,6 +16,7 @@ export const Comp = {
   Renderable: "Renderable",
   Projectile: "Projectile",
   Missile: "Missile",
+  Decoy: "Decoy",
   Lifetime: "Lifetime",
   Collider: "Collider",
   ShipInfo: "ShipInfo",
@@ -82,6 +83,8 @@ export interface Health {
   hullMax: number;
   /** 最後に被弾したシミュレーション時刻 (秒)。 */
   lastHitTime: number;
+  /** 最後にダメージを与えたエンティティ (撃墜のキル帰属に使う)。 */
+  lastHitBy?: EntityId | null;
 }
 
 /** 武器搭載状態。エネルギー砲とミサイルを扱う。 */
@@ -103,6 +106,20 @@ export interface WeaponMount {
   missiles: number;
   missileCooldown: number;
   missileFireInterval: number;
+  /** フレア(デコイ)残弾。 */
+  flares: number;
+  /** 搭載する砲の WeaponDef ID。 */
+  gunId?: string;
+  /** 搭載する副兵装 (ミサイル等) の WeaponDef ID リスト。 */
+  secondaries?: string[];
+  /** 現在選択中の副兵装インデックス (secondaries 内)。 */
+  activeSecondary?: number;
+  /** 副兵装ごとの残弾。 */
+  secondaryAmmo?: Record<string, number>;
+  /** 砲の弾色 (WeaponDef.color から)。 */
+  gunColor?: number;
+  /** 砲の弾の見た目種別。 */
+  gunVisual?: string;
 }
 
 /** ターゲッティング状態。 */
@@ -139,6 +156,16 @@ export interface Missile {
   target: EntityId | null;
   turnRate: number;
   speed: number;
+  /** シーカー種別。none=無誘導直進, heat=赤外線(後方有利), aspect=全周画像認識。 */
+  seeker?: "none" | "heat" | "aspect";
+  /** デコイ感受性 (0..1)。高いほどフレアに引きやすい。 */
+  flareSensitivity?: number;
+}
+
+/** デコイ(フレア)。誘導ミサイルを引き剥がす対抗手段。 */
+export interface Decoy {
+  /** 射出元の陣営。ミサイルの sourceFaction と敵対する側を誘惑する。 */
+  faction: Faction;
 }
 
 /** 自動消滅タイマー (秒)。0以下で破棄。 */
@@ -150,4 +177,6 @@ export interface Lifetime {
 export interface ShipInfo {
   displayName: string;
   shipId: string;
+  /** エースパイロットか。キルフィード/ターゲットBoxの強調表示に使う。 */
+  isAce?: boolean;
 }

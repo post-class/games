@@ -17,6 +17,7 @@ import type { HudView, HudData, RadarContact, HudTargetData, HudNav } from "../.
 import { computeLeadPosition, projectToScreen, computeOffscreenIndicator } from "../../hud/ReticleCalc";
 import type { GameStateData } from "../GameState";
 import type { MissionManager } from "../mission/MissionManager";
+import { WEAPON_DEFS } from "../weapons/WeaponDefs";
 
 const leadPos = new Vector3();
 const relPos = new Vector3();
@@ -57,6 +58,7 @@ export class HudSystem implements System {
 
     if (player === null) {
       this.view.update(this.emptyData(base));
+      this.view.setMissileWarning(false);
       return;
     }
 
@@ -84,11 +86,44 @@ export class HudSystem implements System {
       hullPct: health.hull / health.hullMax,
       energyPct: wm.energy / wm.energyMax,
       missiles: wm.missiles,
+      flares: wm.flares,
+      secondaryName: this.buildSecondaryName(wm),
+      secondaryAmmo: this.buildSecondaryAmmo(wm),
       target,
       radar,
       nav,
     };
     this.view.update(data);
+
+    // 被ロック警告: 自機を誘導対象とする誘導ミサイルの飛来を検知。
+    let incoming = false;
+    for (const mis of world.query(Comp.Missile)) {
+      if (world.get<{ target: EntityId | null }>(mis, Comp.Missile)?.target === player) {
+        incoming = true;
+        break;
+      }
+    }
+    this.view.setMissileWarning(this.state.phase === "Playing" && incoming);
+  }
+
+  /** 選択中の副兵装名を WEAPON_DEFS から解決する。未搭載なら空文字。 */
+  private buildSecondaryName(wm: WeaponMount): string {
+    const secondaries = wm.secondaries;
+    if (!secondaries || secondaries.length === 0) return "";
+    const idx = wm.activeSecondary ?? 0;
+    const id = secondaries[idx];
+    if (!id) return "";
+    return WEAPON_DEFS[id]?.displayName ?? id;
+  }
+
+  /** 選択中の副兵装の残弾数。未搭載なら0。 */
+  private buildSecondaryAmmo(wm: WeaponMount): number {
+    const secondaries = wm.secondaries;
+    if (!secondaries || secondaries.length === 0) return 0;
+    const idx = wm.activeSecondary ?? 0;
+    const id = secondaries[idx];
+    if (!id) return 0;
+    return wm.secondaryAmmo?.[id] ?? 0;
   }
 
   private buildNav(pt: Transform, w: number, h: number): HudNav | null {
@@ -130,7 +165,7 @@ export class HudSystem implements System {
     const arrow = computeOffscreenIndicator(tt.position, this.camera, w, h);
 
     return {
-      name: info?.displayName ?? "TARGET",
+      name: info ? (info.isAce ? `★ ${info.displayName}` : info.displayName) : "TARGET",
       distance,
       shieldPct: th ? th.shield / th.shieldMax : 0,
       hullPct: th ? th.hull / th.hullMax : 0,
@@ -178,6 +213,9 @@ export class HudSystem implements System {
       hullPct: 0,
       energyPct: 0,
       missiles: 0,
+      flares: 0,
+      secondaryName: "",
+      secondaryAmmo: 0,
       target: null,
       radar: [],
       nav: null,

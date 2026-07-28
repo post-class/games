@@ -19,14 +19,14 @@ describe("MissionManager: 目標評価", () => {
     const w = new World();
     const m = new MissionManager(w, new Scene());
     m.load(MISSIONS.patrol, 0);
-    // 第1波 (2機) が出現。
-    expect(enemies(w).length).toBe(2);
+    // 第1波 (3機) が出現。
+    expect(enemies(w).length).toBe(3);
     // 第1波を全滅させても、まだ第2波が控えるので成功しない。
     killAll(w, enemies(w));
     m.update(1 / 60, 0.1);
     expect(m.outcome).toBe("active");
-    // 第2波 (1機) が出現。
-    expect(enemies(w).length).toBe(1);
+    // 第2波 (2機) が出現。
+    expect(enemies(w).length).toBe(2);
     // 第2波も全滅で成功。
     killAll(w, enemies(w));
     m.update(1 / 60, 0.2);
