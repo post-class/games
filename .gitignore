@@ -145,3 +145,10 @@ vite.config.ts.timestamp-*
 # other
 .tmp
 .playwright-mcp
+
+
+node_modules/
+dist/
+.tmp/
+.playwright-mcp/
+*.log
