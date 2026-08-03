@@ -1,0 +1,66 @@
+:root {
+  --hud: #7fe3b0;
+  --hud-dim: #3c8f6b;
+  --warn: #ffd166;
+  --bad: #ff5d5d;
+  --good: #6fe38f;
+  --enemy: #ff4d4d;
+  --friend: #5fd8ff;
+  --neutral: #ffd166;
+  --ace: #ffd75e;
+  --panel: rgba(6, 14, 18, 0.82);
+  --panel-line: rgba(127, 227, 176, 0.35);
+  --font: 'DIN Alternate', 'Menlo', 'Consolas', 'Hiragino Sans', 'Noto Sans JP', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  color: var(--hud);
+  font-family: var(--font);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+}
+
+#view {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+#overlay.interactive {
+  pointer-events: auto;
+}
+
+.mc-debug {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--hud-dim);
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.9);
+  white-space: pre;
+}

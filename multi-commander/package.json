@@ -1,0 +1,23 @@
+{
+  "name": "multi-commander",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "ブラウザで動く3D宇宙戦闘ゲーム（Wing Commander 系）",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.180.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7",
+    "vitest": "^2.1.8"
+  }
+}

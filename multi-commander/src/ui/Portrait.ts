@@ -1,0 +1,170 @@
+import type { PortraitSpec } from '../content/pilots';
+
+/**
+ * SVG によるパイロットの顔。
+ *
+ * 写実性は狙わず、「誰が喋っているか」が一目で分かることだけを目的にする。
+ * 表情差分を持たせて、無線の内容と顔が連動するようにしてある。
+ */
+
+export type Expression = 'neutral' | 'talk' | 'strain' | 'grin' | 'grim';
+
+export interface PortraitOptions {
+  /** 表示サイズ (px) */
+  size?: number;
+  expression?: Expression;
+  /** 戦死者は灰色にする */
+  dead?: boolean;
+  /** 枠の色 */
+  frame?: string;
+  /** 喋っている間は口を動かす */
+  speaking?: boolean;
+}
+
+/** 顔だけの SVG 文字列を返す (通信 VDU と名簿で共用) */
+export function portraitSvg(spec: PortraitSpec, o: PortraitOptions = {}): string {
+  const size = o.size ?? 64;
+  const exp = o.expression ?? 'neutral';
+  const dead = !!o.dead;
+  const skin = dead ? '#6a6a6a' : spec.skin;
+  const hair = dead ? '#3a3a3a' : spec.hair;
+  const frame = o.frame ?? 'rgba(127,227,176,0.45)';
+
+  const parts: string[] = [];
+
+  // 背景 (通信画面のブラウン管風)
+  parts.push(
+    `<rect x="0" y="0" width="64" height="64" fill="rgba(6,18,20,0.92)"/>`,
+    `<rect x="0" y="0" width="64" height="64" fill="url(#pg)" opacity="0.5"/>`,
+  );
+
+  // 首と肩 (飛行服)
+  parts.push(
+    `<path d="M 20 56 Q 32 44 44 56 L 44 64 L 20 64 Z" fill="${dead ? '#2a2a2a' : '#2d3a34'}"/>`,
+    `<rect x="28" y="44" width="8" height="8" fill="${skin}"/>`,
+  );
+
+  // 頭
+  parts.push(`<ellipse cx="32" cy="30" rx="13" ry="15" fill="${skin}"/>`);
+
+  // 髪
+  switch (spec.hairStyle) {
+    case 'buzz':
+      parts.push(`<path d="M 19 26 Q 32 12 45 26 Q 32 20 19 26 Z" fill="${hair}"/>`);
+      break;
+    case 'bald':
+      break;
+    case 'long':
+      parts.push(
+        `<path d="M 18 28 Q 32 10 46 28 L 46 46 Q 40 34 32 34 Q 24 34 18 46 Z" fill="${hair}"/>`,
+      );
+      break;
+    case 'tied':
+      parts.push(
+        `<path d="M 19 26 Q 32 11 45 26 Q 38 19 32 19 Q 26 19 19 26 Z" fill="${hair}"/>`,
+        `<circle cx="46" cy="32" r="4" fill="${hair}"/>`,
+      );
+      break;
+    default: // short
+      parts.push(`<path d="M 19 27 Q 32 11 45 27 Q 40 18 32 18 Q 24 18 19 27 Z" fill="${hair}"/>`);
+      break;
+  }
+
+  // 目
+  const eyeY = exp === 'strain' ? 31 : 30;
+  const lid = spec.eyes === 'tired' || exp === 'strain' ? 1.4 : spec.eyes === 'sharp' ? 1.1 : 1.8;
+  const eyeW = spec.eyes === 'wide' ? 2.6 : 2.2;
+  if (spec.marks?.includes('visor')) {
+    parts.push(
+      `<rect x="19" y="26" width="26" height="7" rx="2" fill="#0d2a33" stroke="#6fd8c0" stroke-width="0.6"/>`,
+      `<rect x="21" y="27.5" width="9" height="2" fill="#6fd8c0" opacity="0.5"/>`,
+    );
+  } else {
+    parts.push(
+      `<ellipse cx="26" cy="${eyeY}" rx="${eyeW}" ry="${lid}" fill="#1b1b1b"/>`,
+      `<ellipse cx="38" cy="${eyeY}" rx="${eyeW}" ry="${lid}" fill="#1b1b1b"/>`,
+    );
+    // 眉 (表情)
+    const browL = exp === 'strain' ? 'M 22 24 L 30 26' : exp === 'grim' ? 'M 22 25 L 30 24' : 'M 22 25 L 30 25';
+    const browR = exp === 'strain' ? 'M 42 24 L 34 26' : exp === 'grim' ? 'M 42 25 L 34 24' : 'M 42 25 L 34 25';
+    parts.push(
+      `<path d="${browL}" stroke="${hair}" stroke-width="1.4" fill="none"/>`,
+      `<path d="${browR}" stroke="${hair}" stroke-width="1.4" fill="none"/>`,
+    );
+  }
+
+  // 口 (表情差分)
+  switch (exp) {
+    case 'talk':
+      parts.push(`<ellipse cx="32" cy="39" rx="3.4" ry="2.4" fill="#5a2a2a"/>`);
+      break;
+    case 'grin':
+      parts.push(`<path d="M 27 38 Q 32 43 37 38" stroke="#5a2a2a" stroke-width="1.6" fill="none"/>`);
+      break;
+    case 'strain':
+      parts.push(`<path d="M 27 40 Q 32 37 37 40" stroke="#5a2a2a" stroke-width="1.6" fill="none"/>`);
+      break;
+    case 'grim':
+      parts.push(`<path d="M 27 40 L 37 40" stroke="#5a2a2a" stroke-width="1.5" fill="none"/>`);
+      break;
+    default:
+      parts.push(`<path d="M 28 39 L 36 39" stroke="#5a2a2a" stroke-width="1.4" fill="none"/>`);
+      break;
+  }
+
+  // 喋っている口。閉じ/開きを CSS で交互に見せる (声の代替なので口だけ動かす)
+  if (o.speaking) {
+    parts.push(
+      `<path class="mc-mouth-a" d="M 28 39 L 36 39" stroke="#5a2a2a" stroke-width="1.6" fill="none"/>`,
+      `<ellipse class="mc-mouth-b" cx="32" cy="40" rx="4" ry="2.6" fill="#4a1f1f"/>`,
+    );
+  }
+
+  // 特徴
+  if (spec.marks?.includes('scar')) {
+    parts.push(`<path d="M 41 22 L 44 33" stroke="#a86a5a" stroke-width="1.1" fill="none"/>`);
+  }
+  if (spec.marks?.includes('stubble')) {
+    parts.push(
+      `<path d="M 23 36 Q 32 47 41 36 Q 32 42 23 36 Z" fill="#2a2a2a" opacity="0.35"/>`,
+    );
+  }
+  if (spec.marks?.includes('bandana')) {
+    parts.push(
+      `<path d="M 19 24 Q 32 18 45 24 L 45 27 Q 32 21 19 27 Z" fill="#a8412c"/>`,
+    );
+  }
+
+  // 戦死者には斜線を引く
+  if (dead) {
+    parts.push(`<path d="M 6 58 L 58 6" stroke="rgba(255,93,93,0.7)" stroke-width="2"/>`);
+  }
+
+  // 走査線
+  parts.push(`<rect x="0" y="0" width="64" height="64" fill="url(#pl)" opacity="0.35"/>`);
+
+  return (
+    `<svg class="mc-portrait${o.speaking ? ' speaking' : ''}" viewBox="0 0 64 64" width="${size}" height="${size}" ` +
+    `style="border:1px solid ${frame}">` +
+    `<defs>` +
+    `<radialGradient id="pg" cx="50%" cy="35%" r="70%">` +
+    `<stop offset="0%" stop-color="#123" stop-opacity="0.1"/>` +
+    `<stop offset="100%" stop-color="#000" stop-opacity="0.8"/>` +
+    `</radialGradient>` +
+    `<pattern id="pl" width="4" height="3" patternUnits="userSpaceOnUse">` +
+    `<rect width="4" height="1" fill="rgba(160,220,200,0.25)"/>` +
+    `</pattern>` +
+    `</defs>` +
+    parts.join('') +
+    `</svg>`
+  );
+}
+
+/** 無線の内容から表情を推定する */
+export function expressionFor(text: string, tone?: string): Expression {
+  if (tone === 'enemy') return 'grim';
+  if (/助け|支援|まずい|痛い|駄目|後ろ|被弾/.test(text)) return 'strain';
+  if (/見たか|やった|はは|よし|撃墜|当たっ/.test(text)) return 'grin';
+  if (/……|終わり|名前|祈/.test(text)) return 'grim';
+  return 'talk';
+}

@@ -1,0 +1,678 @@
+/* ───────── 上部オーバーレイ (照準・ターゲット表示) ───────── */
+
+.mc-hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.mc-reticle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46px;
+  height: 46px;
+  transform: translate(-50%, -50%);
+  opacity: 0.85;
+}
+
+.mc-lead {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  opacity: 0.95;
+  transition: opacity 0.12s linear;
+}
+
+.mc-tgtbox {
+  position: absolute;
+  border: 1px solid var(--enemy);
+  box-shadow: 0 0 8px rgba(255, 77, 77, 0.5) inset;
+  margin: 0;
+  transform: translate(-50%, -50%);
+}
+.mc-tgtbox.friend {
+  border-color: var(--friend);
+  box-shadow: 0 0 8px rgba(95, 216, 255, 0.5) inset;
+}
+.mc-tgtbox.ace {
+  border-color: var(--ace);
+  box-shadow: 0 0 10px rgba(255, 215, 94, 0.6) inset;
+}
+.mc-tgtbox-label {
+  position: absolute;
+  left: 50%;
+  bottom: -1.35em;
+  transform: translateX(-50%);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  color: inherit;
+  text-shadow: 0 0 5px #000;
+}
+
+.mc-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  white-space: nowrap;
+  text-shadow: 0 0 5px #000;
+}
+.mc-marker.enemy {
+  color: var(--enemy);
+}
+.mc-marker.friend {
+  color: var(--friend);
+}
+.mc-marker.nav {
+  color: var(--hud);
+}
+
+.mc-arrow {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-left: 9px solid currentColor;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  transform-origin: 50% 50%;
+  filter: drop-shadow(0 0 4px #000);
+}
+
+.mc-announce {
+  position: absolute;
+  left: 50%;
+  top: 22%;
+  transform: translateX(-50%);
+  font-size: 26px;
+  letter-spacing: 0.1em;
+  text-align: center;
+  text-shadow: 0 0 10px #000, 0 0 24px currentColor;
+  opacity: 0;
+  transition: opacity 0.18s ease-out;
+}
+.mc-announce.show {
+  opacity: 1;
+}
+.mc-announce.info {
+  color: var(--hud);
+}
+.mc-announce.warn {
+  color: var(--warn);
+}
+.mc-announce.good {
+  color: var(--good);
+}
+.mc-announce.bad {
+  color: var(--bad);
+}
+
+.mc-radio {
+  position: absolute;
+  left: 18px;
+  top: 14px;
+  width: 34vw;
+  max-width: 460px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.mc-radio-line {
+  margin-bottom: 3px;
+  text-shadow: 0 0 6px #000;
+  animation: mc-fade-in 0.15s ease-out;
+}
+.mc-radio-line .who {
+  font-weight: 700;
+  margin-right: 0.4em;
+}
+.mc-radio-line.friendly .who {
+  color: var(--friend);
+}
+.mc-radio-line.enemy .who {
+  color: var(--enemy);
+}
+.mc-radio-line.command .who {
+  color: var(--warn);
+}
+
+.mc-killfeed {
+  position: absolute;
+  right: 18px;
+  top: 14px;
+  text-align: right;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.mc-killfeed div {
+  text-shadow: 0 0 6px #000;
+  animation: mc-fade-in 0.15s ease-out;
+}
+.mc-killfeed .ace {
+  color: var(--ace);
+}
+
+.mc-objectives {
+  position: absolute;
+  right: 18px;
+  top: 120px;
+  text-align: right;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--hud-dim);
+}
+.mc-objectives .done {
+  color: var(--good);
+}
+.mc-objectives .failed {
+  color: var(--bad);
+  text-decoration: line-through;
+}
+.mc-objectives .active {
+  color: var(--hud);
+}
+
+.mc-warnlights {
+  position: absolute;
+  left: 50%;
+  top: 8%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 14px;
+  font-size: 14px;
+  letter-spacing: 0.12em;
+}
+.mc-warnlights span {
+  padding: 2px 10px;
+  border: 1px solid currentColor;
+  background: rgba(0, 0, 0, 0.45);
+  display: none;
+}
+.mc-warnlights span.on {
+  display: inline-block;
+  animation: mc-blink 0.55s steps(1) infinite;
+}
+.mc-warnlights .lock {
+  color: var(--warn);
+}
+.mc-warnlights .missile {
+  color: var(--bad);
+}
+.mc-warnlights .shield {
+  color: var(--bad);
+}
+.mc-warnlights .eject {
+  color: var(--bad);
+}
+
+/* 被弾時の赤フラッシュ */
+.mc-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 45%, rgba(255, 40, 40, 0.6) 100%);
+}
+
+/* マウススティックの位置表示 */
+.mc-stick {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border: 1px solid rgba(127, 227, 176, 0.5);
+  border-radius: 50%;
+  opacity: 0.5;
+}
+
+@keyframes mc-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+@keyframes mc-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ───────── コクピット (下部ダッシュボード) ───────── */
+
+.mc-cockpit {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 32vh;
+  min-height: 232px;
+  max-height: 320px;
+  pointer-events: none;
+}
+
+/* 計器盤の外形。上辺を斜めに落として「風防の下端」に見せる */
+.mc-cockpit-frame {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #141b21 0%, #0a0f13 42%, #05080a 100%);
+  clip-path: polygon(0 26%, 13% 8%, 30% 1%, 70% 1%, 87% 8%, 100% 26%, 100% 100%, 0 100%);
+  border-top: 1px solid rgba(127, 227, 176, 0.16);
+}
+.mc-cockpit-frame::after {
+  /* 計器盤の縁のハイライト */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(127, 227, 176, 0.14) 0%, rgba(0, 0, 0, 0) 22%);
+  clip-path: inherit;
+}
+
+/* 風防の柱 (左右の斜めフレーム) */
+/* 風防の柱。ダッシュボード上端から斜めに立ち上がらせる */
+.mc-pillar {
+  position: absolute;
+  bottom: 24vh;
+  width: 44px;
+  height: 52vh;
+  background: linear-gradient(90deg, rgba(26, 34, 41, 0.96), rgba(9, 13, 17, 0.55));
+  pointer-events: none;
+}
+.mc-pillar.left {
+  left: -6px;
+  transform-origin: bottom left;
+  transform: rotate(13deg);
+  clip-path: polygon(0 0, 62% 0, 100% 100%, 0 100%);
+}
+.mc-pillar.right {
+  right: -6px;
+  transform-origin: bottom right;
+  transform: rotate(-13deg);
+  clip-path: polygon(38% 0, 100% 0, 100% 100%, 0 100%);
+}
+
+.mc-panels {
+  position: absolute;
+  left: 2%;
+  right: 2%;
+  bottom: 8px;
+  top: 17%;
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(300px, 1.65fr) minmax(150px, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+}
+/* グリッドの子が内容の高さで膨らんで枠外にはみ出さないようにする */
+.mc-panels > *,
+.mc-center > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mc-vdu {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--panel-line);
+  border-radius: 3px;
+  padding: 6px 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow: hidden;
+}
+.mc-vdu-title {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--hud-dim);
+  border-bottom: 1px solid rgba(127, 227, 176, 0.18);
+  margin-bottom: 4px;
+  padding-bottom: 2px;
+}
+.mc-vdu-empty {
+  color: var(--hud-dim);
+  opacity: 0.7;
+}
+.mc-vdu .name {
+  font-size: 13px;
+  color: #cdefdd;
+}
+.mc-vdu .name.enemy {
+  color: var(--enemy);
+}
+.mc-vdu .name.friend {
+  color: var(--friend);
+}
+.mc-vdu .name.ace {
+  color: var(--ace);
+}
+.mc-vdu .row {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+.mc-vdu .row .k {
+  color: var(--hud-dim);
+}
+
+.mc-center {
+  display: grid;
+  grid-template-columns: 1.05fr 1.1fr 1.05fr;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 10px;
+  align-items: stretch;
+}
+
+.mc-gauges {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 5px;
+  background: var(--panel);
+  border: 1px solid var(--panel-line);
+  border-radius: 3px;
+  padding: 6px 8px;
+}
+
+.mc-gauge {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+.mc-gauge .lbl {
+  display: flex;
+  justify-content: space-between;
+  color: var(--hud-dim);
+}
+.mc-gauge .bar {
+  height: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(127, 227, 176, 0.25);
+  margin-top: 1px;
+}
+.mc-gauge .fill {
+  height: 100%;
+  background: var(--hud);
+  width: 0%;
+  transition: width 0.08s linear;
+}
+.mc-gauge.warn .fill {
+  background: var(--warn);
+}
+.mc-gauge.bad .fill {
+  background: var(--bad);
+}
+
+.mc-speed {
+  font-size: 20px;
+  color: #cdefdd;
+  letter-spacing: 0.04em;
+  text-align: right;
+}
+.mc-speed small {
+  font-size: 10px;
+  color: var(--hud-dim);
+  letter-spacing: 0.1em;
+}
+
+/* ───────── 生成アセットの装飾 ───────── */
+
+/*
+ * レーダーの外周に金属ベゼルを重ねる。
+ * SVG (viewBox 100 の中で半径 45 = 90%) の外側にリングの内穴が来るよう、
+ * 画像の内穴 (画像幅の約 74%) を 90% に合わせて 1.22 倍に拡大している。
+ */
+.mc-radarbox {
+  /* ベゼルは枠より少し外へ出るので、この箱だけはみ出しを許す */
+  overflow: visible !important;
+}
+.mc-radarbox::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('./art/radar-bezel.png') center / contain no-repeat;
+  transform: scale(1.2);
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* 計器盤の上端に走るリベット付きの梁 */
+.mc-dashtrim {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 6%;
+  height: 18px;
+  background: url('./art/dash-trim.png') left center / auto 100% repeat-x;
+  opacity: 0.92;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.6));
+  pointer-events: none;
+  z-index: 1;
+}
+
+.mc-shielddisp,
+.mc-radarbox {
+  background: var(--panel);
+  border: 1px solid var(--panel-line);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.mc-shielddisp svg,
+.mc-radarbox svg {
+  width: 100%;
+  height: 100%;
+}
+.mc-boxlabel {
+  position: absolute;
+  /* レーダーのベゼルより手前に置く */
+  z-index: 3;
+  top: 3px;
+  left: 6px;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--hud-dim);
+  /* 金属ベゼルの上に重なっても読めるようにする */
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.95), 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+.mc-hullnum {
+  position: absolute;
+  bottom: 3px;
+  right: 6px;
+  font-size: 11px;
+  color: var(--hud);
+}
+
+.mc-weapon-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+.mc-weapon-line.active {
+  color: #cdefdd;
+  background: rgba(127, 227, 176, 0.12);
+}
+.mc-weapon-line.empty {
+  opacity: 0.4;
+}
+.mc-lockstate {
+  margin-top: 3px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--hud-dim);
+}
+.mc-lockstate.locked {
+  color: var(--bad);
+}
+.mc-lockstate.locking {
+  color: var(--warn);
+}
+
+.mc-sys-line {
+  display: flex;
+  justify-content: space-between;
+}
+.mc-sys-line .v.ok {
+  color: var(--good);
+}
+.mc-sys-line .v.warn {
+  color: var(--warn);
+}
+.mc-sys-line .v.bad {
+  color: var(--bad);
+}
+
+@media (max-height: 760px) {
+  .mc-cockpit {
+    min-height: 210px;
+  }
+  .mc-vdu {
+    font-size: 11px;
+    line-height: 1.35;
+  }
+}
+
+/* オートパイロット表示 */
+.mc-autopilot {
+  position: absolute;
+  left: 50%;
+  top: 14%;
+  transform: translateX(-50%);
+  padding: 5px 18px;
+  border: 1px solid var(--hud);
+  background: rgba(6, 20, 16, 0.72);
+  color: var(--hud);
+  font-size: 15px;
+  letter-spacing: 0.22em;
+  text-shadow: 0 0 10px rgba(127, 227, 176, 0.6);
+  animation: mc-ap-pulse 1.4s ease-in-out infinite;
+}
+@keyframes mc-ap-pulse {
+  50% {
+    box-shadow: 0 0 18px rgba(127, 227, 176, 0.35);
+  }
+}
+
+/* マウス操縦の有効化ヒント */
+.mc-mousehint {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  transform: translateX(-50%);
+  padding: 5px 14px;
+  background: rgba(6, 14, 18, 0.8);
+  border: 1px solid var(--panel-line);
+  color: var(--hud);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+}
+
+/* ───────── 航法マップ (N) ───────── */
+
+.mc-navmap {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  transform: translate(-50%, -50%);
+  width: min(460px, 88vw);
+  background: rgba(4, 12, 14, 0.92);
+  border: 1px solid var(--panel-line);
+  border-radius: 3px;
+  padding: 8px 10px 6px;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.7);
+}
+.mc-navmap-title {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--hud-dim);
+  border-bottom: 1px solid rgba(127, 227, 176, 0.2);
+  padding-bottom: 3px;
+  margin-bottom: 4px;
+}
+.mc-navmap svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: rgba(6, 16, 18, 0.7);
+  border: 1px solid rgba(127, 227, 176, 0.14);
+}
+.mc-navmap-foot {
+  font-size: 12px;
+  color: var(--hud);
+  padding-top: 4px;
+}
+.mc-navmap .dim {
+  color: var(--hud-dim);
+}
+
+/* 部位損傷の表示 */
+.mc-sys-sep {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--hud-dim);
+  border-top: 1px solid rgba(127, 227, 176, 0.18);
+  margin-top: 3px;
+  padding-top: 2px;
+}
+.mc-sys-line.dead .k {
+  color: var(--bad);
+}
+.mc-sys-line.dead {
+  animation: mc-blink 0.9s steps(1) infinite;
+}
+.mc-sys-line.damaged .k {
+  color: var(--warn);
+}
+
+/* レーダー損傷 */
+.mc-radarbox.degraded svg {
+  filter: contrast(0.8) blur(0.4px);
+}
+.mc-radarbox.degraded::after,
+.mc-radarbox.dead::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(160, 200, 180, 0.14) 0px,
+    rgba(160, 200, 180, 0.14) 1px,
+    rgba(0, 0, 0, 0) 1px,
+    rgba(0, 0, 0, 0) 3px
+  );
+  animation: mc-scan 0.35s linear infinite;
+}
+.mc-radarbox.dead::after {
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(180, 190, 190, 0.3) 0px,
+    rgba(180, 190, 190, 0.3) 1px,
+    rgba(0, 0, 0, 0.35) 1px,
+    rgba(0, 0, 0, 0.35) 2px
+  );
+}
+.mc-radarbox.dead .mc-boxlabel::after {
+  content: ' — 故障';
+  color: var(--bad);
+}
+@keyframes mc-scan {
+  to {
+    transform: translateY(3px);
+  }
+}
+
+/* 行数の多い VDU (被害一覧) は詰めて表示する */
+.mc-vdu.compact {
+  font-size: 10.5px;
+  line-height: 1.24;
+}
+.mc-vdu.compact .mc-sys-sep {
+  margin-top: 2px;
+  padding-top: 1px;
+}
