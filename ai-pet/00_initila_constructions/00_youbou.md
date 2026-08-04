@@ -1,0 +1,16 @@
+AIペット育成アプリゲームを作ってください。
+- まず世の中のペットアプリがどんなのが人気なのか、web-search-googleスキルと、playwright-headless MCPのキャプチャ取得を利用してディープリサーチして、いいとこ取りのアプリを作成してください。
+- ブラウザで動作
+- typescript
+- マルチユーザ
+- 2D
+- img-gen-gpt スキルを使うと、透過PNGが作れるので、デザイン全般に活用してください。
+- ペットはllmを使って会話やアクションさせてください。
+- ".env"に以下の情報がありますので、この接続情報を使って、ペットをペルソナ化してください。
+    - AZURE_OPENAI_ENDPOINT=https://l2-cloud-default-resource.openai.azure.com/
+    - AZURE_OPENAI_API_KEY
+    - AZURE_OPENAI_API_VERSION
+    - LLM_MODEL_PET=gpt-5.6-luna
+- 実装の前に、まずプランを作って mdファイルに保存してください。
+- プランに必ず含めるもの
+    - 世の中のペットアプリ調査結果と、どのようにいいとこ取りをするかと、他にない強みとして何をすべきか
