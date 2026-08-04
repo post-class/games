@@ -105,6 +105,13 @@ export interface MissionDef {
   briefing: string[];
   /** ブリーフィングを読み上げる人物 */
   briefingSpeaker: string;
+  /**
+   * その人物の顔画像 id (`public/art/tex/face-<id>-<表情>.jpg`)。
+   * 省略時は艦長 (halcyon) の顔を使う。
+   */
+  briefingSpeakerId?: string;
+  /** 名札の2行目に出す役職。省略時は艦長の肩書 */
+  briefingSpeakerRole?: string;
   navs: NavDef[];
   spawns: SpawnGroupDef[];
   /** 小惑星帯・機雷原など */

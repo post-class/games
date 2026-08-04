@@ -38,10 +38,14 @@ export interface BriefingSceneOptions {
   speak?: (chunk: string) => number;
   /** 右側に並べる資料。台詞の進行に合わせて1枚ずつ開く */
   panels?: string[];
+  /** 最初の資料を開くまでに読ませる行数 (挨拶の間は伏せておく) */
+  panelDelay?: number;
   /** 全部読み終えたときに呼ばれる */
   onFinish?: () => void;
   /** 顔の枠に出す状態表示 (既定: 通信中) */
   statusLabel?: string;
+  /** 文面から表情を決められなかったときの既定 (敗戦報告なら grim など) */
+  mood?: Expression;
 }
 
 /** 1秒あたりの文字数。日本語の読み上げに合う速さにしてある */
@@ -57,7 +61,6 @@ export class BriefingScene {
   private readonly lines: BriefingLine[];
   private readonly o: BriefingSceneOptions;
   private readonly faceA: HTMLImageElement;
-  private readonly faceB: HTMLImageElement;
   private readonly faceEl: HTMLElement;
   private readonly logEl: HTMLElement;
   private readonly nextEl: HTMLElement;
@@ -73,6 +76,8 @@ export class BriefingScene {
   private voiceUntil = 0;
   private timer?: number;
   private raf?: number;
+  /** 今の行の文字送りを始めた時刻 (performance.now) */
+  private startedAt?: number;
   private done = false;
   private keyHandler = (ev: KeyboardEvent) => this.onKey(ev);
 
@@ -110,7 +115,6 @@ export class BriefingScene {
       face.classList.add('svg');
     }
     this.faceA = a;
-    this.faceB = b;
     this.faceEl = face;
 
     const glass = document.createElement('div');
@@ -150,12 +154,7 @@ export class BriefingScene {
     this.logEl = log;
     this.nextEl = next;
 
-    root.append(view, talk);
-
-    const wrap = document.createElement('div');
-    wrap.className = 'mc-brief-wrap';
-    wrap.appendChild(root);
-
+    // 資料は台詞と同じ列に積む。顔が最後まで画面から出ないようにする
     if (o.panels?.length) {
       const side = document.createElement('div');
       side.className = 'mc-brief-side';
@@ -166,8 +165,14 @@ export class BriefingScene {
         side.appendChild(p);
         this.panelEls.push(p);
       }
-      wrap.appendChild(side);
+      talk.appendChild(side);
     }
+
+    root.append(view, talk);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'mc-brief-wrap';
+    wrap.appendChild(root);
 
     // 画面のどこを叩いても話が進む
     wrap.addEventListener('click', () => this.advance());
@@ -239,14 +244,18 @@ export class BriefingScene {
       case 'Space':
       case 'Enter':
       case 'NumpadEnter':
-        // 読み終わるまでは決定キーを画面のメニューに渡さない
+        // 読み終わるまでは決定キーを画面のメニューに渡さない。
+        // ScreenHost も window で待ち受けているので、同じ節点の購読まで止める
         ev.preventDefault();
         ev.stopPropagation();
+        ev.stopImmediatePropagation();
         this.advance();
         break;
       case 'Escape':
+        // Esc は「画面を閉じる」ではなく「残りを読み飛ばす」に使う
         ev.preventDefault();
         ev.stopPropagation();
+        ev.stopImmediatePropagation();
         this.skip();
         break;
       default:
@@ -273,7 +282,7 @@ export class BriefingScene {
     this.renderLine();
 
     // 表情を切り替える。喋り始めは口の開閉を有効にする
-    this.setExpression(line.expression ?? briefingExpression(line.text));
+    this.setExpression(line.expression ?? briefingExpression(line.text, this.o.mood));
     if (!instant) {
       this.faceEl.classList.add('speaking');
       this.statusEl.classList.add('live');
@@ -328,13 +337,17 @@ export class BriefingScene {
     this.maybeSpeak(now);
 
     if (this.chars >= line.text.length) {
-      this.stopSpeaking();
-      this.revealPanel(this.index);
+      this.completeLine();
       this.scheduleNext(LINE_PAUSE);
     }
   }
 
-  private startedAt?: number;
+  /** 今の行を出し切ったときの後処理 */
+  private completeLine(): void {
+    this.renderLine();
+    this.stopSpeaking();
+    this.revealPanel(this.index);
+  }
 
   /** 文字送りに合わせて無線音を継ぎ足す */
   private maybeSpeak(now: number): void {
@@ -372,8 +385,8 @@ export class BriefingScene {
   }
 
   /** 台詞の進行に合わせて資料を1枚開く */
-  private revealPanel(i: number): void {
-    this.panelEls[i]?.classList.add('open');
+  private revealPanel(lineIndex: number): void {
+    this.panelEls[lineIndex - (this.o.panelDelay ?? 0)]?.classList.add('open');
   }
 
   private finish(): void {
@@ -388,14 +401,18 @@ export class BriefingScene {
     const label = this.statusEl.querySelector('span');
     if (label) label.textContent = '通信終了';
     this.panelEls.forEach((p) => p.classList.add('open'));
+    // 画面が狭くて資料が隠れているときは、話し終わりに合わせて見せる
+    if (this.el.scrollHeight > this.el.clientHeight + 8) {
+      this.el.scrollTo({ top: this.el.scrollHeight, behavior: 'smooth' });
+    }
     this.o.onFinish?.();
   }
 }
 
 /** ブリーフィングの文面から表情を選ぶ (無線用より落ち着いた振り分け) */
-export function briefingExpression(text: string): Expression {
+export function briefingExpression(text: string, fallback: Expression = 'talk'): Expression {
   if (/死ぬな|死ぬ|失った|戦死|墓|喪|失敗|痛|犠牲/.test(text)) return 'grim';
   if (/よくやった|見事|上出来|誇り|感謝|よし/.test(text)) return 'grin';
   if (/急|直ちに|絶対|許さ|逃がす|全力|必ず|なんとしても|撃破せよ/.test(text)) return 'strain';
-  return 'talk';
+  return fallback;
 }

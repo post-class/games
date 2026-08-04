@@ -597,3 +597,332 @@
   0%, 49% { opacity: 1; }
   50%, 100% { opacity: 0; }
 }
+
+/* ───────── ブリーフィング (顔が喋る演出) ───────── */
+
+.mc-brief-wrap {
+  display: grid;
+  gap: 16px;
+}
+.mc-brief {
+  display: grid;
+  /* 顔は縦に余裕がある画面ほど大きく見せる (下の資料まで1画面に収める) */
+  grid-template-columns: 260px 1fr;
+  gap: 18px;
+  align-items: stretch;
+}
+@media (min-height: 900px) {
+  .mc-brief {
+    grid-template-columns: 340px 1fr;
+  }
+}
+
+/* CRT の通信画面。顔をここに映す */
+.mc-brief-view {
+  position: relative;
+  /* 胸像として収まる縦長の枠。画像は cover で切り取る */
+  aspect-ratio: 3 / 4;
+  /* 縦が狭い画面でも資料まで1画面に収まる幅にする (高さ = 幅 / 0.75) */
+  width: min(100%, calc(42vh * 3 / 4));
+  align-self: start;
+  justify-self: center;
+  overflow: hidden;
+  border: 1px solid rgba(127, 227, 176, 0.5);
+  border-radius: 3px;
+  background: #040b0a;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.8),
+    0 0 34px rgba(127, 227, 176, 0.16),
+    inset 0 0 60px rgba(0, 0, 0, 0.85);
+}
+.mc-brief-face {
+  position: absolute;
+  inset: 0;
+}
+.mc-brief-face img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* ブラウン管越しに見ている色にする */
+  filter: contrast(1.1) saturate(0.86) brightness(1.04);
+}
+.mc-brief-face img.b {
+  opacity: 0;
+}
+.mc-brief-face.speaking img.a {
+  animation: mc-face-a 0.24s steps(1, end) infinite;
+}
+.mc-brief-face.speaking img.b {
+  animation: mc-face-b 0.24s steps(1, end) infinite;
+}
+/* 喋っていない間はわずかに呼吸させる (静止画に見えないように) */
+.mc-brief-face:not(.speaking) img.a {
+  animation: mc-brief-breathe 5.5s ease-in-out infinite;
+}
+@keyframes mc-brief-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.014); }
+}
+.mc-brief-face.svg {
+  display: grid;
+  place-items: center;
+}
+.mc-brief-face.svg svg {
+  width: 86%;
+  height: 86%;
+  border: none !important;
+}
+
+/*
+ * 画面のガラス。走査線・周辺減光・斜めの映り込み・ちらつきを重ねる。
+ * ここだけで「モニタに映っている」ことを作るので、顔の画像には手を入れない。
+ */
+.mc-brief-glass {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    /* 走査線 */
+    repeating-linear-gradient(
+      180deg,
+      rgba(150, 220, 200, 0.13) 0px,
+      rgba(150, 220, 200, 0.13) 1px,
+      rgba(0, 0, 0, 0.1) 1px,
+      rgba(0, 0, 0, 0.1) 3px
+    ),
+    /* ガラスの映り込み */
+    linear-gradient(122deg, rgba(190, 255, 235, 0.09) 0%, rgba(190, 255, 235, 0) 42%),
+    /* 周辺減光 */
+    radial-gradient(ellipse at 50% 42%, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.72) 100%);
+  animation: mc-brief-flicker 3.7s steps(1, end) infinite;
+}
+/* 走査ビームが下りていく一本の線 */
+.mc-brief-glass::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 22%;
+  background: linear-gradient(180deg, rgba(190, 255, 235, 0) 0%, rgba(190, 255, 235, 0.07) 70%, rgba(190, 255, 235, 0) 100%);
+  animation: mc-brief-sweep 6.5s linear infinite;
+}
+@keyframes mc-brief-sweep {
+  0% { top: -25%; }
+  100% { top: 100%; }
+}
+@keyframes mc-brief-flicker {
+  0%, 96% { opacity: 1; }
+  97% { opacity: 0.84; }
+  98% { opacity: 1; }
+  99% { opacity: 0.9; }
+}
+
+/* 名札 */
+.mc-brief-plate {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 8px 12px 9px;
+  background: linear-gradient(0deg, rgba(3, 9, 11, 0.94) 0%, rgba(3, 9, 11, 0) 100%);
+  border-top: 1px solid rgba(127, 227, 176, 0.22);
+  pointer-events: none;
+}
+.mc-brief-plate .name {
+  color: #cdefdd;
+  font-size: 16px;
+  letter-spacing: 0.14em;
+  text-shadow: 0 0 12px rgba(127, 227, 176, 0.5);
+}
+.mc-brief-plate .role {
+  color: var(--hud-dim);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  margin-top: 2px;
+}
+
+/* 通信状態のランプとレベルメータ */
+.mc-brief-status {
+  position: absolute;
+  top: 7px;
+  left: 9px;
+  right: 9px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  color: var(--hud-dim);
+  pointer-events: none;
+}
+.mc-brief-status i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2b6b52;
+  flex: 0 0 auto;
+}
+.mc-brief-status.live i {
+  background: var(--bad);
+  box-shadow: 0 0 8px var(--bad);
+  animation: mc-brief-rec 1s steps(1, end) infinite;
+}
+.mc-brief-status.closed {
+  color: rgba(60, 143, 107, 0.55);
+}
+@keyframes mc-brief-rec {
+  0%, 60% { opacity: 1; }
+  61%, 100% { opacity: 0.25; }
+}
+.mc-vu {
+  margin-left: auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 10px;
+}
+.mc-vu b {
+  width: 2px;
+  height: 2px;
+  background: var(--hud-dim);
+}
+.mc-brief-status.live .mc-vu b {
+  background: var(--hud);
+  animation: mc-vu 0.5s ease-in-out infinite alternate;
+}
+.mc-brief-status.live .mc-vu b:nth-child(2) { animation-duration: 0.31s; }
+.mc-brief-status.live .mc-vu b:nth-child(3) { animation-duration: 0.42s; }
+.mc-brief-status.live .mc-vu b:nth-child(4) { animation-duration: 0.24s; }
+.mc-brief-status.live .mc-vu b:nth-child(5) { animation-duration: 0.37s; }
+.mc-brief-status.live .mc-vu b:nth-child(6) { animation-duration: 0.28s; }
+.mc-brief-status.live .mc-vu b:nth-child(7) { animation-duration: 0.45s; }
+@keyframes mc-vu {
+  from { height: 2px; }
+  to { height: 10px; }
+}
+
+/* 台詞 */
+.mc-brief-talk {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-left: 14px;
+  border-left: 1px solid rgba(127, 227, 176, 0.18);
+}
+.mc-brief-log {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  /* 資料まで1画面に収める。溢れた分は行送りに合わせて自動で追う */
+  max-height: 19vh;
+  font-size: 15px;
+  line-height: 1.85;
+}
+.mc-brief-line {
+  color: rgba(150, 190, 172, 0.6);
+  margin-bottom: 8px;
+  transition: color 0.3s;
+}
+.mc-brief-line.now {
+  color: #d8f4e6;
+  text-shadow: 0 0 18px rgba(127, 227, 176, 0.28);
+}
+/* 未表示の文字は場所だけ確保して透明にする (行送りで文章が跳ねない) */
+.mc-brief-line .ghost {
+  visibility: hidden;
+}
+.mc-brief-next {
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--hud);
+  font-size: 12px;
+  text-align: right;
+  opacity: 0;
+}
+.mc-brief-next.on {
+  opacity: 1;
+  animation: mc-brief-next 0.9s ease-in-out infinite;
+}
+@keyframes mc-brief-next {
+  0%, 100% { opacity: 0.25; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(2px); }
+}
+
+/* 話の進みに合わせて開く資料 (台詞の下・顔の横に並ぶ) */
+.mc-brief-side {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+  border-top: 1px solid rgba(127, 227, 176, 0.18);
+  padding-top: 12px;
+}
+.mc-brief-panel {
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.45s ease-out, transform 0.45s ease-out;
+}
+.mc-brief-panel.open {
+  opacity: 1;
+  transform: none;
+}
+.mc-brief-panel .block {
+  margin-bottom: 0;
+}
+/* 飛行計画の図。ここでは資料の1枚なので小さく収める */
+.mc-brief-panel svg {
+  max-width: min(170px, 21vh) !important;
+}
+/* 飛行計画の航路を引く線。開示に合わせて描かれていく */
+.mc-brief-panel.open .mc-navpath {
+  animation: mc-navdraw 1.4s ease-out both;
+}
+@keyframes mc-navdraw {
+  from { stroke-dashoffset: 400; }
+  to { stroke-dashoffset: 0; }
+}
+
+@media (max-width: 760px) {
+  .mc-brief {
+    grid-template-columns: 1fr;
+  }
+  .mc-brief-view {
+    max-width: 260px;
+    margin: 0 auto;
+  }
+  .mc-brief-talk {
+    padding-left: 0;
+    border-left: none;
+  }
+}
+
+/* 通信が開くときのブラウン管の立ち上がり */
+.mc-brief-view {
+  animation: mc-brief-on 0.62s ease-out both;
+}
+@keyframes mc-brief-on {
+  0% { transform: scaleY(0.04); filter: brightness(3.4) saturate(0); opacity: 0.2; }
+  38% { transform: scaleY(1.03); filter: brightness(2) saturate(0.4); opacity: 1; }
+  62% { transform: scaleY(0.99); filter: brightness(1.2) saturate(0.9); }
+  100% { transform: none; filter: none; }
+}
+
+/* 動きを控える設定では、ちらつきと走査を止める (顔の口だけ動かす) */
+@media (prefers-reduced-motion: reduce) {
+  .mc-brief-view,
+  .mc-brief-glass,
+  .mc-brief-glass::after,
+  .mc-brief-face:not(.speaking) img.a,
+  .mc-brief-panel.open .mc-navpath {
+    animation: none;
+  }
+}
+
+/* 縦に余裕がある画面では顔を大きく、台詞も全文を見せる (後ろに置いて上書きする) */
+@media (min-height: 900px) {
+  .mc-brief-log {
+    max-height: 33vh;
+  }
+}

@@ -173,6 +173,8 @@ export function portraitSvg(spec: PortraitSpec, o: PortraitOptions = {}): string
 
 /** 生成画像を持つパイロット。ここに無い id は SVG に落ちる */
 const WITH_ART = new Set([
+  // 艦長 (ブリーフィング官)。飛ばないが顔画像は同じ形式で持つ
+  'halcyon',
   'spirit',
   'maniac',
   'angel',

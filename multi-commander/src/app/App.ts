@@ -23,7 +23,9 @@ import {
   type HangarSelection,
   type HubContext,
 } from '../ui/HubPanels';
-import { portraitFace } from '../ui/Portrait';
+import { audio } from '../audio/AudioManager';
+import { BriefingScene } from '../ui/BriefingScene';
+import { portraitFace, type Expression } from '../ui/Portrait';
 import { escapeHtml, ScreenHost, type MenuItem } from '../ui/ScreenHost';
 import { artImg, artUrl, medalArt, rankArt } from '../ui/art';
 import { buildSettingsPanel } from '../ui/SettingsPanel';
@@ -41,6 +43,9 @@ import { Game } from './game';
 import { loadSave, newSave, writeSave, type CampaignSave } from './save';
 import { difficulty, settings, updateSettings } from './settings';
 import { showcase, type ShowcaseOptions, type ShowcaseResult } from './showroom';
+
+/** 母艦の名前。ブリーフィング官の名札に出す */
+const CLAW_NAME = 'TCS タイガーズ・クロー';
 
 /**
  * 画面遷移とキャンペーン進行の統括。
@@ -387,9 +392,15 @@ export class App {
     const objectives = def.objectives
       .map((o) => `<li>${escapeHtml(o.text)}${o.required ? '' : ' <span class="dim">(任意)</span>'}</li>`)
       .join('');
-    const speech = def.briefing
-      .map((p) => `<div>${escapeHtml(p)}</div>`)
-      .join('');
+
+    const wing = load.wingman?.callsign;
+    const scene = this.briefingScene(def, def.briefing, [
+      `<div class="block"><h3>任務目標</h3><ul>${objectives}</ul></div>`,
+      `<div class="block"><h3>飛行計画</h3>${this.navMapSvg(def)}</div>`,
+      `<div class="block"><h3>機体</h3>` +
+        `${escapeHtml(ship.name)}<br><span class="dim">副兵装: ${escapeHtml(missiles || 'なし')}` +
+        `${wing ? `<br>僚機: ${escapeHtml(wing)}` : ''}</span></div>`,
+    ]);
 
     this.screens.show({
       crest: artUrl('emblem-confed'),
@@ -397,18 +408,7 @@ export class App {
       background: artUrl('tex/bg-briefing', 'jpg'),
       title: def.title,
       subtitle: `第 ${node.chapter} 章 / ${TOTAL_CHAPTERS}　—　${def.system} 星系${node.losingRoute ? '　(戦況悪化)' : ''}`,
-      bodyHtml:
-        `<div class="mc-two">` +
-        `<div>` +
-        `<div class="block"><h3>ブリーフィング</h3>` +
-        `<div class="speaker">${escapeHtml(def.briefingSpeaker)}:</div>${speech}</div>` +
-        `</div><div>` +
-        `<div class="block"><h3>任務目標</h3><ul>${objectives}</ul></div>` +
-        `<div class="block"><h3>飛行計画</h3>${this.navMapSvg(def)}</div>` +
-        `<div class="block"><h3>機体</h3>` +
-        `${escapeHtml(ship.name)}<br><span class="dim">副兵装: ${escapeHtml(missiles || 'なし')}` +
-        `${def.wingman ? `<br>僚機: ${escapeHtml(def.wingman.pilot)}` : ''}</span></div>` +
-        `</div></div>`,
+      content: scene.el,
       items: [
         {
           label: this.shouldTutorial() ? '出撃 (操作案内あり)' : '出撃',
@@ -428,8 +428,44 @@ export class App {
         { label: '艦内へ戻る', onSelect: () => this.showHub() },
       ],
       onCancel: () => this.showHub(),
-      hint: `難易度: ${difficulty().label}`,
+      hint: `Space で読み進める / Esc で読み飛ばす　—　難易度: ${difficulty().label}`,
     });
+  }
+
+  /**
+   * ブリーフィング/デブリーフィングの喋る顔を組み立てる。
+   *
+   * 台詞の断片ごとに無線音を鳴らし、口の動きと文字送りを同じ拍で回す。
+   * 画面から外れたら BriefingScene が自分で後片付けする。
+   */
+  private briefingScene(
+    def: MissionDef,
+    lines: string[],
+    panels: string[],
+    statusLabel?: string,
+    mood?: Expression,
+  ): BriefingScene {
+    const scene = new BriefingScene({
+      speakerId: def.briefingSpeakerId ?? 'halcyon',
+      speakerName: def.briefingSpeaker,
+      speakerRole: def.briefingSpeakerRole ?? `${CLAW_NAME}　艦長`,
+      lines,
+      // 顔画像が無い人物のときだけ使われる
+      fallback: { skin: '#d8b894', hair: '#9aa0a0', hairStyle: 'short', eyes: 'sharp', marks: ['scar'] },
+      panels,
+      // 1行目は挨拶なので、資料は2行目から開いていく
+      panelDelay: 1,
+      statusLabel,
+      mood,
+      speak: (chunk) => {
+        audio.resume();
+        return audio.radioVoice(chunk, 'command', def.briefingSpeaker);
+      },
+    });
+    scene.el.classList.add('mc-panel');
+    // ScreenHost が DOM に載せた後に動かす
+    requestAnimationFrame(() => scene.start());
+    return scene;
   }
 
   /** 飛行計画の簡易マップ (XZ 平面を上から見た図) */
@@ -468,7 +504,8 @@ export class App {
 
     return (
       `<svg viewBox="0 0 200 160" style="width:100%;max-width:340px;background:rgba(4,10,12,0.6);border:1px solid rgba(127,227,176,0.25)">` +
-      `<path d="${path.join(' ')}" fill="none" stroke="rgba(127,227,176,0.55)" stroke-width="1" stroke-dasharray="3 3"/>` +
+      `<path class="mc-navpath" d="${path.join(' ')}" fill="none" stroke="rgba(127,227,176,0.55)" ` +
+      `stroke-width="1" stroke-dasharray="3 3"/>` +
       nodes.join('') +
       `</svg>`
     );
@@ -536,11 +573,28 @@ export class App {
           `${o.state === 'done' ? '達成' : o.state === 'failed' ? '失敗' : '未達'}　${escapeHtml(o.text)}</li>`,
       )
       .join('');
-    const speech = (outcome === 'win' ? def.debriefWin : def.debriefLoss)
-      .map((p) => `<div>${escapeHtml(p)}</div>`)
-      .join('');
     const minutes = Math.floor((s?.seconds ?? 0) / 60);
     const seconds = Math.floor((s?.seconds ?? 0) % 60);
+
+    // 戦果を先に見せ、目標の判定を後から開く
+    const scene = this.briefingScene(
+      def,
+      outcome === 'win' ? def.debriefWin : def.debriefLoss,
+      [
+        `<div class="block"><h3>戦果</h3><ul>` +
+          `<li>撃墜 ${kills} 機</li>` +
+          `<li>撃退 ${s?.routed ?? 0} 機</li>` +
+          `<li>飛行時間 ${minutes}分${String(seconds).padStart(2, '0')}秒</li>` +
+          `<li>通算撃墜 ${this.save.totalKills} 機 / 出撃 ${this.save.sorties} 回</li>` +
+          `</ul></div>`,
+        `<div class="block"><h3>目標</h3><ul>${objectives}</ul></div>` +
+          (outcome === 'loss'
+            ? `<div class="dim">失敗しても戦争は続く。次の任務は戦況の悪化を受けたものになる。</div>`
+            : ''),
+      ],
+      '報告受信中',
+      outcome === 'loss' ? 'grim' : 'talk',
+    );
 
     this.game.sound.music.setIntensity(0);
     this.game.sound.music.play(outcome === 'win' ? 'victory' : 'requiem');
@@ -549,24 +603,14 @@ export class App {
       crestHeight: 72,
       title: outcome === 'win' ? '任務達成' : '任務失敗',
       subtitle: def.title,
-      bodyHtml:
-        `<div class="block"><h3>デブリーフィング</h3>` +
-        `<div class="speaker">${escapeHtml(def.briefingSpeaker)}:</div>${speech}</div>` +
-        `<div class="block"><h3>戦果</h3><ul>` +
-        `<li>撃墜 ${kills} 機</li>` +
-        `<li>撃退 ${s?.routed ?? 0} 機</li>` +
-        `<li>飛行時間 ${minutes}分${String(seconds).padStart(2, '0')}秒</li>` +
-        `<li>通算撃墜 ${this.save.totalKills} 機 / 出撃 ${this.save.sorties} 回</li>` +
-        `</ul></div>` +
-        `<div class="block"><h3>目標</h3><ul>${objectives}</ul></div>` +
-        (outcome === 'loss'
-          ? `<div class="block dim">失敗しても戦争は続く。次の任務は戦況の悪化を受けたものになる。</div>`
-          : ''),
+      background: artUrl('tex/bg-briefing', 'jpg'),
+      content: scene.el,
       items: [
         { label: '続ける', onSelect: () => this.afterDebrief(nextNode) },
         { label: 'この任務をやり直す', onSelect: () => this.retry(def.id, outcome) },
         { label: 'タイトルへ戻る', onSelect: () => this.showTitle() },
       ],
+      hint: 'Space で読み進める / Esc で読み飛ばす',
     });
   }
 
