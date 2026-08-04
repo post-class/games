@@ -41,9 +41,12 @@ export class InputManager {
   private actions: InputAction[] = [];
   private mouseButtons = new Set<number>();
 
-  /** 画面中心を原点とした -1..1 のマウス位置 */
+  /** 照準位置を原点とした -1..1 のマウス操縦入力 */
   mouseNx = 0;
   mouseNy = 0;
+  /** 画面中心を原点とした -1..1 の実カーソル位置 (HUD 表示用) */
+  mousePx = 0;
+  mousePy = 0;
   /** マウスが画面内で動いたことがあるか */
   mouseActive = false;
   /**
@@ -102,8 +105,13 @@ export class InputManager {
     };
     const onMouseMove = (ev: MouseEvent) => {
       const r = this.el.getBoundingClientRect();
-      this.mouseNx = ((ev.clientX - r.left) / r.width) * 2 - 1;
-      this.mouseNy = ((ev.clientY - r.top) / r.height) * 2 - 1;
+      const x = (ev.clientX - r.left) / r.width;
+      const y = (ev.clientY - r.top) / r.height;
+      this.mousePx = x * 2 - 1;
+      this.mousePy = y * 2 - 1;
+      this.mouseNx = this.mousePx;
+      // 照準を置いた前方視界の中央を、マウス操縦のニュートラル位置にする。
+      this.mouseNy = centeredInput(y, MOUSE_AIM_ORIGIN_Y);
       this.mouseActive = true;
       // 中央付近に戻ってきたら操縦を引き渡す
       if (!this.mouseArmed && Math.abs(this.mouseNx) < ARM_ZONE && Math.abs(this.mouseNy) < ARM_ZONE) {
@@ -332,6 +340,13 @@ const DEADZONE = 0.06;
 const ARM_ZONE = 0.22;
 /** この割合で入力が最大になる (画面中心から 55% の位置) */
 const FULL_AT = 0.55;
+/** HUD の固定照準と共有する、画面内でのマウス操縦のニュートラル位置 */
+const MOUSE_AIM_ORIGIN_Y = 0.35;
+
+/** 画面上の位置を、指定した原点を中心とする -1..1 の操縦入力へ変換する。 */
+function centeredInput(position: number, origin: number): number {
+  return position < origin ? (position - origin) / origin : (position - origin) / (1 - origin);
+}
 
 function stick(n: number): number {
   const a = Math.abs(n);

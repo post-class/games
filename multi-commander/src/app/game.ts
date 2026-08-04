@@ -485,7 +485,7 @@ export class Game {
         throttle: this.input.throttle,
         mouseFlight: this.input.stickEnabled && !this.autopilot,
         mouseArmPending: this.input.mouseFlight && !this.input.mouseArmed,
-        stick: { x: this.input.mouseNx, y: this.input.mouseNy },
+        stick: { x: this.input.mousePx, y: this.input.mousePy },
         objectives: this.runner?.objectiveViews(),
         nav: this.runner?.currentNav,
         autopilot: this.autopilot,

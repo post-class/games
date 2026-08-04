@@ -175,7 +175,7 @@ export class HudView {
     this.hud.appendChild(this.autopilotEl);
 
     this.mouseHintEl = el('div', 'mc-mousehint');
-    this.mouseHintEl.textContent = 'マウスを画面中央へ動かすと操縦できます (M でマウス操縦 OFF)';
+    this.mouseHintEl.textContent = 'マウスを照準へ動かすと操縦できます (M でマウス操縦 OFF)';
     this.mouseHintEl.style.display = 'none';
     this.hud.appendChild(this.mouseHintEl);
 
