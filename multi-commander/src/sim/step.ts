@@ -15,6 +15,8 @@ export interface StepOptions {
   ai: Partial<AiOptions>;
   /** プレイヤーの照準アシスト (0 で無効) */
   aimAssist?: number;
+  /** 画面上の固定照準に合わせる、プレイヤー主砲の仰角補正 (rad) */
+  playerGunAimPitchOffset?: number;
 }
 
 /**
@@ -38,7 +40,7 @@ export function simulateStep(world: World, dt: number, opts: StepOptions): void 
       e.id === world.playerId && opts.aimAssist
         ? { targetId: e.ship.targetId, strength: opts.aimAssist }
         : undefined;
-    fireGuns(world, e, dt, 1, assist);
+    fireGuns(world, e, dt, 1, assist, opts.playerGunAimPitchOffset);
   }
 
   updateOrdnance(world, dt);

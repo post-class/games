@@ -1,4 +1,5 @@
 import { clamp, clamp01 } from '../core/math';
+import { AIM_ORIGIN_Y } from '../core/aim';
 import { settings } from './settings';
 
 /** エッジ入力 (押した瞬間に1回だけ効くもの) */
@@ -341,7 +342,7 @@ const ARM_ZONE = 0.22;
 /** この割合で入力が最大になる (画面中心から 55% の位置) */
 const FULL_AT = 0.55;
 /** HUD の固定照準と共有する、画面内でのマウス操縦のニュートラル位置 */
-const MOUSE_AIM_ORIGIN_Y = 0.35;
+const MOUSE_AIM_ORIGIN_Y = AIM_ORIGIN_Y;
 
 /** 画面上の位置を、指定した原点を中心とする -1..1 の操縦入力へ変換する。 */
 function centeredInput(position: number, origin: number): number {

@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from 'three';
 import { bus } from '../core/events';
-import { clamp01, forwardOf, leadPoint } from '../core/math';
+import { clamp01, forwardOf, leadPoint, LOCAL_FORWARD, LOCAL_RIGHT } from '../core/math';
 import { isHostile } from '../content/factions';
 import { rng } from '../core/rng';
 import { gunDef, missileDef } from '../content/weapons';
@@ -11,6 +11,7 @@ import { gunOperational } from './subsystems';
 const _muzzle = new Vector3();
 const _dir = new Vector3();
 const _fwd = new Vector3();
+const _reticleQ = new Quaternion();
 
 /** ミサイルロックに必要な最大角度 (機首から) */
 const LOCK_CONE = Math.cos(0.35);
@@ -45,6 +46,7 @@ export function fireGuns(
   dt: number,
   damageScale = 1,
   assist?: AimAssist,
+  playerAimPitchOffset = 0,
 ): void {
   const ship = e.ship;
   const input = e.input;
@@ -78,6 +80,14 @@ export function fireGuns(
       .applyQuaternion(e.quat)
       .add(e.pos);
     _dir.copy(_fwd);
+    // プレイヤーの固定照準は画面中央より上にあるので、主砲も同じ
+    // スクリーン座標へ射出する。敵機の射線は機首正面のままにする。
+    if (e.id === world.playerId && playerAimPitchOffset !== 0) {
+      _dir
+        .copy(LOCAL_FORWARD)
+        .applyQuaternion(_reticleQ.setFromAxisAngle(LOCAL_RIGHT, playerAimPitchOffset))
+        .applyQuaternion(e.quat);
+    }
 
     if (assistTarget) {
       applyAimAssist(_muzzle, _dir, assistTarget, gun.speed, assist!.strength);

@@ -6,6 +6,7 @@ import { forwardOf } from '../core/math';
 import { FIXED_DT, Loop } from '../core/loop';
 import { enemyTauntReply, playerTaunt, wingmanAck } from '../content/dialogue';
 import { HudView } from '../hud/HudView';
+import { AIM_PITCH_OFFSET } from '../core/aim';
 import { MissionRunner } from '../mission/MissionRunner';
 import type { Loadout, MissionDef } from '../mission/types';
 import { CameraRig } from '../render/CameraRig';
@@ -251,6 +252,7 @@ export class Game {
       simulateStep(this.world, dt, {
         flightMode: settings.flightMode,
         ai: this.aiOptions(),
+        playerGunAimPitchOffset: AIM_PITCH_OFFSET,
       });
       if (this.endDelay <= 0) {
         const outcome = this.endedOutcome;
@@ -274,6 +276,7 @@ export class Game {
       simulateStep(this.world, dt, {
         flightMode: settings.flightMode,
         ai: this.aiOptions(),
+        playerGunAimPitchOffset: AIM_PITCH_OFFSET,
       });
       this.runner?.update(dt);
       return;
@@ -309,6 +312,7 @@ export class Game {
       flightMode: settings.flightMode,
       ai: this.aiOptions(),
       aimAssist: this.aimAssistStrength(),
+      playerGunAimPitchOffset: AIM_PITCH_OFFSET,
     });
     this.runner?.update(dt);
     this.updateDamagedReturn(dt);
@@ -499,6 +503,9 @@ export class Game {
     if (this.paused) return;
     for (const a of actions) {
       switch (a) {
+        case 'pause':
+          this.onPauseRequested?.();
+          break;
         case 'viewToggle':
           this.rig.toggle();
           break;

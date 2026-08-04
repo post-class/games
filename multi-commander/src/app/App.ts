@@ -760,6 +760,10 @@ export class App {
             }),
         },
         {
+          label: '操作方法',
+          onSelect: () => this.showPauseHelp(),
+        },
+        {
           label: 'ミッションをやり直す',
           onSelect: () => {
             this.screens.hide();
@@ -785,6 +789,25 @@ export class App {
   private showPause2(): void {
     this.screens.hide();
     this.showPause();
+  }
+
+  /** ポーズ中の操作説明。閉じるとポーズ画面へ戻る。 */
+  private showPauseHelp(): void {
+    this.screens.show({
+      title: '操作方法',
+      bodyHtml:
+        `<div class="block"><h3>飛ぶ</h3>` +
+        `マウスを照準から動かすと機首が向く (M でオン/オフ)。キーボードなら ↑↓←→。` +
+        `スロットルは <b>] [</b> かホイール、数字 <b>1〜9</b> で割合指定。<b>Tab</b> でアフターバーナー。</div>` +
+        `<div class="block"><h3>戦う</h3>` +
+        `<b>Space</b> か左クリックで主砲。<b>T</b> でターゲット切替、<b>Y</b> で正面の敵を掴む。` +
+        `<b>Enter</b> か右クリックでミサイル。</div>` +
+        `<div class="block"><h3>移動・指示</h3>` +
+        `<b>A</b> でオートパイロット。<b>C</b> で通信メニュー。<b>Esc</b> でポーズ。</div>`,
+      items: [{ label: '戻る', onSelect: () => this.showPause2() }],
+      onCancel: () => this.showPause2(),
+      transparent: true,
+    });
   }
 
   dispose(): void {
