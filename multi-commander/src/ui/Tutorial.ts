@@ -23,7 +23,7 @@ const STEPS: Step[] = [
     done: (c) => c.input.throttle > 0.35,
   },
   {
-    text: 'マウスを画面中央から動かすと機首が向く。キーボードなら <b>↑↓←→</b>。<b>Q/E</b> でロール。',
+    text: 'マウスを照準から動かすと機首が向く。キーボードなら <b>↑↓←→</b>。<b>Q/E</b> でロール。',
     done: (_c, self) => self.turnAmount > 2.5,
     minShow: 2,
   },
@@ -133,7 +133,8 @@ export class Tutorial {
     if (!step) return;
     this.el.style.display = '';
     this.el.innerHTML =
-      `<span class="step">訓練 ${this.index + 1} / ${STEPS.length}</span>${step.text}`;
+      `<span class="step">訓練 ${this.index + 1} / ${STEPS.length}</span>` +
+      `<span class="message">${step.text}</span>`;
   }
 
   dispose(): void {

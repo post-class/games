@@ -85,6 +85,7 @@ export class HudView {
   private stickEl: HTMLElement;
   private autopilotEl: HTMLElement;
   private mouseHintEl!: HTMLElement;
+  private cockpit: HTMLElement;
   private chrome: HTMLElement[] = [];
 
   // 計器
@@ -183,6 +184,7 @@ export class HudView {
     // 風防の枠と柱は 3D 内装 (render/Cockpit.ts) が描くので、
     // DOM 側は計器パネルだけを重ねる
     const cockpit = el('div', 'mc-cockpit');
+    this.cockpit = cockpit;
 
     const panels = el('div', 'mc-panels');
     this.vduLeft = el('div', 'mc-vdu left');
@@ -227,6 +229,12 @@ export class HudView {
     this.chrome.push(this.hud, cockpit);
 
     this.subscribe();
+  }
+
+  /** 視認性に直接関係しないコクピット装飾だけをまとめて切り替える。 */
+  setCockpitDecorations(enabled: boolean): void {
+    this.cockpit.classList.toggle('decorated', enabled);
+    this.hud.classList.toggle('cockpit-decorated', enabled);
   }
 
   private makeGauge(id: string, label: string): HTMLElement {

@@ -440,11 +440,8 @@ export class Game {
     const player = this.world.player;
     const frozen = this.paused || !this.active;
     this.sync.hidePlayer = this.rig.mode === 'cockpit';
-    this.scene.cockpit.setVisible(this.active && this.rig.mode === 'cockpit');
-    // 風防のガラスは自機の被害で見え方が変わる
-    this.scene.cockpit.update(
-      player?.ship ? player.ship.hull / Math.max(1, player.ship.def.hull) : 1,
-    );
+    this.scene.cockpit.setVisible(this.active && this.rig.mode === 'cockpit' && settings.cockpitDecorations);
+    this.hud.setCockpitDecorations(settings.cockpitDecorations);
     this.scene.dust.setVisible(this.active);
     // ジャンプ演出は描画側の時間で滑らかに立ち上げる
     const warpTarget = this.autopilot ? 1 : 0;

@@ -10,6 +10,7 @@
   --ace: #ffd75e;
   --panel: rgba(6, 14, 18, 0.82);
   --panel-line: rgba(127, 227, 176, 0.35);
+  --message-bar-height: 38px;
   --font: 'DIN Alternate', 'Menlo', 'Consolas', 'Hiragino Sans', 'Noto Sans JP', monospace;
 }
 

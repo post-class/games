@@ -18,6 +18,8 @@ export interface Settings {
   volumeSfx: number;
   /** 無線ログの表示時間 (秒)。読む速さに合わせて調整できる */
   radioDuration: number;
+  /** 天蓋・ダッシュボードの見た目だけの装飾を表示するか */
+  cockpitDecorations: boolean;
   /** 訓練を見たか */
   tutorialDone: boolean;
 }
@@ -34,6 +36,7 @@ export const DEFAULT_SETTINGS: Settings = {
   volumeMusic: 0.5,
   volumeSfx: 0.9,
   radioDuration: 9,
+  cockpitDecorations: false,
   tutorialDone: false,
 };
 

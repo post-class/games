@@ -227,19 +227,21 @@
   letter-spacing: 0.12em;
 }
 
-/* 訓練/ヒントの吹き出し */
+/* 訓練メッセージ用の最下部1行バー */
 .mc-tutorial {
   position: absolute;
-  left: 50%;
-  bottom: calc(32vh + 26px);
-  transform: translateX(-50%);
-  background: rgba(6, 14, 18, 0.9);
-  border: 1px solid var(--panel-line);
+  inset: auto 0 0;
+  height: var(--message-bar-height);
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  overflow: hidden;
+  white-space: nowrap;
+  background: rgba(6, 14, 18, 0.96);
+  border-top: 1px solid var(--panel-line);
   border-left: 3px solid var(--hud);
-  padding: 10px 16px;
-  max-width: min(680px, 88vw);
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: 13px;
+  line-height: 1;
   color: #cdefdd;
   pointer-events: none;
 }
@@ -247,8 +249,13 @@
   font-size: 10px;
   letter-spacing: 0.2em;
   color: var(--hud-dim);
-  display: block;
-  margin-bottom: 2px;
+  display: inline;
+  flex: 0 0 auto;
+  margin-right: 1.2em;
+}
+.mc-tutorial .message {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .mc-tutorial.done {
   border-left-color: var(--good);

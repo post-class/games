@@ -1,10 +1,7 @@
 import {
-  AdditiveBlending,
   BoxGeometry,
-  CanvasTexture,
   CylinderGeometry,
   Group,
-  Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
   Object3D,
@@ -161,81 +158,6 @@ function buildInterior(): Object3D {
 }
 
 /**
- * 風防のガラス。
- *
- * 視界を塞がないことが絶対条件なので、映すのは
- * ①上端から差す反射のすじ ②拭き残しの汚れ ③被弾で入るひび の3つだけ。
- * 加算合成の薄い板をカメラの前に置き、機体の被害に応じて濃さを変える。
- */
-function glassTexture(cracked: boolean): CanvasTexture {
-  const w = 512;
-  const h = 256;
-  const cv = document.createElement('canvas');
-  cv.width = w;
-  cv.height = h;
-  const g = cv.getContext('2d')!;
-  g.clearRect(0, 0, w, h);
-
-  // 上端から差し込む反射 (斜めのすじを数本)
-  for (let i = 0; i < 4; i++) {
-    const x = w * (0.1 + i * 0.26);
-    const grad = g.createLinearGradient(x, 0, x + w * 0.16, h * 0.75);
-    grad.addColorStop(0, 'rgba(180, 220, 255, 0.10)');
-    grad.addColorStop(0.5, 'rgba(150, 200, 240, 0.03)');
-    grad.addColorStop(1, 'rgba(150, 200, 240, 0)');
-    g.fillStyle = grad;
-    g.beginPath();
-    g.moveTo(x, 0);
-    g.lineTo(x + w * 0.07, 0);
-    g.lineTo(x + w * 0.2, h * 0.8);
-    g.lineTo(x + w * 0.13, h * 0.8);
-    g.closePath();
-    g.fill();
-  }
-  // 拭き残しの汚れ (弧を描くムラ)
-  g.strokeStyle = 'rgba(200, 215, 225, 0.018)';
-  for (let i = 0; i < 5; i++) {
-    g.lineWidth = 5 + i * 2;
-    g.beginPath();
-    g.arc(w * 0.5, h * 1.15, h * (0.55 + i * 0.08), Math.PI * 1.15, Math.PI * 1.85);
-    g.stroke();
-  }
-
-  if (cracked) {
-    // ひび: 視界の中央を避け、隅に小さく入れる。
-    // 大きく入れると弾も敵も見えなくなり、被弾が「見えない」罰になってしまう
-    g.lineWidth = 0.8;
-    for (const [cx, cy] of [
-      [w * 0.12, h * 0.22],
-      [w * 0.88, h * 0.72],
-      [w * 0.74, h * 0.14],
-    ] as Array<[number, number]>) {
-      for (let i = 0; i < 7; i++) {
-        const a = (i / 7) * Math.PI * 2 + cx * 0.01;
-        let x = cx;
-        let y = cy;
-        g.strokeStyle = 'rgba(225, 240, 255, 0.55)';
-        g.beginPath();
-        g.moveTo(x, y);
-        for (let seg = 0; seg < 3; seg++) {
-          const len = 4 + seg * 3;
-          x += Math.cos(a + Math.sin(seg * 2.3) * 0.5) * len;
-          y += Math.sin(a + Math.sin(seg * 1.7) * 0.5) * len;
-          g.lineTo(x, y);
-        }
-        g.stroke();
-      }
-      // 着弾点
-      g.fillStyle = 'rgba(235, 245, 255, 0.6)';
-      g.beginPath();
-      g.arc(cx, cy, 1.6, 0, Math.PI * 2);
-      g.fill();
-    }
-  }
-  return new CanvasTexture(cv);
-}
-
-/**
  * カメラに固定されるコクピット。
  *
  * シーン全体のスケールと桁が違うので、専用のスケールで縮めてから
@@ -245,9 +167,6 @@ export class Cockpit {
   readonly root = new Group();
   private interior: Object3D;
   private visible = true;
-  /** 風防のガラス (無傷 / ひび割れ の2枚を切り替える) */
-  private glass: Mesh;
-  private glassCracked: Mesh;
 
   constructor(scene: Scene, private camera: PerspectiveCamera) {
     this.interior = buildInterior();
@@ -259,45 +178,15 @@ export class Cockpit {
     const fill = new PointLight(0x7796b8, 0.5, 4.5, 2);
     fill.position.set(0, 0.5, 0.2);
     this.root.add(fill);
-    // ── 風防のガラス ──
-    // カメラの目前に置く薄い板。加算合成なので暗い宇宙では存在が消える
-    const mk = (cracked: boolean): Mesh => {
-      const m = new Mesh(
-        PLANE,
-        new MeshBasicMaterial({
-          map: glassTexture(cracked),
-          transparent: true,
-          opacity: cracked ? 0 : 0.3,
-          blending: AdditiveBlending,
-          depthWrite: false,
-          depthTest: false,
-        }),
-      );
-      // near = 0.5 なので、それより手前には置けない
-      m.position.set(0, 0.12, -0.62);
-      m.scale.set(1.72, 0.86, 1);
-      m.renderOrder = -1;
-      return m;
-    };
-    this.glass = mk(false);
-    this.glassCracked = mk(true);
-    this.root.add(this.glass, this.glassCracked);
-
     // カメラの子にすることで、カメラの揺れ・FOV とズレなく一体で動く
     this.camera.add(this.root);
     scene.add(this.camera);
   }
 
   /**
-   * 被害に応じてガラスの見え方を変える。
-   * ハルが減るほど、ひびの入った板が濃くなる。
+   * 互換用の更新フック。風防オーバーレイは視界を優先して廃止した。
    */
-  update(hullRatio: number): void {
-    const hurt = Math.max(0, Math.min(1, (0.65 - hullRatio) / 0.5));
-    (this.glassCracked.material as MeshBasicMaterial).opacity = hurt * 0.34;
-    // ひびが目立つほど、綺麗な反射は引っ込める
-    (this.glass.material as MeshBasicMaterial).opacity = 0.3 * (1 - hurt * 0.5);
-  }
+  update(_hullRatio: number): void {}
 
   setVisible(v: boolean): void {
     if (this.visible === v) return;

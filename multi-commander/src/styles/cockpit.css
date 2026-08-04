@@ -249,7 +249,7 @@
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: var(--message-bar-height);
   height: 32vh;
   min-height: 232px;
   max-height: 320px;
@@ -439,6 +439,9 @@
   pointer-events: none;
   z-index: 2;
 }
+.mc-hud:not(.cockpit-decorated) .mc-radarbox::before {
+  display: none;
+}
 
 /*
  * 計器盤の警告灯の列。
@@ -471,6 +474,10 @@
   filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.6));
   pointer-events: none;
   z-index: 1;
+}
+.mc-cockpit:not(.decorated) .mc-lamprow,
+.mc-cockpit:not(.decorated) .mc-dashtrim {
+  display: none;
 }
 
 .mc-shielddisp,
