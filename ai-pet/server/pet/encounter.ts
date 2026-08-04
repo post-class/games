@@ -4,6 +4,7 @@ import type { Db } from '../db.js';
 import { chat } from '../llm/azure.js';
 import { parseEncounter } from '../llm/parse.js';
 import { describeError } from './brain.js';
+import { ageHoursOf, stageFor } from './growth.js';
 import { addEpisode, listFacts, listEpisodes } from './memory.js';
 import { petRecordById, type PetRecord } from './store.js';
 
@@ -93,6 +94,7 @@ export function pickPartner(
   db: Db,
   pet: PetRecord,
   rand: () => number = Math.random,
+  now = Date.now(),
 ): PetRecord | null {
   // 社交性 0 なら 15%、100 なら 95% の確率で出かける。
   const willingness = 0.15 + (pet.personality.social / 100) * 0.8;
@@ -100,15 +102,21 @@ export function pickPartner(
 
   const friendRows = db
     .prepare(
-      `SELECT p.id FROM pets p
+      `SELECT p.id, p.born_at, p.care_score FROM pets p
        JOIN friends f ON f.friend_id = p.user_id
        WHERE f.user_id = ? AND p.id != ?`,
     )
-    .all(pet.userId, pet.id) as Array<{ id: number }>;
+    .all(pet.userId, pet.id) as Array<{ id: number; born_at: number; care_score: number }>;
 
-  const pool = friendRows.length
-    ? friendRows
-    : (db.prepare('SELECT id FROM pets WHERE id != ? LIMIT 50').all(pet.id) as Array<{ id: number }>);
+  const anyRows = db
+    .prepare('SELECT id, born_at, care_score FROM pets WHERE id != ? LIMIT 50')
+    .all(pet.id) as Array<{ id: number; born_at: number; care_score: number }>;
+
+  // たまごはまだ話せないので相手にならない。
+  const hatched = (rows: typeof friendRows) =>
+    rows.filter((row) => stageFor(ageHoursOf(row.born_at, now), row.care_score) !== 'egg');
+
+  const pool = hatched(friendRows).length ? hatched(friendRows) : hatched(anyRows);
 
   if (!pool.length) return null;
   const chosen = pool[Math.floor(rand() * pool.length)];
@@ -285,7 +293,9 @@ export async function maybeEncounter(
   rand: () => number = Math.random,
 ): Promise<{ created: EncounterView | null; error?: string }> {
   if (now - pet.lastEncounterAt < intervalMs) return { created: null };
-  const partner = pickPartner(db, pet, rand);
+  // たまごのうちは外に出られない。
+  if (stageFor(ageHoursOf(pet.bornAt, now), pet.careScore) === 'egg') return { created: null };
+  const partner = pickPartner(db, pet, rand, now);
   if (!partner) {
     // 出かけなかった場合も時刻は進めて、毎リクエスト試行しないようにする。
     db.prepare('UPDATE pets SET last_encounter_at = ? WHERE id = ?').run(now, pet.id);

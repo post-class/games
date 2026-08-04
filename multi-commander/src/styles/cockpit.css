@@ -433,7 +433,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: url('./art/radar-bezel.png') center / contain no-repeat;
+  background: url('/art/radar-bezel.png') center / contain no-repeat;
   transform: scale(1.2);
   opacity: 0.85;
   pointer-events: none;
@@ -456,7 +456,7 @@
   top: calc(6% - 2px);
   width: 160px;
   height: 22px;
-  background: url('./art/tex/hud-lamp-row.webp') center / contain no-repeat;
+  background: url('/art/tex/hud-lamp-row.webp') center / contain no-repeat;
   opacity: 0.8;
   pointer-events: none;
   z-index: 1;
@@ -469,7 +469,7 @@
   right: 0;
   top: 6%;
   height: 18px;
-  background: url('./art/dash-trim.png') left center / auto 100% repeat-x;
+  background: url('/art/dash-trim.png') left center / auto 100% repeat-x;
   opacity: 0.92;
   filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.6));
   pointer-events: none;
@@ -561,6 +561,58 @@
   .mc-vdu {
     font-size: 11px;
     line-height: 1.35;
+  }
+}
+
+/* 小さい画面では、左右 VDU と中央計器を2段に分けて横幅へ収める。 */
+@media (max-width: 760px) {
+  .mc-panels {
+    left: 2%;
+    right: 2%;
+    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  }
+
+  .mc-panels > .mc-vdu.left {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .mc-panels > .mc-vdu.right {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .mc-panels > .mc-center {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    min-width: 0;
+    gap: 6px;
+  }
+
+  .mc-vdu {
+    min-width: 0;
+    padding: 5px 6px;
+    font-size: 10px;
+    line-height: 1.3;
+  }
+
+  .mc-vdu-title {
+    font-size: 9px;
+  }
+
+  .mc-center > * {
+    min-width: 0;
+  }
+
+  .mc-gauges {
+    padding: 5px 6px;
+    gap: 3px;
+  }
+
+  .mc-speed {
+    font-size: 16px;
   }
 }
 

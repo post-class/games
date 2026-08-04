@@ -1,4 +1,5 @@
 import { Quaternion, Vector3 } from 'three';
+import { AIM_PITCH_OFFSET } from '../core/aim';
 import { bus } from '../core/events';
 import { clamp01, forwardOf, leadPoint, LOCAL_FORWARD, LOCAL_RIGHT } from '../core/math';
 import { isHostile } from '../content/factions';
@@ -346,7 +347,16 @@ export function fireMissile(world: World, e: Entity): FireMissileResult {
   ship.missiles[slot.index].count -= 1;
   if (ship.activeMissile !== slot.index) ship.activeMissile = slot.index;
 
-  forwardOf(e.quat, _fwd);
+  // 画面上の固定照準は画面中央より上にあるため、プレイヤーのミサイルも
+  // 主砲と同じ照準線へ射出する。AI／僚機は機首正面から発射する。
+  if (e.id === world.playerId) {
+    _fwd
+      .copy(LOCAL_FORWARD)
+      .applyQuaternion(_reticleQ.setFromAxisAngle(LOCAL_RIGHT, AIM_PITCH_OFFSET))
+      .applyQuaternion(e.quat);
+  } else {
+    forwardOf(e.quat, _fwd);
+  }
   // 機体下面から交互に射出する
   const side = ship.missiles[slot.index].count % 2 === 0 ? -1 : 1;
   _muzzle

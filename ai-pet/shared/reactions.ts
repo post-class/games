@@ -1,5 +1,5 @@
 import type { Emotion, PetAction } from './actions.js';
-import type { SpeciesId } from './types.js';
+import type { GrowthStage, SpeciesId } from './types.js';
 
 /**
  * LLM を待たずに即座に出す定型リアクション。
@@ -45,12 +45,19 @@ const SULKY_BY_SPECIES: Record<SpeciesId, string[]> = {
   nimbus: ['……ずいぶん待った', 'いま来たのか', 'ふ、そうか'],
 };
 
+/** たまごはまだ言葉を話せないので、音と揺れだけを返す。 */
+const EGG_REACTIONS = ['こつん…こつん', 'ぷるぷる ゆれている', 'ころん…と かたむいた', 'なかで なにかが うごいた'];
+
 export function localReaction(
   species: SpeciesId,
   kind: CareKind,
   mood: number,
   pick: (length: number) => number = (length) => Math.floor(Math.random() * length),
+  stage: GrowthStage = 'child',
 ): { say: string; emotion: Emotion; action: PetAction } {
+  if (stage === 'egg') {
+    return { say: EGG_REACTIONS[pick(EGG_REACTIONS.length)], emotion: 'curious', action: 'idle' };
+  }
   if (mood < 25) {
     const options = SULKY_BY_SPECIES[species];
     return { say: options[pick(options.length)], emotion: 'sulky', action: 'sulk_corner' };

@@ -180,6 +180,7 @@ export class Game {
     this.runner?.dispose();
     this.vfx.vfx.clear();
     this.sync.clear();
+    this.hud.resetTransientState();
     this.hud.damageMode = false;
     if (def.skybox) this.scene.setSkybox(def.skybox);
     this.landmarks.set(def.landmarks);

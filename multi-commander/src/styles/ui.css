@@ -976,6 +976,14 @@
   .mc-screen.briefing {
     overflow-y: auto;
   }
+  /*
+   * モバイルでは顔・台詞・資料を縦積みにするため、資料側が
+   * グリッドの高さを超える。デスクトップ用の overflow:hidden を
+   * 引き継ぐと、任務目標と機体が出撃ボタンの下に隠れてしまう。
+   */
+  .mc-screen.briefing > .mc-panel {
+    overflow-y: auto;
+  }
   .mc-brief-header {
     flex-wrap: wrap;
     white-space: normal;

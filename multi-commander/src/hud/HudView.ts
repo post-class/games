@@ -237,6 +237,25 @@ export class HudView {
     this.hud.classList.toggle('cockpit-decorated', enabled);
   }
 
+  /** 任務をまたいで持ち越してはいけない HUD の一時表示を消す。 */
+  resetTransientState(): void {
+    this.announce.textContent = '';
+    this.announce.className = 'mc-announce';
+    this.announceUntil = 0;
+
+    for (const line of this.radioLines) line.el.remove();
+    this.radioLines = [];
+    for (const line of this.killLines) line.el.remove();
+    this.killLines = [];
+    this.speakingFaces = [];
+
+    this.objectivesBox.textContent = '';
+    delete this.objectivesBox.dataset.sig;
+    this.vignetteLevel = 0;
+    this.vignette.style.opacity = '0';
+    this.navMap.setOpen(false);
+  }
+
   private makeGauge(id: string, label: string): HTMLElement {
     const root = el('div', 'mc-gauge');
     const lbl = el('div', 'lbl');

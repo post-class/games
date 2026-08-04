@@ -34,7 +34,12 @@ export const FACT_KEYS = {
 
 export type FactKey = keyof typeof FACT_KEYS;
 
-export const MAX_FACT_VALUE_LEN = 60;
+/**
+ * 事実の値は「りょう」「いちご」のような短い語だけを想定する。
+ * LLM がまれに説明文や無関係な文章を混ぜてくるため、上限を短く取り、
+ * 文が始まっていたら最初の一区切りで切り捨てる（記憶の汚染を防ぐ）。
+ */
+export const MAX_FACT_VALUE_LEN = 30;
 export const MAX_EPISODE_LEN = 120;
 /** これを超えたら低スコアのエピソードを「うすれた記憶」にする。 */
 export const ACTIVE_EPISODE_LIMIT = 60;
@@ -52,9 +57,21 @@ export function listFacts(db: Db, petId: number): MemoryFact[] {
   return rows.map((row) => ({ key: row.key, value: row.value, updatedAt: row.updated_at }));
 }
 
+/**
+ * 事実の値を短い語に正規化する。
+ * 「さくら接続語が保持されました。接続語の…」のような、
+ * LLM が説明文を混ぜてしまったケースを最初の一区切りで切り落とす。
+ */
+export function sanitizeFactValue(value: string): string {
+  const firstLine = value.split(/[\r\n]/)[0];
+  // 句点以降は説明文の始まりとみなして捨てる。
+  const beforePeriod = firstLine.split(/[。．！？!?]/)[0];
+  return beforePeriod.trim().slice(0, MAX_FACT_VALUE_LEN);
+}
+
 export function upsertFact(db: Db, petId: number, key: string, value: string, now = Date.now()): void {
   if (!isFactKey(key)) return;
-  const trimmed = value.trim().slice(0, MAX_FACT_VALUE_LEN);
+  const trimmed = sanitizeFactValue(value);
   if (!trimmed) return;
   db.prepare(
     `INSERT INTO pet_facts (pet_id, key, value, updated_at) VALUES (?, ?, ?, ?)

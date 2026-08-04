@@ -174,12 +174,23 @@ export async function reactToCare(
 
   try {
     const result = await askLlm(messages, pet);
-    commit(db, pet, result.reply, now);
+    // 世話の効果はアイテム定義が正であり、LLM に上書きさせない。
+    // 気分（mood）だけは反応として意味があるので通す。
+    const moodOnly = typeof result.reply.needsDelta.mood === 'number'
+      ? { mood: result.reply.needsDelta.mood }
+      : {};
+    commit(db, pet, { ...result.reply, needsDelta: moodOnly }, now);
     addChatTurn(db, pet.id, 'pet', result.reply.say, result.reply.emotion, now);
     return result;
   } catch (error) {
     // ここは定型リアクションで十分成立する（クライアントも同じものを即出ししている）。
-    const local = localReaction(pet.species, event.kind as CareKind, pet.needs.mood);
+    const local = localReaction(
+      pet.species,
+      event.kind as CareKind,
+      pet.needs.mood,
+      undefined,
+      stageFor(ageHoursOf(pet.bornAt, now), pet.careScore),
+    );
     saveState(db, pet.id, { action: local.action, emotion: local.emotion });
     pet.action = local.action;
     pet.emotion = local.emotion;
@@ -236,7 +247,15 @@ export async function petThinks(
 }
 
 export function describeError(error: unknown): string {
-  if (error instanceof LlmUnavailableError) return 'LLM未設定';
-  if (error instanceof Error) return error.message.slice(0, 200);
-  return String(error).slice(0, 200);
+  const message =
+    error instanceof LlmUnavailableError
+      ? 'LLM未設定'
+      : error instanceof Error
+        ? error.message.slice(0, 200)
+        : String(error).slice(0, 200);
+  // フォールバックは静かに動くが、原因が追えないと困るのでログには必ず残す。
+  if (!(error instanceof LlmUnavailableError)) {
+    console.warn('[ai-pet] llm failed:', message);
+  }
+  return message;
 }

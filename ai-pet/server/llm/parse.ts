@@ -1,7 +1,7 @@
 import { isEmotion, isPetAction, type Emotion, type PetAction } from '../../shared/actions.js';
 import { NEED_KEYS, type Needs, type PetReply } from '../../shared/types.js';
 import type { MemoryWrite } from '../../shared/types.js';
-import { isFactKey, MAX_EPISODE_LEN, MAX_FACT_VALUE_LEN } from '../pet/memory.js';
+import { isFactKey, MAX_EPISODE_LEN, sanitizeFactValue } from '../pet/memory.js';
 
 /**
  * LLM 応答の検証。ここが「画面が壊れない」保証の要。
@@ -56,8 +56,10 @@ function parseMemoryWrites(value: unknown): MemoryWrite[] {
       const key = record.key;
       const factValue = record.value;
       if (!isFactKey(key)) continue;
-      if (typeof factValue !== 'string' || !factValue.trim()) continue;
-      out.push({ kind: 'fact', key, value: factValue.trim().slice(0, MAX_FACT_VALUE_LEN) });
+      if (typeof factValue !== 'string') continue;
+      const cleaned = sanitizeFactValue(factValue);
+      if (!cleaned) continue;
+      out.push({ kind: 'fact', key, value: cleaned });
     } else if (kind === 'episode') {
       const summary = record.summary;
       if (typeof summary !== 'string' || !summary.trim()) continue;
