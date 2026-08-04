@@ -8,6 +8,9 @@
 
 # tools　usage
 
+## img-gen-gpt スキル
+透過PNGが作れるので、デザイン全般に活用してください。
+
 ## browser スキル
 browserスキルは使用しないでください。代わりに playwright mcp を使用してください。
 
