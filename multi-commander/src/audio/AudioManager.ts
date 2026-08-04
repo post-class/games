@@ -33,6 +33,14 @@ export class AudioManager {
     return this.musicBus;
   }
 
+  /** HTMLAudioElementをBGMバスへ接続する。接続失敗時は呼び出し側が無音で継続する。 */
+  connectMusicElement(media: HTMLMediaElement): MediaElementAudioSourceNode | undefined {
+    if (!this.ctx || !this.musicBus) return undefined;
+    const source = this.ctx.createMediaElementSource(media);
+    source.connect(this.musicBus);
+    return source;
+  }
+
   private init(): void {
     const Ctor: typeof AudioContext | undefined =
       window.AudioContext ??

@@ -81,7 +81,7 @@ export class App {
   // ───────── タイトル ─────────
 
   private showTitle(): void {
-    this.game.sound.music.play('theme');
+    this.game.sound.music.play('title');
     this.game.endMission();
     const hasSave = !!loadSave();
     const items: MenuItem[] = [
@@ -125,7 +125,7 @@ export class App {
       title: '操作説明',
       bodyHtml:
         `<div class="block"><h3>飛ぶ</h3>` +
-        `マウスを画面中央から動かすと機首が向く (M でオン/オフ)。キーボードなら ↑↓←→。` +
+        `マウスを照準から動かすと機首が向く (M でオン/オフ)。キーボードなら ↑↓←→。` +
         `スロットルは <b>] [</b> かホイール、数字 <b>1〜9</b> で割合指定。<b>Tab</b> でアフターバーナー。</div>` +
         `<div class="block"><h3>戦う</h3>` +
         `<b>Space</b> か左クリックで主砲。<b>T</b> でターゲット切替、<b>Y</b> で正面の敵を掴む。` +
@@ -135,7 +135,10 @@ export class App {
         `Nav ポイント間の移動は <b>A</b> のオートパイロット。敵が近くにいると使えない。</div>` +
         `<div class="block"><h3>指示する</h3>` +
         `<b>C</b> で通信メニュー。数字キーで僚機へ指示、または敵を挑発できる。</div>`,
-      items: [{ label: '戻る', onSelect: () => this.showTitle() }],
+      items: [
+        { label: '音楽クレジット', onSelect: () => this.showMusicCredits(() => this.showHelp()) },
+        { label: '戻る', onSelect: () => this.showTitle() },
+      ],
       onCancel: () => this.showTitle(),
     });
   }
@@ -237,7 +240,7 @@ export class App {
    * WC の「ミッションの間」を作るための画面。
    */
   private showHub(): void {
-    this.game.sound.music.play('theme');
+    this.game.sound.music.play('hub');
     if (isTerminal(this.save.node)) {
       this.showEnding(this.save.node === VICTORY);
       return;
@@ -382,6 +385,7 @@ export class App {
       return;
     }
     const node = campaignNode(this.save.node);
+    this.game.sound.music.play('briefing');
     const def = this.currentMission();
     const ship = shipDef(def.playerShipId);
     const load = this.loadoutFor(def);
@@ -596,8 +600,7 @@ export class App {
       outcome === 'loss' ? 'grim' : 'talk',
     );
 
-    this.game.sound.music.setIntensity(0);
-    this.game.sound.music.play(outcome === 'win' ? 'victory' : 'requiem');
+    this.game.sound.music.play(outcome === 'win' ? 'victory' : 'defeat');
     this.screens.show({
       crest: outcome === 'win' ? artUrl('emblem-confed') : artUrl('emblem-kilrathi'),
       crestHeight: 72,
@@ -648,7 +651,7 @@ export class App {
     );
     const speaker = others.length ? defOf(others[0]) : undefined;
 
-    this.game.sound.music.play('requiem');
+    this.game.sound.music.play('defeat');
     this.screens.show({
       crest: artUrl('patch-squadron'),
       crestHeight: 76,
@@ -750,7 +753,7 @@ export class App {
   }
 
   private showEnding(victory: boolean): void {
-    this.game.sound.music.play(victory ? 'victory' : 'requiem');
+    this.game.sound.music.play(victory ? 'victory' : 'defeat');
     this.game.endMission();
     this.screens.show({
       crest: victory ? artUrl('emblem-confed') : artUrl('emblem-kilrathi'),
@@ -848,9 +851,29 @@ export class App {
         `<b>Enter</b> か右クリックでミサイル。</div>` +
         `<div class="block"><h3>移動・指示</h3>` +
         `<b>A</b> でオートパイロット。<b>C</b> で通信メニュー。<b>Esc</b> でポーズ。</div>`,
-      items: [{ label: '戻る', onSelect: () => this.showPause2() }],
+      items: [
+        { label: '音楽クレジット', onSelect: () => this.showMusicCredits(() => this.showPauseHelp()) },
+        { label: '戻る', onSelect: () => this.showPause2() },
+      ],
       onCancel: () => this.showPause2(),
       transparent: true,
+    });
+  }
+
+  /** 同梱したCC音源の作者・ライセンス情報を、ゲーム内からも確認できるようにする。 */
+  private showMusicCredits(back: () => void): void {
+    this.screens.show({
+      title: '音楽クレジット',
+      bodyHtml:
+        `<div class="block"><h3>BGM</h3>` +
+        `Kevin MacLeod / <b>Incompetech</b><br>` +
+        `Creative Commons Attribution License（商用利用可・作者表記が必要）</div>` +
+        `<div class="block dim">曲名、配布元URL、利用時の注意は ` +
+        `<code>public/audio/music/README.md</code> を参照してください。` +
+        `リリース前にはIncompetechで各曲の最新クレジット文言を確認してください。</div>`,
+      items: [{ label: '戻る', onSelect: back }],
+      onCancel: back,
+      transparent: this.game.runner !== undefined,
     });
   }
 

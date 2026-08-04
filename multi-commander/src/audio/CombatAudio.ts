@@ -5,6 +5,7 @@ import { healthRatios } from '../sim/damage';
 import type { World } from '../world/world';
 import { audio } from './AudioManager';
 import { MusicDirector } from './MusicDirector';
+import { combatMusicCue } from './musicCues';
 
 const _rel = new Vector3();
 const _right = new Vector3();
@@ -80,12 +81,9 @@ export class CombatAudio {
     const player = world.player;
     if (!active || !player?.ship) {
       audio.stopEngine();
-      this.music.setIntensity(0);
       this.music.update(dt);
       return;
     }
-    // 戦域では戦闘曲に切り替える (緊張度で層が増減する)
-    this.music.play('combat');
     const ship = player.ship;
     const def = ship.def;
     const power = Math.min(1, player.vel.length() / Math.max(1, def.maxSpeed));
@@ -102,12 +100,16 @@ export class CombatAudio {
 
     // 近くの敵の数で BGM の緊張度を決める
     let near = 0;
+    let aceNearby = false;
     for (const e of world.entities) {
       if (!e.alive || e.kind !== 'ship' || !e.ship) continue;
       if (!isHostile(player.faction, e.faction)) continue;
-      if (e.pos.distanceToSquared(player.pos) < 6000 * 6000) near++;
+      if (e.pos.distanceToSquared(player.pos) < 6000 * 6000) {
+        near++;
+        aceNearby ||= !!e.ship.ace;
+      }
     }
-    this.music.setIntensity(near === 0 ? 0.1 : Math.min(1, 0.45 + near * 0.2));
+    this.music.playBattle(combatMusicCue(near, aceNearby));
     this.music.update(dt);
     void _camDir;
   }
