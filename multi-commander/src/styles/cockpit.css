@@ -10,7 +10,8 @@
 .mc-reticle {
   position: absolute;
   left: 50%;
-  top: 50%;
+  /* 下部コクピット計器を除いた前方視界の中央に置く。 */
+  top: 35%;
   width: 46px;
   height: 46px;
   transform: translate(-50%, -50%);
@@ -437,6 +438,25 @@
   opacity: 0.85;
   pointer-events: none;
   z-index: 2;
+}
+
+/*
+ * 計器盤の警告灯の列。
+ * VDU に金属枠を重ねる案は、枠の内側の光が左上のラベル (TARGET / WEAPONS) を
+ * 隠してしまったので採らなかった。文字の可読性を装飾より優先する。
+ */
+.mc-lamprow {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  /* 計器盤上端の梁の上に載せる。下げると計器のラベルに重なる */
+  top: calc(6% - 2px);
+  width: 160px;
+  height: 22px;
+  background: url('./art/tex/hud-lamp-row.webp') center / contain no-repeat;
+  opacity: 0.8;
+  pointer-events: none;
+  z-index: 1;
 }
 
 /* 計器盤の上端に走るリベット付きの梁 */

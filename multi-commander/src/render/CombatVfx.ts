@@ -3,6 +3,7 @@ import { bus } from '../core/events';
 import { gunDef } from '../content/weapons';
 import type { World } from '../world/world';
 import type { CameraRig } from './CameraRig';
+import { ShieldFx } from './ShieldFx';
 import { VfxManager } from './Vfx';
 
 const TRAIL_INTERVAL = 0.035;
@@ -15,12 +16,15 @@ const SMOKE_INTERVAL = 0.09;
  */
 export class CombatVfx {
   readonly vfx: VfxManager;
+  /** シールドの被弾殻と波紋 */
+  readonly shieldFx: ShieldFx;
   private unsubs: Array<() => void> = [];
   private trailTimer = 0;
   private smokeTimer = 0;
 
   constructor(scene: Scene, private rig: CameraRig, private hitStop: (ms: number) => void) {
     this.vfx = new VfxManager(scene);
+    this.shieldFx = new ShieldFx(scene);
 
     this.unsubs.push(
       bus.on('weaponFired', (p) => {
@@ -33,6 +37,10 @@ export class CombatVfx {
       }),
       bus.on('shieldHit', (p) => {
         this.vfx.shieldSpark(p.point, p.isPlayer ? 1.6 : 1);
+        // シールドが張られていることを、機体を包む殻と面の波紋で見せる
+        const def = p.target.ship?.def;
+        const cap = Math.max(1, ((def?.shield.front ?? 40) + (def?.shield.rear ?? 40)) * 0.25);
+        this.shieldFx.hit(p.target.pos, p.point, p.target.radius, p.amount / cap);
         if (p.isPlayer) this.rig.addShake(0.18);
       }),
       bus.on('armorHit', (p) => {
@@ -56,6 +64,7 @@ export class CombatVfx {
 
   /** 描画フレームごと: ミサイル/フレアの軌跡を出しつつ、エフェクトを進める */
   update(world: World, dt: number): void {
+    this.shieldFx.update(dt);
     this.trailTimer += dt;
     if (this.trailTimer >= TRAIL_INTERVAL) {
       this.trailTimer = 0;
@@ -89,5 +98,6 @@ export class CombatVfx {
     for (const u of this.unsubs) u();
     this.unsubs.length = 0;
     this.vfx.clear();
+    this.shieldFx.clear();
   }
 }

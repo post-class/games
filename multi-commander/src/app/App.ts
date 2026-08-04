@@ -23,7 +23,7 @@ import {
   type HangarSelection,
   type HubContext,
 } from '../ui/HubPanels';
-import { portraitSvg } from '../ui/Portrait';
+import { portraitFace } from '../ui/Portrait';
 import { escapeHtml, ScreenHost, type MenuItem } from '../ui/ScreenHost';
 import { artImg, artUrl, medalArt, rankArt } from '../ui/art';
 import { buildSettingsPanel } from '../ui/SettingsPanel';
@@ -40,6 +40,7 @@ import {
 import { Game } from './game';
 import { loadSave, newSave, writeSave, type CampaignSave } from './save';
 import { difficulty, settings, updateSettings } from './settings';
+import { showcase, type ShowcaseOptions, type ShowcaseResult } from './showroom';
 
 /**
  * 画面遷移とキャンペーン進行の統括。
@@ -98,6 +99,7 @@ export class App {
       heroTitle: true,
       crest: artUrl('title-crest'),
       crestHeight: 210,
+      background: artUrl('tex/bg-space', 'jpg'),
       bodyHtml:
         `<div class="block"><h3>状況</h3>` +
         `キルラシー帝国との戦争は6年目に入った。君はタイガーズ・クローに配属された新任パイロットだ。` +
@@ -244,6 +246,7 @@ export class App {
     this.screens.show({
       crest: artUrl('emblem-carrier'),
       crestHeight: 72,
+      background: artUrl('tex/bg-hangar', 'jpg'),
       title: 'TCS タイガーズ・クロー',
       subtitle:
         `第 ${node.chapter} 章 / ${TOTAL_CHAPTERS}　—　${def.system} 星系` +
@@ -287,6 +290,7 @@ export class App {
 
   private showRecRoom(): void {
     this.screens.show({
+      background: artUrl('tex/bg-bar', 'jpg'),
       title: '酒場',
       bodyHtml: recRoomHtml(this.hubContext()),
       items: [
@@ -299,6 +303,7 @@ export class App {
 
   private showBarracks(): void {
     this.screens.show({
+      background: artUrl('tex/bg-quarters', 'jpg'),
       title: '自室',
       bodyHtml: barracksHtml(this.hubContext()),
       items: [{ label: '戻る', onSelect: () => this.showHub() }],
@@ -308,6 +313,7 @@ export class App {
 
   private showKillBoard(): void {
     this.screens.show({
+      background: artUrl('tex/bg-hangar', 'jpg'),
       title: 'キルボード',
       bodyHtml: killBoardHtml(this.hubContext()),
       items: [{ label: '戻る', onSelect: () => this.showHub() }],
@@ -357,6 +363,7 @@ export class App {
     items.push({ label: '戻る', onSelect: () => this.showHub() });
 
     this.screens.show({
+      background: artUrl('tex/bg-hangar', 'jpg'),
       title: '格納庫',
       bodyHtml: hangarHtml(this.hubContext(), sel, def.playerShipId),
       items,
@@ -387,6 +394,7 @@ export class App {
     this.screens.show({
       crest: artUrl('emblem-confed'),
       crestHeight: 64,
+      background: artUrl('tex/bg-briefing', 'jpg'),
       title: def.title,
       subtitle: `第 ${node.chapter} 章 / ${TOTAL_CHAPTERS}　—　${def.system} 星系${node.losingRoute ? '　(戦況悪化)' : ''}`,
       bodyHtml:
@@ -603,7 +611,7 @@ export class App {
       title: '追悼',
       bodyHtml:
         `<div class="mc-memorial">` +
-        `${portraitSvg(def.portrait, { size: 120, dead: true })}` +
+        `${portraitFace(def.id, def.portrait, { size: 150, dead: true })}` +
         `<div><div class="mc-memorial-name">${escapeHtml(def.callsign)}</div>` +
         `<div class="dim">${escapeHtml(def.name)}　${PERSONALITIES[def.personality].label}</div>` +
         `<div class="dim">撃墜 ${p?.kills ?? 0} 機 / 出撃 ${p?.sorties ?? 0} 回</div>` +
@@ -786,7 +794,16 @@ export class App {
   }
 
   /** デバッグ用 */
-  get debug(): { game: Game; save: CampaignSave } {
-    return { game: this.game, save: this.save };
+  get debug(): {
+    game: Game;
+    save: CampaignSave;
+    showcase: (shipId: string, o?: ShowcaseOptions) => ShowcaseResult;
+  } {
+    return {
+      game: this.game,
+      save: this.save,
+      // 見た目の確認用。製品の進行には影響しない
+      showcase: (shipId, o) => showcase(this.game, shipId, o),
+    };
   }
 }

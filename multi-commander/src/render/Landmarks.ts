@@ -9,11 +9,14 @@ import {
   MeshStandardMaterial,
   Object3D,
   PointLight,
+  Sprite,
+  SpriteMaterial,
   SphereGeometry,
   TorusGeometry,
   type Scene,
 } from 'three';
 import { Rng } from '../core/rng';
+import { texture, textureAlpha, type PlanetTexId } from './textures';
 
 /**
  * 戦域に置く巨大構造物。
@@ -32,6 +35,8 @@ export interface LandmarkDef {
   /** 基準サイズ (半径相当) */
   scale: number;
   color?: number;
+  /** 表面に貼る生成テクスチャ (gas-giant のみ) */
+  texture?: PlanetTexId;
 }
 
 const SPH = new SphereGeometry(1, 40, 28);
@@ -45,24 +50,19 @@ function build(def: LandmarkDef): Object3D {
 
   switch (def.kind) {
     case 'gas-giant': {
-      const color = def.color ?? 0xb98a5a;
-      g.add(new Mesh(SPH, new MeshStandardMaterial({ color, roughness: 1, metalness: 0 })));
-      // 帯模様。薄い円筒を重ねて縞に見せる
-      for (let i = 0; i < 7; i++) {
-        const y = rng.range(-0.8, 0.8);
-        const band = new Mesh(
-          CYL,
+      // 表面は生成した equirectangular テクスチャ。
+      // 円筒を重ねて縞を作っていた頃は塗り絵に見えていた
+      const map = def.texture ?? 'planet-gas-amber';
+      g.add(
+        new Mesh(
+          SPH,
           new MeshStandardMaterial({
-            color: i % 2 ? 0xd8b088 : 0x8f6440,
+            map: texture(map),
             roughness: 1,
-            transparent: true,
-            opacity: 0.5,
+            metalness: 0,
           }),
-        );
-        band.scale.set(1.002, rng.range(0.05, 0.16), 1.002);
-        band.position.y = y;
-        g.add(band);
-      }
+        ),
+      );
       // 大気の縁 (リムライト風)
       const halo = new Mesh(
         SPH,
@@ -83,6 +83,18 @@ function build(def: LandmarkDef): Object3D {
       const color = def.color ?? 0xfff0c0;
       const core = new Mesh(SPH, new MeshBasicMaterial({ color }));
       g.add(core);
+      // コロナのスプライトを重ねて、ただの白球に見えないようにする
+      const corona = new Sprite(
+        new SpriteMaterial({
+          map: textureAlpha('sun-corona'),
+          blending: AdditiveBlending,
+          transparent: true,
+          depthWrite: false,
+          opacity: 0.85,
+        }),
+      );
+      corona.scale.setScalar(4.2);
+      g.add(corona);
       for (let i = 1; i <= 3; i++) {
         const glow = new Mesh(
           SPH,

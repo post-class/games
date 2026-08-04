@@ -160,6 +160,74 @@ export function portraitSvg(spec: PortraitSpec, o: PortraitOptions = {}): string
   );
 }
 
+// ───────── 生成画像の顔 ─────────
+
+/**
+ * パイロットの顔（生成画像）。
+ *
+ * 表情5種を1人ずつ用意し、喋っている間は
+ * 「その表情」と「口を開けた talk」を交互に出して口の動きを作る
+ * （2枚を重ねて CSS アニメーションで opacity を入れ替える）。
+ * SVG 版 (`portraitSvg`) は画像が無いときのフォールバックとして残している。
+ */
+
+/** 生成画像を持つパイロット。ここに無い id は SVG に落ちる */
+const WITH_ART = new Set([
+  'spirit',
+  'maniac',
+  'angel',
+  'tinman',
+  'cricket',
+  'padre',
+  'slate',
+  'nomad',
+]);
+
+export function hasPortraitArt(pilotId: string): boolean {
+  return WITH_ART.has(pilotId);
+}
+
+function faceUrl(pilotId: string, exp: Expression): string {
+  return `${import.meta.env.BASE_URL}art/tex/face-${pilotId}-${exp}.jpg`;
+}
+
+export interface FaceOptions extends PortraitOptions {
+  /** 通信 VDU 風の走査線を乗せるか */
+  scanlines?: boolean;
+}
+
+/**
+ * 生成画像の顔を返す。画像が無ければ SVG にフォールバックする。
+ * spec は フォールバック用に受け取る。
+ */
+export function portraitFace(
+  pilotId: string,
+  spec: PortraitSpec,
+  o: FaceOptions = {},
+): string {
+  if (!hasPortraitArt(pilotId)) return portraitSvg(spec, o);
+  const size = o.size ?? 64;
+  const exp = o.expression ?? 'neutral';
+  const cls = [
+    'mc-face',
+    o.speaking ? 'speaking' : '',
+    o.dead ? 'dead' : '',
+    o.scanlines === false ? '' : 'scan',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  // 喋る場合は「表情」と「口を開けた顔」を重ねる
+  const layers = o.speaking
+    ? `<img class="a" src="${faceUrl(pilotId, exp === 'talk' ? 'neutral' : exp)}" alt="">` +
+      `<img class="b" src="${faceUrl(pilotId, 'talk')}" alt="">`
+    : `<img class="a" src="${faceUrl(pilotId, exp)}" alt="">`;
+
+  return (
+    `<span class="${cls}" style="width:${size}px;height:${size}px">${layers}</span>`
+  );
+}
+
 /** 無線の内容から表情を推定する */
 export function expressionFor(text: string, tone?: string): Expression {
   if (tone === 'enemy') return 'grim';

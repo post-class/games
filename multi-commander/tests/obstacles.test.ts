@@ -27,16 +27,21 @@ function newWorld() {
 /**
  * 指定 Nav までワープで順に到達させ、その Nav 紐付けのグループを出現させる。
  * Nav 到達判定は順番に進むので、手前の Nav を飛ばせない。
+ *
+ * 到達を確認したら**すぐに離れてから**残りの時間を進める。
+ * Nav の上に留まったままだと、そこに湧いた救助目標を距離判定で
+ * 勝手に回収してしまい、湧いた数の検査が不定になる。
  */
 function reachNav(world: World, runner: MissionRunner, index: number) {
   for (let i = 0; i <= index; i++) {
     const nav = world.entities.find((e) => e.kind === 'nav' && e.nav?.index === i);
     if (!nav) throw new Error(`nav ${i} not found`);
     world.player!.pos.copy(nav.pos);
+    for (let t = 0; t < 60 * 4 && !nav.nav!.reached; t++) runner.update(DT);
+    if (!nav.nav!.reached) throw new Error(`nav ${i} に到達できなかった`);
+    // 離れてから、遅延つきのグループが湧くのを待つ
+    world.player!.pos.copy(nav.pos).add(new Vector3(0, 0, 9000));
     for (let t = 0; t < 60 * 8; t++) runner.update(DT);
-    // 到達判定が済んだら離れる (救助目標をその場で回収してしまわないように)
-    world.player!.pos.copy(nav.pos).add(new Vector3(0, 0, 6000));
-    runner.update(DT);
   }
 }
 

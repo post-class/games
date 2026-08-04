@@ -60,13 +60,14 @@ export class SceneSetup {
     pmrem.dispose();
 
     // 主光源は太陽方向。宇宙なので影側は落ちるが、機体形状が読める程度の補助光を入れる
-    this.scene.add(new AmbientLight(0x2a3442, 0.8));
+    this.scene.add(new AmbientLight(0x2a3442, 1.0));
     this.scene.add(new HemisphereLight(0x3a4a5e, 0x0f1216, 0.5));
     this.sun = new DirectionalLight(0xfff0d8, 2.7);
     this.sun.position.copy(this.skybox.sunDirection).multiplyScalar(1000);
     this.scene.add(this.sun);
     // 反対側からの弱い寒色フィル (シルエットが潰れないように)
-    this.fill = new DirectionalLight(0x7f9ecd, 0.5);
+    // 影側が真っ黒だと形が読めない。宇宙の暗さより可読性を取る
+    this.fill = new DirectionalLight(0x7f9ecd, 0.8);
     this.fill.position.copy(this.skybox.sunDirection).multiplyScalar(-1000);
     this.scene.add(this.fill);
 
@@ -76,7 +77,9 @@ export class SceneSetup {
 
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloom = new UnrealBloomPass(new Vector2(1, 1), 0.62, 0.7, 0.82);
+    // しきい値を上げて、発光体 (エンジン・灯火・爆発) だけを滲ませる。
+    // 低いと日向の金属面まで白く潰れて、laser のような棒に見えてしまう
+    this.bloom = new UnrealBloomPass(new Vector2(1, 1), 0.52, 0.62, 0.93);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
 
@@ -100,7 +103,7 @@ export class SceneSetup {
     const level = Math.max(0, Math.min(1, v));
     if (Math.abs(level - this.warpLevel) < 0.004) return;
     this.warpLevel = level;
-    this.bloom.strength = 0.62 + level * 0.5;
+    this.bloom.strength = 0.52 + level * 0.5;
   }
 
   setBloom(on: boolean): void {

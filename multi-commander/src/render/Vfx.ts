@@ -14,6 +14,7 @@ import {
   type Texture,
 } from 'three';
 import { rng } from '../core/rng';
+import { textureAlpha } from './textures';
 
 function glowTexture(inner = 'rgba(255,255,255,1)', mid = 'rgba(255,220,150,0.55)'): CanvasTexture {
   const s = 128;
@@ -74,6 +75,11 @@ export class VfxManager {
   private spark: Texture;
   private smoke: Texture;
   private ring: Texture;
+  /** 生成した火球テクスチャ (段階違い) */
+  private fireball1: Texture;
+  private fireball2: Texture;
+  private fireball3: Texture;
+  private plasmaBurst: Texture;
 
   private spritePool: Sprite[] = [];
   private activeSprites: SpriteFx[] = [];
@@ -88,6 +94,10 @@ export class VfxManager {
     this.spark = glowTexture('rgba(255,255,255,1)', 'rgba(160,230,255,0.6)');
     this.smoke = glowTexture('rgba(190,190,200,0.55)', 'rgba(120,120,130,0.25)');
     this.ring = ringTexture();
+    this.fireball1 = textureAlpha('fireball-1');
+    this.fireball2 = textureAlpha('fireball-2');
+    this.fireball3 = textureAlpha('fireball-3');
+    this.plasmaBurst = textureAlpha('fireball-plasma');
   }
 
   private takeSprite(tex: Texture, color: number, opacity: number, additive: boolean): Sprite {
@@ -181,6 +191,15 @@ export class VfxManager {
       life: 0.22,
       opacity: 0.9,
     });
+    // 電気的な弾け。シールドと装甲の当たりを音以外でも区別させる
+    this.pushSprite(this.plasmaBurst, pos, {
+      color: 0xffffff,
+      size0: 6 * scale,
+      size1: 26 * scale,
+      life: 0.2,
+      opacity: 0.75,
+      additive: true,
+    });
   }
 
   /** 装甲/船体への被弾 */
@@ -273,7 +292,7 @@ export class VfxManager {
       life: big ? 0.16 : 0.11,
       opacity: 1,
     });
-    // 火球
+    // 火球。生成テクスチャを3段階で重ね、既存の球も裏に残して立体感を出す
     this.pushBall(pos, {
       size0: s * 0.25,
       size1: s * (big ? 1.15 : 0.85),
@@ -281,6 +300,21 @@ export class VfxManager {
       c0: 0xffc266,
       c1: 0x4a0f00,
     });
+    const stages: Array<[Texture, number, number, number]> = [
+      [this.fireball1, 0.0, big ? 0.9 : 0.6, 1],
+      [this.fireball2, 0.06, big ? 1.5 : 1.0, 0.95],
+      [this.fireball3, 0.16, big ? 2.1 : 1.4, 0.8],
+    ];
+    for (const [map, delay, endScale, opacity] of stages) {
+      this.pushSprite(map, pos, {
+        color: 0xffffff,
+        size0: s * (0.3 + endScale * 0.2),
+        size1: s * endScale,
+        life: (big ? 0.7 : 0.45) - delay,
+        opacity,
+        additive: true,
+      });
+    }
     // 衝撃波リング
     this.pushSprite(this.ring, pos, {
       color: 0xffa055,

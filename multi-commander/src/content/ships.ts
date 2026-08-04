@@ -18,6 +18,12 @@ export interface MissileLoadDef {
 export interface VisualDef {
   /** 手続き生成の骨格タイプ */
   kind: 'arrow' | 'delta' | 'twin-boom' | 'bat' | 'brick' | 'hauler' | 'warship';
+  /**
+   * 陣営ごとの造形の癖。
+   * kilrathi は爪・牙・肋のモチーフを足し、赤い単眼を付ける。
+   * 骨格が同じでも「猫の帝国の機体」と分かるようにするための指定。
+   */
+  style?: 'kilrathi';
   hull: number;
   accent: number;
   engine: number;
@@ -336,7 +342,7 @@ export const SALTHI = F({
   guns: [{ gunId: 'laser', offset: [-2.5, 0, -5] }, { gunId: 'laser', offset: [2.5, 0, -5] }],
   missiles: [],
   flares: 2,
-  visual: { kind: 'arrow', hull: 0x665738, accent: 0xb04a2a, engine: 0xff8844 },
+  visual: { kind: 'arrow', style: 'kilrathi', hull: 0x665738, accent: 0xb04a2a, engine: 0xff8844 },
   threat: 1,
 });
 
@@ -363,7 +369,7 @@ export const DRALTHI = F({
   ],
   missiles: [{ missileId: 'dumbfire', count: 1 }],
   flares: 3,
-  visual: { kind: 'bat', hull: 0x5a4c31, accent: 0xa8412c, engine: 0xff9955 },
+  visual: { kind: 'bat', style: 'kilrathi', hull: 0x5a4c31, accent: 0xa8412c, engine: 0xff9955 },
   threat: 1,
 });
 
@@ -390,7 +396,7 @@ export const KRANT = F({
   ],
   missiles: [{ missileId: 'heat-seeker', count: 2 }],
   flares: 4,
-  visual: { kind: 'twin-boom', hull: 0x4f442f, accent: 0x9c3b26, engine: 0xffa060 },
+  visual: { kind: 'twin-boom', style: 'kilrathi', hull: 0x4f442f, accent: 0x9c3b26, engine: 0xffa060 },
   threat: 2,
 });
 
@@ -418,7 +424,7 @@ export const GRATHA = F({
   ],
   missiles: [{ missileId: 'heat-seeker', count: 3 }],
   flares: 4,
-  visual: { kind: 'brick', hull: 0x4c412d, accent: 0x8f3520, engine: 0xff7744 },
+  visual: { kind: 'brick', style: 'kilrathi', hull: 0x4c412d, accent: 0x8f3520, engine: 0xff7744 },
   threat: 3,
 });
 
@@ -449,7 +455,7 @@ export const JALTHI = F({
   ],
   missiles: [{ missileId: 'dumbfire', count: 2 }],
   flares: 3,
-  visual: { kind: 'delta', hull: 0x4e422b, accent: 0xa03a1f, engine: 0xff8040 },
+  visual: { kind: 'delta', style: 'kilrathi', hull: 0x4e422b, accent: 0xa03a1f, engine: 0xff8040 },
   threat: 4,
 });
 
@@ -477,7 +483,7 @@ export const DORKIR = F({
   ],
   missiles: [],
   flares: 0,
-  visual: { kind: 'hauler', hull: 0x5a4f36, accent: 0x59402c, engine: 0xffaa55 },
+  visual: { kind: 'hauler', style: 'kilrathi', hull: 0x5a4f36, accent: 0x59402c, engine: 0xffaa55 },
   threat: 3,
 });
 
@@ -508,7 +514,7 @@ export const RALATHA = F({
   ],
   missiles: [],
   flares: 0,
-  visual: { kind: 'warship', hull: 0x443d2e, accent: 0x3a2d20, engine: 0xff9944 },
+  visual: { kind: 'warship', style: 'kilrathi', hull: 0x443d2e, accent: 0x3a2d20, engine: 0xff9944 },
   threat: 8,
 });
 

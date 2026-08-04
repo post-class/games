@@ -272,25 +272,7 @@
 .mc-bar-text {
   min-width: 0;
 }
-/* 無線の声に合わせて口を開閉する。実音声の代替なので口だけ動かす */
-.mc-portrait .mc-mouth-a,
-.mc-portrait .mc-mouth-b {
-  opacity: 0;
-}
-.mc-portrait.speaking .mc-mouth-a {
-  animation: mc-mouth-close 0.26s steps(1, end) infinite;
-}
-.mc-portrait.speaking .mc-mouth-b {
-  animation: mc-mouth-open 0.26s steps(1, end) infinite;
-}
-@keyframes mc-mouth-close {
-  0%, 49% { opacity: 0; }
-  50%, 100% { opacity: 1; }
-}
-@keyframes mc-mouth-open {
-  0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0; }
-}
+
 
 .mc-portrait {
   display: block;
@@ -353,31 +335,11 @@
 /* 通信 VDU の顔 */
 .mc-radio-line {
   display: grid;
-  grid-template-columns: 44px 1fr;
+  grid-template-columns: 58px 1fr;
   gap: 8px;
   align-items: start;
 }
-.mc-radio-line /* 無線の声に合わせて口を開閉する。実音声の代替なので口だけ動かす */
-.mc-portrait .mc-mouth-a,
-.mc-portrait .mc-mouth-b {
-  opacity: 0;
-}
-.mc-portrait.speaking .mc-mouth-a {
-  animation: mc-mouth-close 0.26s steps(1, end) infinite;
-}
-.mc-portrait.speaking .mc-mouth-b {
-  animation: mc-mouth-open 0.26s steps(1, end) infinite;
-}
-@keyframes mc-mouth-close {
-  0%, 49% { opacity: 0; }
-  50%, 100% { opacity: 1; }
-}
-@keyframes mc-mouth-open {
-  0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0; }
-}
-
-.mc-portrait {
+.mc-radio-line .mc-portrait {
   width: 42px;
   height: 42px;
 }
@@ -409,6 +371,36 @@
   font-size: 20px;
   color: var(--ace);
   text-shadow: 0 0 10px rgba(255, 215, 94, 0.6);
+}
+
+/* 画面の背景画。文字を読ませるために暗く落とし、わずかにぼかす */
+.mc-screen-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  /* 明度を落として彩度も抑える。ぼかしは文字の下に模様が来ないようにするため */
+  filter: brightness(0.34) saturate(0.75) blur(1.5px);
+  opacity: 0.9;
+  pointer-events: none;
+  z-index: 0;
+}
+/* 背景の上に内容を載せる */
+.mc-screen > *:not(.mc-screen-bg) {
+  position: relative;
+  z-index: 1;
+}
+/* 下端に向かって暗くして、メニューの文字を確実に読ませる */
+.mc-screen-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(3, 6, 8, 0.35) 0%,
+    rgba(3, 6, 8, 0.15) 35%,
+    rgba(3, 6, 8, 0.75) 100%
+  );
 }
 
 /* ───────── 生成アセット (紋章・勲章・階級章) ───────── */
@@ -501,4 +493,100 @@
   flex: 0 0 auto;
   opacity: 0.9;
   filter: drop-shadow(0 0 8px rgba(127, 227, 176, 0.25));
+}
+
+/* ───────── パイロットの顔 ───────── */
+
+/*
+ * 生成画像の顔。表情5種を1人ずつ持ち、喋っている間は
+ * 「その表情」と「口を開けた talk」を交互に出して口の動きを作る。
+ */
+.mc-face {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  border: 1px solid rgba(127, 227, 176, 0.45);
+  background: #05100e;
+  flex: 0 0 auto;
+}
+.mc-face img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* 通信画面越しに見ている感じにする */
+  filter: contrast(1.06) saturate(0.92);
+}
+.mc-face img.b {
+  opacity: 0;
+}
+.mc-face.speaking img.a {
+  animation: mc-face-a 0.26s steps(1, end) infinite;
+}
+.mc-face.speaking img.b {
+  animation: mc-face-b 0.26s steps(1, end) infinite;
+}
+@keyframes mc-face-a {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+@keyframes mc-face-b {
+  0%, 49% { opacity: 0; }
+  50%, 100% { opacity: 1; }
+}
+/* 走査線。CRT の通信画面に見せる */
+.mc-face.scan::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(160, 220, 200, 0.16) 0px,
+    rgba(160, 220, 200, 0.16) 1px,
+    rgba(0, 0, 0, 0) 1px,
+    rgba(0, 0, 0, 0) 3px
+  );
+  pointer-events: none;
+}
+/* 戦死者は色を抜いて斜線を入れる */
+.mc-face.dead img {
+  filter: grayscale(1) brightness(0.55);
+}
+.mc-face.dead::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    45deg,
+    transparent calc(50% - 1px),
+    rgba(255, 93, 93, 0.75) calc(50% - 1px),
+    rgba(255, 93, 93, 0.75) calc(50% + 1px),
+    transparent calc(50% + 1px)
+  );
+  z-index: 2;
+  pointer-events: none;
+}
+
+/*
+ * SVG 版の顔 (生成画像を持たないパイロットのフォールバック) の口の開閉。
+ * こちらは口の形だけを差し替える。
+ */
+.mc-portrait .mc-mouth-a,
+.mc-portrait .mc-mouth-b {
+  opacity: 0;
+}
+.mc-portrait.speaking .mc-mouth-a {
+  animation: mc-mouth-close 0.26s steps(1, end) infinite;
+}
+.mc-portrait.speaking .mc-mouth-b {
+  animation: mc-mouth-open 0.26s steps(1, end) infinite;
+}
+@keyframes mc-mouth-close {
+  0%, 49% { opacity: 0; }
+  50%, 100% { opacity: 1; }
+}
+@keyframes mc-mouth-open {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
 }

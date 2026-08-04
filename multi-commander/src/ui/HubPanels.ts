@@ -14,7 +14,7 @@ import { PERSONALITIES } from '../content/pilots';
 import { shipDef } from '../content/ships';
 import { missileDef } from '../content/weapons';
 import { artImg, artUrl, medalArt, rankArt } from './art';
-import { portraitSvg } from './Portrait';
+import { portraitFace } from './Portrait';
 import { escapeHtml } from './ScreenHost';
 
 /**
@@ -60,7 +60,7 @@ export function recRoomHtml(ctx: HubContext): string {
         p.status === 'wounded' ? `<span class="ng">負傷 (あと${p.benchedFor}回欠場)</span>` : '';
       return (
         `<div class="mc-bar-row">` +
-        `<div class="mc-bar-face">${portraitSvg(def.portrait, { size: 56, expression: mood === 'friendly' ? 'grin' : mood === 'cold' ? 'grim' : 'talk' })}</div>` +
+        `<div class="mc-bar-face">${portraitFace(def.id, def.portrait, { size: 72, expression: mood === 'friendly' ? 'grin' : mood === 'cold' ? 'grim' : 'talk' })}</div>` +
         `<div class="mc-bar-text">` +
         `<div class="mc-bar-name">${escapeHtml(def.callsign)} <span class="dim">${escapeHtml(def.name)}・${PERSONALITIES[def.personality].label}・関係 ${bondLabel}</span> ${status}</div>` +
         `<div>${escapeHtml(line)}</div>` +
@@ -110,7 +110,7 @@ export function barracksHtml(ctx: HubContext): string {
             : '<span class="ok">出撃可</span>';
       return (
         `<div class="mc-roster-row${p.status === 'dead' ? ' dead' : ''}">` +
-        `<div>${portraitSvg(def.portrait, { size: 40, dead: p.status === 'dead' })}</div>` +
+        `<div>${portraitFace(def.id, def.portrait, { size: 52, dead: p.status === 'dead' })}</div>` +
         `<div class="mc-roster-main">` +
         `<div><b>${escapeHtml(def.callsign)}</b> <span class="dim">${escapeHtml(def.name)}</span></div>` +
         `<div class="dim">${PERSONALITIES[def.personality].label}　技量 ${(p.skill * 100) | 0}%　撃墜 ${p.kills}　出撃 ${p.sorties}</div>` +
@@ -211,7 +211,7 @@ export function hangarHtml(
     `<div class="dim">副兵装: ${escapeHtml(missiles || 'なし')}</div></div>` +
     `<div class="block"><h3>僚機</h3>` +
     (wing
-      ? `<div class="mc-bar-row"><div>${portraitSvg(defOf(wing).portrait, { size: 48 })}</div>` +
+      ? `<div class="mc-bar-row"><div>${portraitFace(defOf(wing).id, defOf(wing).portrait, { size: 64 })}</div>` +
         `<div class="mc-bar-text"><div class="mc-bar-name">${escapeHtml(defOf(wing).callsign)} ` +
         `<span class="dim">${PERSONALITIES[defOf(wing).personality].label}・技量 ${(wing.skill * 100) | 0}%・撃墜 ${wing.kills}</span></div>` +
         `<div class="dim">${escapeHtml(defOf(wing).bio)}</div></div></div>`

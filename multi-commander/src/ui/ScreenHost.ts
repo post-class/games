@@ -22,6 +22,11 @@ export interface ScreenSpec {
   crest?: string;
   /** 紋章の高さ (px) */
   crestHeight?: number;
+  /**
+   * 画面の背景画 (生成画像の URL)。
+   * 文字の可読性のために、CSS 側で暗く落として少しぼかす。
+   */
+  background?: string;
   /** Esc で戻る動作 */
   onCancel?: () => void;
   hint?: string;
@@ -57,6 +62,12 @@ export class ScreenHost {
     const screen = document.createElement('div');
     screen.className =
       `mc-screen${spec.transparent ? ' transparent' : ''}${spec.heroTitle ? ' hero' : ''}`;
+    if (spec.background) {
+      const bg = document.createElement('div');
+      bg.className = 'mc-screen-bg';
+      bg.style.backgroundImage = `url('${spec.background}')`;
+      screen.appendChild(bg);
+    }
 
     if (spec.crest) {
       const wrap = document.createElement('div');

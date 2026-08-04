@@ -23,8 +23,8 @@ export type ArtId =
   | 'dash-trim';
 
 /** アセットの URL。base が './' なので相対で解決させる */
-export function artUrl(id: ArtId | string): string {
-  return `${import.meta.env.BASE_URL}art/${id}.png`;
+export function artUrl(id: ArtId | string, ext: 'png' | 'jpg' | 'webp' = 'png'): string {
+  return `${import.meta.env.BASE_URL}art/${id}.${ext}`;
 }
 
 /** 勲章の絵。id は MEDALS の id と一対一 */

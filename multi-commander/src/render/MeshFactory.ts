@@ -16,6 +16,7 @@ import {
 import { Rng } from '../core/rng';
 import { VISUAL_BASE_HALF_LENGTH, type ShipDef, type VisualDef } from '../content/ships';
 import { PartBuilder } from './PartBuilder';
+import { ROCK_TEXTURES, texture } from './textures';
 
 /**
  * 手続き生成による機体メッシュ。外部アセットに依存しない。
@@ -36,6 +37,8 @@ const CONE = coneZ(new ConeGeometry(0.5, 1, 14));
 const CONE_LOW = coneZ(new ConeGeometry(0.5, 1, 8));
 const DISC = new CircleGeometry(0.5, 18);
 const RING = new TorusGeometry(0.42, 0.09, 8, 20);
+/** 平たい輪。艦のレーダーアンテナなどに使う */
+const TORUS_FLAT = new TorusGeometry(0.46, 0.045, 6, 24);
 
 function rotZ(g: BufferGeometry): BufferGeometry {
   g.rotateX(HALF_PI);
@@ -74,13 +77,30 @@ function resolveMaterial(key: string): Material {
           flatShading: true,
         }),
       );
+    case 'hullGrime':
+      // 汚れを乗せた船体。UV は部品ごと 0..1 なので、
+      // パネル継ぎ目のような「寸法のある模様」は使えない。
+      // 煤・退色のような寸法を持たない汚れだけを薄く乗せる。
+      return cached(key, () => {
+        const [, tint, style] = key.split(':');
+        return new MeshStandardMaterial({
+          // map は乗算されるので、汚れの明度ぶん船体色を持ち上げて元の色味を保つ
+          color: lighten(Number.parseInt(tint, 16), 1.6),
+          map: texture(style === 'k' ? 'grime-kilrathi' : 'grime-confed', { repeat: 2 }),
+          roughness: 0.7,
+          metalness: 0.18,
+          envMapIntensity: 0.4,
+          flatShading: true,
+        });
+      });
     case 'accent':
       return cached(key, () =>
         new MeshStandardMaterial({
           color,
-          roughness: 0.45,
-          metalness: 0.3,
-          envMapIntensity: 0.6,
+          // 塗装された金属。鏡のようにすると日向の面が白く飛ぶ
+          roughness: 0.55,
+          metalness: 0.22,
+          envMapIntensity: 0.35,
           flatShading: true,
         }),
       );
@@ -102,9 +122,9 @@ function resolveMaterial(key: string): Material {
       return cached(key, () =>
         new MeshStandardMaterial({
           color: 0x5a626c,
-          roughness: 0.34,
-          metalness: 0.8,
-          envMapIntensity: 0.8,
+          roughness: 0.42,
+          metalness: 0.72,
+          envMapIntensity: 0.55,
           flatShading: true,
         }),
       );
@@ -121,9 +141,43 @@ function resolveMaterial(key: string): Material {
       );
     case 'glow':
       return cached(key, () => new MeshBasicMaterial({ color }));
+    case 'rock':
+      // 小惑星の岩肌。`rock:<バリエーション番号>` で、色ではなく貼る画像を選ぶ。
+      // UV は球の 0..1 なので、繰り返し回数で模様の粗さを決める
+      return cached(key, () =>
+        new MeshStandardMaterial({
+          // テクスチャをそのまま出したいので乗算色は白に近く保つ
+          color: 0xdedad2,
+          map: texture(ROCK_TEXTURES[Math.abs(Number(hex) || 0) % ROCK_TEXTURES.length], {
+            repeat: 3,
+          }),
+          roughness: 0.95,
+          metalness: 0.05,
+        }),
+      );
+    case 'lamp':
+      // 窓や甲板灯。glow (全白の Basic) を使うとブルームで棒状に潰れるので、
+      // 自発光を抑えた Standard を使い、光っていることだけを伝える
+      return cached(key, () =>
+        new MeshStandardMaterial({
+          color: darken(color, 0.5),
+          emissive: color,
+          emissiveIntensity: 0.85,
+          roughness: 0.6,
+          metalness: 0.1,
+        }),
+      );
     default:
       return cached('fallback', () => new MeshStandardMaterial({ color: 0x888888 }));
   }
+}
+
+/** 色を明るくする。テクスチャの乗算で沈む分を補う */
+function lighten(color: number, f: number): number {
+  const r = Math.min(255, Math.round(((color >> 16) & 0xff) * f));
+  const g = Math.min(255, Math.round(((color >> 8) & 0xff) * f));
+  const b = Math.min(255, Math.round((color & 0xff) * f));
+  return (r << 16) | (g << 8) | b;
 }
 
 function darken(color: number, f: number): number {
@@ -149,11 +203,15 @@ interface Keys {
   red: string;
   green: string;
   white: string;
+  /** 甲板灯・作業灯 (控えめな自発光) */
+  lamp: string;
+  /** 居住区の窓 */
+  windowLit: string;
 }
 
 function keysFor(v: VisualDef): Keys {
   return {
-    hull: `hull:${hex(v.hull)}`,
+    hull: `hullGrime:${hex(v.hull)}:${v.style === 'kilrathi' ? 'k' : 'c'}`,
     accent: `accent:${hex(v.accent)}`,
     panel: `panel:${hex(v.hull)}`,
     dark: 'dark:',
@@ -163,6 +221,8 @@ function keysFor(v: VisualDef): Keys {
     red: 'glow:ff3322',
     green: 'glow:33ff66',
     white: 'glow:ffffff',
+    lamp: 'lamp:ffe9c0',
+    windowLit: 'lamp:9fd4ff',
   };
 }
 
@@ -243,6 +303,46 @@ function barrels(b: PartBuilder, k: Keys, def: ShipDef): void {
     // 砲身基部のフェアリング
     b.add(BOX, k.panel, { pos: [x, y, z + len * 0.95], scale: [0.7, 0.5, 1.2] });
   }
+}
+
+/**
+ * キルラシーの造形の癖。
+ *
+ * 骨格 (kind) は連邦と共用しつつ、爪・牙・肋・赤い単眼を足して
+ * 「猫の帝国の機体」と一目で分かるようにする。
+ * len は機体の半長、w は半幅の目安。
+ */
+function clawMotifs(b: PartBuilder, k: Keys, len: number, w: number): void {
+  const claw = k.accent;
+  // 機首の牙 (上下から挟む2本の爪)
+  for (const sy of [-1, 1]) {
+    b.add(CONE, claw, {
+      pos: [0, sy * w * 0.16, -len * 1.06],
+      scale: [w * 0.13, w * 0.13, len * 0.3],
+      rot: [sy * 0.22, 0, 0],
+    });
+  }
+  // 舷側から前へ伸びる爪 (内側へわずかに湾曲させる)
+  b.addMirrored(CONE, claw, {
+    pos: [w * 0.52, 0, -len * 0.72],
+    scale: [w * 0.1, w * 0.1, len * 0.42],
+    rot: [0, 0.12, 0],
+  });
+  // 背の肋 (等間隔に並ぶ骨)
+  const ribs = 5;
+  for (let i = 0; i < ribs; i++) {
+    const t = i / (ribs - 1);
+    const z = -len * 0.45 + t * len * 0.95;
+    const h = w * (0.16 - t * 0.06);
+    b.add(BOX, claw, { pos: [0, w * 0.2 + h * 0.5, z], scale: [w * 0.06, h, w * 0.1] });
+  }
+  // 赤い単眼 (センサー)。機首の下に1つだけ光らせる
+  b.add(SPH, k.red, { pos: [0, -w * 0.13, -len * 0.92], scale: w * 0.1 });
+  b.add(CYL_LOW, k.dark, {
+    pos: [0, -w * 0.13, -len * 0.86],
+    scale: [w * 0.15, w * 0.15, w * 0.1],
+    rot: [HALF_PI, 0, 0],
+  });
 }
 
 /** 翼下のミサイルパイロン */
@@ -491,59 +591,105 @@ function buildHauler(def: ShipDef, k: Keys, rng: Rng): PartBuilder {
   return b;
 }
 
-function buildWarship(def: ShipDef, k: Keys, rng: Rng): PartBuilder {
+/**
+ * 艦艇。
+ *
+ * 「大きい戦闘機」に見えないことが最優先。そのために
+ * ①段のある厚い船体 ②繰り返す構造リブ ③居住区の小さな窓の列
+ * ④開いた格納庫 ⑤大小のグリーブル を重ねる。
+ * 人が住んでいる大きさの手掛かりを、機体には無い密度で置く。
+ */
+function buildWarship(_def: ShipDef, k: Keys, rng: Rng): PartBuilder {
   const b = new PartBuilder();
-  // 主船体 (前後で断面を変える)
-  b.add(BOX, k.hull, { pos: [0, 0, 0], scale: [22, 12, 118] });
-  b.add(BOX, k.hull, { pos: [0, 0, -44], scale: [17, 10, 34] });
-  b.add(CONE, k.hull, { pos: [0, 0, -74], scale: [16, 9.5, 24] });
-  b.add(BOX, k.panel, { pos: [0, 6.1, 0], scale: [18, 0.4, 110] });
-  b.add(BOX, k.panel, { pos: [0, -6.1, 0], scale: [18, 0.4, 110] });
+  const L = 118; // 船体長の基準
 
-  // 飛行甲板と格納庫開口 (内側を発光させて「生きている艦」に見せる)
-  b.add(BOX, k.accent, { pos: [0, -5.6, -6], scale: [34, 3.2, 70] });
-  b.add(BOX, k.dark, { pos: [0, -7.4, -6], scale: [30, 0.6, 64] });
-  b.add(BOX, k.dark, { pos: [0, -7.6, -42], scale: [7.5, 5.5, 14] });
-  b.add(BOX, k.glow, { pos: [0, -7.6, -48.6], scale: [6.0, 4.0, 0.4] });
-  for (let i = 0; i < 8; i++) {
-    b.addMirrored(BOX, k.white, { pos: [14.5, -7.2, -34 + i * 8], scale: [1.2, 0.2, 0.5] });
+  // ── 主船体: 段を付けて厚みを出す ──
+  b.add(BOX, k.hull, { pos: [0, 0, 0], scale: [22, 13, L] });
+  b.add(BOX, k.hull, { pos: [0, 7.2, -4], scale: [17.5, 3.2, L * 0.82] });
+  b.add(BOX, k.hull, { pos: [0, -7.4, -2], scale: [18.5, 3.0, L * 0.86] });
+  b.add(BOX, k.hull, { pos: [0, 0, -46], scale: [17, 10.5, 30] });
+  b.add(CONE, k.hull, { pos: [0, 0, -74], scale: [16.5, 10, 26] });
+  // 艦首の衝角と装甲帯
+  b.add(BOX, k.accent, { pos: [0, 0, -72], scale: [6, 3.2, 20] });
+  for (const s of [-1, 1]) {
+    b.add(BOX, k.accent, { pos: [s * 11.4, 0, -10], scale: [1.4, 9, L * 0.8] });
+    b.add(BOX, k.panel, { pos: [s * 12.2, 0, -10], scale: [0.5, 6.5, L * 0.76] });
   }
 
-  // 艦橋 (層構造 + 窓 + マスト)
-  b.add(BOX, k.hull, { pos: [0, 9.5, 8], scale: [13, 9, 23] });
-  b.add(BOX, k.hull, { pos: [0, 15, 10], scale: [9, 4, 15] });
-  b.add(BOX, k.glass, { pos: [0, 12.6, -3.2], scale: [9.5, 2.0, 0.8] });
-  b.add(BOX, k.glass, { pos: [0, 16.4, 3.6], scale: [7.0, 1.6, 0.8] });
-  b.add(TUBE, k.metal, { pos: [0, 22, 12], scale: [1.1, 1.1, 16], rot: [HALF_PI, 0, 0] });
-  b.add(SPH, k.red, { pos: [0, 30, 12], scale: 1.1 });
-  // レーダーアレイ
-  b.add(BOX, k.dark, { pos: [0, 20.5, 4], scale: [7.0, 5.0, 0.5], rot: [0, 0, 0.2] });
-  b.add(BOX, k.metal, { pos: [0, 20.5, 4.4], scale: [6.4, 4.4, 0.2], rot: [0, 0, 0.2] });
+  // ── 構造リブ: 等間隔の肋材。長さの手掛かりになる ──
+  for (let i = 0; i < 13; i++) {
+    const z = -58 + i * 9.6;
+    b.add(BOX, k.panel, { pos: [0, 0, z], scale: [23.2, 13.6, 1.1] });
+    b.addMirrored(BOX, k.dark, { pos: [11.9, 0, z], scale: [0.5, 11, 2.2] });
+  }
 
-  // 舷側の砲塔・スポンソン・装甲帯
+  // ── 居住区の窓列: 小さく暗い光を大量に並べる ──
+  for (let row = 0; row < 3; row++) {
+    const y = 4.6 - row * 4.6;
+    for (let i = 0; i < 22; i++) {
+      if (rng.chance(0.22)) continue; // 消えている部屋があるほうが生活感が出る
+      const z = -52 + i * 4.9;
+      b.addMirrored(BOX, k.windowLit, { pos: [11.35, y, z], scale: [0.25, 0.55, 1.5] });
+    }
+  }
+
+  // ── 飛行甲板と格納庫 ──
+  b.add(BOX, k.accent, { pos: [0, -6.2, -6], scale: [34, 3.4, 72] });
+  b.add(BOX, k.dark, { pos: [0, -8.1, -6], scale: [30, 0.7, 66] });
+  // 開口部 (奥に照らされた床が見える)
+  b.add(BOX, k.dark, { pos: [0, -8.2, -44], scale: [8.5, 6.0, 16] });
+  b.add(BOX, k.lamp, { pos: [0, -9.6, -44], scale: [7.0, 0.3, 14] });
+  b.add(DISC, k.glow, { pos: [0, -8.2, -52.2], scale: 5.4, rot: [0, Math.PI, 0] });
+  // 甲板の誘導灯 (点ではなく短い線を間隔を空けて置く)
+  for (let i = 0; i < 9; i++) {
+    b.addMirrored(BOX, k.lamp, { pos: [15.6, -7.6, -36 + i * 8.4], scale: [1.0, 0.22, 2.4] });
+  }
+  // 着艦誘導のミラーとアレスティング構造
+  b.addMirrored(BOX, k.metal, { pos: [16.4, -4.8, -20], scale: [2.6, 0.4, 6.0] });
+
+  // ── 艦橋 ──
+  b.add(BOX, k.hull, { pos: [0, 10.4, 10], scale: [13.5, 9, 24] });
+  b.add(BOX, k.hull, { pos: [0, 16, 12], scale: [9.5, 4.2, 16] });
+  b.add(BOX, k.panel, { pos: [0, 15.1, 12], scale: [10.2, 0.5, 15] });
+  b.add(BOX, k.glass, { pos: [0, 13.4, -2.4], scale: [10.5, 2.2, 0.9] });
+  b.add(BOX, k.glass, { pos: [0, 17.4, 4.4], scale: [7.4, 1.7, 0.9] });
+  for (const s of [-1, 1]) {
+    b.add(BOX, k.glass, { pos: [s * 6.9, 13.4, 10], scale: [0.9, 2.0, 14] });
+  }
+  // マスト・レーダー・アンテナ
+  b.add(TUBE, k.metal, { pos: [0, 23, 13], scale: [1.2, 1.2, 18], rot: [HALF_PI, 0, 0] });
+  b.add(SPH, k.red, { pos: [0, 32, 13], scale: 1.2 });
+  b.add(BOX, k.dark, { pos: [0, 21.5, 5], scale: [7.4, 5.2, 0.6], rot: [0, 0, 0.22] });
+  b.add(BOX, k.metal, { pos: [0, 21.5, 5.5], scale: [6.8, 4.6, 0.25], rot: [0, 0, 0.22] });
+  b.add(TORUS_FLAT, k.metal, { pos: [0, 19, 22], scale: 3.4, rot: [0.5, 0, 0] });
+  for (const s of [-1, 1]) {
+    b.add(TUBE, k.metal, { pos: [s * 5, 20, 20], scale: [0.3, 0.3, 9], rot: [HALF_PI, 0, 0] });
+  }
+
+  // ── 砲塔の台座 (砲塔自体は RenderSync が実体に付ける) ──
   for (const s of [-1, 1]) {
     for (let i = 0; i < 5; i++) {
       const z = -44 + i * 24;
-      b.add(BOX, k.accent, { pos: [s * 11.6, 4.4, z], scale: [4.4, 4.4, 6.4] });
-      b.add(SPH, k.dark, { pos: [s * 12.4, 6.2, z], scale: 3.0 });
-      b.add(TUBE, k.metal, { pos: [s * 13.4, 6.4, z - 5.4], scale: [0.85, 0.85, 8.4], rot: [0, s * 0.16, 0] });
-      b.add(TUBE, k.metal, { pos: [s * 11.4, 6.4, z - 5.4], scale: [0.85, 0.85, 8.4], rot: [0, s * 0.16, 0] });
+      b.add(BOX, k.accent, { pos: [s * 11.2, 5.0, z], scale: [5.0, 5.0, 7.0] });
+      b.add(CYL_LOW, k.dark, { pos: [s * 12.0, 7.4, z], scale: [4.0, 4.0, 1.4], rot: [HALF_PI, 0, 0] });
     }
-    b.add(BOX, k.accent, { pos: [s * 12, 2, 44], scale: [3.4, 16, 26] });
-    b.add(BOX, k.dark, { pos: [s * 12.2, 2, 44], scale: [0.4, 13, 22] });
-    // 舷側の航行灯列
-    for (let i = 0; i < 6; i++) {
-      b.add(SPH, k.white, { pos: [s * 11.2, 0.4, -50 + i * 20], scale: 0.55 });
-    }
+    // スポンソン (艦尾の張り出し)
+    b.add(BOX, k.accent, { pos: [s * 12, 2, 44], scale: [3.6, 16, 26] });
+    b.add(BOX, k.dark, { pos: [s * 12.4, 2, 44], scale: [0.5, 13, 22] });
+    b.add(BOX, k.panel, { pos: [s * 12, -6, 44], scale: [3.8, 2.0, 24] });
   }
 
-  barrels(b, k, def);
-  engine(b, k, [-8, 0, 61], 4.2, 12);
-  engine(b, k, [8, 0, 61], 4.2, 12);
-  engine(b, k, [0, 6.5, 61], 3.4, 10);
-  engine(b, k, [0, -6.5, 61], 3.4, 10);
-  navLights(b, k, [12.6, 8.6, -60], [0, 18, 58]);
-  greebles(b, k, rng, 44, { x: [2, 10], y: [-5, 6], z: [-60, 55] });
+  // ── 機関部 ──
+  engine(b, k, [-8, 0, 61], 4.4, 13);
+  engine(b, k, [8, 0, 61], 4.4, 13);
+  engine(b, k, [0, 6.8, 61], 3.4, 11);
+  engine(b, k, [0, -6.8, 61], 3.4, 11);
+  b.add(BOX, k.panel, { pos: [0, 0, 58], scale: [23, 14, 6] });
+
+  navLights(b, k, [12.8, 8.8, -60], [0, 18.5, 58]);
+  // 大小のグリーブルを2段階で撒く (近づくほど密度が出る)
+  greebles(b, k, rng, 52, { x: [2, 10.5], y: [-5, 6.5], z: [-60, 55] });
+  greebles(b, k, rng, 30, { x: [0, 6], y: [6.6, 8.4], z: [-50, 48] });
   return b;
 }
 
@@ -568,7 +714,13 @@ function buildTemplate(def: ShipDef): Object3D {
   let seed = 0;
   for (let i = 0; i < def.id.length; i++) seed = (seed * 31 + def.id.charCodeAt(i)) >>> 0;
   const builder = BUILDERS[def.visual.kind] ?? buildArrow;
-  const group = builder(def, k, new Rng(seed || 1)).build(resolveMaterial);
+  const parts = builder(def, k, new Rng(seed || 1));
+  // 陣営の癖を上乗せする (骨格は共用しつつ シルエット を変える)
+  if (def.visual.style === 'kilrathi') {
+    const len = VISUAL_BASE_HALF_LENGTH[def.visual.kind];
+    clawMotifs(parts, k, len, len * (def.visual.kind === 'hauler' || def.visual.kind === 'warship' ? 0.3 : 0.9));
+  }
+  const group = parts.build(resolveMaterial);
   group.scale.setScalar(def.size / VISUAL_BASE_HALF_LENGTH[def.visual.kind]);
   const root = new Group();
   root.add(group);
@@ -626,8 +778,8 @@ const rockTemplates = new Map<number, Object3D>();
 function buildRockTemplate(variant: number): Object3D {
   const rng = new Rng(1000 + variant * 977);
   const b = new PartBuilder();
-  // 宇宙は黒いので、岩は実際の岩より明るくしないと形が読めない
-  const body = `hull:${hex([0x9b9384, 0x8d8880, 0xa6987f, 0x847f78][variant % 4])}`;
+  // 岩肌は生成テクスチャで出す。色は明るめに乗算して、黒い宇宙でも形が読めるようにする
+  const body = `rock:${variant}`;
   const dark = `dark:${hex(0x413c37)}`;
 
   // 中核
@@ -715,6 +867,32 @@ export function createMineMesh(): Object3D {
     mineTemplate = root;
   }
   return mineTemplate.clone();
+}
+
+/**
+ * 艦艇の砲塔。的を追って回るので、機体テンプレートとは別に実体へ付ける。
+ *
+ * `Object3D.lookAt()` が向けるのは +Z なので、砲身は +Z 向きに組む
+ * (機体メッシュの前方 -Z とは逆)。
+ */
+export function createTurretMesh(visual: VisualDef): Object3D {
+  const k = keysFor(visual);
+  const b = new PartBuilder();
+  // 台座 (回らない部分に見えるよう低く広く)
+  b.add(CYL_LOW, k.dark, { pos: [0, -0.5, 0], scale: [3.4, 3.4, 1.2], rot: [HALF_PI, 0, 0] });
+  // 砲塔の箱と防盾
+  b.add(BOX, k.accent, { pos: [0, 0.5, 0], scale: [3.0, 1.8, 3.4] });
+  b.add(SPH, k.metal, { pos: [0, 1.0, 0], scale: 2.1 });
+  b.add(BOX, k.panel, { pos: [0, 0.9, 1.5], scale: [2.4, 1.4, 0.5] });
+  // 連装砲身 (+Z)
+  for (const s of [-1, 1]) {
+    b.add(TUBE, k.metal, { pos: [s * 0.7, 0.9, 3.4], scale: [0.42, 0.42, 5.2] });
+    b.add(CYL_LOW, k.dark, { pos: [s * 0.7, 0.9, 6.1], scale: [0.5, 0.5, 0.5] });
+  }
+  const group = b.build(resolveMaterial);
+  const root = new Group();
+  root.add(group);
+  return root;
 }
 
 export function disposeMaterialCache(): void {

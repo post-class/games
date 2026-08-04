@@ -10,7 +10,7 @@ import { ittsPoint } from '../sim/targeting';
 import type { ArmorFace, Entity } from '../world/entity';
 import type { World } from '../world/world';
 import { PILOTS } from '../content/pilots';
-import { expressionFor, portraitSvg } from '../ui/Portrait';
+import { expressionFor, portraitFace } from '../ui/Portrait';
 import { NavMap } from './NavMap';
 import { edgeArrow, worldToScreen, type ScreenPoint } from './project';
 
@@ -217,8 +217,9 @@ export class HudView {
 
     center.append(gauges, shieldBox, radarBox);
     panels.append(this.vduLeft, center, this.vduRight);
-    // 計器盤の上端を走る梁 (生成アセット)
+    // 計器盤の上端を走る梁と警告灯の列 (生成アセット)
     cockpit.appendChild(el('div', 'mc-dashtrim'));
+    cockpit.appendChild(el('div', 'mc-lamprow'));
     cockpit.appendChild(panels);
     this.root.appendChild(cockpit);
 
@@ -280,7 +281,7 @@ export class HudView {
         continue;
       }
       if (f.until && now > f.until) {
-        f.el.querySelector('.mc-portrait')?.classList.remove('speaking');
+        f.el.querySelector('.mc-face, .mc-portrait')?.classList.remove('speaking');
         this.speakingFaces.splice(i, 1);
       }
     }
@@ -300,8 +301,8 @@ export class HudView {
         const pilot = PILOTS.find((x) => x.callsign === p.speaker);
         if (pilot) {
           const face = el('div');
-          face.innerHTML = portraitSvg(pilot.portrait, {
-            size: 42,
+          face.innerHTML = portraitFace(pilot.id, pilot.portrait, {
+            size: 56,
             expression: expressionFor(p.text, p.tone),
             speaking: true,
           });
@@ -335,7 +336,7 @@ export class HudView {
         for (const f of this.speakingFaces) {
           if (f.speaker !== p.speaker || f.until > now) continue;
           f.until = now + p.seconds * 1000;
-          f.el.querySelector('.mc-portrait')?.classList.add('speaking');
+          f.el.querySelector('.mc-face, .mc-portrait')?.classList.add('speaking');
         }
       }),
       bus.on('destroyed', (p) => {
