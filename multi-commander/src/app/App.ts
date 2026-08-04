@@ -23,8 +23,7 @@ import {
   type HangarSelection,
   type HubContext,
 } from '../ui/HubPanels';
-import { audio } from '../audio/AudioManager';
-import { BriefingScene } from '../ui/BriefingScene';
+import { BriefingScene, type BriefingPanel } from '../ui/BriefingScene';
 import { portraitFace, type Expression } from '../ui/Portrait';
 import { escapeHtml, ScreenHost, type MenuItem } from '../ui/ScreenHost';
 import { artImg, artUrl, medalArt, rankArt } from '../ui/art';
@@ -399,14 +398,15 @@ export class App {
 
     const wing = load.wingman?.callsign;
     const scene = this.briefingScene(def, def.briefing, [
-      `<div class="block"><h3>任務目標</h3><ul>${objectives}</ul></div>`,
-      `<div class="block"><h3>飛行計画</h3>${this.navMapSvg(def)}</div>`,
-      `<div class="block"><h3>機体</h3>` +
+      { html: `<div class="block"><h3>任務目標</h3><ul>${objectives}</ul></div>`, slot: 'lower-left' },
+      { html: `<div class="block"><h3>飛行計画</h3>${this.navMapSvg(def)}</div>`, slot: 'flight-plan' },
+      { html: `<div class="block"><h3>機体</h3>` +
         `${escapeHtml(ship.name)}<br><span class="dim">副兵装: ${escapeHtml(missiles || 'なし')}` +
-        `${wing ? `<br>僚機: ${escapeHtml(wing)}` : ''}</span></div>`,
+        `${wing ? `<br>僚機: ${escapeHtml(wing)}` : ''}</span></div>`, slot: 'lower-right' },
     ]);
 
     this.screens.show({
+      variant: 'briefing',
       crest: artUrl('emblem-confed'),
       crestHeight: 64,
       background: artUrl('tex/bg-briefing', 'jpg'),
@@ -439,13 +439,13 @@ export class App {
   /**
    * ブリーフィング/デブリーフィングの喋る顔を組み立てる。
    *
-   * 台詞の断片ごとに無線音を鳴らし、口の動きと文字送りを同じ拍で回す。
+   * 音声は使わず、口の動きと文字送りで台詞の進行を見せる。
    * 画面から外れたら BriefingScene が自分で後片付けする。
    */
   private briefingScene(
     def: MissionDef,
     lines: string[],
-    panels: string[],
+    panels: BriefingPanel[],
     statusLabel?: string,
     mood?: Expression,
   ): BriefingScene {
@@ -461,10 +461,6 @@ export class App {
       panelDelay: 1,
       statusLabel,
       mood,
-      speak: (chunk) => {
-        audio.resume();
-        return audio.radioVoice(chunk, 'command', def.briefingSpeaker);
-      },
     });
     scene.el.classList.add('mc-panel');
     // ScreenHost が DOM に載せた後に動かす
@@ -490,7 +486,7 @@ export class App {
     const span = Math.max(spanX, spanZ);
     const map = (x: number, z: number) => {
       const px = 20 + ((x - (minX + maxX) / 2) / span + 0.5) * 160;
-      const py = 20 + ((z - (minZ + maxZ) / 2) / span + 0.5) * 120;
+      const py = 20 + ((z - (minZ + maxZ) / 2) / span + 0.5) * 180;
       return [px, py] as const;
     };
 
@@ -507,7 +503,7 @@ export class App {
     });
 
     return (
-      `<svg viewBox="0 0 200 160" style="width:100%;max-width:340px;background:rgba(4,10,12,0.6);border:1px solid rgba(127,227,176,0.25)">` +
+      `<svg viewBox="0 0 200 220" style="width:100%;background:rgba(4,10,12,0.6);border:1px solid rgba(127,227,176,0.25)">` +
       `<path class="mc-navpath" d="${path.join(' ')}" fill="none" stroke="rgba(127,227,176,0.55)" ` +
       `stroke-width="1" stroke-dasharray="3 3"/>` +
       nodes.join('') +
@@ -585,16 +581,16 @@ export class App {
       def,
       outcome === 'win' ? def.debriefWin : def.debriefLoss,
       [
-        `<div class="block"><h3>戦果</h3><ul>` +
+        { html: `<div class="block"><h3>戦果</h3><ul>` +
           `<li>撃墜 ${kills} 機</li>` +
           `<li>撃退 ${s?.routed ?? 0} 機</li>` +
           `<li>飛行時間 ${minutes}分${String(seconds).padStart(2, '0')}秒</li>` +
           `<li>通算撃墜 ${this.save.totalKills} 機 / 出撃 ${this.save.sorties} 回</li>` +
-          `</ul></div>`,
-        `<div class="block"><h3>目標</h3><ul>${objectives}</ul></div>` +
+          `</ul></div>`, slot: 'flight-plan' },
+        { html: `<div class="block"><h3>目標</h3><ul>${objectives}</ul></div>` +
           (outcome === 'loss'
             ? `<div class="dim">失敗しても戦争は続く。次の任務は戦況の悪化を受けたものになる。</div>`
-            : ''),
+            : ''), slot: 'lower-left' },
       ],
       '報告受信中',
       outcome === 'loss' ? 'grim' : 'talk',
@@ -602,6 +598,7 @@ export class App {
 
     this.game.sound.music.play(outcome === 'win' ? 'victory' : 'defeat');
     this.screens.show({
+      variant: 'briefing',
       crest: outcome === 'win' ? artUrl('emblem-confed') : artUrl('emblem-kilrathi'),
       crestHeight: 72,
       title: outcome === 'win' ? '任務達成' : '任務失敗',

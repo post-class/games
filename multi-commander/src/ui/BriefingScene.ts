@@ -7,9 +7,8 @@ import { hasPortraitArt, portraitSvg, type Expression } from './Portrait';
  * 本家の艦内ブリーフィングと同じで、上官の顔が大写しになり、
  * 台詞が一行ずつ読み上げられていく。声は持てないので
  *   - 口の開閉 (表情画像2枚の入れ替え)
- *   - 無線合成音 (AudioManager.radioVoice)
  *   - 文字送り
- * の3つを同じ拍で動かして「喋っている」ことを作る。
+ * の2つを同じ拍で動かして「喋っている」ことを作る。
  *
  * 台詞が進むにつれて右側の資料 (任務目標・飛行計画) が順に開示される。
  * 画面から外されたら自分で後片付けする (App 側に解放義務を持たせない)。
@@ -19,6 +18,14 @@ import { hasPortraitArt, portraitSvg, type Expression } from './Portrait';
 export interface BriefingLine {
   text: string;
   expression?: Expression;
+}
+
+export type BriefingPanelSlot = 'flight-plan' | 'lower-left' | 'lower-right';
+
+/** 資料の内容と、右列内での表示位置。配列順は開示順でもある。 */
+export interface BriefingPanel {
+  html: string;
+  slot: BriefingPanelSlot;
 }
 
 export interface BriefingSceneOptions {
@@ -31,13 +38,8 @@ export interface BriefingSceneOptions {
   lines: Array<string | BriefingLine>;
   /** 顔画像が無いときの SVG フォールバック用 */
   fallback: PortraitSpec;
-  /**
-   * 台詞の断片ごとに呼ばれる。無線音を鳴らして長さ (秒) を返す。
-   * 音を出さない設定なら 0 を返してよい。
-   */
-  speak?: (chunk: string) => number;
-  /** 右側に並べる資料。台詞の進行に合わせて1枚ずつ開く */
-  panels?: string[];
+  /** 右列に置く資料。台詞の進行に合わせて配列順に1枚ずつ開く */
+  panels?: BriefingPanel[];
   /** 最初の資料を開くまでに読ませる行数 (挨拶の間は伏せておく) */
   panelDelay?: number;
   /** 全部読み終えたときに呼ばれる */
@@ -52,8 +54,6 @@ export interface BriefingSceneOptions {
 const CPS = 26;
 /** 1行読み終えてから次に移るまでの間 (ms) */
 const LINE_PAUSE = 1100;
-/** 無線音を1回鳴らす長さの目安 (文字数) */
-const CHUNK = 12;
 
 export class BriefingScene {
   readonly el: HTMLElement;
@@ -72,8 +72,6 @@ export class BriefingScene {
   private index = -1;
   private lineEl?: HTMLElement;
   private chars = 0;
-  private spokenChunks = 0;
-  private voiceUntil = 0;
   private timer?: number;
   private raf?: number;
   /** 今の行の文字送りを始めた時刻 (performance.now) */
@@ -142,7 +140,7 @@ export class BriefingScene {
 
     view.append(face, glass, plate, status);
 
-    // ── 右: 台詞と資料
+    // ── 中央: 台詞
     const talk = document.createElement('div');
     talk.className = 'mc-brief-talk';
     const log = document.createElement('div');
@@ -154,21 +152,28 @@ export class BriefingScene {
     this.logEl = log;
     this.nextEl = next;
 
-    // 資料は台詞と同じ列に積む。顔が最後まで画面から出ないようにする
+    // ── 右: 飛行計画とその他の資料
     if (o.panels?.length) {
       const side = document.createElement('div');
       side.className = 'mc-brief-side';
-      for (const html of o.panels) {
+      const title = document.createElement('h3');
+      title.textContent = 'その他';
+      const lower = document.createElement('div');
+      lower.className = 'mc-brief-side-lower';
+      side.append(title);
+      for (const panel of o.panels) {
         const p = document.createElement('div');
-        p.className = 'mc-brief-panel';
-        p.innerHTML = html;
-        side.appendChild(p);
+        p.className = `mc-brief-panel ${panel.slot}`;
+        p.innerHTML = panel.html;
+        if (panel.slot === 'flight-plan') side.appendChild(p);
+        else lower.appendChild(p);
         this.panelEls.push(p);
       }
-      talk.appendChild(side);
+      if (lower.childElementCount) side.appendChild(lower);
+      root.append(view, talk, side);
+    } else {
+      root.append(view, talk);
     }
-
-    root.append(view, talk);
 
     const wrap = document.createElement('div');
     wrap.className = 'mc-brief-wrap';
@@ -272,7 +277,6 @@ export class BriefingScene {
     }
     const line = this.lines[this.index];
     this.chars = 0;
-    this.spokenChunks = 0;
 
     const el = document.createElement('div');
     el.className = 'mc-brief-line now';
@@ -328,13 +332,9 @@ export class BriefingScene {
       line.text.length,
       Math.floor(((now - this.startedAt) / 1000) * CPS),
     );
-    if (want === this.chars) {
-      this.maybeSpeak(now);
-      return;
-    }
+    if (want === this.chars) return;
     this.chars = want;
     this.renderLine();
-    this.maybeSpeak(now);
 
     if (this.chars >= line.text.length) {
       this.completeLine();
@@ -347,19 +347,6 @@ export class BriefingScene {
     this.renderLine();
     this.stopSpeaking();
     this.revealPanel(this.index);
-  }
-
-  /** 文字送りに合わせて無線音を継ぎ足す */
-  private maybeSpeak(now: number): void {
-    if (!this.o.speak || now < this.voiceUntil) return;
-    const line = this.lines[this.index];
-    if (!line) return;
-    const from = this.spokenChunks * CHUNK;
-    if (from >= line.text.length || from > this.chars) return;
-    const chunk = line.text.slice(from, from + CHUNK);
-    this.spokenChunks += 1;
-    const dur = this.o.speak(chunk);
-    this.voiceUntil = now + Math.max(180, dur * 1000);
   }
 
   private stopSpeaking(): void {

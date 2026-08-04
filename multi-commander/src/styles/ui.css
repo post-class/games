@@ -73,6 +73,65 @@
   font-size: 13px;
 }
 
+/* ブリーフィングは一画面に情報を広く収める専用レイアウト */
+.mc-screen.briefing {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  align-items: stretch;
+  justify-content: stretch;
+  gap: 8px;
+  padding: 12px 20px 10px;
+  box-sizing: border-box;
+}
+.mc-brief-header {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  white-space: nowrap;
+}
+.mc-screen.briefing .mc-crest {
+  margin: 0;
+  line-height: 0;
+}
+.mc-screen.briefing .mc-crest img {
+  height: 34px !important;
+}
+.mc-screen.briefing h1 {
+  font-size: clamp(20px, 2.4vw, 32px);
+  max-width: none;
+}
+.mc-screen.briefing .sub {
+  font-size: 12px;
+}
+.mc-screen.briefing > .mc-panel {
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  height: 100%;
+  max-height: none;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: 12px 16px;
+}
+.mc-screen.briefing .mc-menu {
+  width: min(920px, 100%);
+  min-width: 0;
+  justify-self: center;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+.mc-screen.briefing .mc-menu-item {
+  padding: 8px 12px;
+  white-space: nowrap;
+}
+.mc-screen.briefing .mc-hint {
+  text-align: center;
+}
+
 .mc-menu {
   display: flex;
   flex-direction: column;
@@ -601,30 +660,31 @@
 /* ───────── ブリーフィング (顔が喋る演出) ───────── */
 
 .mc-brief-wrap {
-  display: grid;
-  gap: 16px;
+  height: 100%;
+  min-height: 0;
 }
 .mc-brief {
   display: grid;
-  /* 顔は縦に余裕がある画面ほど大きく見せる (下の資料まで1画面に収める) */
-  grid-template-columns: 260px 1fr;
+  height: 100%;
+  min-height: 0;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(240px, 1.15fr) minmax(280px, 1.1fr);
   gap: 18px;
   align-items: stretch;
 }
 @media (min-height: 900px) {
   .mc-brief {
-    grid-template-columns: 340px 1fr;
+    grid-template-columns: minmax(220px, 0.85fr) minmax(300px, 1.15fr) minmax(340px, 1.1fr);
   }
 }
 
 /* CRT の通信画面。顔をここに映す */
 .mc-brief-view {
   position: relative;
-  /* 胸像として収まる縦長の枠。画像は cover で切り取る */
-  aspect-ratio: 3 / 4;
-  /* 縦が狭い画面でも資料まで1画面に収まる幅にする (高さ = 幅 / 0.75) */
-  width: min(100%, calc(42vh * 3 / 4));
-  align-self: start;
+  /* 左列の可用高を使い切る。画像は cover で胸像として切り取る */
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  align-self: stretch;
   justify-self: center;
   overflow: hidden;
   border: 1px solid rgba(127, 227, 176, 0.5);
@@ -815,8 +875,8 @@
 .mc-brief-log {
   flex: 1 1 auto;
   overflow-y: auto;
-  /* 資料まで1画面に収める。溢れた分は行送りに合わせて自動で追う */
-  max-height: 19vh;
+  min-height: 0;
+  max-height: none;
   font-size: 15px;
   line-height: 1.85;
 }
@@ -850,19 +910,40 @@
   50% { opacity: 1; transform: translateY(2px); }
 }
 
-/* 話の進みに合わせて開く資料 (台詞の下・顔の横に並ぶ) */
+/* 右列の資料: 飛行計画の下に目標と機体を横並びで置く */
 .mc-brief-side {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+  /* 飛行計画を含む右列は、区切り線から左右 5px だけ空けて幅を使い切る */
+  padding-inline: 5px;
+  border-left: 1px solid rgba(127, 227, 176, 0.18);
+}
+.mc-brief-side > h3 {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  color: var(--hud-dim);
+}
+.mc-brief-side-lower {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
-  margin-top: 12px;
-  border-top: 1px solid rgba(127, 227, 176, 0.18);
-  padding-top: 12px;
 }
 .mc-brief-panel {
   opacity: 0;
   transform: translateY(6px);
   transition: opacity 0.45s ease-out, transform 0.45s ease-out;
+}
+.mc-brief-panel.flight-plan {
+  min-height: 0;
+}
+.mc-brief-panel.flight-plan .block {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
 }
 .mc-brief-panel.open {
   opacity: 1;
@@ -873,7 +954,14 @@
 }
 /* 飛行計画の図。ここでは資料の1枚なので小さく収める */
 .mc-brief-panel svg {
-  max-width: min(170px, 21vh) !important;
+  display: block;
+  max-width: 100% !important;
+  margin: 0 auto;
+}
+.mc-brief-panel.flight-plan svg {
+  width: 100%;
+  height: 100%;
+  max-height: none;
 }
 /* 飛行計画の航路を引く線。開示に合わせて描かれていく */
 .mc-brief-panel.open .mc-navpath {
@@ -885,8 +973,20 @@
 }
 
 @media (max-width: 760px) {
+  .mc-screen.briefing {
+    overflow-y: auto;
+  }
+  .mc-brief-header {
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+  .mc-screen.briefing .mc-menu {
+    grid-auto-flow: row;
+    grid-template-columns: 1fr;
+  }
   .mc-brief {
     grid-template-columns: 1fr;
+    height: auto;
   }
   .mc-brief-view {
     max-width: 260px;
@@ -895,6 +995,12 @@
   .mc-brief-talk {
     padding-left: 0;
     border-left: none;
+  }
+  .mc-brief-side {
+    padding-left: 0;
+    border-left: none;
+    border-top: 1px solid rgba(127, 227, 176, 0.18);
+    padding-top: 12px;
   }
 }
 
@@ -917,12 +1023,5 @@
   .mc-brief-face:not(.speaking) img.a,
   .mc-brief-panel.open .mc-navpath {
     animation: none;
-  }
-}
-
-/* 縦に余裕がある画面では顔を大きく、台詞も全文を見せる (後ろに置いて上書きする) */
-@media (min-height: 900px) {
-  .mc-brief-log {
-    max-height: 33vh;
   }
 }

@@ -7,6 +7,8 @@ export interface MenuItem {
 }
 
 export interface ScreenSpec {
+  /** ブリーフィング用の横長レイアウトを使う */
+  variant?: 'briefing';
   title?: string;
   subtitle?: string;
   /** 本文 (自前生成の HTML のみを渡す) */
@@ -61,7 +63,7 @@ export class ScreenHost {
 
     const screen = document.createElement('div');
     screen.className =
-      `mc-screen${spec.transparent ? ' transparent' : ''}${spec.heroTitle ? ' hero' : ''}`;
+      `mc-screen${spec.transparent ? ' transparent' : ''}${spec.heroTitle ? ' hero' : ''}${spec.variant ? ` ${spec.variant}` : ''}`;
     if (spec.background) {
       const bg = document.createElement('div');
       bg.className = 'mc-screen-bg';
@@ -69,7 +71,8 @@ export class ScreenHost {
       screen.appendChild(bg);
     }
 
-    if (spec.crest) {
+    const addCrest = (parent: HTMLElement) => {
+      if (!spec.crest) return;
       const wrap = document.createElement('div');
       wrap.className = 'mc-crest';
       const img = document.createElement('img');
@@ -79,18 +82,32 @@ export class ScreenHost {
       // 生成物が欠けていても画面が崩れないようにする
       img.addEventListener('error', () => wrap.remove());
       wrap.appendChild(img);
-      screen.appendChild(wrap);
-    }
-    if (spec.title) {
+      parent.appendChild(wrap);
+    };
+    const addTitle = (parent: HTMLElement) => {
+      if (!spec.title) return;
       const h = document.createElement('h1');
       h.textContent = spec.title;
-      screen.appendChild(h);
-    }
-    if (spec.subtitle) {
+      parent.appendChild(h);
+    };
+    const addSubtitle = (parent: HTMLElement) => {
+      if (!spec.subtitle) return;
       const s = document.createElement('div');
       s.className = 'sub';
       s.textContent = spec.subtitle;
-      screen.appendChild(s);
+      parent.appendChild(s);
+    };
+    if (spec.variant === 'briefing') {
+      const header = document.createElement('header');
+      header.className = 'mc-brief-header';
+      addCrest(header);
+      addTitle(header);
+      addSubtitle(header);
+      screen.appendChild(header);
+    } else {
+      addCrest(screen);
+      addTitle(screen);
+      addSubtitle(screen);
     }
     if (spec.bodyHtml) {
       const p = document.createElement('div');

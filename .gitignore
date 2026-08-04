@@ -152,3 +152,11 @@ dist/
 .tmp/
 .playwright-mcp/
 *.log
+
+
+node_modules/
+dist/
+.vite/
+*.local
+.tmp/
+data/
