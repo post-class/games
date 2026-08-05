@@ -50,6 +50,9 @@ export class InputManager {
   private latencySamples = 0;
   private latencyTotal = 0;
   private latencyMax = 0;
+  private playtestLatencySamples = 0;
+  private playtestLatencyTotal = 0;
+  private playtestLatencyMax = 0;
 
   /** 照準位置を原点とした -1..1 のマウス操縦入力 */
   mouseNx = 0;
@@ -244,6 +247,9 @@ export class InputManager {
       this.latencySamples += 1;
       this.latencyTotal += latency;
       this.latencyMax = Math.max(this.latencyMax, latency);
+      this.playtestLatencySamples += 1;
+      this.playtestLatencyTotal += latency;
+      this.playtestLatencyMax = Math.max(this.playtestLatencyMax, latency);
     }
     this.pendingInputEvents.length = 0;
     if (this.uiMode) return;
@@ -278,6 +284,21 @@ export class InputManager {
       averageMs: this.latencySamples ? this.latencyTotal / this.latencySamples : 0,
       maxMs: this.latencyMax,
     };
+  }
+
+  /** 通しプレイ記録用に、前回の固定ステップ以降の入力遅延だけを取り出す。 */
+  drainPlaytestLatency(): { samples: number; averageMs: number; maxMs: number } {
+    const result = {
+      samples: this.playtestLatencySamples,
+      averageMs: this.playtestLatencySamples
+        ? this.playtestLatencyTotal / this.playtestLatencySamples
+        : 0,
+      maxMs: this.playtestLatencyMax,
+    };
+    this.playtestLatencySamples = 0;
+    this.playtestLatencyTotal = 0;
+    this.playtestLatencyMax = 0;
+    return result;
   }
 
   /** -1..1 (+ = 機首上げ) */

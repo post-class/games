@@ -50,6 +50,9 @@ import { recordMissionStatistics } from './statistics';
 import { difficulty, settings, updateSettings } from './settings';
 import { showcase, type ShowcaseOptions, type ShowcaseResult } from './showroom';
 import { ReplayPanel } from './replay';
+import { audio } from '../audio/AudioManager';
+import { type MusicTrackId } from '../audio/musicCues';
+import { buildSoundCheckPanel } from '../ui/SoundCheckPanel';
 
 /** 母艦の名前。ブリーフィング官の名札に出す */
 const CLAW_NAME = 'TCS タイガーズ・クロー';
@@ -442,6 +445,7 @@ export class App {
         `<div class="dim">キャンペーンの資源と名簿は変化していない。</div>`,
       items: [
         { label: 'リプレイ / キルカム', disabled: this.game.replay.length < 2, onSelect: () => this.showReplayPanel(() => this.showTrainingDebrief(outcome)) },
+        { label: 'プレイテスト記録を保存 (JSON)', onSelect: () => this.downloadPlaytestLog() },
         { label: '訓練室へ戻る', onSelect: () => this.showTraining() },
         { label: '艦内へ戻る', onSelect: () => this.showHub() },
       ],
@@ -471,6 +475,17 @@ export class App {
       onCancel: close,
       hint: '再生画面のボタンで速度・視点・時間を操作 / Esc で戻る',
     });
+  }
+
+  /** 通しプレイの任務記録を、検証担当がそのまま共有できる JSON で保存する。 */
+  private downloadPlaytestLog(): void {
+    const blob = new Blob([this.game.exportPlaytestLog()], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `multi-commander-playtest-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
   /** 格納庫: 機体と僚機を選ぶ */
@@ -799,6 +814,7 @@ export class App {
         { label: '続ける', onSelect: () => this.afterDebrief(nextNode) },
         // デブリーフは表示時に統計を確定するため、戻り先は再集計を起こさない艦内画面にする。
         { label: 'リプレイ / キルカム', disabled: this.game.replay.length < 2, onSelect: () => this.showReplayPanel(() => this.showHub()) },
+        { label: 'プレイテスト記録を保存 (JSON)', onSelect: () => this.downloadPlaytestLog() },
         { label: 'この任務をやり直す', onSelect: () => this.retry(def.id, outcome) },
         { label: 'タイトルへ戻る', onSelect: () => this.showTitle() },
       ],
@@ -1067,6 +1083,22 @@ export class App {
 
   /** 同梱したCC音源の作者・ライセンス情報を、ゲーム内からも確認できるようにする。 */
   private showMusicCredits(back: () => void): void {
+    const previousTrack = this.game.sound.music.current;
+    const restore = () => {
+      if (previousTrack) this.game.sound.music.play(previousTrack);
+      back();
+    };
+    const soundCheck = buildSoundCheckPanel({
+      playMusic: (track: MusicTrackId) => {
+        audio.resume();
+        this.game.sound.music.play(track);
+        this.game.sound.music.start();
+      },
+      playVoice: (tone, speaker, text) => {
+        audio.resume();
+        audio.radioVoice(text, tone, speaker);
+      },
+    });
     this.screens.show({
       title: '音楽クレジット',
       bodyHtml:
@@ -1076,8 +1108,9 @@ export class App {
         `<div class="block dim">曲名、配布元URL、利用時の注意は ` +
         `<code>public/audio/music/README.md</code> を参照してください。` +
         `リリース前にはIncompetechで各曲の最新クレジット文言を確認してください。</div>`,
-      items: [{ label: '戻る', onSelect: back }],
-      onCancel: back,
+      content: soundCheck,
+      items: [{ label: '戻る', onSelect: restore }],
+      onCancel: restore,
       transparent: this.game.runner !== undefined,
     });
   }

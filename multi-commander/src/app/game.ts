@@ -30,6 +30,7 @@ import { Tutorial } from '../ui/Tutorial';
 import { InputManager } from './input';
 import { difficulty, settings } from './settings';
 import { ReplayBuffer } from './replay';
+import { PlaytestLog, type PlaytestRecorder } from './playtest';
 
 /**
  * 戦闘部分の本体。固定 dt でシミュレーションを進め、可変 dt で描画する。
@@ -51,6 +52,8 @@ export class Game {
   readonly deck = new DeckSequence();
   readonly input: InputManager;
   readonly replay = new ReplayBuffer();
+  /** 人間の通しプレイを任務単位で記録し、デブリーフから書き出せるログ。 */
+  readonly playtestLog = new PlaytestLog();
   readonly loop: Loop;
 
   /** 実行中のミッション。メニュー中は undefined */
@@ -90,6 +93,7 @@ export class Game {
   private endDelay = 0;
   private endedOutcome?: 'win' | 'loss';
   private unsubs: Array<() => void> = [];
+  private activePlaytest?: PlaytestRecorder;
 
   constructor(canvas: HTMLCanvasElement, overlay: HTMLElement) {
     this.scene = new SceneSetup(canvas);
@@ -126,6 +130,10 @@ export class Game {
         if (p.target.kind === 'ship') this.replay.mark(`${p.target.ship?.pilot ?? p.target.label ?? '機体'} 撃墜`);
       }),
       bus.on('missionEnded', (p) => {
+        if (this.activePlaytest) {
+          this.playtestLog.complete(this.activePlaytest);
+          this.activePlaytest = undefined;
+        }
         if (this.endedOutcome) return;
         this.endedOutcome = p.outcome;
         // 勝ったときは着艦の演出を挟んでから画面を切り替える
@@ -202,7 +210,14 @@ export class Game {
     this.landmarks.set(def.landmarks);
 
     this.applySettings();
-    this.runner = new MissionRunner(this.world, def, loadout, difficulty());
+    this.input.drainPlaytestLatency();
+    this.activePlaytest = this.playtestLog.begin({
+      missionId: def.id,
+      missionTitle: def.title,
+      shipId: loadout.shipId,
+      difficultyId: difficulty().id,
+    });
+    this.runner = new MissionRunner(this.world, def, loadout, difficulty(), this.activePlaytest);
     this.replay.reset();
     this.runner.build();
 
@@ -265,6 +280,7 @@ export class Game {
     // パッドのサンプリングを固定ステップ側で行う。描画側で読むと、入力を読んだ
     // フレームの後にシミュレーションが終わってしまい、最大 1 フレーム遅れる。
     this.input.update(dt);
+    this.activePlaytest?.recordInputLatency(this.input.drainPlaytestLatency());
 
     // ミッション終了後の余韻。演出だけ進めて入力は受け付けない
     if (this.endedOutcome) {
@@ -721,6 +737,11 @@ export class Game {
     this.tutorial.dispose();
     this.sound.dispose();
     this.loop.stop();
+  }
+
+  /** 完了済み任務のプレイテスト記録を JSON として書き出す。 */
+  exportPlaytestLog(): string {
+    return this.playtestLog.exportJson();
   }
 
   get fixedDt(): number {

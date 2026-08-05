@@ -1,4 +1,5 @@
 import type { Vector3 } from 'three';
+import type { DestructionReason } from './destruction';
 import type { Entity } from '../world/entity';
 
 /** ゲーム内で飛び交うイベント。描画・音・HUD はここを購読して疎結合に反応する。 */
@@ -23,7 +24,7 @@ export interface GameEvents {
     isPlayer: boolean;
   };
   /** 撃墜/破壊 */
-  destroyed: { target: Entity; source?: Entity; killedByPlayer: boolean };
+  destroyed: { target: Entity; source?: Entity; killedByPlayer: boolean; reason?: DestructionReason };
   /** 爆発 (ミサイル起爆など) */
   explosion: { pos: Vector3; radius: number; kind: 'missile' | 'ship' | 'small' };
   /** ミサイルロック状態の変化 */

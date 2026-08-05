@@ -13,6 +13,8 @@ import {
   createShipMesh,
   createTracerMesh,
   createTurretMesh,
+  requestShipVisual,
+  type ShipVisualRequest,
 } from './MeshFactory';
 
 const _pos = new Vector3();
@@ -36,6 +38,8 @@ export class RenderSync {
   private turrets = new Map<number, Object3D[]>();
   /** 船体に残る焼け跡 */
   private damage = new Map<number, BattleDamage>();
+  /** GLTF 差し替え中のリクエスト。エンティティ消滅時に必ず無効化する */
+  private shipVisuals = new Map<number, ShipVisualRequest>();
   private seen = new Set<number>();
   readonly root = new Group();
   /** コクピット視点では自機を描かない */
@@ -146,6 +150,10 @@ export class RenderSync {
         obj = created;
         this.meshes.set(e.id, obj);
         this.root.add(obj);
+        if (e.kind === 'ship' && e.ship) {
+          const visual = requestShipVisual(e.ship.def, obj);
+          if (visual.state !== 'procedural') this.shipVisuals.set(e.id, visual);
+        }
       }
       this.seen.add(e.id);
 
@@ -178,6 +186,8 @@ export class RenderSync {
       if (this.seen.has(id)) continue;
       this.root.remove(obj);
       this.meshes.delete(id);
+      this.shipVisuals.get(id)?.cancel();
+      this.shipVisuals.delete(id);
       this.plumes.delete(id);
       this.turrets.delete(id);
       this.damage.get(id)?.dispose();
@@ -186,6 +196,8 @@ export class RenderSync {
   }
 
   clear(): void {
+    for (const request of this.shipVisuals.values()) request.cancel();
+    this.shipVisuals.clear();
     for (const obj of this.meshes.values()) this.root.remove(obj);
     this.meshes.clear();
     this.plumes.clear();

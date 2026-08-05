@@ -1,5 +1,6 @@
 import {
   BoxGeometry,
+  Box3,
   CircleGeometry,
   ConeGeometry,
   CylinderGeometry,
@@ -10,12 +11,16 @@ import {
   Object3D,
   SphereGeometry,
   TorusGeometry,
+  Vector3,
   type BufferGeometry,
   type Material,
 } from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { clone as cloneSkinnedObject } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { Rng } from '../core/rng';
 import { VISUAL_BASE_HALF_LENGTH, type ShipDef, type VisualDef } from '../content/ships';
 import { PartBuilder } from './PartBuilder';
+import { ShipVisualLifecycle } from './ShipVisualLifecycle';
 import { ROCK_TEXTURES, texture } from './textures';
 
 /**
@@ -707,6 +712,115 @@ const BUILDERS: Record<VisualDef['kind'], (def: ShipDef, k: Keys, rng: Rng) => P
 
 /** ShipDef ごとに組んだテンプレート。実体は clone() で作る。 */
 const templates = new Map<string, Object3D>();
+const gltfLoader = new GLTFLoader();
+const gltfTemplates = new Map<string, Promise<Object3D>>();
+
+/**
+ * 外部アセットの指定を正規化する。data/blob/javascript URL はゲームの
+ * 同梱アセット指定として扱わず、相対パス・絶対パス・http(s) URL のみ許可する。
+ */
+export function gltfUrlFor(value: string | undefined): string | undefined {
+  const url = value?.trim();
+  if (!url || /[\u0000-\u001f\u007f]/.test(url)) return undefined;
+  // 相対 URL、/ から始まる URL、http(s) だけを許可する。
+  // GLTFLoader に任意スキームを渡さないことで、アセット指定の境界を明確にする。
+  if (/^[a-z][a-z\d+.-]*:/i.test(url) && !/^https?:\/\//i.test(url)) return undefined;
+  return url;
+}
+
+function hasRenderableMesh(root: Object3D): boolean {
+  let found = false;
+  root.traverse((node) => {
+    if ((node as Object3D & { isMesh?: boolean }).isMesh === true) found = true;
+  });
+  return found;
+}
+
+/** GLTF の原点を中央へ寄せ、最大辺が 1 のテンプレートへ正規化する。 */
+function prepareGltfTemplate(scene: Object3D): Object3D {
+  const model = scene;
+  model.updateMatrixWorld(true);
+  const bounds = new Box3().setFromObject(model);
+  if (bounds.isEmpty() || !hasRenderableMesh(model)) throw new Error('GLTF scene has no renderable mesh');
+
+  const dimensions = bounds.getSize(new Vector3());
+  const longestSide = Math.max(dimensions.x, dimensions.y, dimensions.z);
+  if (!Number.isFinite(longestSide) || longestSide <= 1e-6) throw new Error('GLTF scene has no measurable size');
+
+  // 手続き生成側は機体の中心を原点に置く。原点がずれたモデルでも、
+  // 噴射炎・デカール・砲塔との相対位置が大きく破綻しないよう中央へ寄せる。
+  model.position.sub(bounds.getCenter(new Vector3()));
+  model.scale.setScalar(1 / longestSide);
+  model.updateMatrixWorld(true);
+  return model;
+}
+
+function gltfTemplateFor(url: string): Promise<Object3D> {
+  const cached = gltfTemplates.get(url);
+  if (cached) return cached;
+
+  const pending = new Promise<Object3D>((resolve, reject) => {
+    gltfLoader.load(
+      url,
+      (gltf) => {
+        try {
+          // キャッシュするテンプレートは共有し、実体ごとに SkeletonUtils.clone() する。
+          resolve(prepareGltfTemplate(gltf.scene));
+        } catch (error) {
+          reject(error);
+        }
+      },
+      undefined,
+      (error) => reject(error),
+    );
+  });
+  gltfTemplates.set(url, pending);
+  // 壊れたアセットを永久にキャッシュせず、修正後の再試行を可能にする。
+  void pending.catch(() => {
+    if (gltfTemplates.get(url) === pending) gltfTemplates.delete(url);
+  });
+  return pending;
+}
+
+function replaceShipVisual(target: Object3D, visual: Object3D): void {
+  const previous = target.userData.shipVisual as Object3D | undefined;
+  if (previous?.parent === target) target.remove(previous);
+  target.add(visual);
+  target.userData.shipVisual = visual;
+  target.userData.shipVisualSource = 'gltf';
+}
+
+export interface ShipVisualRequest {
+  readonly state: ShipVisualLifecycle['state'];
+  cancel(): void;
+}
+
+/**
+ * 指定された GLTF を非同期で読み込み、成功時だけ target のビジュアル子を交換する。
+ * 戻り値を cancel すれば、エンティティ消滅後の遅延ロードを安全に無効化できる。
+ */
+export function requestShipVisual(
+  def: ShipDef,
+  target: Object3D,
+  onFailure?: (error: unknown) => void,
+): ShipVisualRequest {
+  const url = gltfUrlFor(def.visual.gltf);
+  const lifecycle = new ShipVisualLifecycle(
+    (visual) => replaceShipVisual(target, visual),
+    onFailure,
+  );
+  if (url) {
+    lifecycle.start(() =>
+      gltfTemplateFor(url).then((template) => {
+        const instance = cloneSkinnedObject(template);
+        instance.scale.setScalar(def.size * 2);
+        instance.updateMatrixWorld(true);
+        return instance;
+      }),
+    );
+  }
+  return lifecycle;
+}
 
 function buildTemplate(def: ShipDef): Object3D {
   const k = keysFor(def.visual);
@@ -724,12 +838,15 @@ function buildTemplate(def: ShipDef): Object3D {
   group.scale.setScalar(def.size / VISUAL_BASE_HALF_LENGTH[def.visual.kind]);
   const root = new Group();
   root.add(group);
+  root.userData.shipVisual = group;
+  root.userData.shipVisualSource = 'procedural';
   return root;
 }
 
 /**
  * 機体定義からメッシュを作る。
- * visual.gltf が指定されていれば将来そちらへ差し替えられるよう入口を分けてある。
+ * visual.gltf の指定があっても、ここでは同期の手続き生成を返す。
+ * GLTF の非同期差し替えは requestShipVisual() が担当する。
  */
 export function createShipMesh(def: ShipDef): Object3D {
   let tpl = templates.get(def.id);
@@ -899,6 +1016,7 @@ export function disposeMaterialCache(): void {
   for (const m of matCache.values()) m.dispose();
   matCache.clear();
   templates.clear();
+  gltfTemplates.clear();
   rockTemplates.clear();
   mineTemplate = undefined;
 }

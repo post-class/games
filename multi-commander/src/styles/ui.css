@@ -265,6 +265,19 @@
   color: var(--hud-dim);
 }
 
+.mc-sound-check {
+  margin-top: 12px;
+}
+.mc-sound-check-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.mc-sound-check-grid button {
+  min-width: 7em;
+}
+
 .mc-keys {
   columns: 2;
   column-gap: 26px;

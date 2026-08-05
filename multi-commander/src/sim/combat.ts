@@ -8,6 +8,7 @@ import type { World } from '../world/world';
 import { pointOnSegment, spheresOverlap, sweepSphere } from './collision';
 import { applyDamage, applySplashDamage, type DamageResult } from './damage';
 import { rollSubsystemDamage } from './subsystems';
+import { classifyDestruction, type DestructionCause } from '../core/destruction';
 
 const _hit = new Vector3();
 const _to = new Vector3();
@@ -43,13 +44,23 @@ function collisionRatio(self: Entity, other: Entity): number {
 }
 
 /** 撃墜処理。イベントを飛ばして撃墜数を加算する。 */
-export function destroyEntity(world: World, e: Entity, source?: Entity): void {
+export function destroyEntity(
+  world: World,
+  e: Entity,
+  source?: Entity,
+  cause: DestructionCause = 'unknown',
+): void {
   const ship = e.ship;
   if (ship?.dying) return;
   if (ship) ship.dying = true;
   const killedByPlayer = !!source && source.id === world.playerId;
   if (source?.ship) source.ship.kills += 1;
-  bus.emit('destroyed', { target: e, source, killedByPlayer });
+  bus.emit('destroyed', {
+    target: e,
+    source,
+    killedByPlayer,
+    reason: classifyDestruction(cause, source?.faction, e.faction),
+  });
   world.kill(e);
 }
 
@@ -188,7 +199,7 @@ function detonate(world: World, e: Entity, at: Vector3 | undefined): void {
     const res = applySplashDamage(s, scaled, center);
     emitHit(world, s, center, res);
     applySubsystemDamage(world, s, res.hullDamage, res.armorFace);
-    if (res.destroyed) destroyEntity(world, s, world.byId(m.ownerId));
+    if (res.destroyed) destroyEntity(world, s, world.byId(m.ownerId), 'missile');
   }
   bus.emit('explosion', { pos: center.clone(), radius: def.blastRadius, kind: 'missile' });
   world.kill(e);
@@ -305,7 +316,7 @@ export function resolveProjectileHits(world: World): void {
     const res = applyDamage(bestShip, dmg, _hit);
     emitHit(world, bestShip, _hit, res);
     applySubsystemDamage(world, bestShip, res.hullDamage, res.armorFace);
-    if (res.destroyed) destroyEntity(world, bestShip, world.byId(pr.ownerId));
+    if (res.destroyed) destroyEntity(world, bestShip, world.byId(pr.ownerId), 'gun');
     world.kill(p);
   }
 }
@@ -358,8 +369,8 @@ function applyCollisionDamage(world: World, a: Entity, b: Entity, mid: Vector3):
   emitHit(world, b, mid, rb);
   applySubsystemDamage(world, a, ra.hullDamage, ra.armorFace);
   applySubsystemDamage(world, b, rb.hullDamage, rb.armorFace);
-  if (ra.destroyed) destroyEntity(world, a, b);
-  if (rb.destroyed) destroyEntity(world, b, a);
+  if (ra.destroyed) destroyEntity(world, a, b, 'collision');
+  if (rb.destroyed) destroyEntity(world, b, a, 'collision');
 
   if (ra.hullDamage > 0 || rb.hullDamage > 0) {
     bus.emit('explosion', {

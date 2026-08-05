@@ -12,6 +12,7 @@ import {
 import { isHostile } from '../content/factions';
 import { shipDef } from '../content/ships';
 import type { DifficultyProfile } from '../app/settings';
+import type { PlaytestObjective, PlaytestRecorder } from '../app/playtest';
 import type { ObjectiveView } from '../hud/HudView';
 import { newAi } from '../sim/ai';
 import { checkNavArrival } from '../sim/nav';
@@ -102,6 +103,7 @@ export class MissionRunner {
     readonly def: MissionDef,
     private loadout: Loadout,
     private difficulty: DifficultyProfile,
+    private playtest?: PlaytestRecorder,
   ) {}
 
   /** ワールドを構築して開始する */
@@ -129,6 +131,7 @@ export class MissionRunner {
       collected: d.spec.kind === 'rescue' ? new Set<number>() : undefined,
       progress: d.spec.kind === 'recon' ? 0 : undefined,
     }));
+    this.playtest?.recordObjectives(this.playtestObjectiveStates(), 0);
     this.pending = this.def.spawns.map((g) => ({
       group: g,
       // 開始時グループは即時、Nav 紐付けグループは到達時に武装する
@@ -248,6 +251,10 @@ export class MissionRunner {
         if (p.isPlayer) this.hits += 1;
       }),
       bus.on('destroyed', (p) => {
+        if (p.target.id === this.world.playerId) {
+          const source = p.source?.ship?.pilot ?? p.source?.label ?? p.source?.kind;
+          this.playtest?.recordDeath(p.reason ?? 'unknown', this.world.time, source);
+        }
         const sourceShip = p.source?.kind === 'ship'
           ? p.source
           : p.source?.projectile
@@ -311,6 +318,7 @@ export class MissionRunner {
     const arrived = checkNavArrival(this.world);
     if (arrived?.nav) {
       bus.emit('navReached', { index: arrived.nav.index, name: arrived.nav.name });
+      this.playtest?.recordNavReached(arrived.nav.index, arrived.nav.name, this.world.time);
       const navDef = this.def.navs[arrived.nav.index];
       if (navDef?.onArrive) this.queueRadio(navDef.onArrive, 0.6);
       // この Nav で出現するグループを解放
@@ -754,7 +762,10 @@ export class MissionRunner {
     }
 
     const after = this.objectives.map((o) => o.state).join(',');
-    if (before !== after) bus.emit('objectivesChanged', {});
+    if (before !== after) {
+      bus.emit('objectivesChanged', {});
+      this.playtest?.recordObjectives(this.playtestObjectiveStates(), this.world.time);
+    }
 
     // 勝敗判定
     const player = this.world.player;
@@ -837,8 +848,18 @@ export class MissionRunner {
       const state = aceState(this.loadout.aceStates ?? [], e.ship.pilot);
       if (state) recordAceEscape(state);
     }
+    this.playtest?.recordObjectives(this.playtestObjectiveStates(), this.world.time);
+    this.playtest?.finish(outcome === 'win' ? 'win' : 'loss', this.world.time);
     this.state = outcome;
     bus.emit('missionEnded', { outcome: outcome === 'win' ? 'win' : 'loss' });
+  }
+
+  private playtestObjectiveStates(): PlaytestObjective[] {
+    return this.objectives.map((o) => ({
+      id: o.def.id,
+      text: o.def.text,
+      state: o.state,
+    }));
   }
 
   /** HUD 表示用の目標一覧 */

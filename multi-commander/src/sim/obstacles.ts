@@ -103,7 +103,7 @@ function detonateMine(world: World, e: Entity): void {
         isPlayer: s.id === world.playerId,
       });
     }
-    if (res.destroyed) destroyEntity(world, s);
+    if (res.destroyed) destroyEntity(world, s, undefined, 'mine');
   }
   bus.emit('explosion', { pos: e.pos.clone(), radius: m.blastRadius * 0.5, kind: 'missile' });
   world.kill(e);
@@ -234,7 +234,7 @@ export function resolveObstacleCollisions(world: World): void {
             isPlayer: s.id === world.playerId,
           });
         }
-        if (res.destroyed) destroyEntity(world, s);
+        if (res.destroyed) destroyEntity(world, s, undefined, 'rock');
         // 小さい岩は機体に砕かれる
         if (o.radius < s.radius * 0.8) {
           breakRock(world, o);
