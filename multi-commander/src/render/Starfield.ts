@@ -236,9 +236,9 @@ export class Skybox {
     this.group.add(backdrop);
 
     // ── 星 ──
-    this.group.add(starLayer(2200, 2.0, seed, 0.95));
-    this.group.add(starLayer(4200, 1.3, seed + 977, 0.62));
-    this.group.add(starLayer(6000, 0.85, seed + 4231, 0.4));
+    this.group.add(starLayer(2200, 2.0, seed, 0.62));
+    this.group.add(starLayer(4200, 1.3, seed + 977, 0.38));
+    this.group.add(starLayer(6000, 0.85, seed + 4231, 0.24));
 
     // ── 星雲 (大きな層 + それに重なる細かい層) ──
     // 生成テクスチャが指定されていればそれを使う。無ければ Canvas 生成にフォールバックする
@@ -257,7 +257,7 @@ export class Skybox {
           depthTest: false,
           transparent: true,
           // 生成テクスチャは元から濃いので薄めに乗せる
-          opacity: nebIds?.length ? (big ? 0.3 : 0.17) : big ? 0.5 : 0.32,
+          opacity: nebIds?.length ? (big ? 0.2 : 0.1) : big ? 0.28 : 0.16,
         }),
       );
       const dir = new Vector3(rng.signed(1), rng.signed(0.7), rng.signed(1)).normalize();
@@ -270,7 +270,7 @@ export class Skybox {
     // ── 惑星 ──
     if (opts.planet !== false) {
       const planetColor = opts.planetColor ?? 0x16324f;
-      const pr = SKY_RADIUS * 0.085;
+      const pr = SKY_RADIUS * 0.068;
       const planet = new Mesh(
         new SphereGeometry(pr, 48, 32),
         new MeshStandardMaterial({

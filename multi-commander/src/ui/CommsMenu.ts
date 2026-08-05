@@ -14,6 +14,8 @@ const ITEMS: CommsItem[] = [
   { label: '編隊を組め (Form on my wing)', action: { kind: 'order', order: 'form' } },
   { label: '私の目標を攻撃 (Attack my target)', action: { kind: 'order', order: 'attack-my-target' } },
   { label: '散開して交戦 (Break and attack)', action: { kind: 'order', order: 'break-and-attack' } },
+  { label: '支援に来い (Help me)', action: { kind: 'order', order: 'help-me' } },
+  { label: '僚機の状況を報告 (Report)', action: { kind: 'report' } },
   { label: '敵を挑発する (Taunt)', action: { kind: 'taunt' } },
 ];
 
@@ -66,7 +68,7 @@ export class CommsMenu {
     this.onPick(item.action);
   }
 
-  /** 数字キーによる直接選択 (1-4) */
+  /** 数字キーによる直接選択 (1-6) */
   pickIndex(i: number): void {
     if (!this.open || i < 0 || i >= ITEMS.length) return;
     this.index = i;

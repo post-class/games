@@ -84,7 +84,7 @@ export class BriefingScene {
     this.lines = o.lines.map((l) => (typeof l === 'string' ? { text: l } : l));
 
     const root = document.createElement('div');
-    root.className = 'mc-brief';
+    root.className = 'mc-brief mc-briefing-desk';
 
     // ── 左: CRT の通信画面に映る顔
     const view = document.createElement('div');
@@ -163,7 +163,8 @@ export class BriefingScene {
       side.append(title);
       for (const panel of o.panels) {
         const p = document.createElement('div');
-        p.className = `mc-brief-panel ${panel.slot}`;
+        p.className = `mc-brief-panel ${panel.slot} preview`;
+        p.dataset.slot = panel.slot;
         p.innerHTML = panel.html;
         if (panel.slot === 'flight-plan') side.appendChild(p);
         else lower.appendChild(p);
@@ -373,7 +374,10 @@ export class BriefingScene {
 
   /** 台詞の進行に合わせて資料を1枚開く */
   private revealPanel(lineIndex: number): void {
-    this.panelEls[lineIndex - (this.o.panelDelay ?? 0)]?.classList.add('open');
+    const panel = this.panelEls[lineIndex - (this.o.panelDelay ?? 0)];
+    if (!panel) return;
+    panel.classList.add('open');
+    panel.classList.remove('preview');
   }
 
   private finish(): void {

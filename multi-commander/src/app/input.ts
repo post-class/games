@@ -28,7 +28,9 @@ export type InputAction =
   | 'comms1'
   | 'comms2'
   | 'comms3'
-  | 'comms4';
+  | 'comms4'
+  | 'comms5'
+  | 'comms6';
 
 const THROTTLE_KEY_RATE = 0.9; // 毎秒
 
@@ -214,7 +216,7 @@ export class InputManager {
       // 数字キーはメニューの直接選択に使うので通す
       if (code.startsWith('Digit')) {
         const n = Number(code.slice(5));
-        if (n >= 1 && n <= 4) this.actions.push(`comms${n}` as InputAction);
+        if (n >= 1 && n <= 6) this.actions.push(`comms${n}` as InputAction);
       }
       return;
     }
@@ -230,7 +232,7 @@ export class InputManager {
     if (code.startsWith('Digit')) {
       const n = Number(code.slice(5));
       if (!Number.isFinite(n)) return;
-      if (this.commsMode && n >= 1 && n <= 4) {
+      if (this.commsMode && n >= 1 && n <= 6) {
         this.actions.push(`comms${n}` as InputAction);
       } else if (!this.commsMode) {
         this.throttle = n === 0 ? 0 : clamp01(n / 10);

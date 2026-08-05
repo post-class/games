@@ -10,6 +10,10 @@
   --ace: #ffd75e;
   --panel: rgba(6, 14, 18, 0.82);
   --panel-line: rgba(127, 227, 176, 0.35);
+  --briefing: #ffb36b;
+  --briefing-dim: #a86845;
+  --hangar: #f0a15a;
+  --tactical: #70b9e8;
   --message-bar-height: 38px;
   --font: 'DIN Alternate', 'Menlo', 'Consolas', 'Hiragino Sans', 'Noto Sans JP', monospace;
 }
@@ -60,6 +64,24 @@ body {
 
 #overlay.interactive {
   pointer-events: auto;
+}
+
+/* 画面の役割ごとに最低限の背景色を変え、同じ緑の UI が続かないようにする。 */
+.mc-screen:has(.mc-briefing-desk) {
+  --hud: var(--briefing);
+  --hud-dim: var(--briefing-dim);
+  --panel-line: rgba(255, 179, 107, 0.38);
+}
+.mc-screen:has(.mc-hangar-layout) {
+  --hud: var(--hangar);
+  --hud-dim: #a56e45;
+  --panel-line: rgba(240, 161, 90, 0.4);
+}
+.mc-screen:has(.mc-kb-row),
+.mc-screen:has(.mc-kb-bar) {
+  --hud: var(--tactical);
+  --hud-dim: #4e86aa;
+  --panel-line: rgba(112, 185, 232, 0.38);
 }
 
 .mc-debug {

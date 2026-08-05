@@ -7,6 +7,43 @@
   overflow: hidden;
 }
 
+/* DOS/VGA の 4:3 に寄せた cockpit stage。16:9 では左右を暗い機体側面として残す。 */
+.mc-hud.cockpit-decorated::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(1, 4, 6, 0.78) 0,
+      rgba(1, 4, 6, 0.78) calc((100% - min(100vw, 133.333vh)) / 2),
+      rgba(1, 4, 6, 0) calc((100% - min(100vw, 133.333vh)) / 2 + 42px),
+      rgba(1, 4, 6, 0) calc(100% - (100% - min(100vw, 133.333vh)) / 2 - 42px),
+      rgba(1, 4, 6, 0.78) calc(100% - (100% - min(100vw, 133.333vh)) / 2),
+      rgba(1, 4, 6, 0.78) 100%
+    ),
+    linear-gradient(180deg, rgba(2, 7, 9, 0.1), rgba(2, 7, 9, 0.25));
+}
+.mc-hud.cockpit-decorated::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  bottom: var(--message-bar-height);
+  left: 50%;
+  width: min(100vw, 133.333vh);
+  transform: translateX(-50%);
+  border-left: 2px solid rgba(25, 35, 41, 0.86);
+  border-right: 2px solid rgba(25, 35, 41, 0.86);
+  box-shadow: inset 18px 0 28px rgba(0, 0, 0, 0.28), inset -18px 0 28px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+  z-index: 0;
+}
+.mc-hud > * {
+  z-index: 1;
+}
+
 .mc-reticle {
   position: absolute;
   left: 50%;
@@ -247,13 +284,14 @@
 
 .mc-cockpit {
   position: absolute;
-  left: 0;
-  right: 0;
+  left: 50%;
+  width: min(100vw, 133.333vh);
+  transform: translateX(-50%);
   bottom: var(--message-bar-height);
-  height: 32vh;
-  min-height: 232px;
-  max-height: 320px;
+  height: clamp(228px, 31vh, 300px);
   pointer-events: none;
+  z-index: 4;
+  overflow: visible;
 }
 
 /* 計器盤の外形。上辺を斜めに落として「風防の下端」に見せる */
@@ -263,6 +301,7 @@
   background: linear-gradient(180deg, #141b21 0%, #0a0f13 42%, #05080a 100%);
   clip-path: polygon(0 26%, 13% 8%, 30% 1%, 70% 1%, 87% 8%, 100% 26%, 100% 100%, 0 100%);
   border-top: 1px solid rgba(127, 227, 176, 0.16);
+  pointer-events: none;
 }
 .mc-cockpit-frame::after {
   /* 計器盤の縁のハイライト */
@@ -277,20 +316,20 @@
 /* 風防の柱。ダッシュボード上端から斜めに立ち上がらせる */
 .mc-pillar {
   position: absolute;
-  bottom: 24vh;
-  width: 44px;
-  height: 52vh;
+  top: -12px;
+  width: 24px;
+  height: 96px;
   background: linear-gradient(90deg, rgba(26, 34, 41, 0.96), rgba(9, 13, 17, 0.55));
   pointer-events: none;
 }
 .mc-pillar.left {
-  left: -6px;
+  left: 4px;
   transform-origin: bottom left;
   transform: rotate(13deg);
   clip-path: polygon(0 0, 62% 0, 100% 100%, 0 100%);
 }
 .mc-pillar.right {
-  right: -6px;
+  right: 4px;
   transform-origin: bottom right;
   transform: rotate(-13deg);
   clip-path: polygon(38% 0, 100% 0, 100% 100%, 0 100%);
@@ -298,14 +337,14 @@
 
 .mc-panels {
   position: absolute;
-  left: 2%;
-  right: 2%;
-  bottom: 8px;
-  top: 17%;
+  left: 3.5%;
+  right: 3.5%;
+  bottom: 10px;
+  top: 19%;
   display: grid;
-  grid-template-columns: minmax(150px, 1fr) minmax(300px, 1.65fr) minmax(150px, 1fr);
+  grid-template-columns: minmax(142px, 0.92fr) minmax(286px, 1.5fr) minmax(142px, 0.92fr);
   grid-template-rows: minmax(0, 1fr);
-  gap: 12px;
+  gap: 9px;
   align-items: stretch;
 }
 /* グリッドの子が内容の高さで膨らんで枠外にはみ出さないようにする */
@@ -320,22 +359,76 @@
   background: var(--panel);
   border: 1px solid var(--panel-line);
   border-radius: 3px;
-  padding: 6px 8px;
-  font-size: 12px;
-  line-height: 1.45;
+  padding: 7px 8px;
+  font-size: 10.5px;
+  line-height: 1.34;
   overflow: hidden;
+  color: #bce8d0;
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.6);
 }
 .mc-vdu-title {
   font-size: 10px;
   letter-spacing: 0.18em;
   color: var(--hud-dim);
   border-bottom: 1px solid rgba(127, 227, 176, 0.18);
-  margin-bottom: 4px;
-  padding-bottom: 2px;
+  margin-bottom: 5px;
+  padding-bottom: 3px;
+  color: var(--hud);
 }
 .mc-vdu-empty {
   color: var(--hud-dim);
   opacity: 0.7;
+}
+.mc-vdu-empty b {
+  display: block;
+  color: var(--warn);
+  letter-spacing: 0.12em;
+  opacity: 1;
+}
+.mc-vdu-empty span {
+  display: block;
+  margin-top: 5px;
+}
+.mc-vdu-section {
+  margin: 6px 0 2px;
+  padding-top: 3px;
+  border-top: 1px solid rgba(127, 227, 176, 0.2);
+  color: var(--hud-dim);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+}
+.mc-status-chip {
+  display: flex;
+  justify-content: space-between;
+  padding: 1px 3px;
+  margin-top: 2px;
+  border-left: 2px solid currentColor;
+  background: rgba(127, 227, 176, 0.05);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+.mc-status-chip.ok { color: var(--good); }
+.mc-status-chip.warn { color: var(--warn); }
+.mc-status-chip.bad { color: var(--bad); }
+.mc-vdu .nav-value,
+.mc-vdu .active-weapon {
+  color: var(--hud);
+}
+.mc-vdu.right {
+  font-size: 9px;
+  line-height: 1.18;
+}
+.mc-vdu.right .mc-vdu-section {
+  margin: 3px 0 1px;
+  padding-top: 2px;
+  font-size: 8px;
+}
+.mc-vdu.right .mc-weapon-line,
+.mc-vdu.right .mc-lockstate {
+  line-height: 1.18;
+}
+.mc-vdu.right .mc-lockstate {
+  font-size: 9px;
 }
 .mc-vdu .name {
   font-size: 13px;
@@ -363,7 +456,7 @@
   display: grid;
   grid-template-columns: 1.05fr 1.1fr 1.05fr;
   grid-template-rows: minmax(0, 1fr);
-  gap: 10px;
+  gap: 8px;
   align-items: stretch;
 }
 
@@ -556,7 +649,7 @@
 
 @media (max-height: 760px) {
   .mc-cockpit {
-    min-height: 210px;
+    height: 228px;
   }
   .mc-vdu {
     font-size: 11px;
@@ -572,6 +665,18 @@
     gap: 6px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-rows: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  }
+
+  .mc-cockpit {
+    width: 100vw;
+    height: 340px;
+  }
+
+  /* 縦長画面では左右 VDU を先に読ませ、中央計器を2段目へ送る。 */
+  .mc-panels {
+    top: 14%;
+    bottom: 8px;
+    grid-template-rows: minmax(0, 1.35fr) minmax(0, 0.9fr);
   }
 
   .mc-panels > .mc-vdu.left {
@@ -754,4 +859,22 @@
 .mc-vdu.compact .mc-sys-sep {
   margin-top: 2px;
   padding-top: 1px;
+}
+
+/* 720p では右 VDU に target / nav / wingman / weapon を一画面で収める。 */
+.mc-vdu.right {
+  font-size: 9px;
+  line-height: 1.18;
+}
+.mc-vdu.right .mc-vdu-section {
+  margin: 3px 0 1px;
+  padding-top: 2px;
+  font-size: 8px;
+}
+.mc-vdu.right .mc-weapon-line,
+.mc-vdu.right .mc-lockstate {
+  line-height: 1.18;
+}
+.mc-vdu.right .mc-lockstate {
+  font-size: 9px;
 }

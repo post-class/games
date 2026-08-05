@@ -186,6 +186,13 @@ export class HudView {
     const cockpit = el('div', 'mc-cockpit');
     this.cockpit = cockpit;
 
+    // 3D 内装はカメラに追従するが、HUD の読み取り面は画面上の固定構図にする。
+    // 16:9 の左右に余白を残し、4:3 に近い視界の中へ計器を収める。
+    const cockpitFrame = el('div', 'mc-cockpit-frame');
+    const leftPillar = el('div', 'mc-pillar left');
+    const rightPillar = el('div', 'mc-pillar right');
+    cockpit.append(cockpitFrame, leftPillar, rightPillar);
+
     const panels = el('div', 'mc-panels');
     this.vduLeft = el('div', 'mc-vdu left');
     this.vduRight = el('div', 'mc-vdu right');
@@ -449,8 +456,8 @@ export class HudView {
     this.renderGauges(f, player);
     this.renderShieldDisplay(player);
     this.renderRadar(f, player);
-    this.renderTargetVdu(f, player);
-    this.renderRightVdu(player);
+    this.renderLeftVdu(player);
+    this.renderRightVdu(f, player);
     this.renderWarnings(f, player);
     this.renderWorldMarkers(f, player);
   }
@@ -613,36 +620,29 @@ export class HudView {
     }
   }
 
-  private renderTargetVdu(f: HudFrame, player: Entity): void {
-    const target = f.world.byId(player.ship!.targetId);
-    if (!target || !target.ship) {
-      this.setVdu(this.vduLeft, 'TARGET', '<div class="mc-vdu-empty">ターゲットなし<br>T / R / Y で選択</div>');
-      return;
-    }
-    const h = healthRatios(target);
-    const d = target.pos.distanceTo(player.pos);
-    const cls = target.ship.ace
-      ? 'ace'
-      : isHostile(player.faction, target.faction)
-        ? 'enemy'
-        : target.faction === player.faction
-          ? 'friend'
-          : '';
-    const closing = this.tmpV.copy(target.vel).sub(player.vel).dot(
-      this.tmpV.clone().copy(target.pos).sub(player.pos).normalize(),
-    );
+  /** 左 VDU は常に自機の状態を表示する (本家の systems / damage display)。 */
+  private renderLeftVdu(player: Entity): void {
+    const ship = player.ship!;
+    const h = healthRatios(player);
+    const avgShield = (h.shieldFront + h.shieldRear) / 2;
+    const avgArmor = (h.armor.front + h.armor.rear + h.armor.left + h.armor.right) / 4;
+    const primary = ship.def.guns[0]?.gunId?.toUpperCase() ?? 'NONE';
     const body = [
-      `<div class="name ${cls}">${target.ship.ace ? '★ ' : ''}${escapeHtml(target.ship.pilot ?? target.label ?? '')}</div>`,
-      `<div class="row"><span class="k">機種</span><span>${escapeHtml(target.ship.def.name)}</span></div>`,
-      `<div class="row"><span class="k">距離</span><span>${d.toFixed(0)}</span></div>`,
-      `<div class="row"><span class="k">${closing < 0 ? '接近' : '離脱'}</span><span>${Math.abs(closing).toFixed(0)}</span></div>`,
-      `<div class="row"><span class="k">シールド</span><span style="color:${barColor((h.shieldFront + h.shieldRear) / 2)}">${(((h.shieldFront + h.shieldRear) / 2) * 100) | 0}%</span></div>`,
-      `<div class="row"><span class="k">ハル</span><span style="color:${barColor(h.hull)}">${(h.hull * 100) | 0}%</span></div>`,
+      `<div class="name friend">${escapeHtml(ship.pilot ?? 'PILOT')} / ${escapeHtml(ship.def.name)}</div>`,
+      `<div class="row"><span class="k">SHIELD</span><span style="color:${barColor(avgShield)}">${(avgShield * 100) | 0}%</span></div>`,
+      `<div class="row"><span class="k">ARMOR</span><span style="color:${barColor(avgArmor)}">${(avgArmor * 100) | 0}%</span></div>`,
+      `<div class="row"><span class="k">HULL</span><span style="color:${barColor(h.hull)}">${(h.hull * 100) | 0}%</span></div>`,
+      `<div class="row"><span class="k">GUN PWR</span><span>${ship.energy.toFixed(0)} / ${ship.def.energy}</span></div>`,
+      `<div class="row"><span class="k">PRIMARY</span><span>${escapeHtml(primary)}</span></div>`,
+      `<div class="mc-vdu-section">SYSTEMS</div>`,
+      `<div class="mc-status-chip ${stateOf(ship, 'radar') === 'ok' ? 'ok' : 'warn'}">RADAR　${stateOf(ship, 'radar') === 'ok' ? 'READY' : 'DEGRADED'}</div>`,
+      `<div class="mc-status-chip ${stateOf(ship, 'gunsLeft') === 'ok' && stateOf(ship, 'gunsRight') === 'ok' ? 'ok' : 'warn'}">GUNS　${stateOf(ship, 'gunsLeft') === 'ok' && stateOf(ship, 'gunsRight') === 'ok' ? 'READY' : 'DAMAGED'}</div>`,
     ].join('');
-    this.setVdu(this.vduLeft, 'TARGET', body);
+    this.setVdu(this.vduLeft, 'SELF / SYSTEMS', body);
   }
 
-  private renderRightVdu(player: Entity): void {
+  /** 右 VDU は target / nav / weapon / wingman を一つの戦術面に固定する。 */
+  private renderRightVdu(f: HudFrame, player: Entity): void {
     const ship = player.ship!;
     if (this.damageMode) {
       const h = healthRatios(player);
@@ -667,6 +667,46 @@ export class HudView {
       return;
     }
 
+    const target = f.world.byId(ship.targetId);
+    const navDistance = f.nav ? f.nav.pos.distanceTo(player.pos) : 0;
+    const navHtml = f.nav
+      ? `<div class="row"><span class="k">NAV</span><span class="nav-value">${escapeHtml(f.nav.label ?? 'NAV')}</span></div>` +
+        `<div class="row"><span class="k">DIST</span><span>${(navDistance / 1000).toFixed(1)}k</span></div>`
+      : `<div class="row"><span class="k">NAV</span><span class="dim">STANDBY</span></div>` +
+        `<div class="row"><span class="k">DIST</span><span>—</span></div>`;
+
+    let targetHtml = '<div class="mc-vdu-empty mc-target-idle"><b>NO TARGET</b><span>T / R / Y で選択</span></div>';
+    if (target?.ship) {
+      const h = healthRatios(target);
+      const d = target.pos.distanceTo(player.pos);
+      const cls = target.ship.ace
+        ? 'ace'
+        : isHostile(player.faction, target.faction)
+          ? 'enemy'
+          : target.faction === player.faction
+            ? 'friend'
+            : '';
+      const closing = this.tmpV.copy(target.vel).sub(player.vel).dot(
+        this.tmpV.clone().copy(target.pos).sub(player.pos).normalize(),
+      );
+      targetHtml = [
+        `<div class="name ${cls}">${target.ship.ace ? '★ ' : ''}${escapeHtml(target.ship.pilot ?? target.label ?? '')}</div>`,
+        `<div class="row"><span class="k">TYPE</span><span>${escapeHtml(target.ship.def.name)}</span></div>`,
+        `<div class="row"><span class="k">DIST</span><span>${d.toFixed(0)}</span></div>`,
+        `<div class="row"><span class="k">${closing < 0 ? 'CLOSING' : 'BREAKING'}</span><span>${Math.abs(closing).toFixed(0)}</span></div>`,
+        `<div class="row"><span class="k">SHIELD</span><span style="color:${barColor((h.shieldFront + h.shieldRear) / 2)}">${(((h.shieldFront + h.shieldRear) / 2) * 100) | 0}%</span></div>`,
+        `<div class="row"><span class="k">HULL</span><span style="color:${barColor(h.hull)}">${(h.hull * 100) | 0}%</span></div>`,
+      ].join('');
+    }
+
+    const wing = f.world.entities.find(
+      (e) => e.alive && e.id !== player.id && e.kind === 'ship' && e.faction === player.faction && !!e.ship,
+    );
+    const wingName = wing?.ship?.pilot ?? wing?.label ?? 'UNASSIGNED';
+    const wingRatio = wing?.ship ? wing.ship.hull / Math.max(1, wing.ship.def.hull) : 0;
+    const wingState = wing ? (wingRatio > 0.6 ? 'FORMED' : wingRatio > 0.2 ? 'DAMAGED' : 'CRITICAL') : 'NONE';
+    const wingClass = wing ? (wingRatio > 0.6 ? 'ok' : wingRatio > 0.2 ? 'warn' : 'bad') : 'dim';
+
     const lines: string[] = [];
     for (let i = 0; i < ship.missiles.length; i++) {
       const m = ship.missiles[i];
@@ -688,10 +728,20 @@ export class HudView {
       else if (ship.lockProgress > 0.02)
         lock = `<div class="mc-lockstate locking">□ ロック中 ${(ship.lockProgress * 100) | 0}%</div>`;
       else lock = '<div class="mc-lockstate">□ ロックなし</div>';
-    } else if (def) {
-      lock = '<div class="mc-lockstate">無誘導 (照準して発射)</div>';
+    } else if (def && def.seeker !== 'none') {
+      lock = '<div class="mc-lockstate">□ LOCK READY</div>';
     }
-    this.setVdu(this.vduRight, 'WEAPONS  [X / D]', lines.join('') + lock);
+    const selected = def ? def.shortName : 'GUNS';
+    const body =
+      `<div class="mc-vdu-section">TARGET</div>${targetHtml}` +
+      `<div class="mc-vdu-section">NAV / WING</div>${navHtml}` +
+      `<div class="row"><span class="k">WINGMAN</span><span class="${wingClass}">${escapeHtml(wingName)}</span></div>` +
+      `<div class="row"><span class="k">STATUS</span><span class="${wingClass}">${wingState}</span></div>` +
+      `<div class="mc-vdu-section">WEAPONS  [X]</div>` +
+      `<div class="row"><span class="k">SELECTED</span><span class="active-weapon">${escapeHtml(selected)}</span></div>` +
+      lines.join('') +
+      lock;
+    this.setVdu(this.vduRight, 'TARGET / NAV', body);
   }
 
   private setVdu(box: HTMLElement, title: string, bodyHtml: string, extraClass = ''): void {

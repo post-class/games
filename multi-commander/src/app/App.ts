@@ -1,13 +1,14 @@
 import { bus } from '../core/events';
 import {
-  advance,
-  CAMPAIGN,
-  CAMPAIGN_START,
+  campaignGraph,
+  campaignMap,
   campaignNode,
+  campaignStart,
   isTerminal,
-  TOTAL_CHAPTERS,
+  totalChapters,
   VICTORY,
   DEFEAT,
+  type CampaignMode,
   type CampaignNodeId,
 } from '../content/campaign';
 import { missionDef } from '../content/missions';
@@ -44,7 +45,16 @@ import {
   type SortieOutcome,
 } from './roster';
 import { Game } from './game';
-import { loadSave, newSave, writeSave, type CampaignSave } from './save';
+import {
+  advanceCampaignSave,
+  loadSave,
+  loadSaveSlot,
+  newCampaignSave,
+  SAVE_SLOT_COUNT,
+  saveToSlot,
+  writeSave,
+  type CampaignSave,
+} from './save';
 import { availableMissiles, clampLoadout, consumeLoadout, replenishForMission } from './supplies';
 import { recordMissionStatistics } from './statistics';
 import { difficulty, settings, updateSettings } from './settings';
@@ -78,11 +88,15 @@ export class App {
   private trainingEnemyCount = 3;
   private trainingSkill = 0.55;
   private replayPanel?: ReplayPanel;
+  /** 新規戦役で選ぶモード。既存セーブのモードはセーブ側を優先する。 */
+  private newCampaignMode: CampaignMode = 'canon';
+  private barPilotId?: string;
 
   constructor(canvas: HTMLCanvasElement, overlay: HTMLElement) {
     this.game = new Game(canvas, overlay);
     this.screens = new ScreenHost(overlay);
-    this.save = loadSave() ?? newSave();
+    this.save = loadSave() ?? newCampaignSave('canon');
+    this.newCampaignMode = this.save.campaignMode;
 
     this.game.onMissionEnd = (outcome) => this.onMissionEnd(outcome);
     this.game.onPauseRequested = () => this.showPause();
@@ -101,18 +115,25 @@ export class App {
     this.game.endMission();
     const hasSave = !!loadSave();
     const items: MenuItem[] = [
-      { label: '新しい戦役を始める', onSelect: () => this.startCampaign(true) },
+      { label: `新しい戦役を始める (${this.modeLabel(this.newCampaignMode)})`, onSelect: () => this.startCampaign(true) },
       {
         label: '続きから',
         disabled: !hasSave,
         onSelect: () => this.startCampaign(false),
+      },
+      {
+        label: `新規戦役モードを切替 (${this.modeLabel(this.newCampaignMode)})`,
+        onSelect: () => {
+          this.newCampaignMode = this.newCampaignMode === 'canon' ? 'expanded' : 'canon';
+          this.showTitle();
+        },
       },
       { label: '設定', onSelect: () => this.showSettings(() => this.showTitle()) },
       { label: '操作説明', onSelect: () => this.showHelp() },
     ];
     const saved = loadSave();
     const progress = saved
-      ? `前回の記録: 第 ${this.chapterOf(saved.node)} 章 / 通算撃墜 ${saved.totalKills} 機`
+      ? `前回の記録: ${this.modeLabel(saved.campaignMode)}・第 ${this.chapterOf(saved.node, saved.campaignMode)} 章 / 勝利点 ${saved.seriesScore} / 通算撃墜 ${saved.totalKills} 機`
       : '記録なし';
     this.screens.show({
       title: 'MULTI-COMMANDER',
@@ -131,9 +152,13 @@ export class App {
     });
   }
 
-  private chapterOf(node: CampaignNodeId): number {
-    if (isTerminal(node)) return TOTAL_CHAPTERS;
-    return campaignNode(node).chapter;
+  private modeLabel(mode: CampaignMode): string {
+    return mode === 'canon' ? 'CANON / ENYO' : 'EXPANDED / McCAFFREY';
+  }
+
+  private chapterOf(node: CampaignNodeId, mode: CampaignMode = this.save.campaignMode): number {
+    if (isTerminal(node)) return totalChapters(mode);
+    return campaignNode(node, mode).chapter;
   }
 
   private showHelp(): void {
@@ -176,20 +201,35 @@ export class App {
 
   private startCampaign(fresh: boolean): void {
     if (fresh) {
-      this.save = newSave();
+      this.save = newCampaignSave(this.newCampaignMode);
       writeSave(this.save);
     } else {
-      this.save = loadSave() ?? newSave();
+      this.save = loadSave() ?? newCampaignSave(this.newCampaignMode);
     }
+    this.newCampaignMode = this.save.campaignMode;
     this.selection = undefined;
     this.showHub();
   }
 
   private currentMission(): MissionDef {
     if (this.trainingActive) return this.trainingDef();
-    if (this.save.dynamicMission) return dynamicMissionDef(this.save.dynamicMission);
-    const node = campaignNode(this.save.node);
-    return missionDef(node.missionId);
+    if (this.save.campaignMode === 'expanded' && this.save.dynamicMission) return dynamicMissionDef(this.save.dynamicMission);
+    const node = campaignNode(this.save.node, this.save.campaignMode);
+    const base = missionDef(node.missionId);
+    const localizedTitle = base.title
+      .replace('マッカフリー', node.system)
+      .replace('McCaffrey', node.system);
+    // Canonノードの星系・シリーズ・戦況を、既存の戦闘データへ明示的に接続する。
+    // id は履歴で独立させるため、同じ m4-defend を使う分岐も混ざらない。
+    return {
+      ...base,
+      id: this.save.campaignMode === 'canon' ? this.save.node : base.id,
+      title: `${node.seriesName} — ${localizedTitle}`,
+      system: node.system,
+      briefing: [node.situation, ...base.briefing],
+      debriefWin: [node.winSituation, ...base.debriefWin],
+      debriefLoss: [node.lossSituation, ...base.debriefLoss],
+    };
   }
 
   private loadoutFor(def: MissionDef): Loadout {
@@ -233,11 +273,12 @@ export class App {
       cleared: this.save.cleared,
       medals: this.save.medals,
       chapter: this.chapterOf(this.save.node),
-      totalChapters: TOTAL_CHAPTERS,
+      totalChapters: totalChapters(this.save.campaignMode),
       aceStates: this.save.aceStates,
       frontline: this.save.frontline,
       supplies: this.save.supplies,
       statistics: this.save.statistics,
+      lastSortie: this.save.lastSortie,
     };
   }
 
@@ -274,7 +315,7 @@ export class App {
       this.showEnding(this.save.node === VICTORY);
       return;
     }
-    const node = campaignNode(this.save.node);
+    const node = campaignNode(this.save.node, this.save.campaignMode);
     const def = this.currentMission();
     const sel = this.ensureSelection(def);
     const rank = rankFor(this.save.sorties, this.save.totalKills);
@@ -286,7 +327,7 @@ export class App {
       background: artUrl('tex/bg-hangar', 'jpg'),
       title: 'TCS タイガーズ・クロー',
       subtitle:
-        `第 ${node.chapter} 章 / ${TOTAL_CHAPTERS}　—　${def.system} 星系` +
+        `${this.modeLabel(this.save.campaignMode)}　${node.seriesName}　${node.chapter}/${totalChapters(this.save.campaignMode)}　—　${def.system} 星系` +
         `${node.losingRoute ? '　(戦況悪化)' : ''}`,
       bodyHtml:
         `<div class="block">` +
@@ -295,7 +336,7 @@ export class App {
         `${dead.length ? `　<span class="ng">戦死 ${dead.length} 名</span>` : ''}</span></div>` +
         `<div class="dim">次の任務: ${escapeHtml(def.title)}` +
         `${this.save.dynamicMission ? '　<span class="ok">戦況作戦</span>' : ''}</div>` +
-        `<div class="dim">戦況: ${this.frontlineSummary()}</div>` +
+        `<div class="dim">戦況: ${escapeHtml(this.save.campaignSituation)}　/　勝利点 ${this.save.seriesScore}　/　${this.frontlineSummary()}</div>` +
         `</div>`,
       items: [
         {
@@ -331,12 +372,22 @@ export class App {
   }
 
   private showRecRoom(): void {
+    const talkers = this.save.roster.pilots.filter((p) => p.status === 'active' || p.status === 'wounded');
     this.screens.show({
       background: artUrl('tex/bg-bar', 'jpg'),
       title: '酒場',
-      bodyHtml: recRoomHtml(this.hubContext()),
+      bodyHtml: recRoomHtml({ ...this.hubContext(), barPilotId: this.barPilotId }),
       items: [
-        { label: 'もう少し話す', onSelect: () => this.showRecRoom() },
+        ...talkers.map((pilot) => ({
+          label: `${pilot.id === this.barPilotId ? '会話中: ' : ''}${escapeHtml(pilotDef(pilot.id).callsign)} と話す`,
+          onSelect: () => {
+            pilot.bond = Math.min(1, pilot.bond + 0.08);
+            this.barPilotId = pilot.id;
+            writeSave(this.save);
+            this.showRecRoom();
+          },
+        })),
+        { label: '噂を聞く', onSelect: () => this.showRecRoom() },
         { label: '戻る', onSelect: () => this.showHub() },
       ],
       onCancel: () => this.showHub(),
@@ -348,8 +399,52 @@ export class App {
       background: artUrl('tex/bg-quarters', 'jpg'),
       title: '自室',
       bodyHtml: barracksHtml(this.hubContext()),
-      items: [{ label: '戻る', onSelect: () => this.showHub() }],
+      items: [
+        { label: 'セーブスロットへ — 現在の戦役を保存', onSelect: () => this.showSaveSlots('save') },
+        { label: 'セーブスロットからロード', onSelect: () => this.showSaveSlots('load') },
+        { label: '戻る', onSelect: () => this.showHub() },
+      ],
       onCancel: () => this.showHub(),
+    });
+  }
+
+  /** 帰艦後の自室でだけ触れる、本家風8スロット記録画面。 */
+  private showSaveSlots(mode: 'save' | 'load'): void {
+    const slots = Array.from({ length: SAVE_SLOT_COUNT }, (_, slot) => ({ slot, save: loadSaveSlot(slot) }));
+    const rows = slots.map(({ slot, save }) =>
+      `<div class="mc-save-slot ${save ? 'filled' : 'empty'}"><b>SLOT ${slot + 1}</b>` +
+      (save
+        ? `<span>${escapeHtml(this.modeLabel(save.campaignMode))}　${this.chapterOf(save.node, save.campaignMode)}章　勝利点 ${save.seriesScore}　撃墜 ${save.totalKills}</span>`
+        : '<span class="dim">空きスロット</span>') +
+      `</div>`).join('');
+    this.screens.show({
+      background: artUrl('tex/bg-quarters', 'jpg'),
+      title: mode === 'save' ? '戦役記録 — 保存' : '戦役記録 — ロード',
+      subtitle: 'BARRACKS / 8 MEMORY SLOTS',
+      bodyHtml: `<div class="block"><div class="dim">${mode === 'save' ? '帰艦後の現在状態を選んだスロットへ保存する。' : 'ロードすると現在の進行を置き換える。'}</div></div>` + rows,
+      items: [
+        ...slots.map(({ slot, save }) => ({
+          label: mode === 'save'
+            ? `SLOT ${slot + 1}へ保存${save ? ' (上書き)' : ''}`
+            : `SLOT ${slot + 1}をロード`,
+          disabled: mode === 'load' && !save,
+          onSelect: () => {
+            if (mode === 'save') {
+              saveToSlot(this.save, slot);
+              this.showSaveSlots('save');
+              return;
+            }
+            const loaded = loadSaveSlot(slot);
+            if (!loaded) return;
+            this.save = loaded;
+            this.newCampaignMode = loaded.campaignMode;
+            this.selection = undefined;
+            this.showHub();
+          },
+        })),
+        { label: '戻る', onSelect: () => this.showBarracks() },
+      ],
+      onCancel: () => this.showBarracks(),
     });
   }
 
@@ -368,15 +463,44 @@ export class App {
     return systems.map(([id, s]) => `${id} ${s.control.toFixed(0)}%`).join(' / ');
   }
 
+  /** 勝敗で塗り替わる戦役の道筋。現在地と次に進み得る両方を同時に見せる。 */
+  private campaignMapHtml(): string {
+    const entries = campaignMap(this.save.campaignMode, this.save.node, this.save.campaignHistory);
+    const statusLabel: Record<string, string> = {
+      current: '現在地',
+      'completed-win': '勝利',
+      'completed-loss': '敗北 / 撤退',
+      reachable: '次の分岐',
+      unreached: '未到達',
+      terminal: '終端',
+    };
+    const rows = entries.map((entry) => {
+      const n = entry.node;
+      const title = n ? `${n.seriesName} — ${n.system}` : entry.id === VICTORY ? '戦役勝利' : '戦役敗北';
+      const detail = n ? `${n.missionType}　勝利点 ${n.victoryPoints}　${n.victoryCondition}` : 'この戦役の結果は保存される。';
+      const route = entry.incoming === 'win' ? '勝利側から到達' : entry.incoming === 'loss' ? '敗北側から到達' : '';
+      return `<div class="mc-campaign-node ${entry.status}">` +
+        `<span class="mc-campaign-node-status">${escapeHtml(statusLabel[entry.status] ?? entry.status)}</span>` +
+        `<div><b>${escapeHtml(title)}</b><div class="dim">${escapeHtml(detail)}${route ? `　${escapeHtml(route)}` : ''}</div></div>` +
+        `</div>`;
+    }).join('');
+    return `<div class="block mc-campaign-map"><h3>戦役マップ — ${escapeHtml(this.modeLabel(this.save.campaignMode))}</h3>` +
+      `<div class="dim">シリーズ勝利点 <b>${this.save.seriesScore}</b>　履歴 ${this.save.campaignHistory.length} 任務　${escapeHtml(this.save.campaignSituation)}</div>` +
+      rows + `</div>`;
+  }
+
   private showFrontline(): void {
     const active = this.save.dynamicMission;
+    const frontlinePanel = this.save.campaignMode === 'expanded'
+      ? frontlineHtml(this.hubContext()) +
+        `<div class="block"><h3>独自拡張の作戦方針</h3><div class="dim">McCaffrey / Gimle / Vega の動的前線作戦は EXPANDED モードでのみ発生する。</div></div>`
+      : `<div class="block"><h3>CANON 戦役</h3><div class="dim">この画面では Enyo → McAuliffe → Gateway の固定戦役だけを表示する。独自前線作戦は発生しない。</div></div>`;
     this.screens.show({
       background: artUrl('tex/bg-briefing', 'jpg'),
       title: '戦況マップ',
-      bodyHtml: frontlineHtml(this.hubContext()) +
-        `<div class="block"><h3>作戦方針</h3><div class="dim">戦況が悪い星系ほど、強襲・救難・補給護衛が発生する。勝てば戦線を押し戻せる。</div></div>`,
+      bodyHtml: this.campaignMapHtml() + frontlinePanel,
       items: [
-        ...(active
+        ...(this.save.campaignMode === 'expanded' ? (active
           ? [{ label: '選択中の戦況作戦を確認', onSelect: () => this.showHub() }]
           : [{
               label: '最も危険な星系へ作戦を立てる',
@@ -385,7 +509,7 @@ export class App {
                 writeSave(this.save);
                 this.showHub();
               },
-            }]),
+            }]) : []),
         { label: '戻る', onSelect: () => this.showHub() },
       ],
       onCancel: () => this.showHub(),
@@ -549,7 +673,7 @@ export class App {
       this.showEnding(this.save.node === VICTORY);
       return;
     }
-    const node = campaignNode(this.save.node);
+    const node = campaignNode(this.save.node, this.save.campaignMode);
     this.game.sound.music.play('briefing');
     const def = this.currentMission();
     const ship = shipDef(def.playerShipId);
@@ -577,7 +701,7 @@ export class App {
       crestHeight: 64,
       background: artUrl('tex/bg-briefing', 'jpg'),
       title: def.title,
-      subtitle: `第 ${node.chapter} 章 / ${TOTAL_CHAPTERS}　—　${def.system} 星系${node.losingRoute ? '　(戦況悪化)' : ''}`,
+      subtitle: `${this.modeLabel(this.save.campaignMode)}　${node.seriesName}　${node.chapter}/${totalChapters(this.save.campaignMode)}　—　${def.system} 星系${node.losingRoute ? '　(戦況悪化)' : ''}`,
       content: scene.el,
       items: [
         {
@@ -690,7 +814,7 @@ export class App {
 
   /** 初回プレイの1本目だけ訓練案内を出す */
   private shouldTutorial(): boolean {
-    return !settings.tutorialDone && this.save.node === CAMPAIGN_START;
+    return !settings.tutorialDone && this.save.node === campaignStart(this.save.campaignMode);
   }
 
   private onMissionEnd(outcome: 'win' | 'loss'): void {
@@ -731,7 +855,8 @@ export class App {
   private showDebrief(outcome: 'win' | 'loss'): void {
     const def = this.currentMission();
     const s = this.lastSummary;
-    const dynamic = this.save.dynamicMission;
+    const dynamic = this.save.campaignMode === 'expanded' ? this.save.dynamicMission : undefined;
+    const fixedNode = dynamic ? undefined : campaignNode(this.save.node, this.save.campaignMode);
     const kills = s?.kills ?? 0;
     this.save.totalKills += kills;
     if (outcome === 'win' && !this.save.cleared.includes(def.id)) {
@@ -747,25 +872,38 @@ export class App {
         wingmanHullRatio: s.wingmanHullRatio,
         wingmanRescued: s.wingmanRescued,
         wingmanAbandoned: s.wingmanAbandoned,
+        navsReached: s.navsReached,
+        escortSuccess: s.escortSuccess,
       });
     }
     replenishForMission(this.save.supplies, outcome, !!s?.escortLost);
     let nextNode: CampaignNodeId;
+    let transition: ReturnType<typeof advanceCampaignSave> | undefined;
     if (dynamic) {
       applyFrontlineOutcome(this.save.frontline, dynamic, outcome, { escortLost: s?.escortLost, kills });
       nextNode = dynamic.returnNode as CampaignNodeId;
       this.save.dynamicMission = undefined;
     } else {
-      nextNode = advance(this.save.node, outcome);
+      transition = advanceCampaignSave(this.save, outcome);
+      nextNode = transition.nextNode;
       // 固定ミッションの間に、2回に1回は前線作戦を挿入する。
       // これにより本線9章の外側にも、哨戒・護衛・救難・強襲が積み上がる。
-      if (!isTerminal(nextNode) && this.save.sorties % 2 === 0) {
+      if (this.save.campaignMode === 'expanded' && !isTerminal(nextNode) && this.save.sorties % 2 === 0) {
         this.save.dynamicMission = chooseDynamicMission(this.save.frontline, nextNode, this.save.sorties + this.save.frontline.operations + 1);
       }
     }
     if (!hasWingman(this.save.roster) && this.save.roster.reserves.length === 0) {
       nextNode = DEFEAT;
     }
+    const sortieShip = this.game.world.player?.ship;
+    this.save.lastSortie = {
+      outcome,
+      shipId: s?.shipId ?? sortieShip?.def.id ?? def.playerShipId,
+      hullRatio: s?.playerHullRatio ?? 0,
+      escortLost: !!s?.escortLost,
+      missiles: Object.fromEntries((sortieShip?.missiles ?? []).map((m) => [m.missileId, m.count])),
+      flares: sortieShip?.flares ?? 0,
+    };
     if (nextNode === DEFEAT) this.save.ending = 'defeat';
     else if (nextNode === VICTORY) this.save.ending = this.endingQuality();
     this.save.node = nextNode;
@@ -780,15 +918,30 @@ export class App {
       .join('');
     const minutes = Math.floor((s?.seconds ?? 0) / 60);
     const seconds = Math.floor((s?.seconds ?? 0) % 60);
+    const routeLabel = transition
+      ? transition.route === 'advance' ? '前進ルート' : transition.route === 'retreat' ? '撤退ルート' : '現状維持'
+      : '前線作戦から帰投';
+    const nextLabel = isTerminal(nextNode)
+      ? nextNode === VICTORY ? '戦役勝利' : '戦役敗北'
+      : campaignNode(nextNode, this.save.campaignMode).seriesName + ' — ' + campaignNode(nextNode, this.save.campaignMode).system;
+    const campaignReport = fixedNode
+      ? `<div class="block mc-debrief-campaign"><h3>戦役の分岐</h3>` +
+        `<div><b>${escapeHtml(fixedNode.seriesName)}</b>　${escapeHtml(routeLabel)}　` +
+        `勝利点 <b>${transition?.points ?? 0}</b>　累計 <b>${this.save.seriesScore}</b></div>` +
+        `<div class="dim">${escapeHtml(transition?.situation ?? this.save.campaignSituation)}</div>` +
+        `<div class="ok">次: ${escapeHtml(nextLabel)}</div></div>`
+      : `<div class="block mc-debrief-campaign"><h3>戦況作戦</h3><div>${escapeHtml(routeLabel)}　次: ${escapeHtml(nextLabel)}</div></div>`;
 
     // 戦果を先に見せ、目標の判定を後から開く
     const scene = this.briefingScene(
       def,
       outcome === 'win' ? def.debriefWin : def.debriefLoss,
       [
-        { html: `<div class="block"><h3>戦果</h3><ul>` +
+        { html: campaignReport + `<div class="block"><h3>戦果</h3><ul>` +
           `<li>撃墜 ${kills} 機</li>` +
           `<li>撃退 ${s?.routed ?? 0} 機</li>` +
+          `<li>機体状態 ${Math.round((s?.playerHullRatio ?? 0) * 100)}%　フレア ${this.save.lastSortie?.flares ?? 0}　` +
+          `僚機 ${s?.escortLost ? '護衛対象喪失' : '護衛維持'}</li>` +
           `<li>飛行時間 ${minutes}分${String(seconds).padStart(2, '0')}秒</li>` +
           `<li>通算撃墜 ${this.save.totalKills} 機 / 出撃 ${this.save.sorties} 回</li>` +
           `</ul></div>`, slot: 'flight-plan' },
@@ -946,8 +1099,8 @@ export class App {
   private retry(missionId: string, outcome: 'win' | 'loss'): void {
     void outcome;
     // 進行を1つ巻き戻す
-    for (const [id, node] of Object.entries(CAMPAIGN)) {
-      if (node.missionId === missionId) {
+    for (const [id, node] of Object.entries(campaignGraph(this.save.campaignMode))) {
+      if (id === missionId || node.missionId === missionId) {
         this.save.node = id;
         break;
       }

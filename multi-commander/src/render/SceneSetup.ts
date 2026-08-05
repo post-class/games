@@ -48,7 +48,8 @@ export class SceneSetup {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.outputColorSpace = SRGBColorSpace;
     this.renderer.toneMapping = ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 0.92;
+    // 恒星や星雲がHUDより先に目に入らないよう、暗部を保った露出にする。
+    this.renderer.toneMappingExposure = 0.78;
 
     this.camera = new PerspectiveCamera(BASE_FOV, 1, 0.5, 30000);
 
@@ -82,7 +83,7 @@ export class SceneSetup {
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     // しきい値を上げて、発光体 (エンジン・灯火・爆発) だけを滲ませる。
     // 低いと日向の金属面まで白く潰れて、laser のような棒に見えてしまう
-    this.bloom = new UnrealBloomPass(new Vector2(1, 1), 0.52, 0.62, 0.93);
+    this.bloom = new UnrealBloomPass(new Vector2(1, 1), 0.34, 0.58, 1.05);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
 
@@ -106,7 +107,7 @@ export class SceneSetup {
     const level = Math.max(0, Math.min(1, v));
     if (Math.abs(level - this.warpLevel) < 0.004) return;
     this.warpLevel = level;
-    this.bloom.strength = 0.52 + level * 0.5;
+    this.bloom.strength = 0.34 + level * 0.5;
   }
 
   setBloom(on: boolean): void {

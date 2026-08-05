@@ -581,6 +581,8 @@ export class Game {
         case 'comms2':
         case 'comms3':
         case 'comms4':
+        case 'comms5':
+        case 'comms6':
           this.comms.pickIndex(Number(a.slice(5)) - 1);
           this.input.commsMode = this.comms.open;
           break;
@@ -726,6 +728,25 @@ export class Game {
           target.ai.targetId = player.id;
           target.ai.morale = Math.min(1, target.ai.morale + 0.3);
         }
+      }
+      return;
+    }
+    if (a.kind === 'report') {
+      const wingmen = this.world.entities.filter(
+        (e) => e.alive && e.kind === 'ship' && e.faction === player.faction && e.id !== player.id && e.ai?.leaderId === player.id,
+      );
+      if (wingmen.length === 0) {
+        bus.emit('radio', { speaker: '自機', text: '僚機は応答圏外だ。', tone: 'command' });
+        return;
+      }
+      for (const wingman of wingmen) {
+        const ship = wingman.ship;
+        const ratio = ship ? Math.round((ship.hull / Math.max(1, ship.def.hull)) * 100) : 0;
+        bus.emit('radio', {
+          speaker: ship?.pilot ?? wingman.label ?? '僚機',
+          text: `機体状況 ${ratio}%、命令 ${wingman.ai?.order ?? '編隊'}。`,
+          tone: 'friendly',
+        });
       }
     }
   }

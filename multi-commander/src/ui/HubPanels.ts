@@ -11,12 +11,13 @@ import {
 } from '../app/roster';
 import { barLine, rumor, type BarMood } from '../content/pilotDialogue';
 import { PERSONALITIES } from '../content/pilots';
-import { shipDef } from '../content/ships';
-import { missileDef } from '../content/weapons';
+import { PLAYABLE_SHIPS, shipDef } from '../content/ships';
+import { gunDef, missileDef } from '../content/weapons';
 import { aceDef, type AceState } from '../content/aces';
 import type { FrontlineState } from '../content/frontline';
 import type { SupplyState } from '../app/supplies';
 import type { CampaignStatistics } from '../app/statistics';
+import type { LastSortieCondition } from '../app/save';
 import { artImg, artUrl, medalArt, rankArt } from './art';
 import { portraitFace } from './Portrait';
 import { escapeHtml } from './ScreenHost';
@@ -40,6 +41,9 @@ export interface HubContext {
   frontline?: FrontlineState;
   supplies?: SupplyState;
   statistics?: CampaignStatistics;
+  /** 酒場で選択して会話している人物 */
+  barPilotId?: string;
+  lastSortie?: LastSortieCondition;
 }
 
 // ───────── 酒場 ─────────
@@ -67,7 +71,7 @@ export function recRoomHtml(ctx: HubContext): string {
       const status =
         p.status === 'wounded' ? `<span class="ng">負傷 (あと${p.benchedFor}回欠場)</span>` : '';
       return (
-        `<div class="mc-bar-row">` +
+        `<div class="mc-bar-row${ctx.barPilotId === p.id ? ' selected' : ''}">` +
         `<div class="mc-bar-face">${portraitFace(def.id, def.portrait, { size: 72, expression: mood === 'friendly' ? 'grin' : mood === 'cold' ? 'grim' : 'talk' })}</div>` +
         `<div class="mc-bar-text">` +
         `<div class="mc-bar-name">${escapeHtml(def.callsign)} <span class="dim">${escapeHtml(def.name)}・${PERSONALITIES[def.personality].label}・関係 ${bondLabel}</span> ${status}</div>` +
@@ -82,6 +86,9 @@ export function recRoomHtml(ctx: HubContext): string {
     `<div class="mc-board-head">` +
     artImg(artUrl('icon-bar'), { height: 64, alt: '' }) +
     `<span class="dim">出撃と出撃の合間。誰が何を考えているかは、ここでしか分からない。</span></div></div>` +
+    (ctx.barPilotId && alive.some((p) => p.id === ctx.barPilotId)
+      ? `<div class="block"><h3>会話中</h3><div class="dim">${escapeHtml(defOf(alive.find((p) => p.id === ctx.barPilotId)! ).callsign)} の話を聞いた。関係値は次の出撃へ持ち越される。</div></div>`
+      : '') +
     talks +
     `<div class="block"><h3>噂</h3><div>${escapeHtml(rumor())}</div>` +
     `<div>${escapeHtml(rumor())}</div></div>` +
@@ -230,20 +237,61 @@ export function hangarHtml(
     ? `<div class="dim">補給: フレア ${supplies.flares}　予備部品 ${supplies.spareParts}　` +
       `ミサイル ${Object.entries(supplies.missiles).map(([id, n]) => `${escapeHtml(missileDef(id).shortName)} ${n}`).join(' / ')}</div>`
     : '';
+  const lastSortie = ctx.lastSortie
+    ? `<div class="mc-hangar-last-sortie"><b>前回帰艦記録</b>　機体 ${escapeHtml(shipDef(ctx.lastSortie.shipId).name)} ` +
+      `船体 ${Math.round(ctx.lastSortie.hullRatio * 100)}%　フレア ${ctx.lastSortie.flares}　` +
+      `${ctx.lastSortie.escortLost ? '<span class="ng">護衛対象喪失</span>' : '<span class="ok">護衛維持</span>'}</div>`
+    : '';
+
+  const shipDefs = PLAYABLE_SHIPS.map((id) => shipDef(id));
+  const maxSpeed = Math.max(...shipDefs.map((s) => s.maxSpeed));
+  const maxTurn = Math.max(...shipDefs.map((s) => s.turn[0]));
+  const maxArmor = Math.max(...shipDefs.map((s) => Object.values(s.armor).reduce((a, n) => a + n, 0)));
+  const maxHull = Math.max(...shipDefs.map((s) => s.hull));
+  const maxOrdnance = Math.max(...shipDefs.map((s) => s.missiles.reduce((a, m) => a + m.count, 0)));
+  const metric = (label: string, value: number, max: number, text: string): string =>
+    `<div class="mc-hangar-metric"><span>${label}</span><i><b style="width:${Math.max(8, (value / Math.max(1, max)) * 100).toFixed(1)}%"></b></i><em>${text}</em></div>`;
+  const shipCards = shipDefs
+    .map((s) => {
+      const active = s.id === sel.shipId;
+      const armor = Object.values(s.armor).reduce((a, n) => a + n, 0);
+      const ordnance = s.missiles.reduce((a, m) => a + m.count, 0);
+      return (
+        `<article class="mc-hangar-ship${active ? ' active' : ''}" data-ship-id="${s.id}">` +
+        `<div class="mc-hangar-ship-head"><span class="mc-hangar-code">${s.id.toUpperCase()}</span>` +
+        `<strong>${escapeHtml(s.name)}</strong>${active ? '<b class="mc-hangar-selected">SELECTED</b>' : ''}</div>` +
+        blueprintSvg(s) +
+        `<div class="mc-hangar-role">${roleLabel(s.role)}　${s.id === missionShipId ? '<span>任務指定</span>' : ''}</div>` +
+        `<div class="mc-hangar-metrics">` +
+        metric('SPD', s.maxSpeed, maxSpeed, `${s.maxSpeed}`) +
+        metric('TURN', s.turn[0], maxTurn, s.turn[0].toFixed(2)) +
+        metric('ARM', armor, maxArmor, `${armor}`) +
+        metric('HULL', s.hull, maxHull, `${s.hull}`) +
+        metric('GUN', s.guns.length, 4, `${s.guns.length}`) +
+        metric('ORD', ordnance, maxOrdnance, `${ordnance}`) +
+        `</div></article>`
+      );
+    })
+    .join('');
+  const gunNames = [...new Set(def.guns.map((g) => gunDef(g.gunId).name))].join(' / ');
+  const mission = shipDef(missionShipId);
 
   return (
-    `<div class="block"><h3>格納庫 / 飛行甲板</h3>` +
-    `<div class="mc-board-head">` +
-    artImg(artUrl('icon-hangar'), { height: 64, alt: '' }) +
-    `<div class="dim">整備班: 「割り当ては ${escapeHtml(shipDef(missionShipId).name)} だ。` +
-    `他のに乗りたいなら勝手にしろ、書類は俺が書く。」</div></div></div>` +
-    `<div class="block"><h3>搭乗機</h3>` +
-    `<div><b>${escapeHtml(def.name)}</b>` +
-    `${sel.shipId === missionShipId ? ' <span class="dim">(割り当て)</span>' : ''}</div>` +
-    `<div class="dim">最高速 ${def.maxSpeed} / 旋回 ${def.turn[0].toFixed(2)} / ` +
-    `装甲 ${def.armor.front + def.armor.rear + def.armor.left + def.armor.right} / ` +
-    `船体 ${def.hull} / 砲 ${def.guns.length} 門</div>` +
-    `<div class="dim">副兵装: ${escapeHtml(missiles || 'なし')}</div>${supplyLine}</div>` +
+    `<div class="mc-hangar-layout">` +
+    `<div class="mc-hangar-intro"><div class="mc-board-head">` +
+    artImg(artUrl('icon-hangar'), { height: 48, alt: '' }) +
+    `<div><h3>格納庫 / 飛行甲板</h3><div class="dim">整備班: 「割り当ては ${escapeHtml(mission.name)}。` +
+    `機体を選び、任務に合わせて loadout を決めろ。」</div></div></div></div>` +
+    `<div class="mc-hangar-section-title">AIRFRAME COMPARISON <span>同じ基準で性能を比較</span></div>` +
+    `<div class="mc-hangar-grid">${shipCards}</div>` +
+    `<section class="mc-hangar-loadout"><div class="mc-hangar-loadout-head"><h3>出撃構成 / ${escapeHtml(def.name)}</h3>` +
+    `<span class="${sel.shipId === missionShipId ? 'ok' : 'warn'}">${sel.shipId === missionShipId ? 'MISSION FIT' : 'FIELD CHOICE'}</span></div>` +
+    `<div class="mc-hangar-loadout-grid"><div>` +
+    `<div class="mc-hangar-loadout-row"><span>PRIMARY</span><b>${escapeHtml(gunNames || 'なし')}</b></div>` +
+    `<div class="mc-hangar-loadout-row"><span>MISSILES</span><b>${escapeHtml(missiles || 'なし')}</b></div>` +
+    `<div class="mc-hangar-loadout-row"><span>FLARES</span><b>${def.flares}</b></div>` +
+    `</div><div class="mc-hangar-supply">${supplyLine}</div></div></section>` +
+    lastSortie +
     `<div class="block"><h3>僚機</h3>` +
     (wing
       ? `<div class="mc-bar-row"><div>${portraitFace(defOf(wing).id, defOf(wing).portrait, { size: 64 })}</div>` +
@@ -252,8 +300,27 @@ export function hangarHtml(
         `<div class="dim">${escapeHtml(defOf(wing).bio)}</div></div></div>`
       : `<div class="ng">出撃可能な僚機がいない。単独で出ることになる。</div>`) +
     `<div class="dim">出撃可能: ${avail.map((p) => escapeHtml(defOf(p).callsign)).join(' / ') || 'なし'}</div>` +
-    `</div>`
+    `</div></div>`
   );
+}
+
+function roleLabel(role: string): string {
+  return role === 'bomber' ? '爆撃 / 重装' : role === 'fighter' ? '制空 / 戦闘機' : role;
+}
+
+function blueprintSvg(def: ReturnType<typeof shipDef>): string {
+  const hull = `#${def.visual.hull.toString(16).padStart(6, '0')}`;
+  const accent = `#${def.visual.accent.toString(16).padStart(6, '0')}`;
+  const path =
+    def.visual.kind === 'delta'
+      ? 'M 14 53 L 48 12 L 66 42 L 100 24 L 86 56 L 100 88 L 66 70 L 48 96 Z'
+      : def.visual.kind === 'twin-boom'
+        ? 'M 16 28 L 42 40 L 48 12 L 54 40 L 84 28 L 75 55 L 88 88 L 55 70 L 48 96 L 41 70 L 12 88 L 25 55 Z'
+        : 'M 48 8 L 61 42 L 94 72 L 58 63 L 48 94 L 38 63 L 2 72 L 35 42 Z';
+  return `<svg class="mc-hangar-blueprint" viewBox="0 0 100 104" role="img" aria-label="${escapeHtml(def.name)} silhouette">` +
+    `<path d="${path}" fill="${hull}" stroke="${accent}" stroke-width="2"/>` +
+    `<path d="M48 18 L48 86 M24 58 L72 58" stroke="rgba(224,255,239,0.68)" stroke-width="1" fill="none"/>` +
+    `<circle cx="48" cy="48" r="3" fill="${accent}"/><text x="50" y="101" text-anchor="middle">BLUEPRINT</text></svg>`;
 }
 
 export function frontlineHtml(ctx: HubContext): string {
@@ -271,12 +338,17 @@ export function statisticsHtml(ctx: HubContext): string {
   const s = ctx.statistics;
   if (!s) return '<div class="dim">統計データなし</div>';
   const accuracy = s.shotsFired > 0 ? (s.hits / s.shotsFired) * 100 : 0;
+  const campaignAttempts = s.campaignWins + s.campaignLosses;
+  const campaignRate = campaignAttempts > 0 ? (s.campaignWins / campaignAttempts) * 100 : 0;
   const ships = Object.entries(s.shipsFlown).map(([id, n]) => `${escapeHtml(shipDef(id).name)} ${n}回`).join(' / ') || 'なし';
   return `<div class="block"><h3>飛行統計</h3><ul>` +
     `<li>勝利 ${s.missionsWon} / 敗北 ${s.missionsLost}</li>` +
     `<li>発射 ${s.shotsFired}　命中 ${s.hits}　命中率 ${accuracy.toFixed(1)}%</li>` +
     `<li>戦闘時間 ${(s.combatSeconds / 60).toFixed(1)} 分</li>` +
     `<li>最長僚機生存スコア ${(s.longestWingmanSurvival / 60).toFixed(1)} 分</li>` +
-    `<li>救援成功 ${s.rescuedWingmen}　置き去り ${s.abandonedWingmen}</li></ul></div>` +
+    `<li>Nav 到達 ${s.navsReached}　護衛成功 ${s.escortSuccesses} / ${s.escortAttempts}</li>` +
+    `<li>救援成功 ${s.rescuedWingmen}　置き去り ${s.abandonedWingmen}</li>` +
+    `<li>戦役分岐勝率 ${campaignRate.toFixed(1)}%　勝利 ${s.campaignWins} / 敗北 ${s.campaignLosses}</li>` +
+    `<li>戦役勝利点 ${s.seriesScore}　前進 ${s.advanceCount}　撤退 ${s.retreatCount}</li></ul></div>` +
     `<div class="block"><h3>搭乗履歴</h3>${ships}</div>`;
 }

@@ -890,6 +890,8 @@ export class MissionRunner {
     shotsFired: number;
     hits: number;
     shipId: string;
+    navsReached: number;
+    escortSuccess: boolean;
   } {
     const player = this.world.player;
     return {
@@ -911,6 +913,8 @@ export class MissionRunner {
       shotsFired: this.shotsFired,
       hits: this.hits,
       shipId: player?.ship?.def.id ?? this.loadout.shipId,
+      navsReached: this.world.entities.filter((e) => e.kind === 'nav' && e.nav?.reached).length,
+      escortSuccess: !this.escortLost,
     };
   }
 
