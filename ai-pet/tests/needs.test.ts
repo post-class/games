@@ -53,6 +53,22 @@ describe('decayNeeds', () => {
     expect(greedy).toBeLessThan(modest);
   });
 
+  it('1日放置しても お世話ニーズが 底まで 落ちきらない（低プレッシャー設計）', () => {
+    const result = decayNeeds(initialNeeds(), flat(50), 0, 24 * HOUR);
+    for (const key of ['hunger', 'fun', 'clean'] as const) {
+      expect(result.needs[key]).toBeGreaterThan(0);
+    }
+    // それでも「ちゃんと減っている」ことは分かる水準にする
+    expect(result.needs.hunger).toBeLessThan(30);
+  });
+
+  it('3日放置でも下限で止まる', () => {
+    const result = decayNeeds(initialNeeds(), flat(100), 0, 72 * HOUR);
+    for (const key of ['hunger', 'fun', 'clean'] as const) {
+      expect(result.needs[key]).toBeGreaterThanOrEqual(8);
+    }
+  });
+
   it('放置すると mood が下がるが 0 未満にはならない', () => {
     const needs = initialNeeds();
     const result = decayNeeds(needs, flat(50), 0, 200 * HOUR);

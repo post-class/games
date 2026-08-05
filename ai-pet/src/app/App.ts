@@ -1,13 +1,15 @@
 import { localReaction, type CareKind } from '../../shared/reactions.js';
 import { findItem } from '../../shared/items.js';
 import type { AwayReport, ChatTurn, PetView } from '../../shared/types.js';
-import { api, ApiError, type InventoryEntry } from '../net/api.js';
+import { dominantTraits, TRAIT_LABELS } from '../../shared/personality.js';
+import { api, ApiError, type GrowthEvent, type InventoryEntry } from '../net/api.js';
 import { Stage } from '../render/Stage.js';
 import { renderAuth, renderCreatePet } from '../ui/Auth.js';
 import { openChatPanel } from '../ui/ChatPanel.js';
 import { button, clear, el, modal, toast } from '../ui/dom.js';
 import { Hud } from '../ui/Hud.js';
 import { openMemoryBook } from '../ui/MemoryBook.js';
+import { openMiniGame } from '../ui/MiniGame.js';
 import { openRoomEditor, openShop } from '../ui/RoomEditor.js';
 import { openSocialPanel } from '../ui/SocialPanel.js';
 
@@ -30,6 +32,7 @@ export class App {
   private inventory: InventoryEntry[] = [];
   private chatHistory: ChatTurn[] = [];
   private thinkTimer = 0;
+  private encounterWatch = 0;
   private llmAvailable = true;
 
   constructor(host: HTMLElement) {
@@ -122,16 +125,23 @@ export class App {
       this.stage?.setPet(state.pet);
       this.hud?.renderStatus(state.pet, state.coins);
       this.hud?.renderItems(state.inventory);
+      // HUD の高さが決まってからステージを詰め直す（画面がスクロールしないように）。
+      this.stage?.refit();
 
       const room = await api.room();
       // 部屋は Stage が持つのでここでは保持しない。
       this.stage?.setLayout(room.layout);
 
-      if (withReport && state.report) {
+      if (state.growth) {
+        this.celebrateGrowth(state.growth, state.pet);
+      } else if (withReport && state.report) {
+        // 成長のお祝いと留守レポートが重なると読み飛ばされるので、お祝いを優先する。
         this.showAwayReport(state.report);
       }
-      if (withReport && state.encounterError) {
-        console.warn('[ai-pet] encounter:', state.encounterError);
+
+      // 交流はサーバ側で裏で走っているので、少し待ってから土産話を取りに行く。
+      if (state.encounterPending && !this.encounterWatch) {
+        this.watchForEncounter();
       }
     } catch (error) {
       toast(error instanceof ApiError ? error.message : '読み込みに失敗しました', 'error');
@@ -165,9 +175,11 @@ export class App {
       const result = await api.care(payload);
       this.pet = result.pet;
       this.inventory = result.inventory;
+      this.coins = result.coins;
       this.hud?.renderStatus(result.pet, this.coins);
       this.hud?.renderItems(result.inventory);
       this.stage?.setPet(result.pet);
+      if (result.growth) this.celebrateGrowth(result.growth, result.pet);
       if (result.reply.say && result.reply.say !== local.say) {
         this.stage?.say(result.reply.say);
         this.stage?.playAction(result.reply.action);
@@ -199,9 +211,22 @@ export class App {
     }
   }
 
-  private openPanel(panel: 'chat' | 'memory' | 'social' | 'room' | 'shop'): void {
+  private openPanel(panel: 'chat' | 'memory' | 'social' | 'room' | 'shop' | 'game'): void {
     if (!this.pet) return;
     switch (panel) {
+      case 'game':
+        // 自分のゲーム中に寝ていると気が抜けるので、遊ぶ姿にしておく。
+        this.stage?.playAction('play');
+        openMiniGame({
+          pet: this.pet,
+          onFinished: (pet) => {
+            this.pet = pet;
+            this.stage?.setPet(pet);
+            this.stage?.playAction('jump_joy');
+            void this.refresh();
+          },
+        });
+        break;
       case 'chat':
         openChatPanel({
           petName: this.pet.name,
@@ -232,6 +257,88 @@ export class App {
     }
   }
 
+  /**
+   * 裏で走っているペット同士の交流が終わるのを待つ。
+   * 起動を止めないために交流を非同期にしたので、終わったらここで拾って知らせる。
+   */
+  private watchForEncounter(): void {
+    let tries = 0;
+    this.encounterWatch = window.setInterval(() => {
+      tries += 1;
+      if (tries > 12) {
+        this.clearEncounterWatch();
+        return;
+      }
+      void (async () => {
+        try {
+          const result = await api.encounters();
+          const fresh = result.encounters.find((encounter) => !encounter.seen);
+          if (!fresh) return;
+          this.clearEncounterWatch();
+          this.stage?.say(fresh.souvenir, 8000);
+          toast(`${fresh.otherPetName} と会った話をしてくれた`);
+          await api.markEncountersSeen();
+        } catch {
+          this.clearEncounterWatch();
+        }
+      })();
+    }, 5000);
+  }
+
+  private clearEncounterWatch(): void {
+    if (this.encounterWatch) window.clearInterval(this.encounterWatch);
+    this.encounterWatch = 0;
+  }
+
+  /**
+   * 成長のお祝い。
+   * プレイテストで、孵化がチップの文字が変わるだけで通り過ぎてしまっていた。
+   * ここは育成ゲームでいちばん嬉しい瞬間なので、必ず足を止めて見せる。
+   */
+  private celebrateGrowth(growth: GrowthEvent, pet: PetView): void {
+    const isHatch = growth.to === 'child';
+    const handle = modal(isHatch ? 'たまごが うまれた！' : 'おとなに なった！');
+    const traits = dominantTraits(pet.personality)
+      .map((key) => TRAIT_LABELS[key])
+      .join('と');
+
+    handle.body.append(
+      el('div', { class: 'celebrate-mark' }, isHatch ? '🎉' : '🌟'),
+      el(
+        'p',
+        { class: 'celebrate-line' },
+        isHatch
+          ? `${pet.name} が たまごから 出てきた！`
+          : `${pet.name} が りっぱな おとなに なった！`,
+      ),
+      el(
+        'p',
+        { class: 'hint' },
+        isHatch
+          ? `${traits}が つよい 子のようです。はなしかけると、あなたのことを おぼえていきます。`
+          : `${traits}な 子に 育ちました。ここまで そだてた 思い出は「おもいで」で 読めます。`,
+      ),
+    );
+    if (growth.coins > 0) {
+      handle.body.append(
+        el('p', { class: 'celebrate-reward' }, `おいわいに 🪙 ${growth.coins} もらった`),
+      );
+    }
+    handle.body.append(
+      button(
+        'やったー',
+        () => {
+          handle.close();
+          // 見せ終わったことをサーバに伝える（通信が切れてお祝いが消えないように）。
+          void api.growthSeen();
+        },
+        'btn btn-primary btn-wide',
+      ),
+    );
+
+    this.stage?.celebrate();
+  }
+
   /** ねこあつめ流の「開いたら必ず何か起きている」画面。 */
   private showAwayReport(report: AwayReport): void {
     const hasNews =
@@ -239,6 +346,28 @@ export class App {
     if (!hasNews) return;
 
     const handle = modal('おかえりなさい');
+
+    // この子自身の第一声。LLM を待つので、先に枠だけ出しておいて後から埋める。
+    const greeting = el('div', { class: 'report-greeting report-greeting-waiting' }, '…');
+    if (report.hoursAway >= 0.5) {
+      handle.body.append(greeting);
+      void (async () => {
+        try {
+          const result = await api.greet(report.hoursAway);
+          if (!result.reply?.say) {
+            greeting.remove();
+            return;
+          }
+          greeting.classList.remove('report-greeting-waiting');
+          greeting.textContent = `「${result.reply.say}」`;
+          this.stage?.say(result.reply.say, 8000);
+          this.stage?.playAction(result.reply.action);
+        } catch {
+          greeting.remove();
+        }
+      })();
+    }
+
     const list = el('div', { class: 'report-list' });
     for (const line of report.lines) {
       list.append(el('p', { class: 'report-line' }, line));

@@ -1,5 +1,6 @@
 import { ACTION_LABELS, type PetAction } from '../../shared/actions.js';
 import type { AwayReport, GiftView, VisitView } from '../../shared/types.js';
+import { findZone, SPOTS, spotAppeal } from '../../shared/world.js';
 import type { Db } from '../db.js';
 import { listEncounters } from './encounter.js';
 import type { PetRecord } from './store.js';
@@ -26,10 +27,72 @@ export function awayActivities(pet: PetRecord, hoursAway: number): PetAction[] {
   return out.slice(0, 3);
 }
 
+/**
+ * 留守中に立ち寄っていた場所。
+ *
+ * ペットが広いマップを歩き回るようになったので、留守レポートも
+ * 「何をしていたか」だけでなく「どこにいたか」を語る。
+ * クライアントの自律行動と同じ式（spotAppeal）で選ぶので、
+ * 実際に見ているときの行き先と食い違わない。
+ *
+ * 乱数を使わず、時間から決めた開始位置で並びを回す。
+ * 同じ留守時間なら同じ結果になるのでテストできる。
+ */
+export function awayPlaces(pet: PetRecord, hoursAway: number): string[] {
+  if (hoursAway < 1) return [];
+  const ranked = SPOTS.filter((spot) => spot.finds?.length)
+    .map((spot) => ({ spot, weight: spotAppeal(spot, pet.needs, pet.personality) }))
+    .sort((a, b) => b.weight - a.weight || (a.spot.id < b.spot.id ? -1 : 1));
+
+  // 上位だけを候補にして、留守時間で並びを回す（毎回同じ文にならないように）。
+  const pool = ranked.slice(0, 5);
+  const count = Math.min(pool.length, hoursAway >= 6 ? 3 : 2);
+  const offset = Math.floor(hoursAway) % Math.max(1, pool.length);
+  const out: string[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const { spot } = pool[(i + offset) % pool.length];
+    const finds = spot.finds ?? [];
+    out.push(`${findZone(spot.zone)?.name ?? ''}では、${finds[(i + offset) % finds.length]}`);
+  }
+  return out;
+}
+
 function formatHours(hours: number): string {
   if (hours < 1) return `${Math.max(1, Math.round(hours * 60))}分`;
   if (hours < 24) return `${Math.floor(hours)}時間`;
   return `${Math.floor(hours / 24)}日`;
+}
+
+/**
+ * 留守中の様子は「していた」と過去形で語る。
+ * 現在形のラベルを流用すると「留守のあいだ、すやすや寝ている」と
+ * ちぐはぐな日本語になってしまう（プレイテストで気づいた）。
+ */
+const PAST_LABELS: Partial<Record<PetAction, string>> = {
+  nap: 'まるくなって ねむっていた',
+  stare_owner: 'ドアのほうを 何度も 見ていた',
+  peek_window: '窓のそとを ずっと 眺めていた',
+  hide_item: 'なにかを こっそり 隠していた',
+  sulk_corner: '部屋のすみで じっと していた',
+  daydream: 'ぼんやりと 考えごとを していた',
+  tidy_room: '部屋を きちんと 片づけていた',
+};
+
+/** 同じ書き出しが並ぶと単調なので、順番に変える。 */
+const PREFIXES = ['留守のあいだ、', 'そのあと、', 'ときどき、'];
+
+/** ニーズの状態から、待っていた様子を語る。放置に物語をつける。 */
+function needLines(pet: PetRecord, hoursAway: number): string[] {
+  const lines: string[] = [];
+  if (pet.needs.hunger < 40) lines.push('ごはんの おさらを 何度も のぞきに いったらしい。');
+  if (pet.needs.fun < 35) lines.push('あそび相手が いなくて、たいくつ そうにしていた。');
+  if (pet.needs.clean < 40) lines.push('毛づくろいが 追いつかなくて、すこし よごれている。');
+  if (pet.needs.mood < 25 && hoursAway >= 6) {
+    lines.push('ずっと ひとりだったので、いまは 少し 拗ねているみたい。');
+  } else if (pet.needs.mood > 70 && hoursAway >= 3) {
+    lines.push('あなたの においの するものの 近くで 待っていた。');
+  }
+  return lines;
 }
 
 export function buildAwayReport(db: Db, pet: PetRecord, hoursAway: number): AwayReport {
@@ -37,12 +100,14 @@ export function buildAwayReport(db: Db, pet: PetRecord, hoursAway: number): Away
   const away = formatHours(hoursAway);
 
   if (hoursAway >= 0.5) {
-    lines.push(`${away}ぶりの再会。`);
-    for (const action of awayActivities(pet, hoursAway)) {
-      lines.push(`留守のあいだ、${ACTION_LABELS[action]}。`);
-    }
+    lines.push(`${away}ぶりの 再会。`);
+    awayActivities(pet, hoursAway).forEach((action, index) => {
+      lines.push(`${PREFIXES[index % PREFIXES.length]}${PAST_LABELS[action] ?? ACTION_LABELS[action]}。`);
+    });
+    lines.push(...awayPlaces(pet, hoursAway));
+    lines.push(...needLines(pet, hoursAway));
   } else {
-    lines.push('さっきまで一緒にいた。');
+    lines.push('さっきまで 一緒にいた。');
   }
 
   const giftRows = db

@@ -6,6 +6,7 @@ import { parsePetReply } from '../llm/parse.js';
 import {
   buildCareMessages,
   buildChatMessages,
+  buildGreetMessages,
   buildThinkMessages,
   PET_REPLY_SCHEMA,
   type CareEvent,
@@ -32,9 +33,17 @@ export interface ThinkOptions {
   /** 記憶検索のクエリ（飼い主の発話など）。 */
   query?: string;
   now?: number;
+  /** いま居る場所（shared/world.ts の placeLabel で作った文字列）。 */
+  place?: string | null;
 }
 
-function buildContext(db: Db, pet: PetRecord, query: string, now: number): PromptContext {
+function buildContext(
+  db: Db,
+  pet: PetRecord,
+  query: string,
+  now: number,
+  place?: string | null,
+): PromptContext {
   const ageHours = ageHoursOf(pet.bornAt, now);
   const today = new Date(now).toISOString().slice(0, 10);
   const promiseRow = db
@@ -53,6 +62,7 @@ function buildContext(db: Db, pet: PetRecord, query: string, now: number): Promp
     chat: recentChat(db, pet.id, 12),
     promise: promiseRow?.text ?? null,
     recentEncounter: encounterRow?.souvenir ?? null,
+    place: place ?? null,
   };
 }
 
@@ -210,13 +220,46 @@ export async function reactToCare(
   }
 }
 
+/** 久しぶりの再会の第一声。 */
+export async function greetOwner(
+  db: Db,
+  pet: PetRecord,
+  hoursAway: number,
+  options: ThinkOptions = {},
+): Promise<BrainResult> {
+  const now = options.now ?? Date.now();
+  const context = buildContext(db, pet, options.query ?? '', now);
+  const messages = buildGreetMessages(context, hoursAway, now);
+
+  try {
+    const result = await askLlm(messages, pet);
+    commit(db, pet, result.reply, now);
+    addChatTurn(db, pet.id, 'pet', result.reply.say, result.reply.emotion, now);
+    return result;
+  } catch (error) {
+    return {
+      reply: {
+        say: '',
+        emotion: pet.emotion,
+        action: pet.action,
+        needsDelta: {},
+        memoryWrites: [],
+        giftRequest: null,
+      },
+      llmError: describeError(error),
+      issues: ['llm-failed'],
+      retried: false,
+    };
+  }
+}
+
 export async function petThinks(
   db: Db,
   pet: PetRecord,
   options: ThinkOptions = {},
 ): Promise<BrainResult> {
   const now = options.now ?? Date.now();
-  const context = buildContext(db, pet, options.query ?? '', now);
+  const context = buildContext(db, pet, options.query ?? '', now, options.place);
   const messages = buildThinkMessages(context, now);
 
   try {

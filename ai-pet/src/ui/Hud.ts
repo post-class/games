@@ -8,6 +8,7 @@ import {
   type PetView,
 } from '../../shared/types.js';
 import { stageProgressClient } from '../sim/progress.js';
+import { wishOf, type Wish } from '../sim/wish.js';
 import type { InventoryEntry } from '../net/api.js';
 import { button, clear, el } from './dom.js';
 
@@ -24,17 +25,25 @@ const NEED_ICON: Record<string, string> = {
 export interface HudCallbacks {
   onUseItem(itemId: string): void;
   onStroke(): void;
-  onOpen(panel: 'chat' | 'memory' | 'social' | 'room' | 'shop'): void;
+  onOpen(panel: 'chat' | 'memory' | 'social' | 'room' | 'shop' | 'game'): void;
 }
 
 export class Hud {
+  private readonly wishHost: HTMLElement;
+  private readonly journalHost: HTMLElement;
   private readonly statusHost: HTMLElement;
   private readonly itemHost: HTMLElement;
+  /** 直近のできごと（新しい順）。 */
+  private journal: string[] = [];
+  /** いま光らせるべき世話の種類（プレイヤーが迷わないように）。 */
+  private want: Wish['want'] = 'none';
 
   constructor(
     private readonly host: HTMLElement,
     private readonly callbacks: HudCallbacks,
   ) {
+    this.wishHost = el('div', { class: 'wish' });
+    this.journalHost = el('div', { class: 'journal' });
     this.statusHost = el('div', { class: 'hud-status' });
     this.itemHost = el('div', { class: 'hud-items' });
 
@@ -42,22 +51,25 @@ export class Hud {
       'nav',
       { class: 'hud-tabs' },
       button('💬 はなす', () => this.callbacks.onOpen('chat'), 'btn btn-tab'),
+      button('🎲 あそぶ', () => this.callbacks.onOpen('game'), 'btn btn-tab'),
       button('📖 おもいで', () => this.callbacks.onOpen('memory'), 'btn btn-tab'),
       button('🏠 おへや', () => this.callbacks.onOpen('room'), 'btn btn-tab'),
       button('🌏 ともだち', () => this.callbacks.onOpen('social'), 'btn btn-tab'),
       button('🛒 おみせ', () => this.callbacks.onOpen('shop'), 'btn btn-tab'),
     );
 
-    this.host.append(this.statusHost, this.itemHost, tabs);
+    this.host.append(this.wishHost, this.statusHost, this.itemHost, tabs);
   }
 
   renderStatus(pet: PetView, coins: number): void {
+    this.renderWish(pet);
     clear(this.statusHost);
     const species = findSpecies(pet.species);
     const traits = dominantTraits(pet.personality)
       .map((key) => TRAIT_LABELS[key])
       .join('・');
 
+    // アイコンだけでは何のバーか分からなかったので、必ずラベルを添える。
     const bars = NEED_KEYS.map((key) =>
       el(
         'div',
@@ -65,16 +77,22 @@ export class Hud {
         el('span', { class: 'need-icon' }, NEED_ICON[key] ?? '•'),
         el(
           'span',
-          { class: 'need-bar' },
-          el('span', {
-            class: `need-fill need-${key} ${pet.needs[key] < 30 ? 'need-low' : ''}`,
-            style: `width:${pet.needs[key]}%`,
-          }),
+          { class: 'need-body' },
+          el('span', { class: 'need-label' }, NEED_LABELS[key]),
+          el(
+            'span',
+            { class: 'need-bar' },
+            el('span', {
+              class: `need-fill need-${key} ${pet.needs[key] < 30 ? 'need-low' : ''}`,
+              style: `width:${pet.needs[key]}%`,
+            }),
+          ),
         ),
       ),
     );
 
     const progress = stageProgressClient(pet);
+    const nextStage = pet.stage === 'egg' ? 'こども' : 'おとな';
 
     this.statusHost.append(
       el(
@@ -97,11 +115,24 @@ export class Hud {
         pet.stage !== 'adult'
           ? el(
               'span',
-              { class: 'grow-wrap', title: 'つぎのせいちょうまで' },
+              { class: 'grow-wrap' },
+              el('span', { class: 'grow-caption' }, `${nextStage}まで ${Math.round(progress * 100)}%`),
               el('span', { class: 'grow-bar' }, el('span', { class: 'grow-fill', style: `width:${Math.round(progress * 100)}%` })),
             )
           : el('span', { class: 'hud-traits' }, 'おとなになった'),
       ),
+    );
+  }
+
+  /** いま何をしてほしいかを1行で見せる。手が止まらないようにするため。 */
+  private renderWish(pet: PetView): void {
+    const wish = wishOf(pet);
+    this.want = wish.want;
+    clear(this.wishHost);
+    this.wishHost.className = `wish ${wish.urgent ? 'wish-urgent' : ''}`;
+    this.wishHost.append(
+      el('span', { class: 'wish-icon' }, wish.icon),
+      el('span', { class: 'wish-text' }, wish.text),
     );
   }
 
@@ -113,12 +144,13 @@ export class Hud {
       .filter((row) => row.item.kind !== 'furniture');
 
     this.itemHost.append(
-      this.careButton('🤍', 'なでる', () => this.callbacks.onStroke()),
+      this.careButton('🤍', 'なでる', () => this.callbacks.onStroke(), this.want === 'stroke'),
       ...usable.map((row) =>
         this.careButton(
           iconFor(row.item),
           `${row.item.name} ×${row.entry.count}`,
           () => this.callbacks.onUseItem(row.item.id),
+          this.want === row.item.kind,
         ),
       ),
     );
@@ -128,10 +160,15 @@ export class Hud {
     }
   }
 
-  private careButton(icon: string, label: string, onClick: () => void): HTMLElement {
+  private careButton(
+    icon: string,
+    label: string,
+    onClick: () => void,
+    wanted = false,
+  ): HTMLElement {
     const node = el(
       'button',
-      { class: 'item-btn', type: 'button' },
+      { class: `item-btn ${wanted ? 'item-wanted' : ''}`, type: 'button' },
       el('span', { class: 'item-icon' }, icon),
       el('span', { class: 'item-label' }, label),
     );

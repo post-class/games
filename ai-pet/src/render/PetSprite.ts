@@ -50,6 +50,36 @@ function motionOf(action: PetAction, time: number): { bob: number; tilt: number;
       return { bob: 0, tilt: Math.sin(t * 7) * 0.1, squash: 1 };
     case 'daydream':
       return { bob: Math.sin(t * 1.5) * 0.04, tilt: 0.05, squash: 1 };
+    // --- 広いマップのスポット行動 ---
+    case 'dig':
+    case 'bury_treasure':
+      // 前あしで掘るので、前傾して小刻みに上下する。
+      return { bob: Math.abs(Math.sin(t * 9)) * 0.05, tilt: 0.16, squash: 1 + Math.sin(t * 9) * 0.05 };
+    case 'sniff_flower':
+      return { bob: 0.03, tilt: 0.2, squash: 1 + Math.sin(t * 6) * 0.03 };
+    case 'splash_puddle':
+      return { bob: -Math.abs(Math.sin(t * 7)) * 0.22, tilt: Math.sin(t * 7) * 0.1, squash: 1 };
+    case 'chase_butterfly':
+      return { bob: -Math.abs(Math.sin(t * 5.5)) * 0.2, tilt: Math.sin(t * 3) * 0.16, squash: 1 };
+    case 'climb_tree':
+      // よじ登っている最中は縦に伸びる。
+      return { bob: -0.12 + Math.sin(t * 3) * 0.05, tilt: -0.1, squash: 0.92 };
+    case 'stargaze':
+      return { bob: 0, tilt: -0.22, squash: 1 };
+    case 'sunbathe':
+      return { bob: 0.06, tilt: 0.1, squash: 1 + Math.sin(t * 1) * 0.03 };
+    case 'chat_bird':
+      return { bob: -Math.abs(Math.sin(t * 4)) * 0.06, tilt: -0.12, squash: 1 };
+    case 'check_mail':
+      return { bob: -0.05, tilt: -0.16, squash: 0.96 };
+    case 'dance':
+      return { bob: -Math.abs(Math.sin(t * 6)) * 0.14, tilt: Math.sin(t * 3) * 0.28, squash: 1 };
+    case 'sing':
+      return { bob: Math.sin(t * 3) * 0.05, tilt: -0.08, squash: 1 + Math.sin(t * 6) * 0.04 };
+    case 'roll_around':
+      return { bob: 0.05, tilt: Math.sin(t * 2.2) * 0.5, squash: 1 + Math.sin(t * 4) * 0.06 };
+    case 'stretch':
+      return { bob: -0.04, tilt: 0.1, squash: 0.9 + Math.sin(t * 2) * 0.06 };
     default:
       return { bob: Math.sin(t * 1.8) * 0.03, tilt: 0, squash: 1 + Math.sin(t * 1.8) * 0.02 };
   }

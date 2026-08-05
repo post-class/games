@@ -1,4 +1,5 @@
-import { roundRect } from './RoomLayer.js';
+import { roundRect } from './shapes.js';
+import { wrapText } from './textWrap.js';
 
 /** 吹き出しとエフェクト（ハート・音符・きらきら）。 */
 
@@ -66,15 +67,26 @@ const COLOR: Record<Particle['kind'], string> = {
   zzz: '#8fa6c4',
 };
 
-export function drawParticles(ctx: CanvasRenderingContext2D, particles: Particle[]): void {
+/**
+ * パーティクルの座標は「世界」の px で持つ。
+ * 画面座標で持つとカメラがスクロールしたときに置いていかれて、
+ * 出た場所とは違う所で消えてしまう（広いマップにして初めて出た問題）。
+ */
+export function drawParticles(
+  ctx: CanvasRenderingContext2D,
+  particles: Particle[],
+  cameraX = 0,
+): void {
   for (const particle of particles) {
+    const screenXPos = particle.x - cameraX;
+    if (screenXPos < -30 || screenXPos > ctx.canvas.clientWidth + 30) continue;
     const progress = particle.life / particle.maxLife;
     ctx.save();
     ctx.globalAlpha = Math.min(1, progress * 1.6);
     ctx.fillStyle = COLOR[particle.kind];
     ctx.font = `${14 + (1 - progress) * 8}px system-ui, sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillText(GLYPH[particle.kind], particle.x, particle.y);
+    ctx.fillText(GLYPH[particle.kind], screenXPos, particle.y);
     ctx.restore();
   }
 }
@@ -148,24 +160,7 @@ export function drawBubble(
   ctx.restore();
 }
 
-/** 日本語は単語境界がないので1文字ずつ測って折り返す。 */
-export function wrap(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
-  const lines: string[] = [];
-  let current = '';
-  for (const char of text) {
-    if (char === '\n') {
-      lines.push(current);
-      current = '';
-      continue;
-    }
-    const candidate = current + char;
-    if (ctx.measureText(candidate).width > maxWidth && current) {
-      lines.push(current);
-      current = char;
-    } else {
-      current = candidate;
-    }
-  }
-  if (current) lines.push(current);
-  return lines.length ? lines : [''];
+/** 折り返しのロジックは Canvas 非依存の textWrap に置いてある。 */
+function wrap(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  return wrapText(text, maxWidth, (value) => ctx.measureText(value).width);
 }

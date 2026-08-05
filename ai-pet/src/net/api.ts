@@ -51,13 +51,21 @@ export interface InventoryEntry {
   count: number;
 }
 
+export interface GrowthEvent {
+  from: PetView['stage'];
+  to: PetView['stage'];
+  coins: number;
+}
+
 export interface StateResponse {
   pet: PetView | null;
   coins: number;
   inventory: InventoryEntry[];
   chat?: ChatTurn[];
   report?: AwayReport;
-  encounterError?: string;
+  growth?: GrowthEvent | null;
+  /** サーバ側でペット同士の交流を裏で走らせ始めた。 */
+  encounterPending?: boolean;
 }
 
 export interface CareResponse {
@@ -65,6 +73,8 @@ export interface CareResponse {
   reply: PetReply;
   llmError?: string;
   inventory: InventoryEntry[];
+  coins: number;
+  growth?: GrowthEvent | null;
 }
 
 export interface ChatResponse {
@@ -78,6 +88,13 @@ export interface ThinkResponse {
   reply: PetReply | null;
   skipped?: boolean;
   llmError?: string;
+}
+
+export interface DiscoverResponse {
+  /** もらえたコイン（レート制限中は 0）。 */
+  coins: number;
+  /** 発見が記憶に残ったか。 */
+  remembered: boolean;
 }
 
 export const api = {
@@ -98,8 +115,43 @@ export const api = {
   state: (social = true) => request<StateResponse>(`/pet/state?social=${social ? 1 : 0}`),
   care: (payload: { itemId?: string; kind?: 'pet' }) => post<CareResponse>('/pet/care', payload),
   chat: (text: string) => post<ChatResponse>('/pet/chat', { text }),
-  think: () => post<ThinkResponse>('/pet/think'),
+  /** spotId を渡すと「いまどこにいるか」を独り言の材料にしてくれる。 */
+  think: (spotId?: string | null) => post<ThinkResponse>('/pet/think', { spotId }),
+  /**
+   * 自律行動中の発見をサーバに知らせる。
+   * 文章はサーバが shared/world.ts から引くので、クライアントは場所と番号だけ送る
+   * （クライアントの文字列をそのままプロンプトや記憶に入れない）。
+   */
+  discover: (spotId: string, findIndex: number) =>
+    post<DiscoverResponse>('/pet/discover', { spotId, findIndex }),
+  greet: (hoursAway: number) => post<ThinkResponse>('/pet/greet', { hoursAway }),
   markEncountersSeen: () => post<{ ok: boolean }>('/pet/encounters/seen'),
+
+  growthSeen: () => post<{ ok: boolean }>('/pet/growth/seen'),
+
+  gameStart: () =>
+    post<{
+      round: number;
+      rounds: number;
+      startBox: number;
+      swaps: Array<[number, number]>;
+      hintBox: number | null;
+      behavior: string;
+    }>('/pet/game/start'),
+  gameGuess: (box: number) =>
+    post<{
+      correct: boolean;
+      answer: number;
+      finished: boolean;
+      hits: number;
+      rounds: number;
+      round?: number;
+      coins: number;
+      startBox?: number;
+      swaps?: Array<[number, number]>;
+      hintBox?: number | null;
+      pet: PetView;
+    }>('/pet/game/guess', { box }),
 
   memory: () => request<{ facts: MemoryFact[]; episodes: MemoryEpisode[] }>('/pet/memory'),
   saveFact: (key: string, value: string) =>

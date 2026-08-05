@@ -24,7 +24,8 @@ export function openRoomEditor(
   inventory: InventoryEntry[],
   onSaved: (layout: RoomLayout) => void,
 ): void {
-  const handle = modal('おへやを かざる');
+  // 置いた家具が見えるよう、ステージを隠さない高さで開く。
+  const handle = modal('おへやを かざる', { compact: true });
   const body = handle.body;
   body.append(el('p', { class: 'hint' }, '読み込み中…'));
 

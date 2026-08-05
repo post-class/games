@@ -61,16 +61,36 @@ export interface ModalHandle {
   body: HTMLElement;
 }
 
-export function modal(title: string, onClose?: () => void): ModalHandle {
+export interface ModalOptions {
+  onClose?: () => void;
+  /**
+   * 背後のステージを見せたまま開く。
+   * おへやの模様替えのように、結果を見ながら操作したい画面で使う
+   * （プレイテストで、家具を置いても画面が隠れて見えなかった）。
+   */
+  compact?: boolean;
+}
+
+export function modal(
+  title: string,
+  onCloseOrOptions?: (() => void) | ModalOptions,
+): ModalHandle {
+  const options: ModalOptions =
+    typeof onCloseOrOptions === 'function' ? { onClose: onCloseOrOptions } : (onCloseOrOptions ?? {});
+  const onClose = options.onClose;
   const body = el('div', { class: 'modal-body' });
   const closeBtn = button('×', () => handle.close(), 'modal-close');
   const box = el(
     'div',
-    { class: 'modal-box' },
+    { class: `modal-box ${options.compact ? 'modal-compact' : ''}` },
     el('header', { class: 'modal-head' }, el('h2', { class: 'modal-title' }, title), closeBtn),
     body,
   );
-  const backdrop = el('div', { class: 'modal-backdrop' }, box);
+  const backdrop = el(
+    'div',
+    { class: `modal-backdrop ${options.compact ? 'modal-backdrop-clear' : ''}` },
+    box,
+  );
   backdrop.addEventListener('click', (event) => {
     if (event.target === backdrop) handle.close();
   });

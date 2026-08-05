@@ -10,14 +10,28 @@ import type { Personality } from '../../shared/personality.js';
  * 会話のトーンが拗ねる方向へ変わることで放置を物語化する。
  */
 
-/** 1時間あたりの減衰量（基準値）。 */
+/**
+ * 1時間あたりの減衰量（基準値）。
+ *
+ * 1日1回しか開かないプレイヤーでも成立するよう、意図的にゆるやかにしている。
+ * 以前は空腹が 7/時 で、20時間の放置で全ニーズが 0 になり、
+ * 帰ってきた瞬間に「取り返しのつかない状態」を見せてしまっていた（プレイテストで判明）。
+ */
 const DECAY_PER_HOUR: Record<NeedKey, number> = {
-  hunger: 7,
-  fun: 6,
-  clean: 4,
+  hunger: 3.6,
+  fun: 3,
+  clean: 2,
   energy: -5, // energy は寝ている間に回復するので符号が逆（負 = 増える）
   mood: 0, // mood は他ニーズの結果として動くので直接減衰しない
 };
+
+/**
+ * 放置で減るニーズの下限。
+ * ここを 0 にしないのは「この子は勝手に生きていける。ただ寂しいだけ」を表すため。
+ * 罰ではなく、mood（なかよし度）が下がることで物語にする方針。
+ */
+const NEED_FLOOR = 8;
+const FLOOR_KEYS: NeedKey[] = ['hunger', 'fun', 'clean'];
 
 const MIN_NEED = 0;
 const MAX_NEED = 100;
@@ -85,7 +99,11 @@ export function decayNeeds(
   const next = { ...needs };
   for (const key of NEED_KEYS) {
     if (key === 'mood') continue;
-    next[key] = needs[key] - DECAY_PER_HOUR[key] * decayMultiplier(key, personality) * hours;
+    const decayed = needs[key] - DECAY_PER_HOUR[key] * decayMultiplier(key, personality) * hours;
+    // 下限のあるニーズは、すでに下限を割っている値をさらに下げない。
+    next[key] = FLOOR_KEYS.includes(key)
+      ? Math.max(Math.min(needs[key], NEED_FLOOR), decayed)
+      : decayed;
   }
 
   // mood は目標値へ 1 時間あたり最大 8 ポイント近づく。

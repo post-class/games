@@ -1,6 +1,12 @@
 import { isEmotion, isPetAction, type Emotion, type PetAction } from '../../shared/actions.js';
 import { clampPersonality, randomPersonality, type Personality } from '../../shared/personality.js';
-import { findSpecies, type Needs, type PetView, type SpeciesId } from '../../shared/types.js';
+import {
+  findSpecies,
+  type GrowthStage,
+  type Needs,
+  type PetView,
+  type SpeciesId,
+} from '../../shared/types.js';
 import type { Db } from '../db.js';
 import { ageHoursOf, stageFor } from './growth.js';
 import { clampNeeds, decayNeeds, initialNeeds } from './needs.js';
@@ -54,6 +60,50 @@ function parseRow(row: PetRow): PetRecord {
     lastThinkAt: row.last_think_at,
     lastEncounterAt: row.last_encounter_at,
   };
+}
+
+/**
+ * 成長段階の変化を検出して確定させる。
+ *
+ * `pets.stage` 列は「プレイヤーに通知済みの段階」として使う。
+ * 計算した段階と食い違ったら、そのときだけ1回お祝いを返す。
+ * プレイテストで、孵化がチップの文字が変わるだけで通り過ぎてしまい、
+ * いちばん嬉しい瞬間が失われていたため。
+ */
+export interface GrowthEvent {
+  from: GrowthStage;
+  to: GrowthStage;
+  coins: number;
+}
+
+const GROWTH_REWARD: Record<GrowthStage, number> = { egg: 0, child: 40, adult: 150 };
+
+export function syncStage(db: Db, pet: PetRecord, now = Date.now()): GrowthEvent | null {
+  const computed = stageFor(ageHoursOf(pet.bornAt, now), pet.careScore);
+  const row = db.prepare('SELECT stage, ack_stage FROM pets WHERE id = ?').get(pet.id) as
+    | { stage: string; ack_stage: string }
+    | undefined;
+  const stored = (row?.stage ?? 'egg') as GrowthStage;
+  const acknowledged = (row?.ack_stage ?? 'egg') as GrowthStage;
+
+  // ごほうびは段階が進んだ最初の1回だけ渡す。
+  if (computed !== stored) {
+    db.prepare('UPDATE pets SET stage = ? WHERE id = ?').run(computed, pet.id);
+    const coins = GROWTH_REWARD[computed] ?? 0;
+    if (coins > 0) {
+      db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').run(coins, pet.userId);
+    }
+  }
+
+  // お祝いは、プレイヤーが「見た」と返事をするまで出し続ける。
+  // 通信が途中で切れてお祝いが消えてしまう事故を防ぐため。
+  if (computed === acknowledged) return null;
+  return { from: acknowledged, to: computed, coins: GROWTH_REWARD[computed] ?? 0 };
+}
+
+/** お祝いを見せ終わったことを記録する。 */
+export function acknowledgeStage(db: Db, petId: number): void {
+  db.prepare('UPDATE pets SET ack_stage = stage WHERE id = ?').run(petId);
 }
 
 export function petRecordOf(db: Db, userId: number): PetRecord | null {
