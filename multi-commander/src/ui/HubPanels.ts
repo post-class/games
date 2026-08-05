@@ -13,6 +13,10 @@ import { barLine, rumor, type BarMood } from '../content/pilotDialogue';
 import { PERSONALITIES } from '../content/pilots';
 import { shipDef } from '../content/ships';
 import { missileDef } from '../content/weapons';
+import { aceDef, type AceState } from '../content/aces';
+import type { FrontlineState } from '../content/frontline';
+import type { SupplyState } from '../app/supplies';
+import type { CampaignStatistics } from '../app/statistics';
 import { artImg, artUrl, medalArt, rankArt } from './art';
 import { portraitFace } from './Portrait';
 import { escapeHtml } from './ScreenHost';
@@ -32,6 +36,10 @@ export interface HubContext {
   medals: string[];
   chapter: number;
   totalChapters: number;
+  aceStates?: AceState[];
+  frontline?: FrontlineState;
+  supplies?: SupplyState;
+  statistics?: CampaignStatistics;
 }
 
 // ───────── 酒場 ─────────
@@ -45,7 +53,7 @@ function moodOf(p: PilotState, hasFallen: boolean): BarMood {
 }
 
 export function recRoomHtml(ctx: HubContext): string {
-  const alive = ctx.roster.pilots.filter((p) => p.status !== 'dead');
+  const alive = ctx.roster.pilots.filter((p) => p.status === 'active' || p.status === 'wounded');
   const dead = fallen(ctx.roster);
   const fallenName = dead.length ? defOf(dead[dead.length - 1]).callsign : undefined;
 
@@ -77,6 +85,12 @@ export function recRoomHtml(ctx: HubContext): string {
     talks +
     `<div class="block"><h3>噂</h3><div>${escapeHtml(rumor())}</div>` +
     `<div>${escapeHtml(rumor())}</div></div>` +
+    ((ctx.aceStates ?? []).some((a) => a.escaped > 0 && a.status !== 'killed')
+      ? `<div class="block"><h3>宿敵の噂</h3>${(ctx.aceStates ?? []).filter((a) => a.escaped > 0 && a.status !== 'killed').map((a) => {
+          const ace = aceDef(a.id);
+          return ace ? `<div class="ng">${escapeHtml(ace.callsign)} がまた現れた。${a.lastVictim ? `${escapeHtml(a.lastVictim)} の名を口にしている。` : ''}</div>` : '';
+        }).join('')}</div>`
+      : '') +
     (dead.length
       ? `<div class="block"><h3>空いた席</h3>` +
         dead
@@ -105,15 +119,18 @@ export function barracksHtml(ctx: HubContext): string {
       const st =
         p.status === 'dead'
           ? '<span class="ng">戦死</span>'
+          : p.status === 'transferred'
+            ? '<span class="dim">転属</span>'
           : p.status === 'wounded'
             ? `<span class="ng">負傷 (${p.benchedFor})</span>`
             : '<span class="ok">出撃可</span>';
       return (
-        `<div class="mc-roster-row${p.status === 'dead' ? ' dead' : ''}">` +
+        `<div class="mc-roster-row${p.status === 'dead' ? ' dead' : p.status === 'transferred' ? ' transferred' : ''}">` +
         `<div>${portraitFace(def.id, def.portrait, { size: 52, dead: p.status === 'dead' })}</div>` +
         `<div class="mc-roster-main">` +
         `<div><b>${escapeHtml(def.callsign)}</b> <span class="dim">${escapeHtml(def.name)}</span></div>` +
-        `<div class="dim">${PERSONALITIES[def.personality].label}　技量 ${(p.skill * 100) | 0}%　撃墜 ${p.kills}　出撃 ${p.sorties}</div>` +
+        `<div class="dim">${PERSONALITIES[def.personality].label}　技量 ${(p.skill * 100) | 0}%　撃墜 ${p.kills}　出撃 ${p.sorties}　昇進 ${p.rank}` +
+        `${p.transferredIn ? '　<span class="ok">転属</span>' : ''}</div>` +
         (p.status === 'dead' && p.diedIn
           ? `<div class="ng">${escapeHtml(p.diedIn)} で戦死</div>`
           : `<div class="dim">${escapeHtml(def.bio)}</div>`) +
@@ -151,6 +168,17 @@ export function barracksHtml(ctx: HubContext): string {
 export function killBoardHtml(ctx: HubContext): string {
   const rows = killBoard(ctx.roster, ctx.totalKills);
   const max = Math.max(1, rows[0]?.kills ?? 1);
+  const aceRows = (ctx.aceStates ?? [])
+    .map((state) => {
+      const ace = aceDef(state.id);
+      if (!ace) return '';
+      const status = state.status === 'killed' ? '<span class="ok">撃墜</span>' : `<span class="ng">交戦中 / 離脱 ${state.escaped}</span>`;
+      return `<div class="mc-kb-row ${state.status === 'killed' ? 'me' : ''}"><span class="mc-kb-rank">★</span>` +
+        `<span class="mc-kb-name">${escapeHtml(ace.callsign)}　${status}</span>` +
+        `<span class="mc-kb-bar"><span style="width:${Math.min(100, state.skill * 100).toFixed(1)}%"></span></span>` +
+        `<span class="mc-kb-kills">${state.kills}</span></div>`;
+    })
+    .join('');
   return (
     `<div class="block"><h3>キルボード</h3>` +
     `<div class="mc-board-head">` +
@@ -169,7 +197,8 @@ export function killBoardHtml(ctx: HubContext): string {
           `</div>`
         );
       })
-      .join('')
+      .join('') +
+    `<div class="block"><h3>宿敵の記録</h3>${aceRows || '<span class="dim">まだ遭遇していない。</span>'}</div>`
   );
 }
 
@@ -180,6 +209,7 @@ export interface HangarSelection {
   gunId?: string;
   missiles?: Array<{ missileId: string; count: number }>;
   wingmanId?: string;
+  wingmanSlot?: number;
 }
 
 export function hangarHtml(
@@ -195,6 +225,11 @@ export function hangarHtml(
     ? ctx.roster.pilots.find((p) => p.id === sel.wingmanId)
     : undefined;
   const avail = availablePilots(ctx.roster);
+  const supplies = ctx.supplies;
+  const supplyLine = supplies
+    ? `<div class="dim">補給: フレア ${supplies.flares}　予備部品 ${supplies.spareParts}　` +
+      `ミサイル ${Object.entries(supplies.missiles).map(([id, n]) => `${escapeHtml(missileDef(id).shortName)} ${n}`).join(' / ')}</div>`
+    : '';
 
   return (
     `<div class="block"><h3>格納庫 / 飛行甲板</h3>` +
@@ -208,15 +243,40 @@ export function hangarHtml(
     `<div class="dim">最高速 ${def.maxSpeed} / 旋回 ${def.turn[0].toFixed(2)} / ` +
     `装甲 ${def.armor.front + def.armor.rear + def.armor.left + def.armor.right} / ` +
     `船体 ${def.hull} / 砲 ${def.guns.length} 門</div>` +
-    `<div class="dim">副兵装: ${escapeHtml(missiles || 'なし')}</div></div>` +
+    `<div class="dim">副兵装: ${escapeHtml(missiles || 'なし')}</div>${supplyLine}</div>` +
     `<div class="block"><h3>僚機</h3>` +
     (wing
       ? `<div class="mc-bar-row"><div>${portraitFace(defOf(wing).id, defOf(wing).portrait, { size: 64 })}</div>` +
         `<div class="mc-bar-text"><div class="mc-bar-name">${escapeHtml(defOf(wing).callsign)} ` +
-        `<span class="dim">${PERSONALITIES[defOf(wing).personality].label}・技量 ${(wing.skill * 100) | 0}%・撃墜 ${wing.kills}</span></div>` +
+        `<span class="dim">${sel.wingmanSlot ?? 2}番機・${PERSONALITIES[defOf(wing).personality].label}・技量 ${(wing.skill * 100) | 0}%・撃墜 ${wing.kills}・昇進 ${wing.rank}</span></div>` +
         `<div class="dim">${escapeHtml(defOf(wing).bio)}</div></div></div>`
       : `<div class="ng">出撃可能な僚機がいない。単独で出ることになる。</div>`) +
     `<div class="dim">出撃可能: ${avail.map((p) => escapeHtml(defOf(p).callsign)).join(' / ') || 'なし'}</div>` +
     `</div>`
   );
+}
+
+export function frontlineHtml(ctx: HubContext): string {
+  const state = ctx.frontline;
+  if (!state) return '<div class="dim">戦況データなし</div>';
+  const rows = (Object.entries(state.systems) as Array<[string, { control: number; pressure: number; logistics: number }]>).map(([id, s]) =>
+    `<div class="block"><h3>${escapeHtml(id)}</h3>` +
+    `<div class="dim">連邦支配 ${s.control.toFixed(0)}%　敵圧力 ${s.pressure.toFixed(0)}%　補給余力 ${s.logistics.toFixed(0)}%</div>` +
+    `<div class="mc-kb-bar"><span style="width:${s.control.toFixed(1)}%"></span></div></div>`,
+  ).join('');
+  return `<div class="block"><h3>戦況マップ</h3><div class="dim">作戦回数 ${state.operations}　最終作戦 ${escapeHtml(state.lastSystem)}</div></div>${rows}`;
+}
+
+export function statisticsHtml(ctx: HubContext): string {
+  const s = ctx.statistics;
+  if (!s) return '<div class="dim">統計データなし</div>';
+  const accuracy = s.shotsFired > 0 ? (s.hits / s.shotsFired) * 100 : 0;
+  const ships = Object.entries(s.shipsFlown).map(([id, n]) => `${escapeHtml(shipDef(id).name)} ${n}回`).join(' / ') || 'なし';
+  return `<div class="block"><h3>飛行統計</h3><ul>` +
+    `<li>勝利 ${s.missionsWon} / 敗北 ${s.missionsLost}</li>` +
+    `<li>発射 ${s.shotsFired}　命中 ${s.hits}　命中率 ${accuracy.toFixed(1)}%</li>` +
+    `<li>戦闘時間 ${(s.combatSeconds / 60).toFixed(1)} 分</li>` +
+    `<li>最長僚機生存スコア ${(s.longestWingmanSurvival / 60).toFixed(1)} 分</li>` +
+    `<li>救援成功 ${s.rescuedWingmen}　置き去り ${s.abandonedWingmen}</li></ul></div>` +
+    `<div class="block"><h3>搭乗履歴</h3>${ships}</div>`;
 }

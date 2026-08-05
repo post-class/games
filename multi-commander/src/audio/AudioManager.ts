@@ -14,6 +14,7 @@ export class AudioManager {
   private unsub: () => void;
   /** 同時発音数を抑えるための直近再生時刻 */
   private lastPlay = new Map<string, number>();
+  private musicDuck = 1;
 
   constructor() {
     this.unsub = onSettingsChanged(() => this.applyVolumes());
@@ -68,7 +69,21 @@ export class AudioManager {
     const t = this.ctx.currentTime;
     this.master.gain.setTargetAtTime(settings.volumeMaster, t, 0.05);
     this.sfxBus.gain.setTargetAtTime(settings.volumeSfx, t, 0.05);
-    this.musicBus.gain.setTargetAtTime(settings.volumeMusic * 0.6, t, 0.05);
+    this.musicBus.gain.setTargetAtTime(settings.volumeMusic * 0.6 * this.musicDuck, t, 0.05);
+  }
+
+  /** 戦闘の密度に合わせて BGM を少しだけ引き、命中音と無線を読ませる。 */
+  setMusicDuck(amount: number): void {
+    this.musicDuck = Math.max(0.55, Math.min(1, amount));
+    if (this.ctx && this.musicBus) this.musicBus.gain.setTargetAtTime(settings.volumeMusic * 0.6 * this.musicDuck, this.ctx.currentTime, 0.18);
+  }
+
+  /** 宿敵・救難・母艦帰投など、記憶に残す短い音型。 */
+  motif(kind: 'nemesis' | 'wingman' | 'carrier' | 'return'): void {
+    if (!this.ctx) return;
+    if (this.throttled(`motif-${kind}`, 1.2)) return;
+    const notes = kind === 'nemesis' ? [196, 155, 116] : kind === 'wingman' ? [660, 523, 440] : [392, 523, 784];
+    notes.forEach((frequency, i) => setTimeout(() => this.beep(frequency, 0.18, 0.16, kind === 'nemesis' ? 'sawtooth' : 'triangle'), i * 125));
   }
 
   /** 連続発音を間引く (同じ音が1フレームに大量に鳴るのを防ぐ) */
@@ -93,13 +108,14 @@ export class AudioManager {
     return g;
   }
 
-  private noise(duration: number): AudioBufferSourceNode | undefined {
+  private noise(duration: number, at = this.ctx?.currentTime ?? 0): AudioBufferSourceNode | undefined {
     if (!this.ctx || !this.noiseBuffer) return undefined;
     const src = this.ctx.createBufferSource();
     src.buffer = this.noiseBuffer;
     src.loop = true;
-    src.start();
-    src.stop(this.ctx.currentTime + duration);
+    const startAt = Math.max(this.ctx.currentTime, at);
+    src.start(startAt);
+    src.stop(startAt + duration);
     return src;
   }
 
@@ -177,21 +193,21 @@ export class AudioManager {
     osc.stop(t + 0.25);
   }
 
-  /** 装甲/船体への被弾 */
-  armorHit(distance: number, pan: number): void {
+  /** 装甲/船体への被弾。船体まで抜けたときは低く重い音にする。 */
+  armorHit(distance: number, pan: number, layer: 'armor' | 'hull' = 'armor'): void {
     if (!this.ctx) return;
-    if (this.throttled('armor', 0.03)) return;
+    if (this.throttled(layer === 'hull' ? 'hull' : 'armor', 0.03)) return;
     const t = this.ctx.currentTime;
-    const out = this.spatial(0.5, distance, pan);
+    const out = this.spatial(layer === 'hull' ? 0.65 : 0.5, distance, pan);
     if (!out) return;
     const src = this.noise(0.2);
     if (!src) return;
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(2200, t);
-    filter.frequency.exponentialRampToValueAtTime(300, t + 0.18);
+    filter.frequency.setValueAtTime(layer === 'hull' ? 1500 : 2200, t);
+    filter.frequency.exponentialRampToValueAtTime(layer === 'hull' ? 180 : 300, t + 0.18);
     const env = this.ctx.createGain();
-    env.gain.setValueAtTime(0.8, t);
+    env.gain.setValueAtTime(layer === 'hull' ? 1 : 0.8, t);
     env.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
     src.connect(filter);
     filter.connect(env);
@@ -353,7 +369,7 @@ export class AudioManager {
    * 戻り値は喋り終わるまでの秒数 (顔の口の動きと合わせるために返す)。
    */
   radioVoice(text: string, tone: 'friendly' | 'enemy' | 'command' = 'friendly', speaker = ''): number {
-    if (!this.ctx || !this.sfxBus) return 0;
+    if (!this.ctx || !this.sfxBus || text.trim().length === 0) return 0;
     const t0 = this.ctx.currentTime;
 
     // 話者名から基本周波数を決める (同じ人物なら毎回同じ声になる)
@@ -425,7 +441,7 @@ export class AudioManager {
   /** 無線を開閉するときの短いノイズ */
   private squelch(at: number, dur: number): void {
     if (!this.ctx || !this.sfxBus) return;
-    const src = this.noise(dur + 0.05);
+    const src = this.noise(dur + 0.05, at);
     if (!src) return;
     const hp = this.ctx.createBiquadFilter();
     hp.type = 'highpass';
@@ -442,7 +458,7 @@ export class AudioManager {
   // ───────── エンジン音 ─────────
 
   /** 自機のエンジン音を更新する (0..1 の出力と AB) */
-  updateEngine(power: number, afterburner: boolean, alive: boolean): void {
+  updateEngine(power: number, afterburner: boolean, alive: boolean, profile = 'fighter'): void {
     if (!this.ctx || !this.sfxBus) return;
     const t = this.ctx.currentTime;
     if (!this.engine) {
@@ -466,8 +482,12 @@ export class AudioManager {
     const e = this.engine;
     const target = alive ? 0.05 + power * 0.09 + (afterburner ? 0.12 : 0) : 0;
     e.gain.gain.setTargetAtTime(target, t, 0.12);
-    e.osc.frequency.setTargetAtTime(50 + power * 45 + (afterburner ? 40 : 0), t, 0.15);
-    e.filter.frequency.setTargetAtTime(220 + power * 500 + (afterburner ? 900 : 0), t, 0.15);
+    const capital = profile.startsWith('capital:') || profile.startsWith('transport:');
+    let hash = 0;
+    for (const char of profile) hash = (hash * 17 + char.charCodeAt(0)) % 11;
+    const variation = capital ? 0 : hash - 5;
+    e.osc.frequency.setTargetAtTime((capital ? 38 : 50 + variation) + power * (capital ? 26 : 45) + (afterburner ? 40 : 0), t, 0.15);
+    e.filter.frequency.setTargetAtTime((capital ? 140 : 220 + variation * 14) + power * (capital ? 320 : 500) + (afterburner ? 900 : 0), t, 0.15);
   }
 
   /** ミッション終了などでエンジン音を止める */

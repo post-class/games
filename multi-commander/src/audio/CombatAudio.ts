@@ -19,6 +19,8 @@ export class CombatAudio {
   readonly music = new MusicDirector(audio);
   private unsubs: Array<() => void> = [];
   private camera?: PerspectiveCamera;
+  private playerId?: number;
+  private wingmanId?: number;
 
   constructor() {
     this.unsubs.push(
@@ -33,7 +35,7 @@ export class CombatAudio {
       }),
       bus.on('armorHit', (p) => {
         const { distance, pan } = this.place(p.point);
-        audio.armorHit(p.isPlayer ? 0 : distance, pan);
+        audio.armorHit(p.isPlayer ? 0 : distance, pan, p.layer);
       }),
       bus.on('explosion', (p) => {
         const { distance, pan } = this.place(p.pos);
@@ -42,6 +44,25 @@ export class CombatAudio {
       bus.on('destroyed', (p) => {
         const { distance, pan } = this.place(p.target.pos);
         audio.explosion(distance, pan, true);
+        if (p.target.ship?.ace) {
+          audio.motif('nemesis');
+          this.music.playBattle('boss');
+        }
+        const isWingman =
+          p.target.id === this.wingmanId ||
+          (this.playerId !== undefined &&
+            p.target.id !== this.playerId &&
+            p.target.ship?.def.role === 'fighter' &&
+            p.target.ai?.leaderId === this.playerId);
+        if (isWingman) audio.motif('wingman');
+      }),
+      bus.on('wingmanInTrouble', (p) => {
+        if (
+          p.entity.id === this.wingmanId ||
+          (this.playerId !== undefined && p.entity.ai?.leaderId === this.playerId)
+        ) {
+          audio.motif('wingman');
+        }
       }),
       bus.on('lockChanged', (p) => {
         if (p.locked) audio.lockTone(true);
@@ -49,7 +70,10 @@ export class CombatAudio {
       bus.on('autopilot', (p) => {
         audio.beep(p.active ? 1100 : 700, 0.12, 0.2, 'triangle');
       }),
-      bus.on('navReached', () => audio.beep(1300, 0.1, 0.18, 'triangle')),
+      bus.on('navReached', (p) => {
+        audio.beep(1300, 0.1, 0.18, 'triangle');
+        if (p.name === '帰投') audio.motif('carrier');
+      }),
       bus.on('radio', (p) => {
         // 声の代替。喋っている長さを HUD に返して口を動かす
         const seconds = audio.radioVoice(p.text, p.tone ?? 'friendly', p.speaker);
@@ -80,14 +104,32 @@ export class CombatAudio {
   update(world: World, dt: number, active: boolean): void {
     const player = world.player;
     if (!active || !player?.ship) {
+      this.playerId = undefined;
+      this.wingmanId = undefined;
       audio.stopEngine();
+      audio.setMusicDuck(1);
       this.music.update(dt);
       return;
     }
+    this.playerId = player.id;
+    this.wingmanId = world.entities.find(
+      (e) =>
+        e.alive &&
+        e.id !== player.id &&
+        e.kind === 'ship' &&
+        e.faction === player.faction &&
+        e.ship?.def.role === 'fighter' &&
+        e.ai?.leaderId === player.id,
+    )?.id;
     const ship = player.ship;
     const def = ship.def;
     const power = Math.min(1, player.vel.length() / Math.max(1, def.maxSpeed));
-    audio.updateEngine(power, !!player.input?.afterburner && ship.fuel > 0, true);
+    audio.updateEngine(
+      power,
+      !ship.ejected && !!player.input?.afterburner && ship.fuel > 0,
+      !ship.ejected,
+      `${def.role}:${def.id}`,
+    );
 
     // 警報
     if (world.byId(ship.incomingMissileId)) audio.warning('missile');
@@ -110,6 +152,7 @@ export class CombatAudio {
       }
     }
     this.music.playBattle(combatMusicCue(near, aceNearby));
+    audio.setMusicDuck(near >= 3 ? 0.78 : near >= 1 ? 0.9 : 1);
     this.music.update(dt);
     void _camDir;
   }

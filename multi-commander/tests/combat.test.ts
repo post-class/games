@@ -8,6 +8,7 @@ import { updateFlight, updateShipPower } from '../src/sim/flight';
 import { spawnShip, World } from '../src/world/world';
 import { resolveProjectileHits, updateOrdnance } from '../src/sim/combat';
 import { fireGuns, activeMissileSlot, cycleMissile } from '../src/sim/weapons';
+import { bus } from '../src/core/events';
 
 function newWorld() {
   return new World();
@@ -288,6 +289,32 @@ describe('砲の発射', () => {
       w.compact();
     }
     expect(p.ship!.hull).toBe(hull);
+  });
+
+  it('被弾イベントは実際に通った防御層を通知する', () => {
+    const w = newWorld();
+    const p = playerShip(w);
+    const enemy = spawnShip(w, {
+      def: shipDef('dralthi'),
+      faction: 'kilrathi',
+      pos: new Vector3(0, 0, -300),
+      speed: 0,
+    });
+    enemy.ship!.shield.front = 0;
+    enemy.ship!.shield.rear = 0;
+    const layers: string[] = [];
+    const off = bus.on('armorHit', (event) => {
+      if (event.target === enemy) layers.push(event.layer);
+    });
+    p.input!.firePrimary = true;
+    fireGuns(w, p, 1 / 60);
+    for (let i = 0; i < 60; i++) {
+      updateOrdnance(w, 1 / 60);
+      resolveProjectileHits(w);
+      w.compact();
+    }
+    off();
+    expect(layers).toContain('armor');
   });
 });
 

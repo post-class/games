@@ -184,6 +184,9 @@ export function fireTurrets(world: World, e: Entity, damageScale = 1): void {
   for (let i = 0; i < def.guns.length; i++) {
     if (ship.gunCooldown[i] > 0) continue;
     const hp = def.guns[i];
+    // 旗艦の段階目標「砲塔を無力化」を実際の対空火力にも反映する。
+    // damaged は gunOperational 内で不発を混ぜ、dead は完全停止させる。
+    if (!gunOperational(ship, hp.offset[0])) continue;
     const gun = gunDef(hp.gunId);
     if (ship.energy < gun.energyCost) continue;
     ship.energy -= gun.energyCost;

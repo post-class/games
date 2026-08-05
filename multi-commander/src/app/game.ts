@@ -29,6 +29,7 @@ import { CommsMenu, type CommsAction } from '../ui/CommsMenu';
 import { Tutorial } from '../ui/Tutorial';
 import { InputManager } from './input';
 import { difficulty, settings } from './settings';
+import { ReplayBuffer } from './replay';
 
 /**
  * 戦闘部分の本体。固定 dt でシミュレーションを進め、可変 dt で描画する。
@@ -49,6 +50,7 @@ export class Game {
   /** 発艦・着艦の演出 */
   readonly deck = new DeckSequence();
   readonly input: InputManager;
+  readonly replay = new ReplayBuffer();
   readonly loop: Loop;
 
   /** 実行中のミッション。メニュー中は undefined */
@@ -75,6 +77,7 @@ export class Game {
 
   /** 撃墜時などに一瞬だけ時間を止める残り時間 (秒) */
   private hitStopLeft = 0;
+  private damageSlowLeft = 0;
   /** 脱出の確認が有効な残り時間 (秒) */
   private ejectArmed = 0;
   /** 損傷時の無線を間隔を空けて流すためのタイマー */
@@ -111,11 +114,17 @@ export class Game {
       render: (dtReal, alpha) => this.renderStep(dtReal, alpha),
     });
 
-    this.applyDifficulty();
+    this.applySettings();
     window.addEventListener('resize', () => this.scene.resize());
 
     this.unsubs.push(
       bus.on('destroyed', (p) => this.onDestroyedCinematic(p.target, p.killedByPlayer)),
+      bus.on('shieldHit', (p) => { if (p.isPlayer) this.input.rumble(0.22, 65); }),
+      bus.on('armorHit', (p) => { if (p.isPlayer) this.input.rumble(p.layer === 'hull' ? 0.6 : 0.35, 110); }),
+      bus.on('armorHit', (p) => { if (p.isPlayer && settings.timeSlowAssist) this.damageSlowLeft = 0.28; }),
+      bus.on('destroyed', (p) => {
+        if (p.target.kind === 'ship') this.replay.mark(`${p.target.ship?.pilot ?? p.target.label ?? '機体'} 撃墜`);
+      }),
       bus.on('missionEnded', (p) => {
         if (this.endedOutcome) return;
         this.endedOutcome = p.outcome;
@@ -136,13 +145,20 @@ export class Game {
     );
   }
 
-  applyDifficulty(): void {
+  applySettings(): void {
     const d = difficulty();
     setCombatOptions({
       playerDamageTaken: d.playerDamageTaken,
       playerDamageDealt: d.playerDamageDealt,
       playerSubsystemRate: d.playerSubsystemRate,
     });
+    this.input.mouseFlight = settings.mouseFlight;
+    this.scene.setBloom(settings.bloom);
+  }
+
+  applyDifficulty(): void {
+    // 難易度変更を呼ぶ既存箇所との互換用。描画・入力設定も同時に反映する。
+    this.applySettings();
   }
 
   /**
@@ -185,8 +201,9 @@ export class Game {
     if (def.skybox) this.scene.setSkybox(def.skybox);
     this.landmarks.set(def.landmarks);
 
-    this.applyDifficulty();
+    this.applySettings();
     this.runner = new MissionRunner(this.world, def, loadout, difficulty());
+    this.replay.reset();
     this.runner.build();
 
     this.endedOutcome = undefined;
@@ -245,6 +262,10 @@ export class Game {
   private fixedStep(dt: number): void {
     if (!this.active || this.paused) return;
 
+    // パッドのサンプリングを固定ステップ側で行う。描画側で読むと、入力を読んだ
+    // フレームの後にシミュレーションが終わってしまい、最大 1 フレーム遅れる。
+    this.input.update(dt);
+
     // ミッション終了後の余韻。演出だけ進めて入力は受け付けない
     if (this.endedOutcome) {
       this.endDelay -= dt;
@@ -269,6 +290,7 @@ export class Game {
       this.hitStopLeft -= dt;
       return;
     }
+    this.damageSlowLeft = Math.max(0, this.damageSlowLeft - dt);
 
     snapshotForRender(this.world);
 
@@ -316,6 +338,7 @@ export class Game {
       playerGunAimPitchOffset: AIM_PITCH_OFFSET,
     });
     this.runner?.update(dt);
+    this.replay.record(this.world, this.input, dt);
     this.updateDamagedReturn(dt);
     this.updateHazardWarning(dt);
   }
@@ -363,7 +386,8 @@ export class Game {
     }
     // 終わりかけで元に戻すと唐突なので、残り時間で補間する
     const t = this.killCamLeft > 0 ? Math.min(1, this.killCamLeft / 0.6) : 0;
-    this.loop.timeScale = 1 - 0.62 * t;
+    const damageAssist = settings.timeSlowAssist && this.damageSlowLeft > 0 ? 0.72 : 1;
+    this.loop.timeScale = (1 - 0.62 * t) * damageAssist;
   }
 
   /**
@@ -427,18 +451,30 @@ export class Game {
       return;
     }
     const im = this.input;
-    p.input.pitch = im.pitch;
-    p.input.yaw = im.yaw;
-    p.input.roll = im.roll;
+    const turn = settings.turnAssist ? this.turnAssist(p) : { pitch: 0, yaw: 0 };
+    p.input.pitch = Math.max(-1, Math.min(1, im.pitch + turn.pitch));
+    p.input.yaw = Math.max(-1, Math.min(1, im.yaw + turn.yaw));
+    p.input.roll = settings.autoLevel && im.roll === 0 ? this.levelCorrection(p) : im.roll;
     p.input.throttle = im.throttle;
     p.input.afterburner = im.afterburner;
     p.input.firePrimary = im.firePrimary;
   }
 
+  private turnAssist(player: Entity): { pitch: number; yaw: number } {
+    const target = this.world.byId(player.ship?.targetId);
+    if (!target) return { pitch: 0, yaw: 0 };
+    this.tmpTo.copy(target.pos).sub(player.pos).normalize().applyQuaternion(player.quat.clone().invert());
+    return { pitch: Math.max(-0.16, Math.min(0.16, -this.tmpTo.y * 0.16)), yaw: Math.max(-0.16, Math.min(0.16, this.tmpTo.x * 0.16)) };
+  }
+
+  private levelCorrection(player: Entity): number {
+    this.tmpFwd.set(0, 1, 0).applyQuaternion(player.quat);
+    return Math.max(-0.32, Math.min(0.32, -this.tmpFwd.x * 0.9));
+  }
+
   // ───────── 描画 ─────────
 
   private renderStep(dtReal: number, alpha: number): void {
-    this.input.update(dtReal);
     if (this.active) this.handleActions();
     else this.input.consumeActions();
 
@@ -485,8 +521,9 @@ export class Game {
         width: window.innerWidth,
         height: window.innerHeight,
         throttle: this.input.throttle,
-        mouseFlight: this.input.stickEnabled && !this.autopilot,
-        mouseArmPending: this.input.mouseFlight && !this.input.mouseArmed,
+        mouseFlight: this.input.mouseStickEnabled && !this.autopilot,
+        mouseArmPending:
+          this.input.mouseFlight && !this.input.gamepadConnected && !this.input.mouseArmed,
         stick: { x: this.input.mousePx, y: this.input.mousePy },
         objectives: this.runner?.objectiveViews(),
         nav: this.runner?.currentNav,

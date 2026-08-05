@@ -6,7 +6,7 @@ import { isHostile } from '../content/factions';
 import type { Entity } from '../world/entity';
 import type { World } from '../world/world';
 import { pointOnSegment, spheresOverlap, sweepSphere } from './collision';
-import { applyDamage, applySplashDamage } from './damage';
+import { applyDamage, applySplashDamage, type DamageResult } from './damage';
 import { rollSubsystemDamage } from './subsystems';
 
 const _hit = new Vector3();
@@ -186,7 +186,7 @@ function detonate(world: World, e: Entity, at: Vector3 | undefined): void {
     const dmg = def.damage * (0.35 + 0.65 * falloff);
     const scaled = scaleDamage(world, dmg, m.fromPlayer, s.id === world.playerId);
     const res = applySplashDamage(s, scaled, center);
-    emitHit(world, s, center, res.shieldAbsorbed, res.armorAbsorbed + res.hullDamage);
+    emitHit(world, s, center, res);
     applySubsystemDamage(world, s, res.hullDamage, res.armorFace);
     if (res.destroyed) destroyEntity(world, s, world.byId(m.ownerId));
   }
@@ -216,15 +216,34 @@ function emitHit(
   world: World,
   target: Entity,
   point: Vector3,
-  shieldAmount: number,
-  bodyAmount: number,
+  result: DamageResult,
 ): void {
   const isPlayer = target.id === world.playerId;
-  if (shieldAmount > 0) {
-    bus.emit('shieldHit', { target, point: point.clone(), amount: shieldAmount, isPlayer });
+  if (result.shieldAbsorbed > 0) {
+    bus.emit('shieldHit', {
+      target,
+      point: point.clone(),
+      amount: result.shieldAbsorbed,
+      isPlayer,
+    });
   }
-  if (bodyAmount > 0) {
-    bus.emit('armorHit', { target, point: point.clone(), amount: bodyAmount, isPlayer });
+  if (result.armorAbsorbed > 0) {
+    bus.emit('armorHit', {
+      target,
+      point: point.clone(),
+      amount: result.armorAbsorbed,
+      layer: 'armor',
+      isPlayer,
+    });
+  }
+  if (result.hullDamage > 0) {
+    bus.emit('armorHit', {
+      target,
+      point: point.clone(),
+      amount: result.hullDamage,
+      layer: 'hull',
+      isPlayer,
+    });
   }
 }
 
@@ -284,7 +303,7 @@ export function resolveProjectileHits(world: World): void {
     pointOnSegment(p.prevPos, p.pos, bestT, _hit);
     const dmg = scaleDamage(world, pr.damage, pr.fromPlayer, bestShip.id === world.playerId);
     const res = applyDamage(bestShip, dmg, _hit);
-    emitHit(world, bestShip, _hit, res.shieldAbsorbed, res.armorAbsorbed + res.hullDamage);
+    emitHit(world, bestShip, _hit, res);
     applySubsystemDamage(world, bestShip, res.hullDamage, res.armorFace);
     if (res.destroyed) destroyEntity(world, bestShip, world.byId(pr.ownerId));
     world.kill(p);
@@ -335,8 +354,8 @@ function applyCollisionDamage(world: World, a: Entity, b: Entity, mid: Vector3):
 
   const ra = applyDamage(a, scaleDamage(world, base * ratioA, false, a.id === world.playerId), mid);
   const rb = applyDamage(b, scaleDamage(world, base * ratioB, false, b.id === world.playerId), mid);
-  emitHit(world, a, mid, ra.shieldAbsorbed, ra.armorAbsorbed + ra.hullDamage);
-  emitHit(world, b, mid, rb.shieldAbsorbed, rb.armorAbsorbed + rb.hullDamage);
+  emitHit(world, a, mid, ra);
+  emitHit(world, b, mid, rb);
   applySubsystemDamage(world, a, ra.hullDamage, ra.armorFace);
   applySubsystemDamage(world, b, rb.hullDamage, rb.armorFace);
   if (ra.destroyed) destroyEntity(world, a, b);

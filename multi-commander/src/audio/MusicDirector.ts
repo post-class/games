@@ -1,5 +1,5 @@
 import type { AudioManager } from './AudioManager';
-import { MUSIC_TRACKS, type MusicTrackId } from './musicCues';
+import { musicPath, type MusicTrackId } from './musicCues';
 
 /** 曲を切り替えるときのクロスフェード時間。 */
 const CROSSFADE_SECONDS = 0.75;
@@ -105,12 +105,16 @@ export class MusicDirector {
   }
 
   private ensurePlayback(id: MusicTrackId): void {
-    if (this.active?.id === id || !this.audio.musicNode) return;
+    if (
+      (this.active?.id === id ||
+        (this.active && !this.active.failed && musicPath(this.active.id) === musicPath(id))) ||
+      !this.audio.musicNode
+    ) return;
 
     let media: MusicMedia;
     try {
       media = this.createMedia();
-      media.src = MUSIC_TRACKS[id];
+      media.src = musicPath(id);
       media.loop = true;
       media.preload = 'auto';
       media.volume = 0;

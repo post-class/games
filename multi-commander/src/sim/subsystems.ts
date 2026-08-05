@@ -18,6 +18,7 @@ export type SubsystemId =
   | 'radar'
   | 'gunsLeft'
   | 'gunsRight'
+  | 'turret'
   | 'engine'
   | 'shieldGen'
   | 'comms'
@@ -36,6 +37,7 @@ export const SUBSYSTEMS: SubsystemInfo[] = [
   { id: 'radar', label: 'レーダー', weight: 1.0 },
   { id: 'gunsLeft', label: '左舷砲', weight: 1.2 },
   { id: 'gunsRight', label: '右舷砲', weight: 1.2 },
+  { id: 'turret', label: '砲塔', weight: 1.4 },
   { id: 'engine', label: 'エンジン', weight: 1.0 },
   { id: 'shieldGen', label: 'シールド発生器', weight: 0.9 },
   { id: 'comms', label: '通信機', weight: 0.7 },
@@ -49,12 +51,23 @@ export function newSubsystems(): SubsystemMap {
     radar: 'ok',
     gunsLeft: 'ok',
     gunsRight: 'ok',
+    turret: 'ok',
     engine: 'ok',
     shieldGen: 'ok',
     comms: 'ok',
     thrusters: 'ok',
   };
 }
+
+/** 艦艇に存在する部位。戦闘機の左右砲は艦艇では使わない。 */
+const CAPITAL_SUBSYSTEMS: ReadonlySet<SubsystemId> = new Set([
+  'radar',
+  'turret',
+  'engine',
+  'shieldGen',
+  'comms',
+  'thrusters',
+]);
 
 /** ハルダメージ1点あたりの故障判定確率の係数 */
 const BREAK_RATE = 0.014;
@@ -82,10 +95,16 @@ export function rollSubsystemDamage(
 
   // 被弾面に応じた重み付け
   const candidates: Array<{ id: SubsystemId; w: number }> = [];
+  const isCapital = ship.def.role === 'capital';
   for (const info of SUBSYSTEMS) {
+    if (isCapital ? !CAPITAL_SUBSYSTEMS.has(info.id) : info.id === 'turret') continue;
     if (ship.subsystems[info.id] === 'dead') continue;
     let w = info.weight;
-    if (armorFace === 'left') {
+    if (isCapital && armorFace !== 'rear') {
+      // 艦艇の側面・正面は砲塔へ通りやすい。
+      if (info.id === 'turret') w *= 3;
+      if (info.id === 'engine') w *= 0.25;
+    } else if (armorFace === 'left') {
       if (info.id === 'gunsLeft') w *= 3;
       if (info.id === 'gunsRight') w *= 0.25;
     } else if (armorFace === 'right') {
@@ -199,7 +218,11 @@ export function commsAvailable(ship: ShipRuntime | undefined): boolean {
  * damaged のときは確率的に不発になる。
  */
 export function gunOperational(ship: ShipRuntime | undefined, offsetX: number): boolean {
-  const id: SubsystemId = offsetX < 0 ? 'gunsLeft' : 'gunsRight';
+  const id: SubsystemId = ship?.def.role === 'capital'
+    ? 'turret'
+    : offsetX < 0
+      ? 'gunsLeft'
+      : 'gunsRight';
   const st = stateOf(ship, id);
   if (st === 'dead') return false;
   if (st === 'damaged') return !rng.chance(0.4);

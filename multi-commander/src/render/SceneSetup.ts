@@ -35,6 +35,9 @@ export class SceneSetup {
   private fill!: DirectionalLight;
   private useBloom = true;
   private warpLevel = 0;
+  private frameMs = 16.7;
+  private slowFrames = 0;
+  private fastFrames = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new WebGLRenderer({
@@ -121,8 +124,29 @@ export class SceneSetup {
   }
 
   render(): void {
+    const start = performance.now();
     this.skybox.update(this.camera);
     if (this.useBloom) this.composer.render();
     else this.renderer.render(this.scene, this.camera);
+    this.frameMs = performance.now() - start;
+    if (this.frameMs > 28) {
+      this.slowFrames += 1;
+      this.fastFrames = 0;
+      if (this.slowFrames >= 8) {
+        this.renderer.setPixelRatio(Math.max(0.75, Math.min(window.devicePixelRatio, 1.35)));
+        this.slowFrames = 0;
+      }
+    } else if (this.frameMs < 18) {
+      this.fastFrames += 1;
+      this.slowFrames = 0;
+      if (this.fastFrames >= 120) {
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.fastFrames = 0;
+      }
+    }
+  }
+
+  get performanceBudget(): { frameMs: number; quality: 'full' | 'adaptive' } {
+    return { frameMs: this.frameMs, quality: this.renderer.getPixelRatio() < Math.min(window.devicePixelRatio, 2) ? 'adaptive' : 'full' };
   }
 }

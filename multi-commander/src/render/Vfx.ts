@@ -223,6 +223,27 @@ export class VfxManager {
     }
   }
 
+  /** ハルまで抜けた被弾。火花だけでなく、内部から噴く橙色の閃光を足す。 */
+  hullHit(pos: Vector3, scale = 1): void {
+    this.pushSprite(this.plasmaBurst, pos, {
+      color: 0xff7440,
+      size0: 7 * scale,
+      size1: 24 * scale,
+      life: 0.28,
+      opacity: 0.9,
+    });
+    this.pushSprite(this.smoke, pos, {
+      color: 0x30343a,
+      size0: 3 * scale,
+      size1: 15 * scale,
+      life: 0.5,
+      opacity: 0.5,
+      additive: false,
+      vel: new Vector3(rng.signed(12), rng.signed(12), rng.signed(12)),
+    });
+    this.hitSpark(pos, scale * 1.12);
+  }
+
   /** ミサイルの飛行煙 */
   missileTrail(pos: Vector3, color: number): void {
     this.pushSprite(this.smoke, pos, {

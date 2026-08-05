@@ -13,7 +13,7 @@ import {
  * 撃墜数・関係値・負傷は localStorage に保存され、キャンペーンを通じて持ち越される。
  */
 
-export type PilotStatus = 'active' | 'wounded' | 'dead';
+export type PilotStatus = 'active' | 'wounded' | 'dead' | 'transferred';
 
 export interface PilotState {
   id: string;
@@ -35,6 +35,11 @@ export interface PilotState {
   diedIn?: string;
   /** 戦死した章 */
   diedChapter?: number;
+  /** 通算出撃に応じた昇進段階 */
+  rank: number;
+  /** 他艦隊との転属回数（新しい補充兵を受け入れた回数） */
+  transfers: number;
+  transferredIn?: boolean;
 }
 
 export interface RosterState {
@@ -43,12 +48,15 @@ export interface RosterState {
   reserves: string[];
   /** 直近の出撃で選んだ僚機 */
   lastWingman?: string;
+  /** 僚機同士の関係値。未登録の組み合わせは 0。 */
+  relations: Record<string, number>;
 }
 
 export function newRoster(): RosterState {
   return {
     pilots: STARTING_SQUADRON.map((id) => freshPilot(id)),
     reserves: [...REPLACEMENT_POOL],
+    relations: {},
   };
 }
 
@@ -62,6 +70,8 @@ function freshPilot(id: string): PilotState {
     sorties: 0,
     benchedFor: 0,
     bond: 0,
+    rank: 0,
+    transfers: 0,
   };
 }
 
@@ -79,27 +89,49 @@ export function normalizeRoster(raw: unknown): RosterState {
     } catch {
       continue;
     }
+    if (pilots.some((existing) => existing.id === p.id)) continue;
+    const rawStatus = p.status === 'dead' || p.status === 'wounded' || p.status === 'transferred' ? p.status : 'active';
+    const benchedFor = nonNegativeInt(p.benchedFor, 0);
+    const normalizedStatus = rawStatus === 'wounded' && benchedFor === 0 ? 'active' : rawStatus;
     pilots.push({
       id: p.id,
-      status: p.status === 'dead' || p.status === 'wounded' ? p.status : 'active',
+      status: normalizedStatus,
       skill: typeof p.skill === 'number' ? clamp01(p.skill) : pilotDef(p.id).skill,
-      kills: numberOr(p.kills, 0),
-      sorties: numberOr(p.sorties, 0),
-      benchedFor: numberOr(p.benchedFor, 0),
+      kills: nonNegativeInt(p.kills, 0),
+      sorties: nonNegativeInt(p.sorties, 0),
+      benchedFor: normalizedStatus === 'wounded' ? Math.max(1, benchedFor) : 0,
       bond: typeof p.bond === 'number' ? Math.max(-1, Math.min(1, p.bond)) : 0,
       diedIn: typeof p.diedIn === 'string' ? p.diedIn : undefined,
-      diedChapter: typeof p.diedChapter === 'number' ? p.diedChapter : undefined,
+      diedChapter: nonNegativeInt(p.diedChapter, 0) || undefined,
+      rank: Math.min(3, nonNegativeInt(p.rank, 0)),
+      transfers: nonNegativeInt(p.transfers, 0),
+      transferredIn: p.transferredIn === true,
     });
   }
   if (pilots.length === 0) return fallback;
-  const reserves = Array.isArray(r.reserves)
-    ? r.reserves.filter((id): id is string => typeof id === 'string')
-    : [...REPLACEMENT_POOL];
-  return { pilots, reserves, lastWingman: r.lastWingman };
+  const pilotIds = new Set(pilots.map((p) => p.id));
+  const reserveIds = Array.isArray(r.reserves) ? r.reserves : REPLACEMENT_POOL;
+  const reserves: string[] = [];
+  for (const id of reserveIds) {
+    if (typeof id !== 'string' || pilotIds.has(id) || reserves.includes(id)) continue;
+    try {
+      pilotDef(id);
+      reserves.push(id);
+    } catch {
+      // 保存データに混入した未知の補充兵は、戦死時の補充処理で例外にしない。
+    }
+  }
+  const relations: Record<string, number> = {};
+  if (r.relations && typeof r.relations === 'object') {
+    for (const [key, value] of Object.entries(r.relations)) {
+      if (typeof value === 'number' && Number.isFinite(value)) relations[key] = Math.max(-1, Math.min(1, value));
+    }
+  }
+  return { pilots, reserves, lastWingman: typeof r.lastWingman === 'string' ? r.lastWingman : undefined, relations };
 }
 
-function numberOr(v: unknown, d: number): number {
-  return typeof v === 'number' && Number.isFinite(v) ? v : d;
+function nonNegativeInt(v: unknown, d: number): number {
+  return typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.floor(v)) : d;
 }
 function clamp01(v: number): number {
   return v < 0 ? 0 : v > 1 ? 1 : v;
@@ -118,7 +150,7 @@ export function availablePilots(roster: RosterState): PilotState[] {
 
 /** 名簿表示用。生存者を先に、戦死者を後ろにまとめる */
 export function rosterForDisplay(roster: RosterState): PilotState[] {
-  const rank = (p: PilotState) => (p.status === 'dead' ? 2 : p.status === 'wounded' ? 1 : 0);
+  const rank = (p: PilotState) => (p.status === 'dead' ? 3 : p.status === 'transferred' ? 2 : p.status === 'wounded' ? 1 : 0);
   return [...roster.pilots].sort((a, b) => rank(a) - rank(b) || b.kills - a.kills);
 }
 
@@ -185,10 +217,16 @@ export function applySortie(roster: RosterState, outcome: SortieOutcome): void {
   const id = outcome.wingmanId;
   if (!id) return;
   const p = pilotState(roster, id);
-  if (!p || p.status === 'dead') return;
+  if (!p || p.status !== 'active') return;
+  const hullRatio =
+    typeof outcome.wingmanHullRatio === 'number' && Number.isFinite(outcome.wingmanHullRatio)
+      ? Math.max(0, Math.min(1, outcome.wingmanHullRatio))
+      : 1;
 
-  p.sorties += 1;
-  p.kills += Math.max(0, outcome.wingmanKills);
+  p.sorties = nonNegativeInt(p.sorties, 0) + 1;
+  p.kills += nonNegativeInt(outcome.wingmanKills, 0);
+  // 戦死しても、その出撃で条件を満たした昇進段階は記録する。
+  p.rank = Math.min(3, Math.floor(p.sorties / 3));
 
   if (outcome.wingmanLost) {
     p.status = 'dead';
@@ -200,6 +238,7 @@ export function applySortie(roster: RosterState, outcome: SortieOutcome): void {
       for (const other of roster.pilots) {
         if (other.id === id || other.status === 'dead') continue;
         other.bond = Math.max(-1, other.bond - 0.25);
+        shiftRelation(roster, id, other.id, -0.15);
       }
     }
     fillVacancy(roster);
@@ -209,16 +248,30 @@ export function applySortie(roster: RosterState, outcome: SortieOutcome): void {
   // 生還: 技量が伸びる
   const growth = personalityOf(id).growth;
   p.skill = clamp01(p.skill + 0.018 * growth);
-
-  // 大破して帰ったら欠場
-  if (outcome.wingmanHullRatio < 0.3) {
-    p.status = 'wounded';
-    p.benchedFor = outcome.wingmanHullRatio < 0.12 ? 3 : 2;
+  // 長期出撃者は前線の別飛行隊へ一時転属し、代わりに補充兵が来る。
+  // 旧隊員を active のまま残すと、補充のたびに飛行隊が膨張する。
+  if (p.sorties % 5 === 0 && hullRatio >= 0.3 && roster.reserves.length > 0) {
+    const transferred = roster.reserves.shift()!;
+    if (!roster.pilots.some((other) => other.id === transferred)) {
+      p.transfers += 1;
+      p.status = 'transferred';
+      roster.pilots.push({ ...freshPilot(transferred), transferredIn: true });
+    }
   }
 
-  if (outcome.rescued) p.bond = Math.min(1, p.bond + 0.3);
-  else if (outcome.abandoned) p.bond = Math.max(-1, p.bond - 0.35);
-  else p.bond = Math.min(1, p.bond + 0.05);
+  // 大破して帰ったら欠場
+  if (hullRatio < 0.3) {
+    p.status = 'wounded';
+    p.benchedFor = hullRatio < 0.12 ? 3 : 2;
+  }
+
+  if (outcome.rescued) {
+    p.bond = Math.min(1, p.bond + 0.3);
+    for (const other of roster.pilots) if (other.id !== id && other.status !== 'dead') shiftRelation(roster, id, other.id, 0.1);
+  } else if (outcome.abandoned) {
+    p.bond = Math.max(-1, p.bond - 0.35);
+    for (const other of roster.pilots) if (other.id !== id && other.status !== 'dead') shiftRelation(roster, id, other.id, -0.08);
+  } else p.bond = Math.min(1, p.bond + 0.05);
 }
 
 /** 戦死者が出たら補充を1人入れる */
@@ -226,8 +279,12 @@ function fillVacancy(roster: RosterState): void {
   while (roster.reserves.length > 0) {
     const id = roster.reserves.shift()!;
     if (roster.pilots.some((p) => p.id === id)) continue;
-    roster.pilots.push(freshPilot(id));
-    return;
+    try {
+      roster.pilots.push(freshPilot(id));
+      return;
+    } catch {
+      // 破損した保存データの補充 id は読み飛ばして次候補を試す。
+    }
   }
 }
 
@@ -239,6 +296,21 @@ export function fallen(roster: RosterState): PilotState[] {
 /** 出撃可能な僚機がいるか */
 export function hasWingman(roster: RosterState): boolean {
   return availablePilots(roster).length > 0;
+}
+
+export function relationKey(a: string, b: string): string {
+  return [a, b].sort().join(':');
+}
+
+export function relationBetween(roster: RosterState, a: string, b: string): number {
+  return Math.max(-1, Math.min(1, roster.relations[relationKey(a, b)] ?? 0));
+}
+
+function shiftRelation(roster: RosterState, a: string, b: string, amount: number): void {
+  if (a === b) return;
+  roster.relations ??= {};
+  const key = relationKey(a, b);
+  roster.relations[key] = Math.max(-1, Math.min(1, (roster.relations[key] ?? 0) + amount));
 }
 
 /** 既定で選ばれる僚機 (前回と同じ人がいればその人) */

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { MusicDirector, type MusicMedia } from '../src/audio/MusicDirector';
-import { combatMusicCue, MUSIC_TRACKS } from '../src/audio/musicCues';
+import { combatMusicCue, musicPath, MUSIC_TRACKS } from '../src/audio/musicCues';
 
 class FakeMedia implements MusicMedia {
   src = '';
@@ -98,5 +98,18 @@ describe('MP3再生器', () => {
     expect(director.current).toBe('hub');
     expect(media).toHaveLength(2);
     expect(media[1].play).toHaveBeenCalledOnce();
+  });
+
+  it('宿敵キューはボス曲を再利用し、同じMP3を二重にクロスフェードしない', () => {
+    const { director, media } = musicHarness();
+    director.playBattle('boss');
+    director.update(0.75);
+    director.update(3);
+
+    director.playBattle('nemesis');
+
+    expect(musicPath('nemesis')).toBe(MUSIC_TRACKS.boss);
+    expect(director.current).toBe('nemesis');
+    expect(media).toHaveLength(1);
   });
 });

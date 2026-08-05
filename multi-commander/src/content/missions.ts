@@ -1,4 +1,5 @@
 import type { MissionDef } from '../mission/types';
+import { EXTRA_MISSIONS } from './extraMissions';
 
 /**
  * ミッション定義。ここにデータを足せばゲームが増える。
@@ -456,6 +457,7 @@ const M6_FLAGSHIP: MissionDef = {
       atNav: 1,
       delay: 4,
       offset: [4600, 1200, 4200],
+      tag: 'escort',
     },
     {
       shipId: 'gratha',
@@ -464,12 +466,41 @@ const M6_FLAGSHIP: MissionDef = {
       atNav: 1,
       delay: 30,
       offset: [-4200, -900, 3800],
+      tag: 'escort',
       radio: [{ speaker: 'Angel', text: 'グラサが来た！魚雷手を守るわ、撃って！', tone: 'friendly' }],
     },
   ],
   objectives: [
     { id: 'flagship', text: '駆逐艦《カクタグ》を撃沈', required: true, spec: { kind: 'destroyTag', tag: 'flagship' } },
+    { id: 'escort', text: '旗艦護衛を排除', required: false, spec: { kind: 'destroyTag', tag: 'escort' } },
     { id: 'home', text: '帰投', required: true, spec: { kind: 'reachNav', navIndex: 2 } },
+  ],
+  capitalStages: [
+    { id: 'escort', text: '旗艦護衛を排除', tag: 'escort' },
+    { id: 'flagship', text: 'ラーラサ級旗艦を撃破', tag: 'flagship' },
+  ],
+  capitalSequence: [
+    {
+      id: 'turret',
+      text: '旗艦の砲塔を無力化',
+      tag: 'flagship',
+      subsystem: 'turret',
+      radio: [{ speaker: 'Angel', text: '砲塔を潰した。次はエンジンを狙って！', tone: 'friendly' }],
+    },
+    {
+      id: 'engine',
+      text: '旗艦のエンジンを停止',
+      tag: 'flagship',
+      subsystem: 'engine',
+      radio: [{ speaker: 'Angel', text: 'エンジン停止。今よ、魚雷を撃って！', tone: 'friendly' }],
+    },
+    {
+      id: 'torpedo',
+      text: '旗艦へ対艦魚雷を発射',
+      tag: 'flagship',
+      weapon: 'torpedo',
+      radio: [{ speaker: '管制', text: '魚雷を確認。旗艦を落として帰投せよ。', tone: 'command' }],
+    },
   ],
   openingRadio: [
     { speaker: '管制', text: '魚雷は Nav 2 到達後に使え。ロック中は直進を保て。', tone: 'command' },
@@ -931,7 +962,10 @@ export const MISSIONS: Record<string, MissionDef> = {
   [M6_FLAGSHIP.id]: M6_FLAGSHIP,
   [L1_RETREAT.id]: L1_RETREAT,
   [L2_LAST_STAND.id]: L2_LAST_STAND,
+  ...Object.fromEntries(EXTRA_MISSIONS.map((m) => [m.id, m])),
 };
+
+export const MISSION_COUNT = Object.keys(MISSIONS).length;
 
 export function missionDef(id: string): MissionDef {
   const m = MISSIONS[id];

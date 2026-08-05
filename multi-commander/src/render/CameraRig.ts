@@ -2,6 +2,7 @@ import { Quaternion, Vector3, type PerspectiveCamera } from 'three';
 import { clamp, damp, forwardOf, upOf } from '../core/math';
 import { rng } from '../core/rng';
 import type { Entity } from '../world/entity';
+import { settings } from '../app/settings';
 
 export type ViewMode = 'cockpit' | 'chase';
 
@@ -75,7 +76,7 @@ export class CameraRig {
     if (!target) return;
     const q = target.quat;
 
-    if (abActive) this.kickFov(28 * dt);
+    if (abActive) this.kickFov(28 * dt * settings.cameraFovKick);
     this.fovKick = damp(this.fovKick, 0, 0.18, dt);
     this.shake = damp(this.shake, 0, 0.12, dt);
 
@@ -93,16 +94,24 @@ export class CameraRig {
         this.smoothedChasePos.copy(want);
         this.initialized = true;
       } else {
-        this.smoothedChasePos.lerp(want, 1 - Math.pow(0.5, dt / 0.06));
+        if (settings.cameraFollowLag <= 0) {
+          this.smoothedChasePos.copy(want);
+        } else {
+          this.smoothedChasePos.lerp(
+            want,
+            1 - Math.pow(0.5, dt / (0.06 * settings.cameraFollowLag)),
+          );
+        }
       }
       this.camera.position.copy(this.smoothedChasePos);
-      this.camera.quaternion.slerp(q, 1 - Math.pow(0.5, dt / 0.05));
+      if (settings.cameraFollowLag <= 0) this.camera.quaternion.copy(q);
+      else this.camera.quaternion.slerp(q, 1 - Math.pow(0.5, dt / (0.05 * settings.cameraFollowLag)));
       this.camera.lookAt(target.pos);
     }
     this.initialized = true;
 
-    if (this.shake > 0.001) {
-      const s = this.shake * this.shake * 1.6;
+    if (this.shake > 0.001 && settings.cameraShake > 0) {
+      const s = this.shake * this.shake * 1.6 * settings.cameraShake;
       this.tmpQ.set(rng.signed(0.012 * s), rng.signed(0.012 * s), rng.signed(0.012 * s), 1).normalize();
       this.camera.quaternion.multiply(this.tmpQ);
       this.camera.position.add(

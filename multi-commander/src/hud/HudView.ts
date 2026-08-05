@@ -324,6 +324,7 @@ export class HudView {
       }),
       bus.on('radio', (p) => {
         const line = el('div', `mc-radio-line ${p.tone ?? 'friendly'}`);
+        line.style.fontSize = `${settings.subtitleScale}em`;
         // 喋っている人物の顔を出す (WC の VDU 相当)
         const pilot = PILOTS.find((x) => x.callsign === p.speaker);
         if (pilot) {
@@ -393,6 +394,7 @@ export class HudView {
   update(f: HudFrame, dtReal: number): void {
     // メニュー表示中は計器類を丸ごと隠す
     const show = f.visible !== false;
+    this.hud.classList.toggle('mc-colorblind', settings.colorblindMode);
     if (this.shown !== show) {
       this.shown = show;
       for (const n of this.chrome) n.style.display = show ? '' : 'none';
@@ -807,7 +809,8 @@ export class HudView {
       m.style.display = '';
       m.style.left = `${p.x}px`;
       m.style.top = `${p.y}px`;
-      m.textContent = d > 3000 ? '▫' : `▫ ${(d / 1000).toFixed(1)}k`;
+      const shape = e.ship?.ace ? '★' : hostile ? '△' : e.faction === player.faction ? '○' : '◇';
+      m.textContent = d > 3000 ? shape : `${shape} ${(d / 1000).toFixed(1)}k`;
       if (e.ship?.ace) m.style.color = 'var(--ace)';
       else m.style.color = '';
     }

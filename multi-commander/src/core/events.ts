@@ -14,8 +14,14 @@ export interface GameEvents {
   };
   /** シールドで受け止めた */
   shieldHit: { target: Entity; point: Vector3; amount: number; isPlayer: boolean };
-  /** アーマー/ハルに通った */
-  armorHit: { target: Entity; point: Vector3; amount: number; isPlayer: boolean };
+  /** アーマーまたはハルに通った。層を分けることで命中の手応えを描き分ける */
+  armorHit: {
+    target: Entity;
+    point: Vector3;
+    amount: number;
+    layer: 'armor' | 'hull';
+    isPlayer: boolean;
+  };
   /** 撃墜/破壊 */
   destroyed: { target: Entity; source?: Entity; killedByPlayer: boolean };
   /** 爆発 (ミサイル起爆など) */

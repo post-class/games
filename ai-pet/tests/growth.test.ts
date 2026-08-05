@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { ageHoursOf, stageFor, stageProgress } from '../server/pet/growth.js';
-import { awayActivities } from '../server/pet/away.js';
+import { awayActivities, awayPlaces } from '../server/pet/away.js';
 import { clampPersonality, type Personality } from '../shared/personality.js';
+import { SPOTS, ZONES } from '../shared/world.js';
 import type { PetRecord } from '../server/pet/store.js';
 
 describe('stageFor', () => {
@@ -94,6 +95,30 @@ describe('awayActivities', () => {
   it('多くても3件までにする（レポートが冗長にならない）', () => {
     const busy = pet({ hunger: 10, fun: 10, clean: 80, energy: 10, mood: 10 }, { clever: 90 });
     expect(awayActivities(busy, 12).length).toBeLessThanOrEqual(3);
+  });
+
+  describe('awayPlaces', () => {
+    it('短い留守では場所の話をしない', () => {
+      expect(awayPlaces(pet({}, {}), 0.4)).toEqual([]);
+    });
+
+    it('留守が長いほど多く語るが、3件までにする', () => {
+      expect(awayPlaces(pet({}, {}), 2).length).toBe(2);
+      expect(awayPlaces(pet({}, {}), 12).length).toBe(3);
+    });
+
+    it('ゾーンの名前つきで、定義済みの文だけを使う', () => {
+      const known = SPOTS.flatMap((spot) => spot.finds ?? []);
+      for (const line of awayPlaces(pet({ hunger: 10 }, { gluttony: 90 }), 8)) {
+        expect(known.some((text) => line.endsWith(text))).toBe(true);
+        expect(ZONES.some((zone) => line.startsWith(zone.name))).toBe(true);
+      }
+    });
+
+    it('同じ状態・同じ留守時間なら同じ結果（決定論的）', () => {
+      const target = pet({ fun: 10 }, { mischief: 80 });
+      expect(awayPlaces(target, 5)).toEqual(awayPlaces(target, 5));
+    });
   });
 });
 

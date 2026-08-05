@@ -58,7 +58,25 @@ export class Hud {
       button('🛒 おみせ', () => this.callbacks.onOpen('shop'), 'btn btn-tab'),
     );
 
-    this.host.append(this.wishHost, this.statusHost, this.itemHost, tabs);
+    this.host.append(this.wishHost, this.journalHost, this.statusHost, this.itemHost, tabs);
+  }
+
+  /**
+   * ペットが勝手にしたことを流す小さなログ。
+   *
+   * 広いマップだとペットは画面外でも動き続けるので、
+   * 見ていなかった間のできごとが1行でも残らないと「何もしていない」ように見える。
+   * 3件だけ残して古いものは捨てる（読み切れない量にしない）。
+   */
+  pushJournal(line: string): void {
+    if (this.journal[0] === line) return;
+    this.journal = [line, ...this.journal].slice(0, 3);
+    clear(this.journalHost);
+    this.journal.forEach((text, index) => {
+      this.journalHost.append(
+        el('p', { class: `journal-line ${index === 0 ? 'journal-fresh' : ''}` }, text),
+      );
+    });
   }
 
   renderStatus(pet: PetView, coins: number): void {

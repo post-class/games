@@ -88,8 +88,9 @@ body {
 .stage-canvas {
   display: block;
   width: 100%;
-  touch-action: manipulation;
-  cursor: pointer;
+  /* 広いマップは横ドラッグで見回せる。横の指の動きはページに渡さない。 */
+  touch-action: pan-y;
+  cursor: grab;
 }
 
 /* --- カード・入力 ----------------------------------------------------- */
@@ -351,6 +352,38 @@ body {
 
 .wish-icon {
   font-size: 18px;
+}
+
+/* できごとログ。ペットが勝手にしたことを流す。 */
+.journal {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+  min-height: 0;
+}
+
+.journal-line {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #8a7a70;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.journal-fresh {
+  color: var(--ink);
+  font-weight: 700;
+  animation: journal-in 0.4s ease-out;
+}
+
+@keyframes journal-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
 }
 
 .need-list {

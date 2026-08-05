@@ -85,11 +85,21 @@ function detonateMine(world: World, e: Entity): void {
         isPlayer: s.id === world.playerId,
       });
     }
-    if (res.armorAbsorbed + res.hullDamage > 0) {
+    if (res.armorAbsorbed > 0) {
       bus.emit('armorHit', {
         target: s,
         point: e.pos.clone(),
-        amount: res.armorAbsorbed + res.hullDamage,
+        amount: res.armorAbsorbed,
+        layer: 'armor',
+        isPlayer: s.id === world.playerId,
+      });
+    }
+    if (res.hullDamage > 0) {
+      bus.emit('armorHit', {
+        target: s,
+        point: e.pos.clone(),
+        amount: res.hullDamage,
+        layer: 'hull',
         isPlayer: s.id === world.playerId,
       });
     }
@@ -136,7 +146,13 @@ export function resolveObstacleHits(world: World): void {
       }
     } else {
       target.rock!.hull -= pr.damage;
-      bus.emit('armorHit', { target, point: _hit.clone(), amount: pr.damage, isPlayer: false });
+      bus.emit('armorHit', {
+        target,
+        point: _hit.clone(),
+        amount: pr.damage,
+        layer: 'armor',
+        isPlayer: false,
+      });
       if (target.rock!.hull <= 0) breakRock(world, target);
     }
     world.kill(p);
@@ -200,11 +216,21 @@ export function resolveObstacleCollisions(world: World): void {
             isPlayer: s.id === world.playerId,
           });
         }
-        if (res.armorAbsorbed + res.hullDamage > 0) {
+        if (res.armorAbsorbed > 0) {
           bus.emit('armorHit', {
             target: s,
             point: mid.clone(),
-            amount: res.armorAbsorbed + res.hullDamage,
+            amount: res.armorAbsorbed,
+            layer: 'armor',
+            isPlayer: s.id === world.playerId,
+          });
+        }
+        if (res.hullDamage > 0) {
+          bus.emit('armorHit', {
+            target: s,
+            point: mid.clone(),
+            amount: res.hullDamage,
+            layer: 'hull',
             isPlayer: s.id === world.playerId,
           });
         }

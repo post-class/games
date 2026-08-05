@@ -184,13 +184,19 @@ function drawWallPattern(
 function drawZonePlate(
   ctx: CanvasRenderingContext2D,
   m: WorldMetrics,
-  centerX: number,
+  x0: number,
+  x1: number,
   name: string,
   indoor: boolean,
 ): void {
   const w = Math.max(74, name.length * 15 + 26);
   const h = Math.max(22, m.viewH * 0.055);
   const y = m.floorY * 0.12;
+  // ゾーンの中央に置くと、端のゾーンでは札が画面外にはみ出して読めない。
+  // 「そのゾーンの見えている範囲」の中央に寄せる。
+  const left = Math.max(x0, 0);
+  const right = Math.min(x1, m.viewW);
+  const centerX = Math.max(left + w / 2, Math.min((left + right) / 2, right - w / 2));
   ctx.save();
   ctx.lineWidth = 2;
   roundRect(ctx, centerX - w / 2, y, w, h, h * 0.4);
@@ -263,7 +269,9 @@ export function drawWorld(ctx: CanvasRenderingContext2D, m: WorldMetrics, layout
     ctx.clip();
 
     if (zone.indoor) {
-      const wallImg = isLiving ? roomImage('wall', layout.wall) : null;
+      // リビングは飼い主が選んだ壁紙、ほかのゾーンはゾーン名の PNG を探す
+      // （素材を後から足せるようにしておく。無ければ手続き描画のまま）。
+      const wallImg = roomImage('wall', isLiving ? layout.wall : zone.id);
       if (wallImg) {
         ctx.drawImage(wallImg, x0, 0, x1 - x0, m.floorY);
       } else {
@@ -271,7 +279,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, m: WorldMetrics, layout
         ctx.fillRect(x0, 0, x1 - x0, m.floorY);
         drawWallPattern(ctx, m, x0, x1, 'rgba(150,120,90,0.13)');
       }
-      const floorImg = isLiving ? roomImage('floor', layout.floor) : null;
+      const floorImg = roomImage('floor', isLiving ? layout.floor : zone.id);
       if (floorImg) {
         ctx.drawImage(floorImg, x0, m.floorY, x1 - x0, m.floorDepth);
       } else {
@@ -327,7 +335,7 @@ export function drawWorld(ctx: CanvasRenderingContext2D, m: WorldMetrics, layout
       }
     }
 
-    drawZonePlate(ctx, m, (x0 + x1) / 2, zone.name, zone.indoor);
+    drawZonePlate(ctx, m, x0, x1, zone.name, zone.indoor);
     ctx.restore();
   }
 
@@ -520,7 +528,17 @@ function drawSpotArt(
       break;
     }
     case 'mirror': {
+      // 鏡だけ描くと空中に浮いて見えたので、床まで届く支柱と台をつける。
       const cy = y - u * 1.35;
+      ctx.beginPath();
+      ctx.moveTo(x - u * 0.06, y);
+      ctx.lineTo(x + u * 0.06, y);
+      ctx.lineTo(x + u * 0.04, cy);
+      ctx.lineTo(x - u * 0.04, cy);
+      fillStroke(ctx, '#c8b49a');
+      ctx.beginPath();
+      ctx.ellipse(x, y - u * 0.04, u * 0.3, u * 0.1, 0, 0, Math.PI * 2);
+      fillStroke(ctx, '#c8b49a');
       ctx.beginPath();
       ctx.ellipse(x, cy, u * 0.42, u * 0.62, 0, 0, Math.PI * 2);
       fillStroke(ctx, '#dff0f5');

@@ -22,6 +22,8 @@ const _aim = new Vector3();
 const _rest = new Vector3();
 /** これより近い弾は描かない (自機の砲口すぐの弾で視界が塞がるのを防ぐ) */
 const NEAR_CLIP_SQ = 45 * 45;
+/** 性能予算。近い敵を優先し、遠い敵の描画だけを落とす。シミュレーションは継続する。 */
+const MAX_RENDERED_HOSTILES = 24;
 
 /**
  * ロジック側の Entity を Three.js の Object3D に反映する。
@@ -128,8 +130,15 @@ export class RenderSync {
 
   sync(world: World, alpha: number, cameraPos?: Vector3, dt = 1 / 60): void {
     this.seen.clear();
+    const player = world.player;
+    let renderedHostiles = 0;
     for (const e of world.entities) {
       if (!e.alive || e.kind === 'nav') continue;
+      if (player && e.kind === 'ship' && isHostile(player.faction, e.faction)) {
+        const far = e.pos.distanceToSquared(player.pos) > 10000 * 10000;
+        if (far && renderedHostiles >= MAX_RENDERED_HOSTILES) continue;
+        renderedHostiles += 1;
+      }
       let obj = this.meshes.get(e.id);
       if (!obj) {
         const created = this.create(e);

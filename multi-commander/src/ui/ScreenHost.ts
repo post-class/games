@@ -45,6 +45,8 @@ export class ScreenHost {
   private index = 0;
   private itemEls: HTMLElement[] = [];
   private keyHandler = (ev: KeyboardEvent) => this.onKey(ev);
+  private gamepadRaf = 0;
+  private gamepadButtons = new Set<number>();
 
   constructor(container: HTMLElement) {
     this.root = container;
@@ -165,9 +167,12 @@ export class ScreenHost {
     this.root.classList.add('interactive');
     this.el = screen;
     this.highlight();
+    this.startGamepadLoop();
   }
 
   hide(): void {
+    if (this.gamepadRaf) cancelAnimationFrame(this.gamepadRaf);
+    this.gamepadRaf = 0;
     this.el?.remove();
     this.el = undefined;
     this.spec = undefined;
@@ -229,6 +234,47 @@ export class ScreenHost {
       default:
         break;
     }
+  }
+
+  /** メニュー中もゲームパッドで移動・決定・キャンセルできるようにする。 */
+  private startGamepadLoop(): void {
+    const tick = () => {
+      if (!this.el) return;
+      this.pollGamepad();
+      this.gamepadRaf = requestAnimationFrame(tick);
+    };
+    this.gamepadRaf = requestAnimationFrame(tick);
+  }
+
+  private pollGamepad(): void {
+    const pads = navigator.getGamepads?.() ?? [];
+    const pad = Array.from(pads).find((p): p is Gamepad => !!p && p.connected);
+    if (!pad) {
+      this.gamepadButtons.clear();
+      return;
+    }
+    const pressed = new Set<number>();
+    pad.buttons.forEach((button, index) => {
+      if (button.pressed || button.value > 0.5) pressed.add(index);
+    });
+    for (const index of pressed) {
+      if (this.gamepadButtons.has(index)) continue;
+      switch (index) {
+        case 12:
+          this.move(-1);
+          break;
+        case 13:
+          this.move(1);
+          break;
+        case 0:
+          this.select();
+          break;
+        case 1:
+          this.spec?.onCancel?.();
+          break;
+      }
+    }
+    this.gamepadButtons = pressed;
   }
 
   dispose(): void {

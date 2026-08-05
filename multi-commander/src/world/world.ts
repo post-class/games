@@ -137,6 +137,8 @@ export interface SpawnShipOptions {
   gunOverride?: string;
   /** 副兵装を差し替える */
   missileOverride?: MissileSlot[];
+  /** フレアの搭載数を差し替える */
+  flareOverride?: number;
   /** AI を載せる (プレイヤー機は指定しない) */
   ai?: AiRuntime;
   /** エース敵として強調表示する */
@@ -159,6 +161,7 @@ export function spawnShip(world: World, o: SpawnShipOptions): Entity {
     rt.gunCooldown = rt.def.guns.map(() => 0);
   }
   if (o.missileOverride) rt.missiles = o.missileOverride.map((m) => ({ ...m }));
+  if (o.flareOverride !== undefined) rt.flares = Math.max(0, Math.floor(o.flareOverride));
   if (o.pilot) rt.pilot = o.pilot;
   if (o.ace) rt.ace = true;
   e.ship = rt;

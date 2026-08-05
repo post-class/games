@@ -12,7 +12,12 @@ export const MUSIC_TRACKS = {
   defeat: '/audio/music/08-danger-gathering-darkness.mp3',
 } as const;
 
-export type MusicTrackId = keyof typeof MUSIC_TRACKS;
+/** 宿敵は既存のボス曲を別キューとして扱い、演出の保持時間を独立させる。 */
+export type MusicTrackId = keyof typeof MUSIC_TRACKS | 'nemesis';
+
+export function musicPath(id: MusicTrackId): string {
+  return id === 'nemesis' ? MUSIC_TRACKS.boss : MUSIC_TRACKS[id];
+}
 
 /** 近距離の敵編隊から、その時点で最も優先する戦闘曲を決める。 */
 export function combatMusicCue(nearHostiles: number, aceNearby: boolean): MusicTrackId {

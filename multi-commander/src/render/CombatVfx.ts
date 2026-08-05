@@ -1,6 +1,7 @@
 import type { Scene } from 'three';
 import { bus } from '../core/events';
 import { gunDef } from '../content/weapons';
+import { settings } from '../app/settings';
 import type { World } from '../world/world';
 import type { CameraRig } from './CameraRig';
 import { ShieldFx } from './ShieldFx';
@@ -29,7 +30,7 @@ export class CombatVfx {
     this.unsubs.push(
       bus.on('weaponFired', (p) => {
         if (p.weaponKind === 'gun') {
-          this.vfx.muzzleFlash(p.muzzle, gunDef(p.weaponId).color);
+          if (!settings.reducedFlashes) this.vfx.muzzleFlash(p.muzzle, gunDef(p.weaponId).color);
           if (p.isPlayer) this.rig.addShake(0.035);
         } else {
           this.vfx.explosion(p.muzzle, 8, 'small');
@@ -41,11 +42,13 @@ export class CombatVfx {
         const def = p.target.ship?.def;
         const cap = Math.max(1, ((def?.shield.front ?? 40) + (def?.shield.rear ?? 40)) * 0.25);
         this.shieldFx.hit(p.target.pos, p.point, p.target.radius, p.amount / cap);
-        if (p.isPlayer) this.rig.addShake(0.18);
+        if (p.isPlayer) this.rig.addShake(settings.reducedFlashes ? 0.09 : 0.18);
       }),
       bus.on('armorHit', (p) => {
-        this.vfx.hitSpark(p.point, p.isPlayer ? 1.8 : 1);
-        if (p.isPlayer) this.rig.addShake(0.3);
+        const scale = p.isPlayer ? 1.8 : 1;
+        if (p.layer === 'hull') this.vfx.hullHit(p.point, scale);
+        else this.vfx.hitSpark(p.point, scale);
+        if (p.isPlayer) this.rig.addShake(p.layer === 'hull' ? 0.42 : 0.3);
       }),
       bus.on('explosion', (p) => {
         this.vfx.explosion(p.pos, p.radius, p.kind);

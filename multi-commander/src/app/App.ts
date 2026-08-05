@@ -7,9 +7,11 @@ import {
   isTerminal,
   TOTAL_CHAPTERS,
   VICTORY,
+  DEFEAT,
   type CampaignNodeId,
 } from '../content/campaign';
 import { missionDef } from '../content/missions';
+import { dynamicMissionDef, chooseDynamicMission, applyFrontlineOutcome, type DynamicMissionKind } from '../content/frontline';
 import { PERSONALITIES, pilotDef } from '../content/pilots';
 import { mournLine } from '../content/pilotDialogue';
 import { PLAYABLE_SHIPS, shipDef } from '../content/ships';
@@ -20,6 +22,8 @@ import {
   hangarHtml,
   killBoardHtml,
   recRoomHtml,
+  frontlineHtml,
+  statisticsHtml,
   type HangarSelection,
   type HubContext,
 } from '../ui/HubPanels';
@@ -35,13 +39,17 @@ import {
   defaultWingman,
   defOf,
   fallen,
+  hasWingman,
   pilotState,
   type SortieOutcome,
 } from './roster';
 import { Game } from './game';
 import { loadSave, newSave, writeSave, type CampaignSave } from './save';
+import { availableMissiles, clampLoadout, consumeLoadout, replenishForMission } from './supplies';
+import { recordMissionStatistics } from './statistics';
 import { difficulty, settings, updateSettings } from './settings';
 import { showcase, type ShowcaseOptions, type ShowcaseResult } from './showroom';
+import { ReplayPanel } from './replay';
 
 /** 母艦の名前。ブリーフィング官の名札に出す */
 const CLAW_NAME = 'TCS タイガーズ・クロー';
@@ -61,6 +69,12 @@ export class App {
   private lastLostWingman?: string;
   /** 最後に到達した階級 (昇進の検出に使う) */
   private lastRankId = '2lt';
+  /** 訓練室はキャンペーン進行を変更しない */
+  private trainingActive = false;
+  private trainingKind: DynamicMissionKind = 'patrol';
+  private trainingEnemyCount = 3;
+  private trainingSkill = 0.55;
+  private replayPanel?: ReplayPanel;
 
   constructor(canvas: HTMLCanvasElement, overlay: HTMLElement) {
     this.game = new Game(canvas, overlay);
@@ -144,8 +158,7 @@ export class App {
 
   private showSettings(back: () => void): void {
     const panel = buildSettingsPanel(() => {
-      this.game.applyDifficulty();
-      this.game.input.mouseFlight = settings.mouseFlight;
+      this.game.applySettings();
     });
     this.screens.show({
       title: '設定',
@@ -170,16 +183,22 @@ export class App {
   }
 
   private currentMission(): MissionDef {
+    if (this.trainingActive) return this.trainingDef();
+    if (this.save.dynamicMission) return dynamicMissionDef(this.save.dynamicMission);
     const node = campaignNode(this.save.node);
     return missionDef(node.missionId);
   }
 
   private loadoutFor(def: MissionDef): Loadout {
     const sel = this.ensureSelection(def);
+    const missilePackage = sel.missiles ?? shipDef(sel.shipId).missiles;
     const load: Loadout = {
       shipId: sel.shipId,
       gunId: sel.gunId,
-      missiles: sel.missiles,
+      missiles: clampLoadout(this.save.supplies, missilePackage),
+      aceStates: this.save.aceStates,
+      wingmanSlot: sel.wingmanSlot,
+      flares: Math.min(12, this.save.supplies.flares),
     };
     const w = sel.wingmanId ? pilotState(this.save.roster, sel.wingmanId) : undefined;
     if (w && w.status === 'active') {
@@ -192,9 +211,9 @@ export class App {
         shipId: wd.preferredShip,
         skill: w.skill,
         personality: {
-          obedience: pers.obedience,
-          aggression: pers.aggression,
-          caution: pers.caution,
+          obedience: Math.max(0, Math.min(1, pers.obedience + w.bond * 0.12)),
+          aggression: Math.max(0, Math.min(1, pers.aggression - w.bond * 0.08)),
+          caution: Math.max(0, Math.min(1, pers.caution - w.bond * 0.05)),
           grit: pers.grit,
         },
       };
@@ -212,6 +231,10 @@ export class App {
       medals: this.save.medals,
       chapter: this.chapterOf(this.save.node),
       totalChapters: TOTAL_CHAPTERS,
+      aceStates: this.save.aceStates,
+      frontline: this.save.frontline,
+      supplies: this.save.supplies,
+      statistics: this.save.statistics,
     };
   }
 
@@ -222,16 +245,20 @@ export class App {
         shipId: def.playerShipId,
         missiles: def.playerMissiles,
         wingmanId: defaultWingman(this.save.roster),
+        wingmanSlot: 2,
       };
     }
+    const selection = this.selection;
+    if (!selection) throw new Error('selection initialization failed');
     // 僚機が戦死・負傷していたら選び直す
-    const w = this.selection.wingmanId
-      ? pilotState(this.save.roster, this.selection.wingmanId)
+    const w = selection.wingmanId
+      ? pilotState(this.save.roster, selection.wingmanId)
       : undefined;
     if (!w || w.status !== 'active' || w.benchedFor > 0) {
-      this.selection.wingmanId = defaultWingman(this.save.roster);
+      selection.wingmanId = defaultWingman(this.save.roster);
     }
-    return this.selection;
+    selection.missiles = clampLoadout(this.save.supplies, selection.missiles);
+    return selection;
   }
 
   /**
@@ -263,7 +290,9 @@ export class App {
         `<div class="mc-rank-line">${artImg(rankArt(rank.id), { className: 'mc-rank-pin', height: 26, alt: rank.label })}` +
         `<span>${escapeHtml(rank.label)}　通算撃墜 ${this.save.totalKills}　出撃 ${this.save.sorties} 回` +
         `${dead.length ? `　<span class="ng">戦死 ${dead.length} 名</span>` : ''}</span></div>` +
-        `<div class="dim">次の任務: ${escapeHtml(def.title)}</div>` +
+        `<div class="dim">次の任務: ${escapeHtml(def.title)}` +
+        `${this.save.dynamicMission ? '　<span class="ok">戦況作戦</span>' : ''}</div>` +
+        `<div class="dim">戦況: ${this.frontlineSummary()}</div>` +
         `</div>`,
       items: [
         {
@@ -283,6 +312,9 @@ export class App {
           onSelect: () => this.showBarracks(),
         },
         { label: 'キルボード', icon: artUrl('icon-killboard'), onSelect: () => this.showKillBoard() },
+        { label: '戦況マップ', onSelect: () => this.showFrontline() },
+        { label: '訓練室', onSelect: () => this.showTraining() },
+        { label: '統計', onSelect: () => this.showStatistics() },
         {
           label: `出撃 (${escapeHtml(shipDef(sel.shipId).name)}${sel.wingmanId ? ' / ' + escapeHtml(pilotDef(sel.wingmanId).callsign) : ' / 単独'})`,
           icon: artUrl('icon-launch'),
@@ -328,22 +360,140 @@ export class App {
     });
   }
 
+  private frontlineSummary(): string {
+    const systems = Object.entries(this.save.frontline.systems);
+    return systems.map(([id, s]) => `${id} ${s.control.toFixed(0)}%`).join(' / ');
+  }
+
+  private showFrontline(): void {
+    const active = this.save.dynamicMission;
+    this.screens.show({
+      background: artUrl('tex/bg-briefing', 'jpg'),
+      title: '戦況マップ',
+      bodyHtml: frontlineHtml(this.hubContext()) +
+        `<div class="block"><h3>作戦方針</h3><div class="dim">戦況が悪い星系ほど、強襲・救難・補給護衛が発生する。勝てば戦線を押し戻せる。</div></div>`,
+      items: [
+        ...(active
+          ? [{ label: '選択中の戦況作戦を確認', onSelect: () => this.showHub() }]
+          : [{
+              label: '最も危険な星系へ作戦を立てる',
+              onSelect: () => {
+                this.save.dynamicMission = chooseDynamicMission(this.save.frontline, this.save.node, this.save.sorties + this.save.frontline.operations + 1);
+                writeSave(this.save);
+                this.showHub();
+              },
+            }]),
+        { label: '戻る', onSelect: () => this.showHub() },
+      ],
+      onCancel: () => this.showHub(),
+    });
+  }
+
+  private showStatistics(): void {
+    this.screens.show({
+      background: artUrl('tex/bg-quarters', 'jpg'),
+      title: '統計',
+      bodyHtml: statisticsHtml(this.hubContext()),
+      items: [{ label: '戻る', onSelect: () => this.showHub() }],
+      onCancel: () => this.showHub(),
+    });
+  }
+
+  private trainingDef(): MissionDef {
+    const ref = { id: `training-${this.trainingKind}`, system: 'McCaffrey' as const, kind: this.trainingKind, seed: 99, returnNode: this.save.node };
+    const base = dynamicMissionDef(ref);
+    if (this.trainingKind === 'quiet') return { ...base, title: '訓練室 — 航法・帰投', debriefWin: ['航法訓練を終了した。'], debriefLoss: ['訓練を中断した。'] };
+    const spawns = base.spawns.map((g) => ({ ...g, skill: this.trainingSkill, count: g.faction === 'kilrathi' ? this.trainingEnemyCount : g.count }));
+    return { ...base, id: `training-${this.trainingKind}`, title: `訓練室 — ${base.title}`, spawns, debriefWin: ['訓練終了。実戦では、敵も弾も戻ってこない。'], debriefLoss: ['訓練を中断した。機体を点検してもう一度試せる。'] };
+  }
+
+  private showTraining(): void {
+    const kinds: DynamicMissionKind[] = ['patrol', 'escort', 'strike', 'rescue', 'quiet', 'capital'];
+    this.screens.show({
+      background: artUrl('tex/bg-hangar', 'jpg'),
+      title: '訓練室',
+      bodyHtml: `<div class="block"><h3>実戦前訓練</h3><div class="dim">キャンペーンの戦果・名簿・戦況は変わらない。操作、武装、帰投手順を確認できる。</div></div>` +
+        `<div class="block">種目: <b>${escapeHtml(this.trainingKind)}</b><br>敵機数: <b>${this.trainingKind === 'quiet' ? 'なし' : this.trainingEnemyCount}</b><br>敵技量: <b>${Math.round(this.trainingSkill * 100)}%</b></div>`,
+      items: [
+        { label: `種目を変える (${this.trainingKind})`, onSelect: () => { this.trainingKind = kinds[(kinds.indexOf(this.trainingKind) + 1) % kinds.length]; this.showTraining(); } },
+        { label: `敵機数を変える (${this.trainingEnemyCount})`, disabled: this.trainingKind === 'quiet', onSelect: () => { this.trainingEnemyCount = this.trainingEnemyCount >= 6 ? 1 : this.trainingEnemyCount + 1; this.showTraining(); } },
+        { label: `敵技量を変える (${Math.round(this.trainingSkill * 100)}%)`, disabled: this.trainingKind === 'quiet', onSelect: () => { this.trainingSkill = this.trainingSkill >= 0.9 ? 0.3 : this.trainingSkill + 0.15; this.showTraining(); } },
+        { label: '訓練を開始', onSelect: () => this.launchTraining() },
+        { label: '戻る', onSelect: () => this.showHub() },
+      ],
+      onCancel: () => this.showHub(),
+    });
+  }
+
+  private launchTraining(): void {
+    const def = this.trainingDef();
+    const load = this.loadoutFor(def);
+    this.trainingActive = true;
+    this.screens.hide();
+    this.game.startMission(def, load, false);
+  }
+
+  private showTrainingDebrief(outcome: 'win' | 'loss'): void {
+    const s = this.lastSummary;
+    this.game.sound.music.play(outcome === 'win' ? 'victory' : 'defeat');
+    this.screens.show({
+      title: outcome === 'win' ? '訓練終了' : '訓練中断',
+      bodyHtml: `<div class="block"><h3>訓練記録</h3><ul><li>撃墜 ${s?.kills ?? 0}</li><li>発射 ${s?.shotsFired ?? 0}　命中 ${s?.hits ?? 0}</li><li>飛行時間 ${Math.floor(s?.seconds ?? 0)} 秒</li></ul></div>` +
+        `<div class="dim">キャンペーンの資源と名簿は変化していない。</div>`,
+      items: [
+        { label: 'リプレイ / キルカム', disabled: this.game.replay.length < 2, onSelect: () => this.showReplayPanel(() => this.showTrainingDebrief(outcome)) },
+        { label: '訓練室へ戻る', onSelect: () => this.showTraining() },
+        { label: '艦内へ戻る', onSelect: () => this.showHub() },
+      ],
+      onCancel: () => this.showTraining(),
+    });
+  }
+
+  /** 直前30秒の戦闘を停止画面から安全に見返す。 */
+  private showReplayPanel(back: () => void): void {
+    if (this.game.replay.length < 2) {
+      back();
+      return;
+    }
+    const panel = new ReplayPanel(this.game.replay);
+    this.replayPanel = panel;
+    const close = () => {
+      panel.dispose();
+      if (this.replayPanel === panel) this.replayPanel = undefined;
+      back();
+    };
+    this.screens.show({
+      background: artUrl('tex/bg-space', 'jpg'),
+      title: 'リプレイ / キルカム',
+      subtitle: '直近30秒 — 固定ステップ記録',
+      content: panel.el,
+      items: [{ label: 'デブリーフへ戻る', onSelect: close }],
+      onCancel: close,
+      hint: '再生画面のボタンで速度・視点・時間を操作 / Esc で戻る',
+    });
+  }
+
   /** 格納庫: 機体と僚機を選ぶ */
   private showHangar(): void {
     const def = this.currentMission();
     const sel = this.ensureSelection(def);
-    const ships = [...PLAYABLE_SHIPS];
+    const ships = PLAYABLE_SHIPS.filter((id) =>
+      shipDef(id).missiles.length === 0 || shipDef(id).missiles.some((m) => availableMissiles(this.save.supplies, m.missileId) > 0),
+    );
+    if (ships.length && !ships.includes(sel.shipId as (typeof ships)[number])) sel.shipId = ships[0];
+    const shipPool = ships.length ? ships : [sel.shipId];
     const avail = availablePilots(this.save.roster);
 
     const items: MenuItem[] = [
       {
         label: `機体を変える (${escapeHtml(shipDef(sel.shipId).name)})`,
+        disabled: ships.length === 0,
         onSelect: () => {
-          const i = ships.indexOf(sel.shipId as (typeof ships)[number]);
-          sel.shipId = ships[(i + 1) % ships.length];
+          const i = shipPool.indexOf(sel.shipId);
+          sel.shipId = shipPool[(i + 1) % shipPool.length];
           // 機体を変えたら副兵装は機体の既定に戻す
           sel.missiles =
-            sel.shipId === def.playerShipId ? def.playerMissiles : undefined;
+            sel.shipId === def.playerShipId ? clampLoadout(this.save.supplies, def.playerMissiles) : undefined;
           this.showHangar();
         },
       },
@@ -355,6 +505,7 @@ export class App {
           const ids = avail.map((p) => p.id);
           const i = sel.wingmanId ? ids.indexOf(sel.wingmanId) : -1;
           sel.wingmanId = ids[(i + 1) % ids.length];
+          sel.wingmanSlot = ((sel.wingmanSlot ?? 2) % 4) + 1;
           this.save.roster.lastWingman = sel.wingmanId;
           this.showHangar();
         },
@@ -513,10 +664,13 @@ export class App {
 
   private launch(withTutorial = false): void {
     const def = this.currentMission();
+    const load = this.loadoutFor(def);
+    consumeLoadout(this.save.supplies, load.missiles);
+    this.save.supplies.flares = Math.max(0, this.save.supplies.flares - (load.flares ?? 0));
     this.screens.hide();
-    this.save.sorties++;
+    if (!this.trainingActive) this.save.sorties++;
     writeSave(this.save);
-    this.game.startMission(def, this.loadoutFor(def), withTutorial);
+    this.game.startMission(def, load, withTutorial);
   }
 
   /** 初回プレイの1本目だけ訓練案内を出す */
@@ -526,6 +680,11 @@ export class App {
 
   private onMissionEnd(outcome: 'win' | 'loss'): void {
     this.lastSummary = this.game.runner?.summary();
+    if (this.trainingActive) {
+      this.trainingActive = false;
+      this.showTrainingDebrief(outcome);
+      return;
+    }
     this.applyRosterOutcome();
     this.showDebrief(outcome);
   }
@@ -557,12 +716,43 @@ export class App {
   private showDebrief(outcome: 'win' | 'loss'): void {
     const def = this.currentMission();
     const s = this.lastSummary;
+    const dynamic = this.save.dynamicMission;
     const kills = s?.kills ?? 0;
     this.save.totalKills += kills;
     if (outcome === 'win' && !this.save.cleared.includes(def.id)) {
       this.save.cleared.push(def.id);
     }
-    const nextNode = advance(this.save.node, outcome);
+    if (s) {
+      recordMissionStatistics(this.save.statistics, {
+        outcome,
+        shipId: s.shipId,
+        seconds: s.seconds,
+        shotsFired: s.shotsFired,
+        hits: s.hits,
+        wingmanHullRatio: s.wingmanHullRatio,
+        wingmanRescued: s.wingmanRescued,
+        wingmanAbandoned: s.wingmanAbandoned,
+      });
+    }
+    replenishForMission(this.save.supplies, outcome, !!s?.escortLost);
+    let nextNode: CampaignNodeId;
+    if (dynamic) {
+      applyFrontlineOutcome(this.save.frontline, dynamic, outcome, { escortLost: s?.escortLost, kills });
+      nextNode = dynamic.returnNode as CampaignNodeId;
+      this.save.dynamicMission = undefined;
+    } else {
+      nextNode = advance(this.save.node, outcome);
+      // 固定ミッションの間に、2回に1回は前線作戦を挿入する。
+      // これにより本線9章の外側にも、哨戒・護衛・救難・強襲が積み上がる。
+      if (!isTerminal(nextNode) && this.save.sorties % 2 === 0) {
+        this.save.dynamicMission = chooseDynamicMission(this.save.frontline, nextNode, this.save.sorties + this.save.frontline.operations + 1);
+      }
+    }
+    if (!hasWingman(this.save.roster) && this.save.roster.reserves.length === 0) {
+      nextNode = DEFEAT;
+    }
+    if (nextNode === DEFEAT) this.save.ending = 'defeat';
+    else if (nextNode === VICTORY) this.save.ending = this.endingQuality();
     this.save.node = nextNode;
     writeSave(this.save);
 
@@ -607,6 +797,8 @@ export class App {
       content: scene.el,
       items: [
         { label: '続ける', onSelect: () => this.afterDebrief(nextNode) },
+        // デブリーフは表示時に統計を確定するため、戻り先は再集計を起こさない艦内画面にする。
+        { label: 'リプレイ / キルカム', disabled: this.game.replay.length < 2, onSelect: () => this.showReplayPanel(() => this.showHub()) },
         { label: 'この任務をやり直す', onSelect: () => this.retry(def.id, outcome) },
         { label: 'タイトルへ戻る', onSelect: () => this.showTitle() },
       ],
@@ -752,15 +944,18 @@ export class App {
   private showEnding(victory: boolean): void {
     this.game.sound.music.play(victory ? 'victory' : 'defeat');
     this.game.endMission();
+    const quality = victory ? (this.save.ending ?? 'victory') : 'defeat';
+    const title = quality === 'victory' ? '完全勝利' : quality === 'pyrrhic' ? '苦い勝利' : quality === 'draw' ? '痛み分け' : '戦役終了';
     this.screens.show({
       crest: victory ? artUrl('emblem-confed') : artUrl('emblem-kilrathi'),
       crestHeight: 132,
-      title: victory ? '戦役完了' : '戦役終了',
+      title,
       heroTitle: true,
-      subtitle: victory ? 'VEGA SECTOR SECURED' : 'TIGER’S CLAW LOST',
-      bodyHtml: victory
+      subtitle: quality === 'victory' ? 'VEGA SECTOR SECURED' : quality === 'defeat' ? 'TIGER’S CLAW LOST' : 'VEGA SECTOR HELD',
+      bodyHtml: quality !== 'defeat'
         ? `<div class="block">` +
-          `ヴェガ宙域からキルラシー艦隊は退いた。タイガーズ・クローは健在で、君はまだ生きている。` +
+          `${quality === 'victory' ? 'ヴェガ宙域からキルラシー艦隊は退いた。' : quality === 'pyrrhic' ? 'ヴェガ宙域は守った。だが、空いた席と焼けた甲板が勝利の代償だ。' : '敵の主力は退いたが、両軍とも戦線を維持できるほどの余力を失った。'} ` +
+          `タイガーズ・クローは健在で、君はまだ生きている。` +
           `戦争そのものはまだ終わらない。だが、この宙域の住民は今夜、空を見上げて眠れる。` +
           `</div><div class="block"><h3>最終記録</h3><ul>` +
           `<li>通算撃墜 ${this.save.totalKills} 機</li>` +
@@ -777,6 +972,15 @@ export class App {
         { label: 'タイトルへ戻る', onSelect: () => this.showTitle() },
       ],
     });
+  }
+
+  private endingQuality(): 'victory' | 'pyrrhic' | 'draw' {
+    const systems = Object.values(this.save.frontline.systems);
+    const control = systems.reduce((sum, s) => sum + s.control, 0) / Math.max(1, systems.length);
+    const dead = fallen(this.save.roster).length;
+    if (control >= 62 && dead <= 1) return 'victory';
+    if (control >= 45) return 'pyrrhic';
+    return 'draw';
   }
 
   // ───────── ポーズ ─────────
@@ -806,6 +1010,10 @@ export class App {
         {
           label: '操作方法',
           onSelect: () => this.showPauseHelp(),
+        },
+        {
+          label: `リプレイ / キルカム (${this.game.replay.length}フレーム)`,
+          onSelect: () => this.showReplayPanel(() => this.showPause2()),
         },
         {
           label: 'ミッションをやり直す',

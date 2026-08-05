@@ -1,3 +1,4 @@
+import { Vector3 } from 'three';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DIFFICULTIES } from '../src/app/settings';
 import {
@@ -10,11 +11,13 @@ import {
 } from '../src/content/campaign';
 import { MISSIONS, missionDef } from '../src/content/missions';
 import { reseed } from '../src/core/rng';
+import { bus } from '../src/core/events';
 import { MissionRunner } from '../src/mission/MissionRunner';
 import type { MissionDef } from '../src/mission/types';
 import { newAi } from '../src/sim/ai';
 import { destroyEntity, setCombatOptions } from '../src/sim/combat';
 import { simulateStep } from '../src/sim/step';
+import { newSubsystems } from '../src/sim/subsystems';
 import { World } from '../src/world/world';
 
 const DT = 1 / 60;
@@ -220,6 +223,68 @@ describe('目標評価', () => {
     const clear = runner.objectiveViews().find((v) => v.text.includes('全機撃破'));
     expect(clear?.state).toBe('active');
     expect(runner.state).toBe('running');
+  });
+
+  it('旗艦強襲は砲塔→エンジン→魚雷の順で進む', () => {
+    const base = missionDef('m6-flagship');
+    const flagshipSpawn = base.spawns.find((s) => s.tag === 'flagship')!;
+    const def: MissionDef = {
+      ...base,
+      spawns: [{ ...flagshipSpawn, delay: 0 }],
+      objectives: base.objectives.filter((o) => o.id !== 'escort'),
+    };
+    const { world, runner } = start(def);
+    reachNav(world, runner, def, 1);
+    run(world, runner, 0.5);
+
+    const flagship = world.entities.find((e) => e.tag === 'flagship');
+    expect(flagship?.ship).toBeDefined();
+    flagship!.ship!.subsystems = newSubsystems();
+    expect(runner.capitalStageIndex).toBe(0);
+
+    // 砲塔を落とすまでは、エンジンが損傷しても段階は進まない
+    flagship!.ship!.subsystems.turret = 'damaged';
+    flagship!.ship!.subsystems.engine = 'damaged';
+    run(world, runner, 0.1);
+    expect(runner.capitalStageIndex).toBe(0);
+
+    flagship!.ship!.subsystems.turret = 'dead';
+    run(world, runner, 0.1);
+    expect(runner.capitalStageIndex).toBe(1);
+
+    // エンジン停止前は魚雷発射イベントだけでは最終段階へ行けない
+    flagship!.ship!.subsystems.engine = 'damaged';
+    bus.emit('weaponFired', {
+      shooter: world.player!,
+      muzzle: new Vector3(),
+      direction: new Vector3(0, 0, -1),
+      weaponKind: 'missile',
+      weaponId: 'torpedo',
+      isPlayer: true,
+    });
+    run(world, runner, 0.1);
+    expect(runner.capitalStageIndex).toBe(1);
+
+    flagship!.ship!.subsystems.engine = 'dead';
+    run(world, runner, 0.1);
+    expect(runner.capitalStageIndex).toBe(2);
+
+    world.player!.ship!.lockedId = flagship!.id;
+    bus.emit('weaponFired', {
+      shooter: world.player!,
+      muzzle: new Vector3(),
+      direction: new Vector3(0, 0, -1),
+      weaponKind: 'missile',
+      weaponId: 'torpedo',
+      isPlayer: true,
+    });
+    run(world, runner, 0.1);
+    expect(runner.capitalStageIndex).toBe(3);
+
+    destroyEntity(world, flagship!, world.player);
+    world.compact();
+    runner.update(DT);
+    expect(runner.objectiveViews().find((v) => v.text.includes('カクタグ'))?.state).toBe('done');
   });
 });
 

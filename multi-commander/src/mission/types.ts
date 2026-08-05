@@ -1,6 +1,8 @@
 import type { Faction } from '../content/ships';
 import type { LandmarkDef } from '../render/Landmarks';
 import type { SkyboxOptions } from '../render/Starfield';
+import type { AceState } from '../content/aces';
+import type { SubsystemId } from '../sim/subsystems';
 
 export type Tone = 'friendly' | 'enemy' | 'command';
 
@@ -96,6 +98,18 @@ export interface NavDef {
   onArrive?: RadioLineDef[];
 }
 
+export interface CapitalStageDef {
+  id: string;
+  text: string;
+  /** このタグの敵を全滅させるまで次段階へ進めない */
+  tag: string;
+  /** 対象艦の指定部位を完全損失させる段階 */
+  subsystem?: SubsystemId;
+  /** 指定兵装を発射して初めて完了する段階 */
+  weapon?: 'torpedo';
+  radio?: RadioLineDef[];
+}
+
 export interface MissionDef {
   id: string;
   title: string;
@@ -119,6 +133,10 @@ export interface MissionDef {
   /** 巨大構造物 (描画のみ。当たり判定は持たない) */
   landmarks?: LandmarkDef[];
   objectives: ObjectiveDef[];
+  /** 旗艦／拠点攻撃の段階。護衛→本体→帰投をデータとして表す。 */
+  capitalStages?: CapitalStageDef[];
+  /** 互換用の段階表とは別に、部位攻撃の実行順を定義する。 */
+  capitalSequence?: CapitalStageDef[];
   /** 既定の搭乗機 */
   playerShipId: string;
   /** 機体の既定副兵装を上書きする (魚雷を積ませる等) */
@@ -136,6 +154,12 @@ export interface Loadout {
   shipId: string;
   gunId?: string;
   missiles?: Array<{ missileId: string; count: number }>;
+  /** 搭載するフレア数 (有限補給から割り当てる) */
+  flares?: number;
+  /** キャンペーンをまたぐ宿敵の状態。訓練出撃では省略する。 */
+  aceStates?: AceState[];
+  /** 僚機を何番機として飛ばすか。編隊位置と無線の呼称に使う。 */
+  wingmanSlot?: number;
   /**
    * 同行する僚機。
    * 名簿から選ばれた人物の情報をそのまま渡す (未指定なら単独出撃)。

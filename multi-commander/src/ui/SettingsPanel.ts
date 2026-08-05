@@ -1,25 +1,14 @@
-import { DIFFICULTIES, resetSettings, settings, updateSettings, type DifficultyId } from '../app/settings';
+import {
+  CONTROL_BINDINGS,
+  DIFFICULTIES,
+  resetSettings,
+  settings,
+  updateSettings,
+  type DifficultyId,
+} from '../app/settings';
+import { InputManager } from '../app/input';
 
 type Tab = 'game' | 'controls' | 'audio';
-
-const KEY_HELP: Array<[string, string]> = [
-  ['機首操縦', '↑↓←→ / マウス'],
-  ['ロール', 'Q / E'],
-  ['スロットル', '] [ / ホイール / 1-9 / 0'],
-  ['全速 / 停止', '` / Backspace'],
-  ['アフターバーナー', 'Tab (押しっぱなし)'],
-  ['主砲', 'Space / 左クリック'],
-  ['ミサイル', 'Enter / 右クリック'],
-  ['副兵装切替', 'X'],
-  ['フレア', 'G'],
-  ['ターゲット 次/最至近/正面', 'T / R / Y'],
-  ['オートパイロット', 'A'],
-  ['通信メニュー', 'C (数字で選択)'],
-  ['被害状況', 'D'],
-  ['視点切替', 'F'],
-  ['マウス操縦 ON/OFF', 'M'],
-  ['ポーズ', 'Esc'],
-];
 
 /**
  * 設定パネル。変更は即時反映・自動保存する。
@@ -96,6 +85,16 @@ export function buildSettingsPanel(onChange: () => void): HTMLElement {
           updateSettings({ invertY: v });
           render();
         }),
+        toggleRow('ゲームパッドのアナログスロットル', settings.gamepadThrottle, (v) => {
+          updateSettings({ gamepadThrottle: v });
+          render();
+        }),
+        rangeRow('ゲームパッド デッドゾーン', settings.gamepadDeadzone, 0, 0.4, 0.01, (v) =>
+          updateSettings({ gamepadDeadzone: v }),
+        ),
+        rangeRow('ゲームパッド感度', settings.gamepadSensitivity, 0.3, 2.5, 0.1, (v) =>
+          updateSettings({ gamepadSensitivity: v }),
+        ),
       );
       if (settings.advanced) {
         body.append(
@@ -122,14 +121,32 @@ export function buildSettingsPanel(onChange: () => void): HTMLElement {
           onChange();
           render();
         }),
+        rangeRow('被弾カメラ揺れ', settings.cameraShake, 0, 1, 0.05, (v) =>
+          updateSettings({ cameraShake: v }),
+        ),
+        rangeRow('追尾視点の遅延', settings.cameraFollowLag, 0, 1, 0.05, (v) =>
+          updateSettings({ cameraFollowLag: v }),
+        ),
+        rangeRow('アフターバーナー画角', settings.cameraFovKick, 0, 1, 0.05, (v) =>
+          updateSettings({ cameraFovKick: v }),
+        ),
+        toggleRow('自動水平 (ロール補助)', settings.autoLevel, (v) => {
+          updateSettings({ autoLevel: v });
+          render();
+        }),
+        toggleRow('旋回補助 (目標へ微補正)', settings.turnAssist, (v) => {
+          updateSettings({ turnAssist: v });
+          render();
+        }),
+        toggleRow('被弾時の時間減速', settings.timeSlowAssist, (v) => {
+          updateSettings({ timeSlowAssist: v });
+          render();
+        }),
+        rangeRow('無線字幕サイズ', settings.subtitleScale, 0.8, 1.8, 0.1, (v) =>
+          updateSettings({ subtitleScale: v }),
+        ),
       );
-      const keys = document.createElement('div');
-      keys.className = 'block';
-      keys.innerHTML =
-        '<h3>キー一覧</h3><div class="mc-keys">' +
-        KEY_HELP.map(([k, v]) => `<div><span class="k">${k}</span><span>${v}</span></div>`).join('') +
-        '</div>';
-      body.appendChild(keys);
+      body.appendChild(bindingPanel(render));
     } else {
       body.append(
         rangeRow('マスター音量', settings.volumeMaster, 0, 1, 0.05, (v) =>
@@ -141,6 +158,24 @@ export function buildSettingsPanel(onChange: () => void): HTMLElement {
         rangeRow('効果音 音量', settings.volumeSfx, 0, 1, 0.05, (v) =>
           updateSettings({ volumeSfx: v }),
         ),
+        toggleRow('ブルーム (発光のにじみ)', settings.bloom, (v) => {
+          updateSettings({ bloom: v });
+          onChange();
+          render();
+        }),
+        toggleRow('閃光を抑える', settings.reducedFlashes, (v) => {
+          updateSettings({ reducedFlashes: v });
+          render();
+        }),
+        toggleRow('色覚サポート配色', settings.colorblindMode, (v) => {
+          updateSettings({ colorblindMode: v });
+          onChange();
+          render();
+        }),
+        toggleRow('ゲームパッド振動', settings.gamepadRumble, (v) => {
+          updateSettings({ gamepadRumble: v });
+          render();
+        }),
       );
     }
 
@@ -176,6 +211,58 @@ function row(label: string): { root: HTMLElement; ctl: HTMLElement } {
   ctl.className = 'ctl';
   root.append(l, ctl);
   return { root, ctl };
+}
+
+/**
+ * キー割り当ての一覧。
+ * ボタンを押してから次のキー入力を捕まえるため、ゲーム側の入力処理より先に
+ * capture フェーズでイベントを止める。設定画面を開いたままでも誤発射しない。
+ */
+function bindingPanel(onRender: () => void): HTMLElement {
+  const panel = document.createElement('div');
+  panel.className = 'block mc-bindings';
+  const title = document.createElement('h3');
+  title.textContent = 'キー割り当て';
+  panel.appendChild(title);
+
+  const help = document.createElement('div');
+  help.className = 'dim mc-binding-help';
+  help.textContent = '変更したい項目のボタンを押し、割り当てるキーを入力。Esc で取消。';
+  panel.appendChild(help);
+
+  for (const { id, label } of CONTROL_BINDINGS) {
+    const { root, ctl } = row(label);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = InputManager.keyLabel(settings.keyBindings[id]);
+    button.addEventListener('click', () => {
+      button.disabled = true;
+      button.textContent = '入力待ち…';
+      const onKey = (ev: KeyboardEvent) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        window.removeEventListener('keydown', onKey, true);
+        if (ev.code === 'Escape') {
+          onRender();
+          return;
+        }
+        const keyBindings = { ...settings.keyBindings, [id]: ev.code };
+        updateSettings({ keyBindings });
+        onRender();
+      };
+      window.addEventListener('keydown', onKey, true);
+    });
+    ctl.appendChild(button);
+    root.classList.add('mc-binding-row');
+    panel.appendChild(root);
+  }
+
+  const pad = document.createElement('div');
+  pad.className = 'dim mc-binding-help';
+  pad.textContent =
+    'ゲームパッド: 左スティック=機首、RT=主砲、A/LT=ミサイル、LB/RB=ロール、右スティック縦=スロットル。';
+  panel.appendChild(pad);
+  return panel;
 }
 
 function toggleRow(label: string, value: boolean, onSet: (v: boolean) => void): HTMLElement {

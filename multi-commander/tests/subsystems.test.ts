@@ -50,7 +50,7 @@ describe('サブシステムの初期状態', () => {
     expect(hasDamage(e.ship)).toBe(false);
   });
 
-  it('輸送艦・艦艇は部位損傷を持たない', () => {
+  it('輸送艦は部位損傷を持たず、艦艇は船体貫通時に艦艇部位を持つ', () => {
     const { e: t } = fighter('drayman');
     const { e: c } = fighter('tigers-claw');
     expect(t.ship!.subsystems).toBeUndefined();
@@ -58,6 +58,18 @@ describe('サブシステムの初期状態', () => {
     // 参照しても既定値 (正常) が返る
     expect(stateOf(t.ship, 'radar')).toBe('ok');
     expect(radarQuality(t.ship)).toBe(1);
+
+    // 艦艇はハルに通ったダメージを受けた時点で、砲塔を含む艦艇用部位を遅延生成する
+    let broken: string | undefined;
+    for (let i = 0; i < 30 && !broken; i++) {
+      broken = rollSubsystemDamage(c, 100, 'front', 100);
+    }
+    expect(broken).toBeDefined();
+    expect(['radar', 'turret', 'engine', 'shieldGen', 'comms', 'thrusters']).toContain(broken);
+    expect(c.ship!.subsystems).toBeDefined();
+
+    c.ship!.subsystems!.turret = 'dead';
+    expect(gunOperational(c.ship, 0)).toBe(false);
   });
 });
 

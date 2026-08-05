@@ -1,6 +1,9 @@
+import { ACTION_LABELS, type PetAction } from '../../shared/actions.js';
 import { localReaction, type CareKind } from '../../shared/reactions.js';
 import { findItem } from '../../shared/items.js';
 import type { AwayReport, ChatTurn, PetView } from '../../shared/types.js';
+import { findSpot, placeLabel, type ZoneId } from '../../shared/world.js';
+import type { AgendaEvent } from '../sim/agenda.js';
 import { dominantTraits, TRAIT_LABELS } from '../../shared/personality.js';
 import { api, ApiError, type GrowthEvent, type InventoryEntry } from '../net/api.js';
 import { Stage } from '../render/Stage.js';
@@ -23,6 +26,38 @@ import { openSocialPanel } from '../ui/SocialPanel.js';
 
 const THINK_POLL_MS = 30_000;
 
+/** できごとログの行頭につける印。文字だけだと流し読みできないため。 */
+const ACTION_ICON: Partial<Record<PetAction, string>> = {
+  nap: '💤',
+  eat: '🍚',
+  play: '🎾',
+  wash: '🫧',
+  dig: '⛏️',
+  bury_treasure: '💎',
+  sniff_flower: '🌷',
+  splash_puddle: '💧',
+  chase_butterfly: '🦋',
+  climb_tree: '🌳',
+  stargaze: '⭐',
+  sunbathe: '☀️',
+  chat_bird: '🐦',
+  check_mail: '📮',
+  dance: '🎵',
+  sing: '🎶',
+  peek_window: '🪟',
+  hide_item: '🙈',
+  stare_owner: '👀',
+  daydream: '💭',
+  jump_joy: '✨',
+  roll_around: '🌀',
+  stretch: '🐈',
+  tidy_room: '🧹',
+  nuzzle: '💛',
+  sulk_corner: '💧',
+  walk: '🐾',
+  idle: '·',
+};
+
 export class App {
   private host: HTMLElement;
   private stage: Stage | null = null;
@@ -34,6 +69,8 @@ export class App {
   private thinkTimer = 0;
   private encounterWatch = 0;
   private llmAvailable = true;
+  /** 直前にログへ書いたゾーン。部屋を移ったときだけ書くための記録。 */
+  private lastZoneId: ZoneId | null = null;
 
   constructor(host: HTMLElement) {
     this.host = host;
@@ -95,8 +132,9 @@ export class App {
     this.stage = new Stage(stageHost, {
       onPetTouched: () => void this.care({ kind: 'pet' }),
       onActionChanged: () => {
-        /* FSM の行動変化はサーバに送らない（見た目だけ） */
+        /* 見た目の行動変化はサーバに送らない（毎数秒なので通信しない） */
       },
+      onAgendaEvent: (event) => this.onAgendaEvent(event),
     });
     this.hud = new Hud(hudHost, {
       onUseItem: (itemId) => void this.care({ itemId }),
@@ -193,12 +231,49 @@ export class App {
     }
   }
 
+  /**
+   * ペットが新しい場所で何かを始めた。
+   *
+   * 見ていなくても世界が動いていると感じられるように、
+   * ここでログを1行流し、発見があればサーバに知らせる（記憶とコインになる）。
+   */
+  private onAgendaEvent(event: AgendaEvent): void {
+    const spot = event.spotId ? findSpot(event.spotId) : null;
+    const zoneId = spot?.zone ?? null;
+
+    if (event.find && spot) {
+      this.hud?.pushJournal(`${ACTION_ICON[event.action] ?? '✨'} ${event.find}`);
+      const index = spot.finds?.indexOf(event.find) ?? -1;
+      if (index >= 0) void this.reportDiscovery(spot.id, index);
+    } else if (zoneId && zoneId !== this.lastZoneId) {
+      // 部屋を移ったときだけ書く。行動ごとに書くと数秒でログが流れてしまう。
+      this.hud?.pushJournal(
+        `${ACTION_ICON[event.action] ?? '·'} ${placeLabel(spot!.id)}で ${ACTION_LABELS[event.action]}`,
+      );
+    }
+    if (zoneId) this.lastZoneId = zoneId;
+  }
+
+  private async reportDiscovery(spotId: string, findIndex: number): Promise<void> {
+    try {
+      const result = await api.discover(spotId, findIndex);
+      if (result.coins > 0) {
+        this.coins += result.coins;
+        if (this.pet) this.hud?.renderStatus(this.pet, this.coins);
+        toast(`ひろってきた 🪙 ${result.coins}`);
+      }
+    } catch {
+      // 発見はおまけなので、失敗しても黙って流す。
+    }
+  }
+
   private async think(): Promise<void> {
     if (!this.pet || document.hidden) return;
     // モーダルを開いている間は割り込まない。
     if (document.querySelector('.modal-backdrop')) return;
     try {
-      const result = await api.think();
+      // いまどこにいるかを渡すと、独り言がその場所の話になる。
+      const result = await api.think(this.stage?.currentSpotId() ?? null);
       this.pet = result.pet;
       this.hud?.renderStatus(result.pet, this.coins);
       this.stage?.setPet(result.pet);

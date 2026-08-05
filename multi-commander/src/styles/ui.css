@@ -286,6 +286,70 @@
   letter-spacing: 0.12em;
 }
 
+/* ───────── リプレイ / キルカム ───────── */
+
+.mc-replay {
+  width: min(980px, 92vw);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  box-sizing: border-box;
+  background: rgba(4, 11, 15, 0.9);
+  border: 1px solid var(--panel-line);
+}
+.mc-replay-head,
+.mc-replay-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mc-replay-head {
+  color: var(--hud);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+}
+.mc-replay-time {
+  margin-left: auto;
+  color: var(--hud-dim);
+  font: 12px monospace;
+}
+.mc-replay-canvas {
+  width: 100%;
+  height: min(48vh, 460px);
+  min-height: 220px;
+  display: block;
+  border: 1px solid rgba(127, 227, 176, 0.24);
+  background: #03080d;
+}
+.mc-replay-controls {
+  flex-wrap: wrap;
+}
+.mc-replay-controls button {
+  padding: 5px 10px;
+  border: 1px solid rgba(127, 227, 176, 0.3);
+  background: rgba(8, 18, 22, 0.85);
+  color: var(--hud);
+  font: 12px monospace;
+  cursor: pointer;
+}
+.mc-replay-controls button:hover {
+  background: rgba(127, 227, 176, 0.18);
+}
+.mc-replay-slider {
+  flex: 1 1 220px;
+  min-width: 180px;
+  accent-color: #7fe3b0;
+}
+.mc-replay-markers {
+  overflow: hidden;
+  color: var(--hud-dim);
+  font: 11px monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* 訓練メッセージ用の最下部1行バー */
 .mc-tutorial {
   position: absolute;

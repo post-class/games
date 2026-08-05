@@ -1,5 +1,5 @@
 import { ACTION_DURATION_MS, type PetAction } from '../../shared/actions.js';
-import type { Personality, TraitKey } from '../../shared/personality.js';
+import type { Personality } from '../../shared/personality.js';
 import type { Needs, PetView } from '../../shared/types.js';
 import {
   findSpot,

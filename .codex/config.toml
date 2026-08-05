@@ -18,3 +18,7 @@ args = [
   "--isolated"
 ]
 default_tools_approval_mode = "approve"
+
+[agents]
+max_threads = 10
+max_depth = 1

@@ -3,17 +3,25 @@ import { bus } from '../core/events';
 import { forwardOf } from '../core/math';
 import { Rng, rng } from '../core/rng';
 import { kilrathiName } from '../content/dialogue';
+import {
+  aceState,
+  recordAceEncounter,
+  recordAceEscape,
+  recordAceKill,
+} from '../content/aces';
 import { isHostile } from '../content/factions';
 import { shipDef } from '../content/ships';
 import type { DifficultyProfile } from '../app/settings';
 import type { ObjectiveView } from '../hud/HudView';
 import { newAi } from '../sim/ai';
 import { checkNavArrival } from '../sim/nav';
+import { stateOf } from '../sim/subsystems';
 import type { Entity } from '../world/entity';
 import { spawnMine, spawnNav, spawnRock, spawnShip, World } from '../world/world';
 import type {
   HazardDef,
   Loadout,
+  CapitalStageDef,
   MissionDef,
   ObjectiveDef,
   RadioLineDef,
@@ -78,11 +86,16 @@ export class MissionRunner {
   private escortLost = false;
   /** プレイヤーが倒したエースの数 */
   private acesKilled = 0;
+  /** 統計画面用。発射と命中をミッション単位で集計する。 */
+  private shotsFired = 0;
+  private hits = 0;
   private objectives: ObjectiveRuntime[] = [];
   private pending: PendingSpawn[] = [];
   private radioQueue: Array<{ line: RadioLineDef; at: number }> = [];
   private unsubs: Array<() => void> = [];
   private tagIndex = new Map<string, number[]>();
+  private capitalStage = 0;
+  private capitalTorpedoFired = false;
 
   constructor(
     readonly world: World,
@@ -107,6 +120,8 @@ export class MissionRunner {
     this.wingmanRescued = false;
     this.escortLost = false;
     this.acesKilled = 0;
+    this.shotsFired = 0;
+    this.hits = 0;
     this.objectives = this.def.objectives.map((d) => ({
       def: d,
       state: 'active',
@@ -122,6 +137,8 @@ export class MissionRunner {
     }));
     this.radioQueue = [];
     this.tagIndex.clear();
+    this.capitalStage = 0;
+    this.capitalTorpedoFired = false;
 
     // Nav ポイント
     this.def.navs.forEach((n, i) => {
@@ -154,6 +171,7 @@ export class MissionRunner {
       pilot: 'あなた',
       gunOverride: this.loadout.gunId,
       missileOverride: this.loadout.missiles,
+      flareOverride: this.loadout.flares,
       fuelScale: this.difficulty.fuelScale,
     });
     world.playerId = player.id;
@@ -175,7 +193,7 @@ export class MissionRunner {
       const e = spawnShip(world, {
         def: shipDef(wing.shipId),
         faction: 'confed',
-        pos: new Vector3(150, -20, 150).applyQuaternion(facing),
+        pos: new Vector3(((this.loadout.wingmanSlot ?? 2) - 2.5) * 180, -20, 150).applyQuaternion(facing),
         quat: facing,
         speed: 120,
         label: wing.callsign,
@@ -206,7 +224,45 @@ export class MissionRunner {
   private subscribe(): void {
     this.dispose();
     this.unsubs.push(
+      bus.on('weaponFired', (p) => {
+        if (p.isPlayer) this.shotsFired += 1;
+        const stage = this.activeCapitalStages[this.capitalStage];
+        if (
+          p.isPlayer &&
+          p.weaponKind === 'missile' &&
+          p.weaponId === stage?.weapon &&
+          this.tagAlive(stage.tag).alive > 0 &&
+          // 魚雷段階は「何かに撃った」だけでなく、旗艦をロックして
+          // 発射したときだけ進める。無駄撃ちを意味のある判断にする。
+          (stage.weapon !== 'torpedo' ||
+            (this.world.player?.ship?.lockedId !== undefined &&
+              (this.tagIndex.get(stage.tag) ?? []).includes(this.world.player.ship.lockedId)))
+        ) {
+          this.capitalTorpedoFired = true;
+        }
+      }),
+      bus.on('shieldHit', (p) => {
+        if (p.isPlayer) this.hits += 1;
+      }),
+      bus.on('armorHit', (p) => {
+        if (p.isPlayer) this.hits += 1;
+      }),
       bus.on('destroyed', (p) => {
+        const sourceShip = p.source?.kind === 'ship'
+          ? p.source
+          : p.source?.projectile
+            ? this.world.byId(p.source.projectile.ownerId)
+            : p.source?.missile
+              ? this.world.byId(p.source.missile.ownerId)
+              : undefined;
+        if (sourceShip?.ship?.ace && p.target.id === this.wingmanEntityId && p.target.ship?.pilot) {
+          const victim = sourceShip.ship.pilot ? aceState(this.loadout.aceStates ?? [], sourceShip.ship.pilot) : undefined;
+          if (victim) victim.lastVictim = p.target.ship.pilot;
+        }
+        if (p.target.ship?.ace) {
+          const state = p.target.ship.pilot ? aceState(this.loadout.aceStates ?? [], p.target.ship.pilot) : undefined;
+          if (state) recordAceKill(state);
+        }
         if (p.killedByPlayer) {
           this.kills++;
           if (p.target.ship?.ace) this.acesKilled++;
@@ -428,6 +484,11 @@ export class MissionRunner {
 
     for (let i = 0; i < g.count; i++) {
       const isAce = !!g.ace && i === 0;
+      const ace = isAce ? aceState(this.loadout.aceStates ?? [], g.ace!.pilot) : undefined;
+      // 一度撃墜した宿敵は、別ミッションの同じ無線だけを残して再出現させない。
+      // destroyTag が空になるケースは evaluateObjectives 側で達成扱いにする。
+      if (isAce && ace?.status === 'killed') continue;
+      if (isAce && ace) recordAceEncounter(ace, this.def.id);
       const id = isAce && g.ace?.shipId ? g.ace.shipId : g.shipId;
       const def = shipDef(id);
       const pos = base
@@ -448,7 +509,8 @@ export class MissionRunner {
       }
 
       const passive = def.role === 'transport' || def.role === 'capital';
-      const ai = newAi(isAce ? Math.min(1, skill + (g.ace?.skillBonus ?? 0.3)) : skill, {
+      const aceSkill = ace?.skill ?? skill;
+      const ai = newAi(isAce ? Math.min(1, Math.max(skill, aceSkill) + (g.ace?.skillBonus ?? 0.3)) : skill, {
         passive: passive || undefined,
         cruiseTo: cruise,
         leaderId: g.followPlayer ? player?.id : undefined,
@@ -477,6 +539,12 @@ export class MissionRunner {
         list.push(e.id);
         this.tagIndex.set(g.tag, list);
       }
+      if (isAce && ace && ace.escaped > 0) {
+        this.queueRadio(
+          [{ speaker: g.ace!.pilot, text: ace.lastVictim ? `${ace.lastVictim} の名を覚えている。次は貴様の番だ。` : 'また会ったな。前回は貴様が生き延びただけだ。', tone: 'enemy' }],
+          0.8,
+        );
+      }
     }
 
     if (g.radio) this.queueRadio(g.radio, 0.4);
@@ -500,6 +568,11 @@ export class MissionRunner {
       if (d > 1e-4 && away.divideScalar(d).dot(e.vel) <= 0) continue; // まだ向かってくる
       this.world.kill(e);
       this.routed++;
+      const ship = e.ship;
+      if (ship?.ace && ship.pilot) {
+        const state = aceState(this.loadout.aceStates ?? [], ship.pilot);
+        if (state) recordAceEscape(state);
+      }
       bus.emit('radio', {
         speaker: '管制',
         text: `${e.ship?.pilot ?? e.label ?? '敵機'} が戦域を離脱した。`,
@@ -574,14 +647,15 @@ export class MissionRunner {
         this.world.kill(t);
       }
     }
-    // 生存しているうちに回収できなかった対象は失われた
+    // 生存しているうちに回収できなかった対象は失われた。rescue は
+    // 「対象すべて」を回収する目標なので、1つでも失えば任務失敗にする。
     let lost = 0;
     for (const id of ids) {
       if (!set.has(id) && !this.world.byId(id)) lost++;
     }
     o.note = `${set.size}/${ids.length}${lost ? ` (喪失 ${lost})` : ''}`;
     if (ids.length > 0 && set.size + lost >= ids.length) {
-      o.state = set.size > 0 ? 'done' : 'failed';
+      o.state = lost === 0 && set.size === ids.length ? 'done' : 'failed';
     }
   }
 
@@ -625,6 +699,7 @@ export class MissionRunner {
 
   private evaluateObjectives(): void {
     const before = this.objectives.map((o) => o.state).join(',');
+    this.evaluateCapitalStages();
 
     for (const o of this.objectives) {
       if (o.state === 'failed') continue;
@@ -636,7 +711,12 @@ export class MissionRunner {
         }
         case 'destroyTag': {
           const t = this.tagAlive(o.def.spec.tag);
-          o.state = t.total > 0 && t.alive === 0 ? 'done' : 'active';
+          const stages = this.activeCapitalStages;
+          const capitalTarget = stages[stages.length - 1]?.tag;
+          const waitingForStage = capitalTarget === o.def.spec.tag && this.capitalStage < stages.length;
+          o.state = !waitingForStage && ((t.total === 0 && this.allSpawnsReleased()) || (t.total > 0 && t.alive === 0))
+            ? 'done'
+            : 'active';
           break;
         }
         case 'protect': {
@@ -703,8 +783,60 @@ export class MissionRunner {
     if (!requiredRemaining) this.finish('win');
   }
 
+  private evaluateCapitalStages(): void {
+    const stages = this.activeCapitalStages;
+    if (!stages.length) return;
+    while (this.capitalStage < stages.length) {
+      const stage = stages[this.capitalStage];
+      const tag = this.tagAlive(stage.tag);
+      // まだその段階のウェーブが出ていないなら、撃破扱いにはしない。
+      const hasPending = this.pending.some((p) => !p.released && p.group.tag === stage.tag);
+      if (hasPending || (tag.total === 0 && !this.allSpawnsReleased())) return;
+
+      // 段階を待っている間に対象そのものが撃沈された場合は、
+      // 「先に落とせてしまった」結果を詰みにしない。最終目標はすでに
+      // 達成されているので、残り段階も完了扱いにする。
+      if (tag.total > 0 && tag.alive === 0) {
+        this.capitalStage = stages.length;
+        return;
+      }
+
+      const subsystem = stage.subsystem;
+      if (subsystem) {
+        const targets = (this.tagIndex.get(stage.tag) ?? [])
+          .map((id) => this.world.byId(id))
+          .filter((e): e is Entity => !!e?.ship);
+        if (targets.length === 0 || !targets.every((e) => stateOf(e.ship, subsystem) === 'dead')) return;
+      } else if (stage.weapon) {
+        if (tag.alive === 0 || !this.capitalTorpedoFired) return;
+      } else if (tag.total > 0 && tag.alive > 0) {
+        return;
+      }
+
+      this.capitalStage += 1;
+      this.capitalTorpedoFired = false;
+      bus.emit('announce', { text: `段階完了: ${stage.text}`, kind: 'good', durationMs: 2200 });
+      if (stage.radio) this.queueRadio(stage.radio, 0.4);
+    }
+  }
+
+  private get activeCapitalStages(): CapitalStageDef[] {
+    return this.def.capitalSequence ?? this.def.capitalStages ?? [];
+  }
+
+  /** 艦艇強襲の進行段階。テスト・HUD 拡張用の読み取り専用値。 */
+  get capitalStageIndex(): number {
+    return this.capitalStage;
+  }
+
   private finish(outcome: MissionState): void {
     if (this.state !== 'running') return;
+    // 生存している宿敵は今回も離脱した。撃墜済みの state は変更しない。
+    for (const e of this.world.entities) {
+      if (!e.alive || e.kind !== 'ship' || !e.ship?.ace || !e.ship.pilot) continue;
+      const state = aceState(this.loadout.aceStates ?? [], e.ship.pilot);
+      if (state) recordAceEscape(state);
+    }
     this.state = outcome;
     bus.emit('missionEnded', { outcome: outcome === 'win' ? 'win' : 'loss' });
   }
@@ -734,6 +866,9 @@ export class MissionRunner {
     wingmanAbandoned: boolean;
     escortLost: boolean;
     acesKilled: number;
+    shotsFired: number;
+    hits: number;
+    shipId: string;
   } {
     const player = this.world.player;
     return {
@@ -752,6 +887,9 @@ export class MissionRunner {
       wingmanAbandoned: this.wingmanCalledForHelp || (this.wingmanLost && !this.wingmanRescued),
       escortLost: this.escortLost,
       acesKilled: this.acesKilled,
+      shotsFired: this.shotsFired,
+      hits: this.hits,
+      shipId: player?.ship?.def.id ?? this.loadout.shipId,
     };
   }
 
