@@ -1,7 +1,7 @@
 import { ACTION_LABELS, type PetAction } from '../../shared/actions.js';
 import { localReaction, type CareKind } from '../../shared/reactions.js';
-import { findItem } from '../../shared/items.js';
-import type { AwayReport, ChatTurn, PetView } from '../../shared/types.js';
+import { findItem, type ItemDef } from '../../shared/items.js';
+import type { AwayReport, ChatTurn, NeedKey, PetView } from '../../shared/types.js';
 import { findSpot, placeLabel, type ZoneId } from '../../shared/world.js';
 import type { AgendaEvent } from '../sim/agenda.js';
 import { dominantTraits, TRAIT_LABELS } from '../../shared/personality.js';
@@ -142,6 +142,12 @@ export class App {
       onOpen: (panel) => this.openPanel(panel),
     });
 
+    // HUD は「できごとログ」が増えると背が伸びる。伸びた分ステージを詰めないと
+    // ページが縦スクロールしてしまう（E2E D10）。HUD の高さを見張って詰め直す。
+    if (typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(() => this.stage?.refit()).observe(hudHost);
+    }
+
     await this.refresh(true);
     this.stage.start();
 
@@ -198,7 +204,7 @@ export class App {
           : 'clean'
       : 'pet';
 
-    // 即時フィードバック。
+    // 即時フィードバック（ステージ側）。
     const local = localReaction(
       this.pet.species,
       kind,
@@ -208,6 +214,14 @@ export class App {
     );
     this.stage?.playAction(local.action);
     this.stage?.say(local.say, 4500);
+
+    // 即時フィードバック（HUD 側）。
+    // 以前はステージの吹き出しだけ先に出し、アイテムの数とニーズのバーは
+    // サーバの返事（LLM を含むので 2〜4 秒かかる）を待っていた。
+    // 押したのに数字が動かないのは「効いていない」と読めてしまうので、
+    // 効果が確定しているぶん（アイテム定義の効果と消費）は先に画面へ出す。
+    // サーバの返事が来たら、そちらの値で必ず上書きする（正はサーバ）。
+    this.applyOptimisticCare(item ?? null);
 
     try {
       const result = await api.care(payload);
@@ -265,6 +279,34 @@ export class App {
     } catch {
       // 発見はおまけなので、失敗しても黙って流す。
     }
+  }
+
+  /**
+   * 世話の効果を先に画面へ反映する（楽観的更新）。
+   * アイテムの効果は `shared/items.ts` が正なのでクライアントでも同じ値を出せる。
+   * サーバの返事が来た時点で上書きされるので、ここでずれても残らない。
+   */
+  private applyOptimisticCare(item: ItemDef | null): void {
+    if (!this.pet) return;
+    if (item) {
+      this.inventory = this.inventory
+        .map((entry) =>
+          entry.itemId === item.id ? { ...entry, count: entry.count - 1 } : entry,
+        )
+        .filter((entry) => entry.count > 0);
+      const needs = { ...this.pet.needs };
+      for (const [key, delta] of Object.entries(item.effect)) {
+        const need = key as NeedKey;
+        needs[need] = Math.max(0, Math.min(100, needs[need] + (delta ?? 0)));
+      }
+      this.pet = { ...this.pet, needs };
+    } else {
+      // なでるは「なかよし」が少し上がる（サーバ側の値もおおよそこの範囲）。
+      const needs = { ...this.pet.needs, mood: Math.min(100, this.pet.needs.mood + 3) };
+      this.pet = { ...this.pet, needs };
+    }
+    this.hud?.renderStatus(this.pet, this.coins);
+    this.hud?.renderItems(this.inventory);
   }
 
   private async think(): Promise<void> {

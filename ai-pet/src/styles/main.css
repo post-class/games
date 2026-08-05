@@ -66,6 +66,14 @@ body {
   font-weight: 800;
   font-size: 18px;
   letter-spacing: 0.02em;
+  /* 狭い画面でタイトルが2行に折れると、その分ページが縦にはみ出す（E2E D10）。 */
+  white-space: nowrap;
+}
+
+@media (max-width: 380px) {
+  .app-title {
+    font-size: 16px;
+  }
 }
 
 .app-user {
@@ -74,6 +82,10 @@ body {
   gap: 8px;
   font-size: 13px;
   color: var(--ink-soft);
+  /* 長い名前でも折り返さない（折り返すとヘッダーが2行になり、ページがはみ出す）。 */
+  white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .stage-host {

@@ -4,6 +4,9 @@ import { clear, el, modal, toast, type ModalHandle } from './dom.js';
 
 /** 会話パネル。送信中も入力を止めない（体感を軽くする）。 */
 
+/** 1回に話せる長さ。サーバ側（300文字で切る）より短くしてある。 */
+const CHAT_MAX_LENGTH = 200;
+
 export interface ChatPanelOptions {
   petName: string;
   history: ChatTurn[];
@@ -18,7 +21,7 @@ export function openChatPanel(options: ChatPanelOptions): ModalHandle {
     class: 'field',
     type: 'text',
     placeholder: 'はなしかけてみよう',
-    maxlength: 200,
+    maxlength: CHAT_MAX_LENGTH,
     id: 'chat-input',
   });
   const send = el('button', { class: 'btn btn-primary', type: 'button', id: 'chat-send' }, 'いう');
@@ -44,7 +47,10 @@ export function openChatPanel(options: ChatPanelOptions): ModalHandle {
   }
 
   async function submit(): Promise<void> {
-    const text = input.value.trim();
+    // 入力欄の maxlength と同じ長さで切る。
+    // 貼り付けや自動入力は maxlength をすり抜けることがあり、
+    // そのままだと「画面には全文、サーバには切り詰めた分」が渡ってずれる（E2E E8）。
+    const text = input.value.trim().slice(0, CHAT_MAX_LENGTH);
     if (!text) return;
     input.value = '';
     history.push({ id: Date.now(), role: 'owner', text, emotion: null, createdAt: Date.now() });

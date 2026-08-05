@@ -347,3 +347,20 @@ export function forceAction(state: AgendaState, action: PetAction, now: number):
 export function currentZone(state: AgendaState) {
   return zoneAt(state.x);
 }
+
+/**
+ * 「いま本当にそのスポットに居るか」。
+ *
+ * `spotId` は行き先としても使うので、移動中や、
+ * 世話・LLM で行動を差し込まれて途中で足を止めたときは、まだそこに居ない。
+ * これを見ずに spotId を場所として扱うと
+ * 「ねむりべやの つちのところ」のような、ゾーンと噛み合わない場所名が出てしまう
+ * （E2E で実際に出た）。表示と LLM への受け渡しは必ずこれを通す。
+ */
+export function spotAtHand(state: AgendaState): Spot | null {
+  if (!state.spotId) return null;
+  const spot = findSpot(state.spotId);
+  if (!spot) return null;
+  if (zoneAt(state.x).id !== spot.zone) return null;
+  return Math.abs(spot.x - state.x) <= ARRIVE_X * 4 ? spot : null;
+}

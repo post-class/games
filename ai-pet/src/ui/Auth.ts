@@ -74,7 +74,9 @@ export function renderAuth(host: HTMLElement, onDone: () => void): void {
 /** 種族選択＋名前。性格はサーバ側で種族バイアス込みに生成される。 */
 export function renderCreatePet(host: HTMLElement, onDone: () => void): void {
   clear(host);
-  let selected: SpeciesId = SPECIES[0].id;
+  // 既定で1匹選んでおくと、選んだつもりのない子が生まれてしまう（E2E A8）。
+  // 「どの子をむかえる？」に答えてもらってから進める。
+  let selected: SpeciesId | null = null;
 
   const cards = SPECIES.map((species) => {
     const card = el(
@@ -87,10 +89,11 @@ export function renderCreatePet(host: HTMLElement, onDone: () => void): void {
     card.addEventListener('click', () => {
       selected = species.id;
       for (const other of cards) other.classList.toggle('selected', other === card);
+      submit.disabled = false;
+      submit.textContent = `${species.name}を むかえる`;
     });
     return card;
   });
-  cards[0].classList.add('selected');
 
   const nameInput = el('input', {
     class: 'field',
@@ -100,7 +103,11 @@ export function renderCreatePet(host: HTMLElement, onDone: () => void): void {
     id: 'pet-name',
   });
 
-  const submit = button('たまごをむかえる', async () => {
+  const submit = button('しゅるいを えらんでね', async () => {
+    if (!selected) {
+      toast('どの子を むかえるか えらんでください', 'error');
+      return;
+    }
     const name = nameInput.value.trim();
     if (!name) {
       toast('なまえを入れてください', 'error');
@@ -115,6 +122,8 @@ export function renderCreatePet(host: HTMLElement, onDone: () => void): void {
       submit.disabled = false;
     }
   }, 'btn btn-primary btn-wide');
+  // 選ぶまでは押せない（押せてしまうと、選んだつもりのない子が生まれる）。
+  submit.disabled = true;
 
   host.append(
     el(

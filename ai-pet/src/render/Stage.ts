@@ -26,6 +26,7 @@ import {
 import {
   forceAction,
   initialAgenda,
+  spotAtHand,
   updateAgenda,
   type AgendaEvent,
   type AgendaState,
@@ -168,19 +169,20 @@ export class Stage {
     this.bubble = null;
   }
 
-  /** いまペットが居る場所の言い方（「にわ の みずたまり」）。LLM に渡す。 */
+  /** いまペットが居る場所の言い方（「にわの みずたまり」）。 */
   placeCaption(): string {
     const zone = zoneAt(this.agenda.x);
-    const spot = this.agenda.spotId ? findSpot(this.agenda.spotId) : null;
-    if (this.agenda.phase === 'travel') {
-      return spot ? `${zone.name}から ${spot.name} へ 移動中` : `${zone.name}を うろうろ`;
-    }
-    return spot ? `${zone.name}の ${spot.name}` : zone.name;
+    const here = spotAtHand(this.agenda);
+    if (here) return `${zone.name}の ${here.name}`;
+    // まだ着いていないなら、行き先を「〜へ 移動中」と言う（そこに居るとは言わない）。
+    const going = this.agenda.spotId ? findSpot(this.agenda.spotId) : null;
+    if (this.agenda.phase === 'travel' && going) return `${zone.name}から ${going.name} へ 移動中`;
+    return `${zone.name}を うろうろ`;
   }
 
-  /** いまの行き先・滞在先（サーバに渡して独り言の材料にする）。 */
+  /** いま実際に居るスポット（サーバに渡して独り言の材料にする）。 */
   currentSpotId(): string | null {
-    return this.agenda.spotId;
+    return spotAtHand(this.agenda)?.id ?? null;
   }
 
   start(): void {
@@ -215,7 +217,10 @@ export class Stage {
     const hudHeight = document.querySelector('.hud')?.getBoundingClientRect().height ?? 330;
     const headerHeight = document.querySelector('.app-head')?.getBoundingClientRect().height ?? 46;
     const available = window.innerHeight - hudHeight - headerHeight - 60;
-    const height = Math.max(220, Math.min(width * 1.1, available));
+    // 下限は 150。以前は 220 を保証していたが、背の低い画面（1280×720 など）では
+    // それがページをはみ出させて縦スクロールを生んでいた（E2E D10）。
+    // 狭いときはステージを削ってでもページを1画面に収める。
+    const height = Math.max(150, Math.min(width * 1.1, available));
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     this.canvas.style.width = `${width}px`;
     this.canvas.style.height = `${height}px`;
@@ -275,6 +280,8 @@ export class Stage {
     if (!this.pet) return;
 
     const depth = this.agenda.depth;
+    // 名前札は「いま居る」スポットにだけ出す（行き先に出すと現在地と読み違える）。
+    const hereId = spotAtHand(this.agenda)?.id ?? null;
     const petHeight =
       m.viewH *
       (this.pet.stage === 'adult' ? 0.4 : this.pet.stage === 'child' ? 0.33 : 0.24) *
@@ -288,7 +295,7 @@ export class Stage {
     // ペットが物の裏や前に回り込んで見える。
     drawSpots(this.ctx, m, this.elapsed, {
       petDepth: depth,
-      activeSpotId: this.agenda.spotId,
+      activeSpotId: hereId,
       front: false,
     });
 
@@ -307,7 +314,7 @@ export class Stage {
 
     drawSpots(this.ctx, m, this.elapsed, {
       petDepth: depth,
-      activeSpotId: this.agenda.spotId,
+      activeSpotId: hereId,
       front: true,
     });
 

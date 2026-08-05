@@ -81,6 +81,48 @@ describe('スポット', () => {
     }
   });
 
+  /**
+   * 行動ラベルは「みずたまりで はねている」のように場所を含む言葉なので、
+   * 対応するスポット以外に置くと日本語として噛み合わなくなる。
+   * E2E で「だいどころの れいぞうこで おはなの においを かいでいる」が出たため、
+   * 場所限定の行動がどこに置けるかを固定する。
+   */
+  it('場所を名前に含む行動は、その場所にしか置かれていない', () => {
+    const onlyAt: Record<string, string[]> = {
+      sniff_flower: ['flowerbed'],
+      splash_puddle: ['puddle'],
+      chase_butterfly: ['butterfly'],
+      climb_tree: ['tree'],
+      stargaze: ['starspot'],
+      chat_bird: ['birdnest'],
+      check_mail: ['mailbox'],
+      peek_window: ['window'],
+      dig: ['dirt'],
+      bury_treasure: ['dirt'],
+      tidy_room: ['rug'],
+      eat: ['bowl'],
+      sulk_corner: ['frontdoor'],
+    };
+    for (const spot of SPOTS) {
+      for (const action of spot.actions) {
+        const allowed = onlyAt[action];
+        if (!allowed) continue;
+        expect(allowed, `${action} が ${spot.id} に置かれている`).toContain(spot.id);
+      }
+    }
+  });
+
+  it('屋外でしか成立しない行動は屋内に置かれていない', () => {
+    const outdoorOnly = ['dig', 'bury_treasure', 'splash_puddle', 'chase_butterfly', 'climb_tree', 'stargaze', 'sunbathe', 'chat_bird', 'sniff_flower', 'check_mail'];
+    for (const spot of SPOTS) {
+      if (zoneAt(spot.x).indoor) {
+        for (const action of spot.actions) {
+          expect(outdoorOnly, `屋内の ${spot.id} に ${action}`).not.toContain(action);
+        }
+      }
+    }
+  });
+
   it('奥行きは 0〜1 の範囲', () => {
     for (const spot of SPOTS) {
       expect(spot.depth).toBeGreaterThanOrEqual(0);

@@ -335,6 +335,15 @@ export function drawWorld(ctx: CanvasRenderingContext2D, m: WorldMetrics, layout
       }
     }
 
+    // 夜の暗さ。
+    // 以前は最後に画面全体へ薄く（16%）1枚重ねるだけだったので、
+    // 屋外は夜空で分かるのに屋内は昼と見分けが付かなかった（E2E D13）。
+    // ゾーンごとに、床・壁を描いた直後にしっかり落とす。
+    if (m.night) {
+      ctx.fillStyle = zone.indoor ? 'rgba(26,34,72,0.34)' : 'rgba(16,24,56,0.3)';
+      ctx.fillRect(x0, 0, x1 - x0, m.viewH);
+    }
+
     drawZonePlate(ctx, m, x0, x1, zone.name, zone.indoor);
     ctx.restore();
   }
@@ -349,11 +358,6 @@ export function drawWorld(ctx: CanvasRenderingContext2D, m: WorldMetrics, layout
     else if (left.zone.indoor !== right.zone.indoor) drawExitDoor(ctx, m, x);
   }
 
-  // 夜は屋内も少し暗くする（ランプのスポットが意味を持つように）。
-  if (m.night) {
-    ctx.fillStyle = 'rgba(30,40,80,0.16)';
-    ctx.fillRect(0, 0, m.viewW, m.viewH);
-  }
 }
 
 // --- 家具（おへやエディタで置いたもの。リビングに並ぶ） --------------------

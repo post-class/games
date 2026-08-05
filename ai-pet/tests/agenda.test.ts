@@ -5,12 +5,13 @@ import {
   NOVELTY_MS,
   pickSpot,
   pickSpotAction,
+  spotAtHand,
   spotScores,
   updateAgenda,
   type AgendaState,
 } from '../src/sim/agenda.js';
 import { clampPersonality, type Personality } from '../shared/personality.js';
-import { findSpot, SPOTS, zoneAt } from '../shared/world.js';
+import { findSpot, SPOTS, zoneAt, zonePoint } from '../shared/world.js';
 import type { Needs, PetView } from '../shared/types.js';
 
 /**
@@ -256,6 +257,58 @@ describe('updateAgenda', () => {
       expect(state.depth).toBeGreaterThanOrEqual(0);
       expect(state.depth).toBeLessThanOrEqual(1);
     }
+  });
+});
+
+describe('spotAtHand', () => {
+  const puddle = findSpot('puddle')!;
+
+  it('そのスポットに立っているときだけ返す', () => {
+    const there: AgendaState = {
+      ...initialAgenda(0),
+      phase: 'act',
+      spotId: puddle.id,
+      x: puddle.x,
+    };
+    expect(spotAtHand(there)?.id).toBe(puddle.id);
+  });
+
+  it('向かっている途中は返さない（そこに居るとは言わせない）', () => {
+    const traveling: AgendaState = {
+      ...initialAgenda(0),
+      phase: 'travel',
+      spotId: puddle.id,
+      x: 0.1,
+      targetX: puddle.x,
+    };
+    expect(spotAtHand(traveling)).toBeNull();
+  });
+
+  it('別のゾーンに居るあいだは返さない（「ねむりべやの つちのところ」を防ぐ）', () => {
+    const elsewhere: AgendaState = {
+      ...initialAgenda(0),
+      phase: 'act',
+      spotId: findSpot('dirt')!.id,
+      x: zonePoint('bedroom', 0.5),
+    };
+    expect(zoneAt(elsewhere.x).id).toBe('bedroom');
+    expect(spotAtHand(elsewhere)).toBeNull();
+  });
+
+  it('ぶらぶら歩いているときは返さない', () => {
+    expect(spotAtHand({ ...initialAgenda(0), spotId: null })).toBeNull();
+  });
+
+  it('世話で行動を差し込まれても、居ない場所を名乗らない', () => {
+    const traveling: AgendaState = {
+      ...initialAgenda(0),
+      phase: 'travel',
+      spotId: findSpot('dirt')!.id,
+      x: zonePoint('bedroom', 0.4),
+      targetX: findSpot('dirt')!.x,
+    };
+    const forced = forceAction(traveling, 'eat', 1000);
+    expect(spotAtHand(forced)).toBeNull();
   });
 });
 
