@@ -240,6 +240,20 @@
 .mc-save-slot { grid-template-columns: 90px minmax(0, 1fr); }
 .mc-save-slot.filled { border-color: rgba(127, 227, 176, 0.3); }
 .mc-save-slot.empty { opacity: 0.72; }
+.mc-panel:has(.mc-save-slot) {
+  max-height: min(58vh, 420px);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 8px;
+}
+.mc-panel:has(.mc-save-slot) > .block {
+  grid-column: 1 / -1;
+  margin-bottom: 4px;
+}
+.mc-panel:has(.mc-save-slot) > .mc-save-slot {
+  margin-top: 0;
+  padding: 5px 8px;
+}
 .mc-bar-row.selected {
   border-color: rgba(255, 179, 107, 0.58);
   background: rgba(214, 92, 42, 0.12);
@@ -1057,8 +1071,10 @@
 }
 .mc-brief-panel.flight-plan {
   min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
-.mc-brief-panel.flight-plan .block {
+.mc-brief-panel.flight-plan > .block:only-child {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   height: 100%;
@@ -1525,5 +1541,110 @@
   .mc-brief-side {
     padding-left: 0;
     border-left: 0;
+  }
+  .mc-screen.briefing > .mc-panel {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+}
+
+/* 1280×720では、格納庫の比較情報を残したまま出撃メニューと重ならない密度にする。 */
+@media (max-height: 760px) {
+  /* デブリーフは資料が縦に増えるため、右列内で安全に読み進める。 */
+  .mc-brief-side:has(.mc-debrief-campaign) {
+    grid-template-rows: auto max-content max-content;
+    align-content: start;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+  .mc-brief-side:has(.mc-debrief-campaign) .mc-brief-panel.flight-plan {
+    overflow: visible;
+  }
+
+  .mc-screen:has(.mc-hangar-layout) > .mc-panel {
+    max-height: min(64vh, 470px);
+    padding: 8px 12px;
+  }
+  .mc-screen:has(.mc-hangar-layout) .mc-hangar-intro .mc-board-head {
+    gap: 8px;
+    font-size: 11px;
+    line-height: 1.35;
+  }
+  .mc-screen:has(.mc-hangar-layout) .mc-hangar-intro .mc-board-head img {
+    width: 32px;
+    height: 32px !important;
+  }
+  .mc-screen:has(.mc-hangar-layout) .mc-hangar-intro h3 {
+    font-size: 11px;
+  }
+  .mc-screen:has(.mc-hangar-layout) .mc-hangar-section-title {
+    margin: 4px 0 3px;
+    padding: 3px 5px;
+    font-size: 9px;
+  }
+  .mc-screen:has(.mc-hangar-layout) .mc-hangar-grid {
+    gap: 5px;
+  }
+  .mc-screen:has(.mc-hangar-layout) .mc-hangar-ship {
+    padding: 4px 5px 5px;
+  }
+  .mc-screen:has(.mc-hangar-layout) .mc-hangar-ship-head {
+    min-height: 22px;
+  }
+  .mc-screen:has(.mc-hangar-layout) .mc-hangar-blueprint {
+    height: 48px;
+    margin: 1px 0;
+  }
+  .mc-screen:has(.mc-hangar-layout) .mc-hangar-role {
+    min-height: 12px;
+  }
+  .mc-screen:has(.mc-hangar-layout) .mc-hangar-metrics {
+    gap: 1px 5px;
+    margin-top: 2px;
+  }
+  .mc-screen:has(.mc-hangar-layout) .mc-hangar-metric {
+    font-size: 7px;
+  }
+  .mc-screen:has(.mc-hangar-layout) .mc-hangar-metric i {
+    height: 3px;
+  }
+  .mc-screen:has(.mc-hangar-layout) .mc-hangar-loadout {
+    margin-top: 5px;
+    padding: 5px 6px;
+  }
+  .mc-screen:has(.mc-hangar-layout) .mc-hangar-loadout-grid {
+    gap: 8px;
+    padding-top: 2px;
+  }
+  .mc-screen:has(.mc-hangar-layout) .mc-hangar-loadout-row {
+    padding: 1px 0;
+    font-size: 9px;
+  }
+  .mc-screen:has(.mc-hangar-layout) .mc-hangar-supply {
+    font-size: 9px;
+    line-height: 1.3;
+  }
+  .mc-screen:has(.mc-hangar-layout) .mc-panel > .mc-hangar-layout > .block {
+    margin: 4px 0 0 !important;
+    padding-top: 4px !important;
+  }
+  .mc-screen:has(.mc-hangar-layout) .mc-panel > .mc-hangar-layout .mc-bar-row {
+    gap: 8px;
+    padding-block: 2px !important;
+  }
+  .mc-screen:has(.mc-hangar-layout) .mc-panel > .mc-hangar-layout .mc-bar-row .mc-face,
+  .mc-screen:has(.mc-hangar-layout) .mc-panel > .mc-hangar-layout .mc-bar-row .mc-portrait {
+    width: 40px !important;
+    height: 40px !important;
+  }
+  .mc-screen:has(.mc-hangar-layout) .mc-panel > .mc-hangar-layout .mc-bar-name {
+    font-size: 11px;
+    line-height: 1.25;
+  }
+  .mc-screen:has(.mc-hangar-layout) .mc-panel > .mc-hangar-layout .mc-bar-text .dim,
+  .mc-screen:has(.mc-hangar-layout) .mc-panel > .mc-hangar-layout > .block > .dim {
+    font-size: 10px;
+    line-height: 1.25;
   }
 }
