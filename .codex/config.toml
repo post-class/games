@@ -1,3 +1,5 @@
+model_context_window = 1000000
+model_auto_compact_token_limit = 900000
 
 [mcp_servers.playwright-headed]
 command = "npx"

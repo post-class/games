@@ -80,6 +80,11 @@ export class App {
     try {
       const health = await api.health();
       this.llmAvailable = health.llm;
+      // AI が未設定でも遊べるが、黙って定型に落ちると
+      // 「この子は同じことしか言わない」と誤解される（E2E I6）。一度だけ伝える。
+      if (!health.llm) {
+        toast('AIなしモードです（定型のはんのうで あそべます）');
+      }
     } catch {
       this.llmAvailable = false;
     }
@@ -91,7 +96,9 @@ export class App {
     try {
       me = await api.me();
     } catch {
-      toast('サーバに繋がりません', 'error');
+      // ここで何も描かずに戻ると、真っ白な画面とトーストだけが残る（E2E I1）。
+      // 何が起きたのかと、次にどうすればいいのかを画面に出す。
+      this.renderOffline();
       return;
     }
 
@@ -104,6 +111,31 @@ export class App {
       return;
     }
     await this.renderGame(me.user.name);
+  }
+
+  /** サーバに繋がらないときの画面。白い画面を見せないため。 */
+  private renderOffline(): void {
+    clear(this.host);
+    if (this.thinkTimer) window.clearInterval(this.thinkTimer);
+    this.stage?.stop();
+    this.host.append(
+      el(
+        'div',
+        { class: 'screen screen-center' },
+        el(
+          'div',
+          { class: 'card card-auth' },
+          el('div', { class: 'celebrate-mark' }, '🔌'),
+          el('h1', { class: 'card-title' }, 'サーバに つながりません'),
+          el(
+            'p',
+            { class: 'hint' },
+            'ネットワークか サーバが 落ちているようです。ペットの データは サーバに 残っているので、つながればそのまま つづけられます。',
+          ),
+          button('もういちど ためす', () => void this.route(), 'btn btn-primary btn-wide'),
+        ),
+      ),
+    );
   }
 
   private async renderGame(userName: string): Promise<void> {
@@ -242,6 +274,9 @@ export class App {
       }
     } catch (error) {
       toast(error instanceof ApiError ? error.message : '通信に失敗しました', 'error');
+      // 先に画面へ出した楽観的な更新を、サーバの正しい値に戻す
+      // （通信が失敗したのにアイテムが減ったまま見えると嘘になる）。
+      await this.refresh();
     }
   }
 

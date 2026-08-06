@@ -196,6 +196,8 @@ function drawZonePlate(
   // 「そのゾーンの見えている範囲」の中央に寄せる。
   const left = Math.max(x0, 0);
   const right = Math.min(x1, m.viewW);
+  // 見えている幅より札が広いときは、置いても文字が切れて読めないので出さない。
+  if (right - left < w * 0.95) return;
   const centerX = Math.max(left + w / 2, Math.min((left + right) / 2, right - w / 2));
   ctx.save();
   ctx.lineWidth = 2;
