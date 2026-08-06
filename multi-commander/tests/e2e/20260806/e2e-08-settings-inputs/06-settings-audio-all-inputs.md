@@ -1,0 +1,39 @@
+- generic [ref=e19]:
+  - heading "設定" [level=1] [ref=e20]
+  - generic [ref=e21]:
+    - generic [ref=e22]:
+      - generic [ref=e284] [cursor=pointer]: ゲーム
+      - generic [ref=e285] [cursor=pointer]: 操作
+      - generic [ref=e286] [cursor=pointer]: オーディオ
+    - generic [ref=e26]:
+      - generic [ref=e287]:
+        - generic [ref=e288]: マスター音量
+        - generic [ref=e289]:
+          - slider [ref=e290]: "1"
+          - generic [ref=e291]: 100%
+      - generic [ref=e292]:
+        - generic [ref=e293]: BGM 音量
+        - generic [ref=e294]:
+          - slider [ref=e295]: "1"
+          - generic [ref=e296]: 100%
+      - generic [ref=e297]:
+        - generic [ref=e298]: 効果音 音量
+        - generic [ref=e299]:
+          - slider [ref=e300]: "1"
+          - generic [ref=e301]: 100%
+      - generic [ref=e302]:
+        - generic [ref=e303]: ブルーム (発光のにじみ)
+        - button "OFF" [ref=e305] [cursor=pointer]
+      - generic [ref=e306]:
+        - generic [ref=e307]: 閃光を抑える
+        - button "ON" [ref=e309] [cursor=pointer]
+      - generic [ref=e310]:
+        - generic [ref=e311]: 色覚サポート配色
+        - button "ON" [ref=e313] [cursor=pointer]
+      - generic [ref=e314]:
+        - generic [ref=e315]: ゲームパッド振動
+        - button "OFF" [ref=e317] [cursor=pointer]
+      - generic [ref=e318]:
+        - generic [ref=e319]: 初期設定に戻す
+        - button "リセット" [ref=e321] [cursor=pointer]
+  - generic [ref=e47]: 戻る

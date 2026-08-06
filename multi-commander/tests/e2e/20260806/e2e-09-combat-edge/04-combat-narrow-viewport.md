@@ -1,0 +1,107 @@
+- generic [ref=e2]:
+  - generic:
+    - generic:
+      - generic: ナビポイント到達
+      - generic:
+        - generic: ▸ 哨戒隊を撃退
+        - generic: ▸ 帰投
+    - generic:
+      - generic:
+        - generic:
+          - generic: SELF / SYSTEMS
+          - generic: あなた / F-54 ホーネット
+          - generic:
+            - generic: SHIELD
+            - generic: 78%
+          - generic:
+            - generic: ARMOR
+            - generic: 100%
+          - generic:
+            - generic: HULL
+            - generic: 100%
+          - generic:
+            - generic: GUN PWR
+            - generic: 110 / 110
+          - generic:
+            - generic: PRIMARY
+            - generic: LASER
+          - generic: SYSTEMS
+          - generic: RADAR READY
+          - generic: GUNS READY
+        - generic:
+          - generic:
+            - generic: 160 KPS
+            - generic:
+              - generic:
+                - generic: THROTTLE
+                - generic: 40%
+            - generic:
+              - generic:
+                - generic: GUN PWR
+                - generic: "110"
+            - generic:
+              - generic:
+                - generic: AB FUEL
+                - generic: 6.0s
+          - generic:
+            - generic: SHIELDS / ARMOR
+            - generic: HULL 100%
+          - generic: RADAR
+        - generic:
+          - generic: DAMAGE [D]
+          - generic:
+            - generic: シールド 前/後
+            - generic: 78%
+          - generic:
+            - generic: 装甲 前
+            - generic: 100%
+          - generic:
+            - generic: 装甲 後
+            - generic: 100%
+          - generic:
+            - generic: 装甲 左/右
+            - generic: 100%
+          - generic:
+            - generic: 船体
+            - generic: 100%
+          - generic: システム
+          - generic:
+            - generic: レーダー
+            - generic: 正常
+          - generic:
+            - generic: 左舷砲
+            - generic: 正常
+          - generic:
+            - generic: 右舷砲
+            - generic: 正常
+          - generic:
+            - generic: 砲塔
+            - generic: 正常
+          - generic:
+            - generic: エンジン
+            - generic: 正常
+          - generic:
+            - generic: シールド発生器
+            - generic: 正常
+          - generic:
+            - generic: 通信機
+            - generic: 正常
+          - generic:
+            - generic: 姿勢制御
+            - generic: 正常
+    - generic:
+      - generic: 航法マップ [N で閉じる]
+      - img:
+        - generic: 発艦点
+        - generic: 帰投
+        - generic: 1.3k
+      - generic: "次の目的地: 帰投 距離 4.7k A でオートパイロット"
+    - generic:
+      - generic: 通信 [C で閉じる]
+      - generic:
+        - generic: 1. 編隊を組め (Form on my wing)
+        - generic: 2. 私の目標を攻撃 (Attack my target)
+        - generic: 3. 散開して交戦 (Break and attack)
+        - generic: 4. 支援に来い (Help me)
+        - generic: 5. 僚機の状況を報告 (Report)
+        - generic: 6. 敵を挑発する (Taunt)

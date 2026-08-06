@@ -1,0 +1,17 @@
+- generic [ref=f5e118]:
+  - heading "授与式" [level=1] [ref=f5e119]
+  - generic [ref=f5e120]: TCS タイガーズ・クロー 格納庫
+  - generic [ref=f5e121]:
+    - generic [ref=f5e122]:
+      - generic [ref=f5e123]: "ハルシオン大佐:"
+      - generic [ref=f5e124]: 全員、整列。本日をもって本官の権限により、貴官を中尉に任ずる。
+    - generic [ref=f5e125]:
+      - heading "勲章" [level=3] [ref=f5e126]
+      - generic [ref=f5e127]:
+        - img "ブロンズ・スター" [ref=f5e128]
+        - generic [ref=f5e129]: ブロンズ・スター初めての戦果に対して
+    - generic [ref=f5e130]:
+      - heading "昇進" [level=3] [ref=f5e131]
+      - generic [ref=f5e132]: 中尉 に昇進した。
+    - generic [ref=f5e134]: 拍手は短い。次の出撃が控えている。
+  - generic [ref=f5e135]: 解散

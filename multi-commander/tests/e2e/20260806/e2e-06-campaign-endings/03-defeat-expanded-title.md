@@ -1,0 +1,15 @@
+- generic [ref=f3e5]:
+  - heading "MULTI-COMMANDER" [level=1] [ref=f3e6]
+  - generic [ref=f3e7]: TCS TIGER’S CLAW — VEGA SECTOR
+  - generic [ref=f3e8]:
+    - generic [ref=f3e9]:
+      - heading "状況" [level=3] [ref=f3e10]
+      - text: キルラシー帝国との戦争は6年目に入った。君はタイガーズ・クローに配属された新任パイロットだ。ブリーフィングを受け、出撃し、生きて帰れ。戦況は君の戦果で変わる。
+    - generic [ref=f3e11]: "前回の記録: EXPANDED / McCAFFREY・第 9 章 / 勝利点 0 / 通算撃墜 0 機 難易度: ふつう"
+  - generic [ref=f3e12]:
+    - generic [ref=f3e13] [cursor=pointer]: 新しい戦役を始める (EXPANDED / McCAFFREY)
+    - generic [ref=f3e14] [cursor=pointer]: 続きから
+    - generic [ref=f3e15] [cursor=pointer]: 新規戦役モードを切替 (EXPANDED / McCAFFREY)
+    - generic [ref=f3e16] [cursor=pointer]: 設定
+    - generic [ref=f3e17] [cursor=pointer]: 操作説明
+  - generic [ref=f3e18]: ▲▼ で選択 / Enter で決定

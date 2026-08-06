@@ -1,0 +1,13 @@
+- generic [ref=f5e88]:
+  - heading "追悼" [level=1] [ref=f5e89]
+  - generic [ref=f5e90]:
+    - generic [ref=f5e93]:
+      - generic [ref=f5e94]: Spirit
+      - generic [ref=f5e95]: 田中 真理子 堅実
+      - generic [ref=f5e96]: 撃墜 0 機 / 出撃 0 回
+      - generic [ref=f5e97]: McAuliffe Series — 撤退援護 — 損傷艦の脱出 にて戦死
+    - generic [ref=f5e98]:
+      - generic [ref=f5e99]: "Maniac:"
+      - generic [ref=f5e100]: 冗談じゃない。あんな奴が落ちるか。
+    - generic [ref=f5e101]: この席は二度と埋まらない。補充は来るが、同じ人間ではない。
+  - generic [ref=f5e102]: 黙祷を終える

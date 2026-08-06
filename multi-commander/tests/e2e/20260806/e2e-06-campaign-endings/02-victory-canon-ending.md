@@ -1,0 +1,14 @@
+- generic [ref=f1e19]:
+  - heading "完全勝利" [level=1] [ref=f1e20]
+  - generic [ref=f1e21]: VEGA SECTOR SECURED
+  - generic [ref=f1e22]:
+    - generic [ref=f1e23]: ヴェガ宙域からキルラシー艦隊は退いた。 タイガーズ・クローは健在で、君はまだ生きている。戦争そのものはまだ終わらない。だが、この宙域の住民は今夜、空を見上げて眠れる。
+    - generic [ref=f1e24]:
+      - heading "最終記録" [level=3] [ref=f1e25]
+      - list [ref=f1e26]:
+        - listitem [ref=f1e27]: 通算撃墜 0 機
+        - listitem [ref=f1e28]: 出撃 0 回
+        - listitem [ref=f1e29]: 難易度 ふつう
+  - generic [ref=f1e30]:
+    - generic [ref=f1e31] [cursor=pointer]: もう一度戦役を始める
+    - generic [ref=f1e32] [cursor=pointer]: タイトルへ戻る

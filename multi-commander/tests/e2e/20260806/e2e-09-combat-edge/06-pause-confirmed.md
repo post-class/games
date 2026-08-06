@@ -1,0 +1,99 @@
+- generic [ref=e4]:
+  - generic:
+    - generic: ◇ 発艦点 3.6k
+    - generic: 発着管制:発艦位置へ。カタパルト、ロック。
+    - generic:
+      - generic: ▸ 哨戒隊を撃退
+      - generic: ▸ 帰投
+    - generic: マウスを照準へ動かすと操縦できます (M でマウス操縦 OFF)
+  - generic:
+    - generic:
+      - generic:
+        - generic: SELF / SYSTEMS
+        - generic: あなた / F-54 ホーネット
+        - generic:
+          - generic: SHIELD
+          - generic: 100%
+        - generic:
+          - generic: ARMOR
+          - generic: 100%
+        - generic:
+          - generic: HULL
+          - generic: 100%
+        - generic:
+          - generic: GUN PWR
+          - generic: 110 / 110
+        - generic:
+          - generic: PRIMARY
+          - generic: LASER
+        - generic: SYSTEMS
+        - generic: RADAR READY
+        - generic: GUNS READY
+      - generic:
+        - generic:
+          - generic: 40 KPS
+          - generic:
+            - generic:
+              - generic: THROTTLE
+              - generic: 0%
+          - generic:
+            - generic:
+              - generic: GUN PWR
+              - generic: "110"
+          - generic:
+            - generic:
+              - generic: AB FUEL
+              - generic: 6.0s
+        - generic:
+          - generic: SHIELDS / ARMOR
+          - generic: HULL 100%
+        - generic: RADAR
+      - generic:
+        - generic: TARGET / NAV
+        - generic: TARGET
+        - generic:
+          - generic: NO TARGET
+          - generic: T / R / Y で選択
+        - generic: NAV / WING
+        - generic:
+          - generic: NAV
+          - generic: 発艦点
+        - generic:
+          - generic: DIST
+          - generic: 3.6k
+        - generic:
+          - generic: WINGMAN
+          - generic: Angel
+        - generic:
+          - generic: STATUS
+          - generic: FORMED
+        - generic: WEAPONS [X]
+        - generic:
+          - generic:
+            - generic: SELECTED
+            - generic: ダムファイア
+          - generic: 即時発射・無誘導。読み合いで近距離を取る
+          - generic:
+            - generic: AMMO
+            - generic: "2"
+          - generic:
+            - generic: ENERGY
+            - generic: 110 / 110 (−3/shot)
+          - generic: 発射可能
+        - generic:
+          - generic: ▸ ダムファイア
+          - generic: "2"
+        - generic:
+          - generic: フレア
+          - generic: "12"
+        - generic: ■ ロック不要 / 即時発射
+  - generic [ref=e386]:
+    - heading "ポーズ" [level=1] [ref=e387]
+    - generic [ref=e388]: 訓練室 — McCaffrey 前線哨戒
+    - generic [ref=e390]:
+      - generic [ref=e391] [cursor=pointer]: 再開
+      - generic [ref=e392] [cursor=pointer]: 設定
+      - generic [ref=e393] [cursor=pointer]: 操作方法
+      - generic [ref=e394] [cursor=pointer]: リプレイ / キルカム (0フレーム)
+      - generic [ref=e395] [cursor=pointer]: ミッションをやり直す
+      - generic [ref=e396] [cursor=pointer]: タイトルへ戻る

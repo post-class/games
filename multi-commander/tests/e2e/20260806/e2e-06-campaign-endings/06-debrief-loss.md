@@ -1,0 +1,44 @@
+- generic [ref=f5e46]:
+  - banner [ref=f5e47]:
+    - heading "任務失敗" [level=1] [ref=f5e48]
+    - generic [ref=f5e49]: McAuliffe Series — 護衛 — 補給船団
+  - generic [ref=f5e51]:
+    - generic [ref=f5e52]:
+      - generic:
+        - generic: ハルシオン大佐
+        - generic: TCS タイガーズ・クロー 艦長
+      - generic: 報告受信中
+    - generic [ref=f5e54]:
+      - generic [ref=f5e55]:
+        - generic [ref=f5e56]: McAuliffe の補給線が崩れた。防衛任務へ後退する。
+        - generic [ref=f5e57]: 《エルバ》を失った。積んでいた弾薬もろとも、だ。
+        - generic [ref=f5e58]: この宙域を維持する余力はもうない。我々は
+      - generic [ref=f5e59]: ▼
+    - generic [ref=f5e60]:
+      - heading "その他" [level=3] [ref=f5e61]
+      - generic [ref=f5e62]:
+        - generic [ref=f5e63]:
+          - heading "戦役の分岐" [level=3] [ref=f5e64]
+          - generic [ref=f5e65]: McAuliffe Series 撤退ルート 勝利点 -3 累計 -1
+          - generic [ref=f5e66]: McAuliffe の補給線が崩れた。防衛任務へ後退する。
+          - generic [ref=f5e67]: "次: McAuliffe Series — McAuliffe"
+        - generic [ref=f5e68]:
+          - heading "戦果" [level=3] [ref=f5e69]
+          - list [ref=f5e70]:
+            - listitem [ref=f5e71]: 撃墜 0 機
+            - listitem [ref=f5e72]: 撃退 0 機
+            - listitem [ref=f5e73]: 機体状態 0% フレア 0 僚機 護衛維持
+            - listitem [ref=f5e74]: 飛行時間 0分00秒
+            - listitem [ref=f5e75]: 通算撃墜 0 機 / 出撃 0 回
+      - generic [ref=f5e77]:
+        - generic [ref=f5e78]:
+          - heading "目標" [level=3] [ref=f5e79]
+          - list
+        - generic [ref=f5e80]: 失敗しても戦争は続く。次の任務は戦況の悪化を受けたものになる。
+  - generic [ref=f5e81]:
+    - generic [ref=f5e82] [cursor=pointer]: 続ける
+    - generic [ref=f5e83]: リプレイ / キルカム
+    - generic [ref=f5e84] [cursor=pointer]: プレイテスト記録を保存 (JSON)
+    - generic [ref=f5e85] [cursor=pointer]: この任務をやり直す
+    - generic [ref=f5e86] [cursor=pointer]: タイトルへ戻る
+  - generic [ref=f5e87]: Space で読み進める / Esc で読み飛ばす

@@ -160,3 +160,4 @@ dist/
 *.local
 .tmp/
 data/
+.DS_Store

@@ -1,0 +1,42 @@
+- generic [ref=f5e5]:
+  - banner [ref=f5e6]:
+    - heading "任務達成" [level=1] [ref=f5e7]
+    - generic [ref=f5e8]: Enyo Series — 哨戒 — Enyo宙域
+  - generic [ref=f5e10]:
+    - generic [ref=f5e11]:
+      - generic:
+        - generic: ハルシオン大佐
+        - generic: TCS タイガーズ・クロー 艦長
+      - generic: 報告受信中
+    - generic [ref=f5e13]:
+      - generic [ref=f5e14]:
+        - generic [ref=f5e15]: Enyo の連邦航路を確保。McAuliffe への前進護衛に移る。
+        - generic [ref=f5e16]: 偵察隊は排除された。ブイの損失は痛いが、宙域の目は取り戻した。
+        - generic [ref=f5e17]: 悪くない初
+      - generic [ref=f5e18]: ▼
+    - generic [ref=f5e19]:
+      - heading "その他" [level=3] [ref=f5e20]
+      - generic [ref=f5e21]:
+        - generic [ref=f5e22]:
+          - heading "戦役の分岐" [level=3] [ref=f5e23]
+          - generic [ref=f5e24]: Enyo Series 前進ルート 勝利点 2 累計 2
+          - generic [ref=f5e25]: Enyo の連邦航路を確保。McAuliffe への前進護衛に移る。
+          - generic [ref=f5e26]: "次: McAuliffe Series — McAuliffe"
+        - generic [ref=f5e27]:
+          - heading "戦果" [level=3] [ref=f5e28]
+          - list [ref=f5e29]:
+            - listitem [ref=f5e30]: 撃墜 0 機
+            - listitem [ref=f5e31]: 撃退 0 機
+            - listitem [ref=f5e32]: 機体状態 0% フレア 0 僚機 護衛維持
+            - listitem [ref=f5e33]: 飛行時間 0分00秒
+            - listitem [ref=f5e34]: 通算撃墜 0 機 / 出撃 0 回
+      - generic [ref=f5e37]:
+        - heading "目標" [level=3] [ref=f5e38]
+        - list
+  - generic [ref=f5e39]:
+    - generic [ref=f5e40] [cursor=pointer]: 続ける
+    - generic [ref=f5e41]: リプレイ / キルカム
+    - generic [ref=f5e42] [cursor=pointer]: プレイテスト記録を保存 (JSON)
+    - generic [ref=f5e43] [cursor=pointer]: この任務をやり直す
+    - generic [ref=f5e44] [cursor=pointer]: タイトルへ戻る
+  - generic [ref=f5e45]: Space で読み進める / Esc で読み飛ばす

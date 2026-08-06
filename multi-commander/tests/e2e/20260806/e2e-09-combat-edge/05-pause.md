@@ -1,0 +1,23 @@
+- generic [ref=e4]:
+  - generic:
+    - generic: 通信 [C で閉じる]
+    - generic:
+      - generic: 1. 編隊を組め (Form on my wing)
+      - generic: 2. 私の目標を攻撃 (Attack my target)
+      - generic: 3. 散開して交戦 (Break and attack)
+      - generic: 4. 支援に来い (Help me)
+      - generic: 5. 僚機の状況を報告 (Report)
+      - generic: 6. 敵を挑発する (Taunt)
+  - generic [ref=e373]:
+    - heading "訓練室" [level=1] [ref=e374]
+    - generic [ref=e375]:
+      - generic [ref=e376]:
+        - heading "実戦前訓練" [level=3] [ref=e377]
+        - generic [ref=e378]: キャンペーンの戦果・名簿・戦況は変わらない。操作、武装、帰投手順を確認できる。
+      - generic [ref=e379]: "種目: patrol敵機数: 3敵技量: 55%"
+    - generic [ref=e380]:
+      - generic [ref=e381] [cursor=pointer]: 種目を変える (patrol)
+      - generic [ref=e382] [cursor=pointer]: 敵機数を変える (3)
+      - generic [ref=e383] [cursor=pointer]: 敵技量を変える (55%)
+      - generic [ref=e384] [cursor=pointer]: 訓練を開始
+      - generic [ref=e385] [cursor=pointer]: 戻る
