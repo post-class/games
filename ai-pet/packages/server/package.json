@@ -1,0 +1,22 @@
+{
+  "name": "@ai-pet/server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --watch-preserve-output src/main.ts",
+    "start": "node src/main.ts"
+  },
+  "dependencies": {
+    "@ai-pet/shared": "*",
+    "@hono/node-server": "^2.1.0",
+    "better-sqlite3": "^13.0.3",
+    "hono": "^4.13.0",
+    "ws": "^8.21.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.1.2",
+    "@types/ws": "^8.18.1"
+  }
+}

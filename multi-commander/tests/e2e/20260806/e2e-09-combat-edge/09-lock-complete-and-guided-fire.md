@@ -1,0 +1,106 @@
+- generic [ref=f1e2]:
+  - generic:
+    - generic:
+      - generic: 発射不可 — ロック未完了
+      - generic:
+        - generic: ▸ 哨戒隊を撃退
+        - generic: ▸ 帰投
+      - generic: シールド低下
+      - generic: マウスを照準へ動かすと操縦できます (M でマウス操縦 OFF)
+    - generic:
+      - generic:
+        - generic:
+          - generic: SELF / SYSTEMS
+          - generic: あなた / F-44 ラプター
+          - generic:
+            - generic: SHIELD
+            - generic: 6%
+          - generic:
+            - generic: ARMOR
+            - generic: 30%
+          - generic:
+            - generic: HULL
+            - generic: 45%
+          - generic:
+            - generic: GUN PWR
+            - generic: 170 / 170
+          - generic:
+            - generic: PRIMARY
+            - generic: LASER
+          - generic: SYSTEMS
+          - generic: RADAR READY
+          - generic: GUNS DAMAGED
+        - generic:
+          - generic:
+            - generic: 0 KPS
+            - generic:
+              - generic:
+                - generic: THROTTLE
+                - generic: 0%
+            - generic:
+              - generic:
+                - generic: GUN PWR
+                - generic: "170"
+            - generic:
+              - generic:
+                - generic: AB FUEL
+                - generic: 8.0s
+          - generic:
+            - generic: SHIELDS / ARMOR
+            - generic: HULL 45%
+          - generic: RADAR
+        - generic:
+          - generic: TARGET / NAV
+          - generic: TARGET
+          - generic: Hobar
+          - generic:
+            - generic: TYPE
+            - generic: サルシー
+          - generic:
+            - generic: DIST
+            - generic: "1805"
+          - generic:
+            - generic: BREAKING
+            - generic: "119"
+          - generic:
+            - generic: SHIELD
+            - generic: 85%
+          - generic:
+            - generic: HULL
+            - generic: 100%
+          - generic: NAV / WING
+          - generic:
+            - generic: NAV
+            - generic: 帰投
+          - generic:
+            - generic: DIST
+            - generic: 2.8k
+          - generic:
+            - generic: WINGMAN
+            - generic: Angel
+          - generic:
+            - generic: STATUS
+            - generic: FORMED
+          - generic: WEAPONS [X]
+          - generic:
+            - generic:
+              - generic: SELECTED
+              - generic: ヒートシーカー
+            - generic: 熱源を追尾。フレアに弱いが短いロックで撃てる
+            - generic:
+              - generic: AMMO
+              - generic: "3"
+            - generic:
+              - generic: ENERGY
+              - generic: 170 / 170 (−3/shot)
+            - generic: 発射不可 — ロック未完了
+          - generic:
+            - generic: ダムファイア
+            - generic: "3"
+          - generic:
+            - generic: ▸ ヒートシーカー
+            - generic: "3"
+          - generic:
+            - generic: フレア
+            - generic: "12"
+          - generic: □ ロック未完了

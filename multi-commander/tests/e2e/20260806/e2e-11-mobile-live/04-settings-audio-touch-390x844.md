@@ -1,0 +1,39 @@
+- generic [ref=e48] [box=0,0,390,844]:
+  - heading "設定" [level=1] [ref=e49] [box=169,203,51,33]
+  - generic [ref=e50] [box=12,247,367,348]:
+    - generic [ref=e51] [box=31,260,329,35]:
+      - generic [ref=e78] [cursor=pointer] [box=31,260,73,35]: ゲーム
+      - generic [ref=e79] [cursor=pointer] [box=110,260,59,35]: 操作
+      - generic [ref=e80] [cursor=pointer] [box=175,260,102,35]: オーディオ
+    - generic [ref=e55] [box=31,295,329,288]:
+      - generic [ref=e81] [box=31,295,329,36]:
+        - generic [ref=e82] [box=33,300,94,25]: マスター音量
+        - generic [ref=e83] [box=136,300,221,25]:
+          - slider [ref=e84] [box=138,304,160,16]: "0.8"
+          - generic [ref=e85] [box=308,300,49,25]: 80%
+      - generic [ref=e86] [box=31,331,329,36]:
+        - generic [ref=e87] [box=33,336,94,25]: BGM 音量
+        - generic [ref=e88] [box=136,336,221,25]:
+          - slider [ref=e89] [box=138,340,160,16]: "0.5"
+          - generic [ref=e90] [box=308,336,49,25]: 50%
+      - generic [ref=e91] [box=31,366,329,36]:
+        - generic [ref=e92] [box=33,371,94,25]: 効果音 音量
+        - generic [ref=e93] [box=136,371,221,25]:
+          - slider [ref=e94] [box=138,375,160,16]: "0.9"
+          - generic [ref=e95] [box=308,371,49,25]: 90%
+      - generic [ref=e96] [box=31,402,329,36]:
+        - generic [ref=e97] [box=33,407,276,25]: ブルーム (発光のにじみ)
+        - button "ON" [ref=e99] [cursor=pointer] [box=318,407,39,23]
+      - generic [ref=e100] [box=31,437,329,36]:
+        - generic [ref=e101] [box=33,442,271,25]: 閃光を抑える
+        - button "OFF" [ref=e103] [cursor=pointer] [box=313,443,44,23]
+      - generic [ref=e104] [box=31,473,329,36]:
+        - generic [ref=e105] [box=33,478,271,25]: 色覚サポート配色
+        - button "OFF" [ref=e107] [cursor=pointer] [box=313,478,44,23]
+      - generic [ref=e108] [box=31,508,329,36]:
+        - generic [ref=e109] [box=33,513,276,25]: ゲームパッド振動
+        - button "ON" [ref=e111] [cursor=pointer] [box=318,514,39,23]
+      - generic [ref=e112] [box=31,544,329,39]:
+        - generic [ref=e113] [box=33,550,241,25]: 初期設定に戻す
+        - button "リセット" [ref=e115] [cursor=pointer] [box=283,549,74,28]
+  - generic [ref=e76] [box=12,607,367,34]: 戻る

@@ -1,0 +1,79 @@
+- generic [ref=f1e62]:
+  - heading "戦況マップ" [level=1] [ref=f1e63]
+  - generic [ref=f1e64]:
+    - generic [ref=f1e65]:
+      - heading "戦役マップ — EXPANDED / McCAFFREY" [level=3] [ref=f1e66]
+      - generic [ref=f1e67]: シリーズ勝利点 0 履歴 0 任務 McCaffrey — McCaffrey 外縁哨戒 の戦況を確認中。
+      - generic [ref=f1e68]:
+        - generic [ref=f1e69]: 現在地
+        - generic [ref=f1e70]:
+          - text: McCaffrey 外縁哨戒 — McCaffrey
+          - generic [ref=f1e71]: patrol 勝利点 2 航路ブイを確認し、敵偵察隊を排除して帰投する
+      - generic [ref=f1e72]:
+        - generic [ref=f1e73]: 次の分岐
+        - generic [ref=f1e74]:
+          - text: McCaffrey 補給線 — McCaffrey
+          - generic [ref=f1e75]: escort 勝利点 3 輸送船エルバを集合点まで護衛する 勝利側から到達
+      - generic [ref=f1e76]:
+        - generic [ref=f1e77]: 未到達
+        - generic [ref=f1e78]:
+          - text: Gimle 前進偵察 — Gimle
+          - generic [ref=f1e79]: recon 勝利点 2 前進基地の情報を持ち帰る
+      - generic [ref=f1e80]:
+        - generic [ref=f1e81]: 未到達
+        - generic [ref=f1e82]:
+          - text: Gimle 前進基地攻略 — Gimle
+          - generic [ref=f1e83]: strike 勝利点 4 前進補給所の輸送艦を破壊する
+      - generic [ref=f1e84]:
+        - generic [ref=f1e85]: 未到達
+        - generic [ref=f1e86]:
+          - text: Gimle 救難回廊 — Gimle
+          - generic [ref=f1e87]: rescue 勝利点 2 撃墜された僚機と難民船を救出して帰投する
+      - generic [ref=f1e88]:
+        - generic [ref=f1e89]: 未到達
+        - generic [ref=f1e90]:
+          - text: Vega 防衛線 — Vega
+          - generic [ref=f1e91]: defense 勝利点 3 Tiger’s Claw と防衛拠点を守り抜く
+      - generic [ref=f1e92]:
+        - generic [ref=f1e93]: 未到達
+        - generic [ref=f1e94]:
+          - text: Vega エース迎撃 — Vega
+          - generic [ref=f1e95]: intercept 勝利点 4 敵エース《血塗られた爪》の部隊を撃退する
+      - generic [ref=f1e96]:
+        - generic [ref=f1e97]: 未到達
+        - generic [ref=f1e98]:
+          - text: Vega 跳躍航路遮断 — Vega
+          - generic [ref=f1e99]: intercept 勝利点 3 敵爆撃隊を跳躍点へ到達させない
+      - generic [ref=f1e100]:
+        - generic [ref=f1e101]: 未到達
+        - generic [ref=f1e102]:
+          - text: Vega 旗艦決戦 — Vega
+          - generic [ref=f1e103]: capital 勝利点 6 敵駆逐艦カクタグを撃沈し、帰投する
+      - generic [ref=f1e104]:
+        - generic [ref=f1e105]: 次の分岐
+        - generic [ref=f1e106]:
+          - text: McCaffrey 撤退線 — McCaffrey
+          - generic [ref=f1e107]: defense 勝利点 2 撤退船団を守り、Gimle への航路を確保する 敗北側から到達
+      - generic [ref=f1e108]:
+        - generic [ref=f1e109]: 未到達
+        - generic [ref=f1e110]:
+          - text: Vega 最後の抵抗 — Vega
+          - generic [ref=f1e111]: defense 勝利点 3 最後の防衛線を維持し、反攻の機会を作る
+    - generic [ref=f1e112]:
+      - heading "戦況マップ" [level=3] [ref=f1e113]
+      - generic [ref=f1e114]: 作戦回数 0 最終作戦 McCaffrey
+    - generic [ref=f1e115]:
+      - heading "McCaffrey" [level=3] [ref=f1e116]
+      - generic [ref=f1e117]: 連邦支配 54% 敵圧力 38% 補給余力 78%
+    - generic [ref=f1e120]:
+      - heading "Gimle" [level=3] [ref=f1e121]
+      - generic [ref=f1e122]: 連邦支配 48% 敵圧力 50% 補給余力 70%
+    - generic [ref=f1e125]:
+      - heading "Vega" [level=3] [ref=f1e126]
+      - generic [ref=f1e127]: 連邦支配 43% 敵圧力 62% 補給余力 64%
+    - generic [ref=f1e130]:
+      - heading "独自拡張の作戦方針" [level=3] [ref=f1e131]
+      - generic [ref=f1e132]: McCaffrey / Gimle / Vega の動的前線作戦は EXPANDED モードでのみ発生する。
+  - generic [ref=f1e133]:
+    - generic [ref=f1e134] [cursor=pointer]: 最も危険な星系へ作戦を立てる
+    - generic [ref=f1e135] [cursor=pointer]: 戻る

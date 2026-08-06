@@ -1,0 +1,37 @@
+- generic [ref=f3e19]:
+  - banner [ref=f3e20]:
+    - heading "任務達成" [level=1] [ref=f3e21]
+    - generic [ref=f3e22]: Gimle 補給線護衛
+  - generic [ref=f3e24]:
+    - generic [ref=f3e25]:
+      - generic:
+        - generic: ハルシオン大佐
+        - generic: TCS タイガーズ・クロー 艦長
+      - generic: 通信終了
+    - generic [ref=f3e27]: 戦況図に新しい線が引かれた。小さな勝利でも、線は確かに動く。
+    - generic [ref=f3e31]:
+      - heading "その他" [level=3] [ref=f3e32]
+      - generic [ref=f3e33]:
+        - generic [ref=f3e34]:
+          - heading "戦況作戦" [level=3] [ref=f3e35]
+          - generic [ref=f3e36]: "前線作戦から帰投 次: McCaffrey 外縁哨戒 — McCaffrey"
+        - generic [ref=f3e37]:
+          - heading "戦果" [level=3] [ref=f3e38]
+          - list [ref=f3e39]:
+            - listitem [ref=f3e40]: 撃墜 0 機
+            - listitem [ref=f3e41]: 撃退 0 機
+            - listitem [ref=f3e42]: 機体状態 100% フレア 12 僚機 護衛維持
+            - listitem [ref=f3e43]: 飛行時間 1分10秒
+            - listitem [ref=f3e44]: 通算撃墜 0 機 / 出撃 1 回
+      - generic [ref=f3e47]:
+        - heading "目標" [level=3] [ref=f3e48]
+        - list [ref=f3e49]:
+          - listitem [ref=f3e50]: 未達 補給船団を守る
+          - listitem [ref=f3e51]: 達成 船団を帰投させる
+  - generic [ref=f3e52]:
+    - generic [ref=f3e53] [cursor=pointer]: 続ける
+    - generic [ref=f3e54] [cursor=pointer]: リプレイ / キルカム
+    - generic [ref=f3e55] [cursor=pointer]: プレイテスト記録を保存 (JSON)
+    - generic [ref=f3e56] [cursor=pointer]: この任務をやり直す
+    - generic [ref=f3e57] [cursor=pointer]: タイトルへ戻る
+  - generic [ref=f3e58]: Space で読み進める / Esc で読み飛ばす

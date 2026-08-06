@@ -1,0 +1,38 @@
+- generic [ref=f3e118]:
+  - banner [ref=f3e119]:
+    - heading "McCaffrey 外縁哨戒 — 哨戒 — McCaffrey宙域" [level=1] [ref=f3e120]
+    - generic [ref=f3e121]: EXPANDED / McCAFFREY McCaffrey 外縁哨戒 1/9 — McCaffrey 星系
+  - generic [ref=f3e123]:
+    - generic [ref=f3e124]:
+      - generic:
+        - generic: ハルシオン大佐
+        - generic: TCS タイガーズ・クロー 艦長
+      - generic: 通信中
+    - generic [ref=f3e126]:
+      - generic [ref=f3e127]: McCaffrey — McCaffrey 外縁哨戒 の戦況
+      - generic [ref=f3e129]: ▼
+    - generic [ref=f3e130]:
+      - heading "その他" [level=3] [ref=f3e131]
+      - generic [ref=f3e133]:
+        - heading "飛行計画" [level=3] [ref=f3e134]
+        - img [ref=f3e135]:
+          - generic [ref=f3e138]: 母艦
+          - generic [ref=f3e140]: NAV 1
+          - generic [ref=f3e142]: NAV 2
+          - generic [ref=f3e144]: NAV 3
+          - generic [ref=f3e146]: 帰投
+      - generic [ref=f3e147]:
+        - generic [ref=f3e149]:
+          - heading "任務目標" [level=3] [ref=f3e150]
+          - list [ref=f3e151]:
+            - listitem [ref=f3e152]: 敵偵察機を全機撃破
+            - listitem [ref=f3e153]: NAV 3 まで哨戒
+            - listitem [ref=f3e154]: タイガーズ・クローへ帰投
+        - generic [ref=f3e156]:
+          - heading "機体" [level=3] [ref=f3e157]
+          - text: F-54 ホーネット
+          - generic [ref=f3e158]: "副兵装: ダムファイア ×2僚機: Angel"
+  - generic [ref=f3e159]:
+    - generic [ref=f3e160] [cursor=pointer]: 出撃
+    - generic [ref=f3e161] [cursor=pointer]: 艦内へ戻る
+  - generic [ref=f3e162]: "Space で読み進める / Esc で読み飛ばす — 難易度: ふつう"

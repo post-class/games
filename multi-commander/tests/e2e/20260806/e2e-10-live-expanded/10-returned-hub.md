@@ -1,0 +1,22 @@
+- generic [ref=f3e59]:
+  - heading "TCS タイガーズ・クロー" [level=1] [ref=f3e60]
+  - generic [ref=f3e61]: EXPANDED / McCAFFREY McCaffrey 外縁哨戒 1/9 — McCaffrey 星系
+  - generic [ref=f3e63]:
+    - generic [ref=f3e64]:
+      - img "少尉" [ref=f3e65]
+      - generic [ref=f3e66]: 少尉 通算撃墜 0 出撃 1 回
+    - generic [ref=f3e67]: "次の任務: McCaffrey 外縁哨戒 — 哨戒 — McCaffrey宙域"
+    - generic [ref=f3e68]: "戦況: McCaffrey — McCaffrey 外縁哨戒 の戦況を確認中。 / 勝利点 0 / McCaffrey 54% / Gimle 55% / Vega 43%"
+  - generic [ref=f3e69]:
+    - generic [ref=f3e70] [cursor=pointer]: ブリーフィング室 — 任務の説明を受ける
+    - generic [ref=f3e72] [cursor=pointer]: 格納庫 — 機体と僚機を決める
+    - generic [ref=f3e74] [cursor=pointer]: 酒場 — 隊員と話す
+    - generic [ref=f3e76] [cursor=pointer]: 自室 — 名簿と戦績
+    - generic [ref=f3e78] [cursor=pointer]: キルボード
+    - generic [ref=f3e80] [cursor=pointer]: 戦況マップ
+    - generic [ref=f3e81] [cursor=pointer]: 訓練室
+    - generic [ref=f3e82] [cursor=pointer]: 統計
+    - generic [ref=f3e83] [cursor=pointer]: 出撃 (F-54 ホーネット / Angel)
+    - generic [ref=f3e85] [cursor=pointer]: 設定
+    - generic [ref=f3e86] [cursor=pointer]: タイトルへ戻る
+  - generic [ref=f3e87]: ▲▼ で選択 / Enter で決定

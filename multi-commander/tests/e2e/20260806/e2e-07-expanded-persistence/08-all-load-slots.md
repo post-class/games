@@ -1,0 +1,39 @@
+- generic [ref=f2e242]:
+  - heading "戦役記録 — ロード" [level=1] [ref=f2e243]
+  - generic [ref=f2e244]: BARRACKS / 8 MEMORY SLOTS
+  - generic [ref=f2e245]:
+    - generic [ref=f2e246]: ロードすると現在の進行を置き換える。
+    - generic [ref=f2e248]:
+      - generic [ref=f2e249]: SLOT 1
+      - generic [ref=f2e250]: EXPANDED / McCAFFREY 1章 勝利点 0 撃墜 0
+    - generic [ref=f2e251]:
+      - generic [ref=f2e252]: SLOT 2
+      - generic [ref=f2e253]: EXPANDED / McCAFFREY 1章 勝利点 0 撃墜 0
+    - generic [ref=f2e254]:
+      - generic [ref=f2e255]: SLOT 3
+      - generic [ref=f2e256]: EXPANDED / McCAFFREY 1章 勝利点 0 撃墜 0
+    - generic [ref=f2e257]:
+      - generic [ref=f2e258]: SLOT 4
+      - generic [ref=f2e259]: EXPANDED / McCAFFREY 1章 勝利点 0 撃墜 0
+    - generic [ref=f2e260]:
+      - generic [ref=f2e261]: SLOT 5
+      - generic [ref=f2e262]: EXPANDED / McCAFFREY 1章 勝利点 0 撃墜 0
+    - generic [ref=f2e263]:
+      - generic [ref=f2e264]: SLOT 6
+      - generic [ref=f2e265]: EXPANDED / McCAFFREY 1章 勝利点 0 撃墜 0
+    - generic [ref=f2e266]:
+      - generic [ref=f2e267]: SLOT 7
+      - generic [ref=f2e268]: EXPANDED / McCAFFREY 1章 勝利点 0 撃墜 0
+    - generic [ref=f2e269]:
+      - generic [ref=f2e270]: SLOT 8
+      - generic [ref=f2e271]: EXPANDED / McCAFFREY 1章 勝利点 0 撃墜 0
+  - generic [ref=f2e272]:
+    - generic [ref=f2e273] [cursor=pointer]: SLOT 1をロード
+    - generic [ref=f2e274] [cursor=pointer]: SLOT 2をロード
+    - generic [ref=f2e275] [cursor=pointer]: SLOT 3をロード
+    - generic [ref=f2e276] [cursor=pointer]: SLOT 4をロード
+    - generic [ref=f2e277] [cursor=pointer]: SLOT 5をロード
+    - generic [ref=f2e278] [cursor=pointer]: SLOT 6をロード
+    - generic [ref=f2e279] [cursor=pointer]: SLOT 7をロード
+    - generic [ref=f2e280] [cursor=pointer]: SLOT 8をロード
+    - generic [ref=f2e281] [cursor=pointer]: 戻る

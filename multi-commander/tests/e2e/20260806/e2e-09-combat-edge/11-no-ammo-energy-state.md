@@ -1,0 +1,91 @@
+- generic [ref=f2e2]:
+  - generic:
+    - generic:
+      - generic: ◇ 発艦点 2.7k
+      - generic: 発射不可 — 弾切れ
+      - generic: ▸ 航路を確認して帰投
+      - generic: マウスを照準へ動かすと操縦できます (M でマウス操縦 OFF)
+    - generic:
+      - generic:
+        - generic:
+          - generic: SELF / SYSTEMS
+          - generic: あなた / F-44 ラプター
+          - generic:
+            - generic: SHIELD
+            - generic: 100%
+          - generic:
+            - generic: ARMOR
+            - generic: 75%
+          - generic:
+            - generic: HULL
+            - generic: 98%
+          - generic:
+            - generic: GUN PWR
+            - generic: 0 / 170
+          - generic:
+            - generic: PRIMARY
+            - generic: LASER
+          - generic: SYSTEMS
+          - generic: RADAR READY
+          - generic: GUNS READY
+        - generic:
+          - generic:
+            - generic: 0 KPS
+            - generic:
+              - generic:
+                - generic: THROTTLE
+                - generic: 0%
+            - generic:
+              - generic:
+                - generic: GUN PWR
+                - generic: "0"
+            - generic:
+              - generic:
+                - generic: AB FUEL
+                - generic: 8.0s
+          - generic:
+            - generic: SHIELDS / ARMOR
+            - generic: HULL 98%
+          - generic: RADAR
+        - generic:
+          - generic: TARGET / NAV
+          - generic: TARGET
+          - generic:
+            - generic: NO TARGET
+            - generic: T / R / Y で選択
+          - generic: NAV / WING
+          - generic:
+            - generic: NAV
+            - generic: 発艦点
+          - generic:
+            - generic: DIST
+            - generic: 2.7k
+          - generic:
+            - generic: WINGMAN
+            - generic: Angel
+          - generic:
+            - generic: STATUS
+            - generic: FORMED
+          - generic: WEAPONS [X]
+          - generic:
+            - generic:
+              - generic: SELECTED
+              - generic: ダムファイア
+            - generic: 即時発射・無誘導。読み合いで近距離を取る
+            - generic:
+              - generic: AMMO
+              - generic: "0"
+            - generic:
+              - generic: ENERGY
+              - generic: 0 / 170 (−3/shot)
+            - generic: 発射不可 — 弾切れ
+          - generic:
+            - generic: ▸ ダムファイア
+            - generic: "0"
+          - generic:
+            - generic: ヒートシーカー
+            - generic: "0"
+          - generic:
+            - generic: フレア
+            - generic: "12"
+          - generic: ■ ロック不要 / 即時発射

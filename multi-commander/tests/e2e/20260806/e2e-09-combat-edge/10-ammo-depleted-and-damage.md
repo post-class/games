@@ -1,0 +1,15 @@
+- generic [ref=f1e61]:
+  - heading "訓練中断" [level=1] [ref=f1e62]
+  - generic [ref=f1e63]:
+    - generic [ref=f1e64]:
+      - heading "訓練記録" [level=3] [ref=f1e65]
+      - list [ref=f1e66]:
+        - listitem [ref=f1e67]: 撃墜 0
+        - listitem [ref=f1e68]: 発射 3 命中 170
+        - listitem [ref=f1e69]: 飛行時間 79 秒
+    - generic [ref=f1e70]: キャンペーンの資源と名簿は変化していない。
+  - generic [ref=f1e71]:
+    - generic [ref=f1e72] [cursor=pointer]: リプレイ / キルカム
+    - generic [ref=f1e73] [cursor=pointer]: プレイテスト記録を保存 (JSON)
+    - generic [ref=f1e74] [cursor=pointer]: 訓練室へ戻る
+    - generic [ref=f1e75] [cursor=pointer]: 艦内へ戻る

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>ぽこもふ島</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🐾</text></svg>">
+<link rel="stylesheet" href="/src/ui/style.css">
+</head>
+<body>
+  <div id="game"></div>
+
+  <div id="hud" class="hud">
+    <div class="hud-chip" id="hud-clock" data-testid="hud-clock">接続中…</div>
+    <div class="hud-chip" id="hud-net" data-testid="hud-net">—</div>
+    <div class="hud-chip hud-hint" id="hud-hint">WASD / クリックで移動・ホイールでズーム</div>
+  </div>
+
+  <div id="boot" class="boot" data-testid="boot-overlay">
+    <p class="boot-title">ぽこもふ島</p>
+    <p class="boot-sub" id="boot-msg" data-testid="boot-msg">島にわたっています…</p>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

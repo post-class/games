@@ -1,0 +1,49 @@
+Total messages: 49 (Errors: 46, Warnings: 0)
+Returning 46 messages for level "error"
+
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/art/tex/grime-kilrathi.jpg:0
+[ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/art/tex/decal-claw.webp:0
+[ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/audio/music/02-combat-five-armies.mp3:0
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error during WebSocket handshake: Unexpected response code: 200 @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error during WebSocket handshake: Unexpected response code: 200 @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error during WebSocket handshake: Unexpected response code: 200 @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error during WebSocket handshake: Unexpected response code: 200 @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error during WebSocket handshake: Unexpected response code: 200 @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error during WebSocket handshake: Unexpected response code: 200 @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error during WebSocket handshake: Unexpected response code: 200 @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error during WebSocket handshake: Unexpected response code: 200 @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error during WebSocket handshake: Unexpected response code: 200 @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error during WebSocket handshake: Unexpected response code: 200 @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error during WebSocket handshake: Unexpected response code: 200 @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error during WebSocket handshake: Unexpected response code: 200 @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error during WebSocket handshake: Unexpected response code: 200 @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error during WebSocket handshake: Unexpected response code: 200 @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error during WebSocket handshake: Unexpected response code: 200 @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error during WebSocket handshake: Unexpected response code: 200 @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error during WebSocket handshake: Unexpected response code: 200 @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error during WebSocket handshake: Unexpected response code: 200 @ http://127.0.0.1:4173/@vite/client:1034
+[ERROR] WebSocket connection to 'ws://127.0.0.1:4173/' failed: Error during WebSocket handshake: Unexpected response code: 200 @ http://127.0.0.1:4173/@vite/client:1034

@@ -1,0 +1,103 @@
+- generic [ref=f1e2]:
+  - generic:
+    - generic:
+      - generic: 任務失敗
+      - generic: あなた 破壊
+      - generic:
+        - generic: ▸ 哨戒隊を撃退
+        - generic: ▸ 帰投
+      - generic: マウスを照準へ動かすと操縦できます (M でマウス操縦 OFF)
+    - generic:
+      - generic:
+        - generic:
+          - generic: SELF / SYSTEMS
+          - generic: あなた / F-54 ホーネット
+          - generic:
+            - generic: SHIELD
+            - generic: 50%
+          - generic:
+            - generic: ARMOR
+            - generic: 40%
+          - generic:
+            - generic: HULL
+            - generic: 1%
+          - generic:
+            - generic: GUN PWR
+            - generic: 110 / 110
+          - generic:
+            - generic: PRIMARY
+            - generic: LASER
+          - generic: SYSTEMS
+          - generic: RADAR READY
+          - generic: GUNS READY
+        - generic:
+          - generic:
+            - generic: 0 KPS
+            - generic:
+              - generic:
+                - generic: THROTTLE
+                - generic: 0%
+            - generic:
+              - generic:
+                - generic: GUN PWR
+                - generic: "110"
+            - generic:
+              - generic:
+                - generic: AB FUEL
+                - generic: 6.0s
+          - generic:
+            - generic: SHIELDS / ARMOR
+            - generic: HULL 1%
+          - generic: RADAR
+        - generic:
+          - generic: TARGET / NAV
+          - generic: TARGET
+          - generic: Melek
+          - generic:
+            - generic: TYPE
+            - generic: サルシー
+          - generic:
+            - generic: DIST
+            - generic: "366"
+          - generic:
+            - generic: CLOSING
+            - generic: "308"
+          - generic:
+            - generic: SHIELD
+            - generic: 100%
+          - generic:
+            - generic: HULL
+            - generic: 100%
+          - generic: NAV / WING
+          - generic:
+            - generic: NAV
+            - generic: 帰投
+          - generic:
+            - generic: DIST
+            - generic: 2.9k
+          - generic:
+            - generic: WINGMAN
+            - generic: Angel
+          - generic:
+            - generic: STATUS
+            - generic: FORMED
+          - generic: WEAPONS [X]
+          - generic:
+            - generic:
+              - generic: SELECTED
+              - generic: ダムファイア
+            - generic: 即時発射・無誘導。読み合いで近距離を取る
+            - generic:
+              - generic: AMMO
+              - generic: "2"
+            - generic:
+              - generic: ENERGY
+              - generic: 110 / 110 (−3/shot)
+            - generic: 発射可能
+          - generic:
+            - generic: ▸ ダムファイア
+            - generic: "2"
+          - generic:
+            - generic: フレア
+            - generic: "12"
+          - generic: ■ ロック不要 / 即時発射

@@ -1,0 +1,13 @@
+{
+  "name": "@ai-pet/shared",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  }
+}

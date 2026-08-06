@@ -1,0 +1,42 @@
+- generic [ref=e145] [box=0,0,390,844]:
+  - banner [ref=e146] [box=20,12,350,136]:
+    - heading "Enyo Series — 哨戒 — Enyo宙域" [level=1] [ref=e147] [box=20,58,350,60]
+    - generic [ref=e148] [box=28,130,335,18]: CANON / ENYO Enyo Series 1/7 — Enyo 星系
+  - generic [ref=e150] [box=37,169,316,1031]:
+    - generic [ref=e151] [box=65,169,260,250]:
+      - generic [box=66,353,258,66]:
+        - generic [box=78,362,234,28]: ハルシオン大佐
+        - generic [box=78,392,234,18]: TCS タイガーズ・クロー 艦長
+      - generic [box=75,177,240,16]: 通信中
+    - generic [ref=e153] [box=37,433,316,184]:
+      - generic [ref=e154] [box=37,433,316,168]:
+        - generic [ref=e155] [box=37,433,316,24]: Enyo — Enyo Series の戦況を確認中。
+        - generic [ref=e191] [box=37,465,316,48]: 諸君、ようこそタイガーズ・クローへ。挨拶は後だ、いきなり仕事がある。
+        - generic [ref=e192] [box=37,521,316,72]: マッカフリー宙域の外縁で、我が方の航路ブイが3基沈黙した。キルラシーの偵察隊が入り込んでいる可能性が高い。
+      - generic [ref=e156] [box=37,603,316,16]: ▼
+    - generic [ref=e157] [box=37,631,316,569]:
+      - heading "その他" [level=3] [ref=e158] [box=37,644,312,25]
+      - generic [ref=e160] [box=37,679,312,374]:
+        - heading "飛行計画" [level=3] [ref=e161] [box=37,679,312,25]
+        - img [ref=e162] [box=37,710,312,343]:
+          - generic [ref=e165] [box=211,1016,22,12]: 母艦
+          - generic [ref=e167] [box=220,909,27,12]: NAV 1
+          - generic [ref=e169] [box=146,819,27,12]: NAV 2
+          - generic [ref=e171] [box=262,737,27,12]: NAV 3
+          - generic [ref=e173] [box=211,1016,22,12]: 帰投
+      - generic [ref=e174] [box=37,1063,312,137]:
+        - generic [ref=e176] [box=37,1063,149,133]:
+          - heading "任務目標" [level=3] [ref=e177] [box=37,1063,149,25]
+          - list [ref=e178] [box=37,1094,149,102]:
+            - listitem [ref=e179] [box=53,1094,133,25]: 敵偵察機を全機撃破
+            - listitem [ref=e180] [box=53,1121,133,25]: NAV 3 まで哨戒
+            - listitem [ref=e181] [box=53,1147,133,49]: タイガーズ・クローへ帰投
+        - generic [ref=e183] [box=200,1063,149,129]:
+          - heading "機体" [level=3] [ref=e184] [box=200,1063,149,25]
+          - text: F-54 ホーネット
+          - generic [ref=e185] [box=200,1123,131,65]: "副兵装: ダムファイア ×2僚機: Angel"
+  - generic [ref=e186] [box=20,651,350,139]:
+    - generic [ref=e187] [cursor=pointer] [box=20,651,350,41]: 出撃 (操作案内あり)
+    - generic [ref=e188] [cursor=pointer] [box=20,700,350,41]: 操作案内なしで出撃
+    - generic [ref=e189] [cursor=pointer] [box=20,749,350,41]: 艦内へ戻る
+  - generic [ref=e190] [box=20,798,350,36]: "Space で読み進める / Esc で読み飛ばす — 難易度: ふつう"

@@ -1,0 +1,25 @@
+{
+  "name": "ai-pet",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "『ぽこもふ島』 AIペットと動物たちが自律的に暮らす2Dブラウザ箱庭ゲーム",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev:server & npm run dev:client",
+    "dev:server": "npm run dev -w @ai-pet/server",
+    "dev:client": "npm run dev -w @ai-pet/client",
+    "build": "npm run build -w @ai-pet/client",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "llm:smoke": "node tools/llm-smoke.ts",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
+  }
+}

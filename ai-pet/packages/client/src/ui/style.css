@@ -1,0 +1,99 @@
+/* 宣伝資料（docs/01_ゲーム宣伝用資料/index.html）のトーンを踏襲する */
+:root {
+  --grass: #d9ee94;
+  --grass-deep: #bfe06a;
+  --ink: #4a3b2a;
+  --ink-soft: #6f5c44;
+  --purple: #a892e0;
+  --purple-dp: #7c63c4;
+  --cream: #fffdf3;
+  --peach: #ffb9a3;
+  --sky: #9fd8ee;
+  --shadow: 0 4px 0 rgba(74, 59, 42, 0.16);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #cfe3a0;
+  color: var(--ink);
+  font-family: "Hiragino Maru Gothic ProN", "ヒラギノ丸ゴ ProN", "Zen Maru Gothic",
+               "Hiragino Sans", "Yu Gothic", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+
+/* Pixi の resizeTo が参照するので、#game 自身に大きさを持たせる
+   （中身のcanvasに高さを依存させると初期値600pxのまま広がらない） */
+#game { position: fixed; inset: 0; }
+#game canvas { display: block; touch-action: none; }
+
+/* ---------- HUD ---------- */
+.hud {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  left: 10px;
+  right: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.hud-chip {
+  background: var(--cream);
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  padding: 3px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  box-shadow: var(--shadow);
+  white-space: nowrap;
+}
+
+.hud-chip.warn { background: var(--peach); }
+.hud-chip.bad { background: #ff9a8a; }
+
+/* 操作ヒント（狭い画面では隠す） */
+.hud-hint {
+  background: var(--sky);
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 560px) {
+  .hud-hint { display: none; }
+}
+
+/* ---------- 起動オーバーレイ ---------- */
+.boot {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  gap: 6px;
+  background: radial-gradient(circle at 50% 40%, #eaf7c0, #cfe3a0);
+  z-index: 100;
+  transition: opacity 0.4s ease;
+}
+
+.boot.hidden { opacity: 0; pointer-events: none; }
+
+.boot-title {
+  margin: 0;
+  font-size: clamp(2rem, 8vw, 3.4rem);
+  color: var(--cream);
+  text-shadow:
+    3px 3px 0 var(--purple-dp), -3px 3px 0 var(--purple-dp),
+    3px -3px 0 var(--purple-dp), -3px -3px 0 var(--purple-dp),
+    0 6px 10px rgba(74, 59, 42, 0.25);
+}
+
+.boot-sub { margin: 0; font-size: 0.9rem; color: var(--ink-soft); font-weight: 700; }
