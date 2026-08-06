@@ -150,6 +150,17 @@ export interface ClockWire {
   weather: string;
 }
 
+/** タマゴ選択UIに出す図鑑の1件（ペット未作成のときだけ welcome に載る） */
+export interface PetCatalogEntry {
+  species: string;
+  displayName: string;
+  archetype: string;
+  suggestedTraitTags: string[];
+  defaultCatchphrase: string;
+  defaultLikes: string;
+  defaultDislikes: string;
+}
+
 export interface PetWire {
   id: number;
   species: string;
@@ -176,6 +187,8 @@ export type ServerMsg =
       clock: ClockWire;
       you: ActorWire;
       pet: PetWire | null;
+      /** ペット未作成のときだけ入る（タマゴ選択UIの材料） */
+      petCatalog?: PetCatalogEntry[];
       mapW: number;
       mapH: number;
     }

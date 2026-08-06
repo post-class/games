@@ -16,7 +16,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "llm:smoke": "node tools/llm-smoke.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "sim:long": "node tools/sim-long.ts"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

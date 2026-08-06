@@ -73,6 +73,8 @@ export function restoreIsland(sim: IslandSim, repo: Repo): RestoreResult {
     lastWeatherRollTick: islandRec.lastWeatherRollTick,
   });
 
+  sim.relations.restore(repo.loadRelations());
+
   return {
     restored: true,
     tick: sim.tick,
@@ -108,6 +110,22 @@ export function saveIsland(sim: IslandSim, repo: Repo): void {
     tick: sim.tick,
     updatedAt: Date.now(),
     ...sim.clock.toJSON(),
+  });
+  // 動物同士の仲は「島が続いている」実感の中心なので再起動で失わせない
+  repo.saveRelations(sim.relations.entries());
+}
+
+/**
+ * 島の出来事をDBへ書き込む購読者を登録する。
+ * 記憶は消えるのが一番痛いので、スナップショットとは違い**発生時に即書き込み**する。
+ */
+export function attachEventPersistence(sim: IslandSim, repo: Repo): void {
+  sim.events.onFlush((events) => {
+    try {
+      repo.insertIslandEvents(sim.islandId, events);
+    } catch (e) {
+      console.error('[persistence] イベントの保存に失敗', e);
+    }
   });
 }
 

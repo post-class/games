@@ -55,4 +55,4 @@
 | F-03 | PASS | `e2e-07-expanded-persistence/` | SLOT 1〜8保存／ロードを確認。 |
 | F-04 | PASS | `e2e-08-settings-inputs/` | 全トグル、range、キー割り当て、難易度、リセットを確認。 |
 | F-05 | PASS | `e2e-09-combat-edge/` | ロック、発射、弾切れ、損傷、撃墜、脱出2回を確認。 |
-| F-06 | PASS | `e2e-08-settings-inputs/` / `e2e-09-combat-edge/` / `e2e-11-mobile-live/` | マウス、横画面・狭いviewport、タッチ相当、ゲームパッド未接続、contextmenu抑止を確認。 |
+| F-06 | PASS | `e2e-08-settings-inputs/` / `e2e-09-combat-edge/` / `e2e-11-mobile-live/` / `../20260807/e2e-12-pause-visibility/` / `../20260807/evidence-review/` | ESCポーズ画面の重なりと横画面の表示欠けを修正後、同条件で再確認。 |

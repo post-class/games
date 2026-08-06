@@ -54,14 +54,11 @@ const FISHING_MIN = 8;
 const FISHING_MAX = 14;
 const WATER_SOURCE_COUNT = 20;
 
-/**
- * 釣り場と水場は constants.ts に定数がない（他の作業者が編集中のため追加しない）。
- * 釣り場は berry_tree より渋く、水場は実質枯れない量にしてある。
- */
-const FISHING_SPOT_MAX = 4;
-const FISHING_REGEN_PER_ISLAND_HOUR = 0.5;
-const WATER_SOURCE_MAX = 20;
-const WATER_REGEN_PER_ISLAND_HOUR = 20;
+// 釣り場・水場の量は constants.ts の RESOURCE に集約済み（バランス調整を1ファイルで済ませるため）
+const FISHING_SPOT_MAX = RESOURCE.fishingSpotMax;
+const FISHING_REGEN_PER_ISLAND_HOUR = RESOURCE.fishingRegenPerIslandHour;
+const WATER_SOURCE_MAX = RESOURCE.waterSourceMax;
+const WATER_REGEN_PER_ISLAND_HOUR = RESOURCE.waterRegenPerIslandHour;
 
 /** 到達可能な陸がこの比率を下回ったら作り直す */
 const MIN_WALKABLE_RATIO = 0.15;

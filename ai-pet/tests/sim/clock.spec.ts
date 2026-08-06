@@ -3,7 +3,14 @@
  * 実時間で1島日=60分かかるため、HUDの見た目確認では検証しきれない部分をここで担保する。
  */
 import { describe, expect, test } from 'vitest';
-import { DAYS_PER_SEASON, Rng, TICKS_PER_ISLAND_DAY, TICKS_PER_ISLAND_HOUR, WEATHERS } from '@ai-pet/shared';
+import {
+  DAYS_PER_SEASON,
+  Rng,
+  SEASON_TABLE,
+  TICKS_PER_ISLAND_DAY,
+  TICKS_PER_ISLAND_HOUR,
+  WEATHERS,
+} from '@ai-pet/shared';
 import { WorldClock } from '../../packages/server/src/sim/clock.ts';
 
 function runTicks(clock: WorldClock, ticks: number, from = 0): { dayChanges: number; weatherChanges: number } {
@@ -93,12 +100,16 @@ describe('WorldClock', () => {
 
   test('季節ごとの倍率が取れる', () => {
     const clock = new WorldClock(new Rng('mult'));
-    expect(clock.regenMultiplier).toBeCloseTo(1.3); // 春
-    expect(clock.birthRateMultiplier).toBeCloseTo(1.8);
+    // 値そのものはバランス調整で変わるので、定数表と一致することと大小関係を見る
+    expect(clock.regenMultiplier).toBeCloseTo(SEASON_TABLE.spring.regen);
+    expect(clock.birthRateMultiplier).toBeCloseTo(SEASON_TABLE.spring.birthRate);
     runTicks(clock, TICKS_PER_ISLAND_DAY * DAYS_PER_SEASON * 3);
     expect(clock.season).toBe('winter');
-    expect(clock.regenMultiplier).toBeCloseTo(0.5); // 冬は食料が減る
-    expect(clock.birthRateMultiplier).toBeCloseTo(0.2);
+    expect(clock.regenMultiplier).toBeCloseTo(SEASON_TABLE.winter.regen);
+    expect(clock.birthRateMultiplier).toBeCloseTo(SEASON_TABLE.winter.birthRate);
+    // 冬は食料が減り、子も生まれにくい
+    expect(SEASON_TABLE.winter.regen).toBeLessThan(SEASON_TABLE.spring.regen);
+    expect(SEASON_TABLE.winter.birthRate).toBeLessThan(SEASON_TABLE.spring.birthRate);
   });
 
   test('isNight は夜だけtrue', () => {

@@ -97,3 +97,183 @@ html, body {
 }
 
 .boot-sub { margin: 0; font-size: 0.9rem; color: var(--ink-soft); font-weight: 700; }
+
+/* ---------- タマゴ選択 ---------- */
+.egg {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(74, 59, 42, 0.35);
+  overflow: auto;
+}
+
+.egg-panel {
+  width: min(760px, 100%);
+  background: var(--cream);
+  border: 5px solid var(--ink);
+  border-radius: 26px;
+  padding: 20px 22px 24px;
+  box-shadow: 0 10px 0 rgba(74, 59, 42, 0.2);
+}
+
+.egg-title { margin: 0 0 2px; font-size: 1.4rem; }
+.egg-lead { margin: 0 0 14px; font-size: 0.85rem; color: var(--ink-soft); }
+
+.egg-cards {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+@media (max-width: 620px) {
+  .egg-cards { grid-template-columns: repeat(2, 1fr); }
+}
+
+.egg-card {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 18px;
+  padding: 8px 6px 10px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: center;
+}
+
+.egg-card.on { background: var(--grass); box-shadow: 0 0 0 3px var(--purple) inset; }
+.egg-card img { width: 48px; height: 48px; image-rendering: pixelated; }
+.egg-card b { font-size: 0.9rem; }
+.egg-card span { font-size: 0.66rem; color: var(--ink-soft); line-height: 1.4; }
+
+.egg-form { margin-top: 16px; display: grid; gap: 10px; }
+.egg-form label { display: grid; gap: 3px; font-size: 0.8rem; font-weight: 700; }
+.egg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.egg-form input {
+  font: inherit;
+  padding: 6px 10px;
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.egg-label { font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 4px; }
+.egg-tags { display: block; }
+
+.egg-tag {
+  font: inherit;
+  font-size: 0.78rem;
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  padding: 3px 12px;
+  margin: 0 6px 6px 0;
+  cursor: pointer;
+}
+
+.egg-tag.on { background: var(--peach); }
+
+.egg-go {
+  margin-top: 16px;
+  width: 100%;
+  font: inherit;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #fff;
+  background: var(--purple);
+  border: 4px solid var(--ink);
+  border-radius: 999px;
+  padding: 10px;
+  cursor: pointer;
+  box-shadow: 0 5px 0 rgba(74, 59, 42, 0.2);
+}
+
+.egg-go:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(74, 59, 42, 0.2); }
+
+/* ---------- チャット ---------- */
+.chat {
+  position: fixed;
+  left: 10px;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  width: min(360px, calc(100% - 20px));
+  z-index: 20;
+}
+
+.chat-log {
+  max-height: 30vh;
+  overflow-y: auto;
+  background: rgba(255, 253, 243, 0.9);
+  border: 3px solid var(--ink);
+  border-radius: 16px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.chat-log:empty { display: none; }
+.chat-line { margin: 0 0 2px; }
+.chat-line b { color: var(--purple-dp); margin-right: 6px; }
+.chat-line.pet b { color: var(--ink); }
+.chat-line.notice { color: var(--ink-soft); font-size: 0.76rem; }
+
+.chat-form { display: flex; gap: 6px; }
+
+.chat-input {
+  flex: 1;
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 7px 12px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: var(--cream);
+}
+
+.chat-send {
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.82rem;
+  background: var(--purple);
+  color: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+/* ---------- 吹き出し ---------- */
+.bubbles { position: fixed; inset: 0; pointer-events: none; z-index: 15; }
+
+.bubble {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  max-width: 13em;
+  background: var(--cream);
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  padding: 4px 10px 5px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.5;
+  box-shadow: 0 3px 0 rgba(74, 59, 42, 0.18);
+  white-space: pre-wrap;
+}
+
+.bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -9px;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--ink);
+}
+
+.hud-pet { background: var(--peach); }
+.hud-chip.hidden { display: none; }

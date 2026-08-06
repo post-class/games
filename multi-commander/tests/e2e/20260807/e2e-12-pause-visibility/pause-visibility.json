@@ -1,0 +1,10 @@
+{
+  "viewport": { "width": 1152, "height": 549 },
+  "pauseMenuItems": 6,
+  "pauseMenuRect": { "x": 196, "y": 280.921875, "width": 760, "height": 104, "bottom": 384.921875 },
+  "allItemsDomVisible": true,
+  "combatCockpitRect": { "x": 210.0078125, "y": 211, "width": 731.984375, "height": 300, "bottom": 511 },
+  "combatCockpitZIndex": 4,
+  "pauseMenuContentZIndex": 1,
+  "finding": "ポーズメニューはDOM上存在するが、戦闘コクピットが視覚的に前面へ描画され、下段のボタンが隠れる。コクピットはpointer-events:noneのためelementFromPointだけでは検出できない。"
+}

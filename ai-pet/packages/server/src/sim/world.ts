@@ -206,13 +206,24 @@ export class IslandWorld {
     return id > 0 ? this.resources.get(id) : undefined;
   }
 
-  /** 指定種別のうち、半径内で最も近く在庫のあるもの */
-  findNearestResource(pos: Vec2, types: readonly ResourceType[], radius: number): ResourceNode | null {
+  /**
+   * 指定種別のうち、半径内で最も近く在庫のあるもの。
+   *
+   * `minAmount` は「1回ぶん食べられる量が残っているか」の判定に使う。
+   * これが無いと、ほぼ空（0.1しかない）の一番近い木を選び続けて、
+   * 少し離れた満タンの木に行かずに餓死する（冬の大量死の原因だった）。
+   */
+  findNearestResource(
+    pos: Vec2,
+    types: readonly ResourceType[],
+    radius: number,
+    minAmount = 0,
+  ): ResourceNode | null {
     let best: ResourceNode | null = null;
     let bestD = radius * radius;
     for (const r of this.resources.values()) {
       if (!types.includes(r.type)) continue;
-      if (r.amount <= 0) continue;
+      if (r.amount <= 0 || r.amount < minAmount) continue;
       const d = distanceSq(r.pos, pos);
       if (d <= bestD) {
         bestD = d;

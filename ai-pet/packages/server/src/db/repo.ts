@@ -69,6 +69,14 @@ export interface SnapshotData {
 }
 
 /** island_event の1行。IslandEvent に採番されたidと島IDが付く */
+/** 好感度の1ペア。relation.ts の RelationEntry と同じ形 */
+export interface RelationRow {
+  a: number;
+  b: number;
+  score: number;
+  metCount: number;
+}
+
 export interface IslandEventRecord extends IslandEvent {
   id: number;
   islandId: string;
@@ -444,5 +452,85 @@ export class Repo {
       .prepare('DELETE FROM island_event WHERE island_id = ? AND island_day <= ?')
       .run(islandId, cutoff);
     return res.changes;
+  }
+
+  // --- LLM使用量 ---
+  // コスト監視の唯一の手がかりなので、成功・失敗どちらも残す（docs 07章§7）。
+
+  insertLlmUsage(row: {
+    ts: number;
+    playerId?: string | null;
+    purpose: string;
+    promptTokens: number;
+    completionTokens: number;
+    latencyMs: number;
+    ok: boolean;
+  }): void {
+    this.db
+      .prepare(
+        `INSERT INTO llm_usage (ts, player_id, purpose, prompt_tokens, completion_tokens, latency_ms, ok)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        row.ts,
+        row.playerId ?? null,
+        row.purpose,
+        Math.round(row.promptTokens),
+        Math.round(row.completionTokens),
+        Math.round(row.latencyMs),
+        row.ok ? 1 : 0,
+      );
+  }
+
+  /** 直近 hours 時間の使用量サマリ（/metrics とコスト確認用） */
+  llmUsageSummary(hours = 1): {
+    total: number;
+    ok: number;
+    promptTokens: number;
+    completionTokens: number;
+    byPurpose: Record<string, number>;
+  } {
+    const since = Date.now() - hours * 3600_000;
+    const rows = this.db
+      .prepare(
+        `SELECT purpose, SUM(prompt_tokens) AS p, SUM(completion_tokens) AS c,
+                COUNT(*) AS n, SUM(ok) AS okn
+         FROM llm_usage WHERE ts >= ? GROUP BY purpose`,
+      )
+      .all(since) as { purpose: string; p: number | null; c: number | null; n: number; okn: number | null }[];
+
+    const out = { total: 0, ok: 0, promptTokens: 0, completionTokens: 0, byPurpose: {} as Record<string, number> };
+    for (const r of rows) {
+      out.total += r.n;
+      out.ok += r.okn ?? 0;
+      out.promptTokens += r.p ?? 0;
+      out.completionTokens += r.c ?? 0;
+      out.byPurpose[r.purpose] = r.n;
+    }
+    return out;
+  }
+
+  // --- 好感度 ---
+  // 動物同士の仲は「島が続いている」実感の中心なので、再起動で失わせない。
+  // 件数は 1個体あたり RELATION.maxRelationsPerActor で上限があるため全置換で足りる。
+
+  saveRelations(rows: readonly RelationRow[]): void {
+    const del = this.db.prepare('DELETE FROM relation');
+    const ins = this.db.prepare('INSERT INTO relation (a_id, b_id, score, met_count) VALUES (?, ?, ?, ?)');
+    const tx = this.db.transaction((list: readonly RelationRow[]) => {
+      del.run();
+      for (const r of list) ins.run(r.a, r.b, r.score, r.metCount);
+    });
+    tx(rows);
+  }
+
+  loadRelations(): RelationRow[] {
+    const rows = this.db.prepare('SELECT a_id, b_id, score, met_count FROM relation').all() as {
+      a_id: number;
+      b_id: number;
+      score: number;
+      met_count: number;
+    }[];
+    return rows.map((r) => ({ a: r.a_id, b: r.b_id, score: r.score, metCount: r.met_count }));
   }
 }

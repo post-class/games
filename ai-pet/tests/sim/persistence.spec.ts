@@ -7,7 +7,13 @@ import { TICKS_PER_ISLAND_DAY } from '@ai-pet/shared';
 import { Repo } from '../../packages/server/src/db/repo.ts';
 import { IslandSim } from '../../packages/server/src/sim/island.ts';
 import { createCritterActor } from '../../packages/server/src/sim/actors.ts';
-import { attachAutoSave, resolveSeed, restoreIsland, saveIsland } from '../../packages/server/src/sim/persistence.ts';
+import {
+  attachAutoSave,
+  attachEventPersistence,
+  resolveSeed,
+  restoreIsland,
+  saveIsland,
+} from '../../packages/server/src/sim/persistence.ts';
 
 const repos: Repo[] = [];
 function newRepo(): Repo {
@@ -182,6 +188,74 @@ describe('保存と復元', () => {
     expect(r.restored).toBe(true);
     expect(c.tick).toBe(b.tick);
     expect(c.tick).toBe(200);
+  });
+});
+
+describe('好感度の永続化', () => {
+  test('動物同士の仲が再起動後も残る', () => {
+    const repo = newRepo();
+    const a = newSim();
+    const x = createCritterActor(a.world, { species: 'rabbit', pos: { x: 64.5, y: 64.5 }, ageDays: 20 });
+    const y = createCritterActor(a.world, { species: 'rabbit', pos: { x: 65.5, y: 64.5 }, ageDays: 20 });
+    a.relations.adjust(x.id, y.id, 77);
+    saveIsland(a, repo);
+
+    const b = newSim();
+    restoreIsland(b, repo);
+    expect(b.relations.get(x.id, y.id)).toBe(77);
+    expect(b.relations.friendsOf(x.id)).toContain(y.id);
+  });
+
+  test('保存のたびに古い関係が消えて重複しない', () => {
+    const repo = newRepo();
+    const sim = newSim();
+    sim.relations.adjust(1, 2, 10);
+    saveIsland(sim, repo);
+    sim.relations.adjust(1, 2, 10);
+    saveIsland(sim, repo);
+    expect(repo.loadRelations()).toHaveLength(1);
+    expect(repo.loadRelations()[0]?.score).toBe(20);
+  });
+});
+
+describe('イベントの永続化', () => {
+  test('flushしたイベントがDBに残る', () => {
+    const repo = newRepo();
+    const sim = newSim();
+    attachEventPersistence(sim, repo);
+
+    sim.events.emit(sim.tick, { kind: 'born', text: 'ぽこもふが生まれた' });
+    sim.events.emit(sim.tick, { kind: 'harvest', text: 'きなが木の実を収穫した' });
+    sim.events.flush();
+
+    const rows = repo.recentIslandEvents('main', { limit: 10 });
+    expect(rows).toHaveLength(2);
+    expect(rows.map((r) => r.text)).toContain('ぽこもふが生まれた');
+  });
+
+  test('重要度で絞り込める（留守中サマリの材料）', () => {
+    const repo = newRepo();
+    const sim = newSim();
+    attachEventPersistence(sim, repo);
+    sim.events.emit(sim.tick, { kind: 'born', text: '誕生' }); // 8
+    sim.events.emit(sim.tick, { kind: 'harvest', text: '収穫' }); // 3
+    sim.events.flush();
+
+    const important = repo.recentIslandEvents('main', { minImportance: 6 });
+    expect(important.map((r) => r.text)).toEqual(['誕生']);
+  });
+
+  test('天気の変化がイベントとして記録される', () => {
+    const repo = newRepo();
+    const sim = newSim('weather-events');
+    attachEventPersistence(sim, repo);
+    // 天気の抽選は1島時間ごとに10%なので、確実に変化を拾える3島日ぶん回す
+    for (let i = 0; i < TICKS_PER_ISLAND_DAY * 3; i++) sim.step();
+
+    const rows = repo.recentIslandEvents('main', { limit: 200 });
+    const weather = rows.filter((r) => r.kind === 'weather');
+    expect(weather.length).toBeGreaterThan(0);
+    expect(weather[0]?.text).toMatch(/春|夏|秋|冬/);
   });
 });
 

@@ -16,6 +16,8 @@ import { ActorLayer } from './render/sprites.ts';
 import { TimeTint } from './render/effects.ts';
 import { WorldState, interpolatedPos } from './state/world.ts';
 import { InputController } from './input.ts';
+import { BubbleLayer, ChatUi } from './ui/chat.ts';
+import { showEggSelect } from './ui/eggSelect.ts';
 
 const SEASON_LABEL: Record<string, string> = { spring: '春', summer: '夏', autumn: '秋', winter: '冬' };
 const TOD_LABEL: Record<string, string> = { morning: '朝', day: '昼', evening: '夕', night: '夜' };
@@ -44,8 +46,18 @@ const camera = new Camera({ viewW: stage.app.renderer.width, viewH: stage.app.re
 const tilemap = new TileMap(stage.app.renderer, stage.layers, textures.terrain, CHUNKS_X);
 const actorLayer = new ActorLayer(stage.layers, textures.chars, camera);
 const tint = new TimeTint(stage.layers);
+const bubbles = new BubbleLayer();
 
 let clock: ClockWire | null = null;
+/** 自分のペット（表示名は吹き出しとチャットに使う） */
+let petName = 'ペット';
+
+const chat = new ChatUi({
+  onSend: (text) => {
+    chat.addLine('わたし', text);
+    socket?.send({ t: 'say', text });
+  },
+});
 
 function renderClock(): void {
   if (!hudClock || !clock) return;
@@ -53,6 +65,15 @@ function renderClock(): void {
     `${clock.islandDay}日目 ${SEASON_LABEL[clock.season] ?? clock.season}・` +
     `${TOD_LABEL[clock.timeOfDay] ?? clock.timeOfDay} ${WEATHER_LABEL[clock.weather] ?? clock.weather}`;
   tint.setTimeOfDay(clock.timeOfDay);
+}
+
+/** ペットの懐き度と「いまの目標」をHUDに出す */
+function renderPet(affection: number, reason?: string): void {
+  const el = document.getElementById('hud-pet');
+  if (!el) return;
+  const hearts = '♥'.repeat(Math.max(1, Math.round(affection / 20))).padEnd(5, '·');
+  el.textContent = `${petName} ${hearts}${reason ? ` / ${reason}` : ''}`;
+  el.classList.remove('hidden');
 }
 
 function renderNet(state: ConnState, rttMs: number): void {
@@ -153,7 +174,16 @@ function onMessage(msg: ServerMsg): void {
       world.applyDelta({ tick: msg.clock.tick, add: [msg.you] }, now);
       actorLayer.setSelf({ x: msg.you.x, y: msg.you.y });
       camera.snapTo({ x: msg.you.x, y: msg.you.y });
-      if (msg.pet) world.petId = msg.pet.id;
+      if (msg.pet) {
+        world.petId = msg.pet.id;
+        petName = msg.pet.name;
+        renderPet(msg.pet.affection);
+      } else if (msg.petCatalog && msg.petCatalog.length > 0) {
+        // ペットが居ないので、タマゴを選んでもらう
+        showEggSelect(msg.petCatalog, (sel) => {
+          socket?.send({ t: 'createPet', species: sel.species, name: sel.name, persona: sel.persona });
+        });
+      }
       boot?.classList.add('hidden');
       console.log('[client] welcome', { playerId: msg.playerId, entityId: msg.entityId, seed: msg.seed });
       break;
@@ -178,8 +208,25 @@ function onMessage(msg: ServerMsg): void {
       if (bootMsg) bootMsg.textContent = msg.reason;
       boot?.classList.remove('hidden');
       break;
+    case 'bubble':
+      bubbles.show(msg.entityId, msg.text, msg.ms, now);
+      break;
+    case 'chatChunk':
+      chat.appendChunk(msg.convId, petName, msg.delta, msg.done);
+      break;
+    case 'notice':
+      chat.notice(msg.text);
+      break;
+    case 'petState':
+      renderPet(msg.affection, msg.intent?.reason);
+      break;
+    case 'awaySummary':
+      for (const line of msg.lines) chat.notice(line);
+      break;
     case 'warn':
-      console.warn('[server warn]', msg.code, msg.message);
+      // レート制限などはプレイヤーに見える形で伝える（黙って無視しない）
+      if (msg.code === 'say_rate' || msg.code === 'too_far' || msg.code === 'busy') chat.notice(msg.message);
+      else console.warn('[server warn]', msg.code, msg.message);
       break;
     default:
       break;
@@ -263,6 +310,15 @@ stage.app.ticker.add(() => {
 
   actorLayer.sync(world, now, dtSec);
   tint.update(stage.app.renderer.width, stage.app.renderer.height, dtSec);
+
+  // 吹き出しはDOMなので、ワールド座標を画面座標に変換して位置だけ動かす
+  bubbles.update(now, (entityId) => {
+    const view = world.actors.get(entityId);
+    if (!view) return null;
+    const p = entityId === world.selfId && actorLayer.selfPos ? actorLayer.selfPos : interpolatedPos(view, now);
+    const s = camera.worldToScreen(p);
+    return { x: s.x, y: s.y - 34 * camera.zoom };
+  });
 });
 
 // 島時間はサーバのtickから来るが、HUDは1秒ごとに進行度を補って表示する

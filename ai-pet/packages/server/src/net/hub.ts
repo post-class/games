@@ -19,6 +19,7 @@ import {
   VIEW_MAX_H,
   VIEW_MAX_W,
   parseClientMsg,
+  type Actor,
   type ClientMsgType,
   type EntityId,
   type ServerMsg,
@@ -29,6 +30,8 @@ import { clearAxisInput, forgetActor, setAxisInput } from '../sim/movement.ts';
 import type { IslandSim } from '../sim/island.ts';
 import type { Repo } from '../db/repo.ts';
 import { SyncService, type ViewRect } from './sync.ts';
+import { petCatalog, petToWire, type PetManager } from './petHandlers.ts';
+import { forgetPet } from '../sim/petAction.ts';
 
 /** 島時間を送る間隔（変化がないときでも定期的に同期する） */
 const CLOCK_RESEND_TICKS = TICK_HZ * 4;
@@ -57,13 +60,17 @@ export class ConnectionHub {
   private readonly sim: IslandSim;
   private readonly sync: SyncService;
   private readonly repo: Repo;
+  private readonly pets: PetManager;
   private rejoins = 0;
 
   // 注意: Node の type-stripping で動かすため parameter property は使えない
-  constructor(sim: IslandSim, repo: Repo) {
+  constructor(sim: IslandSim, repo: Repo, pets: PetManager) {
     this.sim = sim;
     this.repo = repo;
+    this.pets = pets;
     this.sync = new SyncService(sim.world);
+    // ペットの追従にはオーナーのアバターが必要（接続中のプレイヤーだけを引く）
+    pets.setOwnerLookup((playerId) => this.actorOfPlayer(playerId));
     sim.onTick((tick) => {
       this.broadcastDeltas(tick);
       // 島のスナップショットと同じ間隔でプレイヤーの位置も保存する
@@ -73,6 +80,14 @@ export class ConnectionHub {
 
   clientCount(): number {
     return this.clients.size;
+  }
+
+  /** 接続中プレイヤーのアバター。切断済みなら undefined */
+  private actorOfPlayer(playerId: string): Actor | undefined {
+    for (const c of this.clients.values()) {
+      if (c.playerId === playerId && c.joined) return this.sim.world.actor(c.entityId);
+    }
+    return undefined;
   }
 
   tick(): number {
@@ -88,6 +103,9 @@ export class ConnectionHub {
       actors: this.sim.world.countActors(),
       critters: this.sim.world.countActors('critter'),
       navPending: this.sim.nav.pending(),
+      ...this.sim.ecologyMetrics(),
+      petActions: this.sim.petStats(),
+      pets: this.pets.stats(),
       rejoins: this.rejoins,
       knownPlayers: this.repo.countPlayers(this.sim.islandId),
       sync: this.sync.stats(),
@@ -141,6 +159,18 @@ export class ConnectionHub {
         console.error('[hub] 切断時のプレイヤー保存に失敗', e);
       }
       forgetActor(actor);
+    }
+
+    // ペットも島から下げる（DBには残るので次回ログインで戻る）
+    const petEntityId = this.pets.leave(client.playerId);
+    if (petEntityId !== null) {
+      const petActor = this.sim.world.actor(petEntityId);
+      if (petActor) {
+        forgetActor(petActor);
+        forgetPet(petActor);
+      }
+      this.sim.nav.clear(petEntityId);
+      this.sim.world.removeActor(petEntityId);
     }
     this.sim.nav.clear(client.entityId);
     this.sim.world.removeActor(client.entityId);
@@ -202,10 +232,13 @@ export class ConnectionHub {
           lastSeenAt: Date.now(),
         });
 
+        // 既存のペットを島に出す（無ければクライアントはタマゴ選択へ進む）
+        const restored = this.pets.restore(client.playerId, { x: you.pos.x, y: you.pos.y });
+
         this.sync.addClient({
           clientId: client.playerId,
           actorId: you.id,
-          petId: null,
+          petId: restored?.actor.id ?? null,
           view: viewRectAround(you.pos),
         });
 
@@ -219,7 +252,9 @@ export class ConnectionHub {
           seed: this.sim.seed,
           clock: this.sim.clockState(),
           you: actorToWire(you),
-          pet: null,
+          pet: restored ? petToWire(restored.pet, restored.actor.id) : null,
+          // ペットが居ないときだけ図鑑を送る（タマゴ選択UIの材料）
+          ...(restored ? {} : { petCatalog: petCatalog() }),
           mapW: MAP_W,
           mapH: MAP_H,
         });
@@ -253,12 +288,66 @@ export class ConnectionHub {
         break;
       }
 
+      case 'createPet': {
+        if (!actor) return;
+        const { pet, actor: petActor } = this.pets.create(
+          client.playerId,
+          { species: msg.species, name: msg.name, persona: msg.persona },
+          { x: actor.pos.x + 1, y: actor.pos.y },
+        );
+        this.sync.setPetId(client.playerId, petActor.id);
+        this.send(client, {
+          t: 'welcome',
+          v: PROTOCOL_VERSION,
+          playerId: client.playerId,
+          secret: client.secret,
+          entityId: actor.id,
+          islandId: this.sim.islandId,
+          seed: this.sim.seed,
+          clock: this.sim.clockState(),
+          you: actorToWire(actor),
+          pet: petToWire(pet, petActor.id),
+          mapW: MAP_W,
+          mapH: MAP_H,
+        });
+        this.send(client, this.sync.snapshotMessage(client.playerId, this.sim.clockState()));
+        this.send(client, {
+          t: 'bubble',
+          entityId: petActor.id,
+          text: pet.persona.catchphrase,
+          kind: 'say',
+          ms: 3000,
+        });
+        console.log(`[hub] ペット誕生 ${pet.persona.name}（${pet.persona.species}）owner=${client.displayName}`);
+        break;
+      }
+
+      case 'say': {
+        this.pets.handleSay({
+          playerId: client.playerId,
+          ownerName: client.displayName,
+          text: msg.text,
+          send: (m) => this.send(client, m),
+        });
+        break;
+      }
+
+      case 'interact': {
+        if (!actor) return;
+        const petActor = this.pets.petActorOf(client.playerId);
+        if (msg.act === 'pet' && petActor && msg.targetId === petActor.id) {
+          this.pets.handlePet({ playerId: client.playerId, send: (m) => this.send(client, m) });
+        }
+        // harvest / water はM7で実装する
+        break;
+      }
+
       case 'ping':
         this.send(client, { t: 'pong', ts: msg.ts, tick: this.sim.tick });
         break;
 
       default:
-        // interact / say / place / contribute / createPet はM4以降で実装する
+        // place / contribute はM7で実装する
         break;
     }
   }

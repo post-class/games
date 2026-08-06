@@ -13,7 +13,19 @@ import { WorldClock } from './clock.ts';
 import { generateIsland } from './worldgen.ts';
 import { NavService } from './nav.ts';
 import { updateMovement } from './movement.ts';
+import { EventBus, textWeather } from './events.ts';
+import { RelationSystem } from './relation.ts';
+import { relieveNeed, updateNeeds, urgency } from './needs.ts';
+import { harvest, isAvailable, updateResources } from './resource.ts';
+import { CritterAI, setCritterDeps } from './critter.ts';
+import { PetActions, type PetActionDeps } from './petAction.ts';
 import type { IslandWorld } from './world.ts';
+
+const SEASON_LABEL: Record<string, string> = { spring: '春', summer: '夏', autumn: '秋', winter: '冬' };
+
+function seasonLabel(season: string): string {
+  return SEASON_LABEL[season] ?? season;
+}
 
 export interface SimMetrics {
   tick: number;
@@ -29,6 +41,11 @@ export class IslandSim {
   readonly clock: WorldClock;
   readonly world: IslandWorld;
   readonly nav: NavService;
+  readonly events: EventBus;
+  readonly relations: RelationSystem;
+  readonly critterAI: CritterAI;
+  /** ペットの行動系。ペットが登場するM4以降で hub から注入される */
+  private petActions: PetActions | null = null;
   readonly seed: string;
   readonly islandId: string;
   /** 直前のstepで島時間の表示が変わったか（クライアントへclockを送る判断に使う） */
@@ -51,6 +68,24 @@ export class IslandSim {
     this.rng = this.world.rng;
     this.clock = new WorldClock(this.rng);
     this.nav = new NavService(this.world);
+    this.events = new EventBus(this.clock);
+    this.relations = new RelationSystem(this.world, this.clock, this.events);
+    // critter.ts は needs/resource を差し替え可能な継ぎ目経由で使う（実装順の都合）。
+    // ここで本実装を注入しないと既定の簡易版のまま動くので、必ず先に呼ぶ。
+    setCritterDeps({ urgency, relieveNeed, harvest, isAvailable });
+    this.critterAI = new CritterAI(this.world, this.nav, this.clock);
+  }
+
+  /**
+   * ペットの行動系をつなぐ。
+   * オーナー（接続中プレイヤー）の情報が必要なので、外から注入する形にしている。
+   */
+  attachPets(deps: PetActionDeps): void {
+    this.petActions = new PetActions(this.world, this.nav, this.clock, deps);
+  }
+
+  petStats(): Record<string, unknown> {
+    return this.petActions?.stats() ?? { pets: 0 };
   }
 
   /** 毎tickの最後に呼ばれる処理を登録する（ブロードキャストなど） */
@@ -101,16 +136,60 @@ export class IslandSim {
     this.tick++;
     const changed = this.clock.advance(this.tick);
     this.clockChanged = changed.dayChanged || changed.weatherChanged;
-    // M3: resources / needs / critterAI / petActions をここに入れる（navへの目的地要求もここ）
+    if (changed.weatherChanged) {
+      this.events.emit(this.tick, {
+        kind: 'weather',
+        text: textWeather(this.clock.weather, seasonLabel(this.clock.season)),
+      });
+    }
+    updateResources(this.world, this.tick, this.clock);
+    updateNeeds(this.world, this.tick, this.clock);
+    // 行動の選択と完了処理（内部で resolveActions も呼ぶ）。M5でここに petActions が入る
+    this.critterAI.update(this.tick);
+    this.petActions?.update(this.tick);
     this.nav.update(); // 経路を確定させてから動かす
     updateMovement(this.world, TICK_SEC);
-    // M3: interactions / relations / events
+    // M3: interactions
+    this.relations.update(this.tick);
+    this.events.flush();
     for (const hook of this.hooks) hook(this.tick);
   }
 
   private recordTickDuration(ms: number): void {
     this.tickDurations.push(ms);
     if (this.tickDurations.length > 512) this.tickDurations.shift();
+  }
+
+  /**
+   * 生態系の状態。バランス調整の主要な観測点（docs 04章§8）。
+   * 「絶滅していないか」「食料が枯れていないか」「夜に寝ているか」をここで見る。
+   */
+  ecologyMetrics(): Record<string, unknown> {
+    const world = this.world;
+    let sleeping = 0;
+    let critters = 0;
+    const byAction: Record<string, number> = {};
+    for (const a of world.actors.values()) {
+      if (a.kind !== 'critter') continue;
+      critters++;
+      if (a.anim === 'sleep') sleeping++;
+      const k = a.action?.kind ?? 'none';
+      byAction[k] = (byAction[k] ?? 0) + 1;
+    }
+    return {
+      islandDay: this.clock.islandDay,
+      season: this.clock.season,
+      weather: this.clock.weather,
+      timeOfDay: this.clock.state(this.tick).timeOfDay,
+      critters,
+      sleepingRatio: critters === 0 ? 0 : Math.round((sleeping / critters) * 100) / 100,
+      actions: byAction,
+      resourceTotal: Math.round(world.totalResourceAmount()),
+      decayedTileRatio: Math.round(world.decayedTileRatio() * 1000) / 1000,
+      relations: this.relations.stats(),
+      events: this.events.stats(),
+      critterAI: this.critterAI.stats(),
+    };
   }
 
   metrics(): SimMetrics {

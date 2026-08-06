@@ -5,12 +5,25 @@
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { WebSocketServer } from 'ws';
-import { PROTOCOL_VERSION } from '@ai-pet/shared';
+import { PROTOCOL_VERSION, TICK_HZ } from '@ai-pet/shared';
 import { env, envSummary } from './env.ts';
 import { ConnectionHub } from './net/hub.ts';
 import { IslandSim } from './sim/island.ts';
+import { spawnInitialCritters } from './sim/spawn.ts';
+import { describeFastForward, fastForward, offlineMsToTicks } from './sim/fastforward.ts';
 import { Repo } from './db/repo.ts';
-import { attachAutoSave, resolveSeed, restoreIsland, saveIsland } from './sim/persistence.ts';
+import { PetRepo } from './db/petRepo.ts';
+import { LlmClient } from './llm/client.ts';
+import { Budget } from './llm/budget.ts';
+import { DialogueService } from './pet/dialogue.ts';
+import { PetManager } from './net/petHandlers.ts';
+import {
+  attachAutoSave,
+  attachEventPersistence,
+  resolveSeed,
+  restoreIsland,
+  saveIsland,
+} from './sim/persistence.ts';
 
 // ---------- 島の準備 ----------
 
@@ -27,18 +40,52 @@ if (restore.restored) {
     `[island] 復元: tick=${restore.tick} ${restore.islandDay}日目 ` +
       `動物${restore.critters}体 資源${restore.resources}件 停止時間=${Math.round(restore.offlineMs / 1000)}秒`,
   );
-  // TODO(M7): offlineMs から fastForward（圧縮シミュレーション）で空白を埋める（docs 04章§6）
+  // 停止していた空白を埋める（docs 04章§6）
+  const missedTicks = offlineMsToTicks(restore.offlineMs);
+  if (missedTicks >= TICK_HZ) {
+    console.log(`[island] ${describeFastForward(fastForward(sim, missedTicks))}`);
+    saveIsland(sim, repo);
+  }
 } else {
-  console.log(`[island] 新規作成: seed=${seed}`);
+  // 新規の島だけ動物を散布する（復元時に呼ぶと二重配置になる）
+  const critters = spawnInitialCritters(sim.world);
+  console.log(`[island] 新規作成: seed=${seed} 動物${critters.length}体を配置`);
   saveIsland(sim, repo);
 }
 
 let lastSaveAt = Date.now();
+attachEventPersistence(sim, repo);
 attachAutoSave(sim, repo, () => {
   lastSaveAt = Date.now();
 });
 
-const hub = new ConnectionHub(sim, repo);
+// ---------- LLMとペット ----------
+
+const budget = new Budget({ perPlayerPerHour: env.llmMaxRphPerPlayer });
+const llm = new LlmClient({
+  mode: env.llmMode,
+  endpoint: env.azureEndpoint,
+  apiKey: env.azureApiKey,
+  apiVersion: env.azureApiVersion,
+  model: env.petModel,
+  budget,
+  onUsage: (u) =>
+    repo.insertLlmUsage({
+      ts: Date.now(),
+      playerId: u.playerId ?? null,
+      purpose: u.purpose,
+      promptTokens: u.promptTokens,
+      completionTokens: u.completionTokens,
+      latencyMs: u.latencyMs,
+      ok: u.ok,
+    }),
+});
+const petRepo = new PetRepo(repo.db);
+const dialogue = new DialogueService(llm, petRepo, sim.world, sim.clock);
+const pets = new PetManager(sim, petRepo, dialogue);
+sim.attachPets(pets);
+
+const hub = new ConnectionHub(sim, repo, pets);
 sim.start();
 
 // ---------- HTTP ----------
@@ -51,7 +98,12 @@ app.get('/healthz', (c) =>
 
 if (env.isDev) {
   app.get('/metrics', (c) =>
-    c.json({ ...hub.metrics(), db: repo.path, lastSaveAgoSec: Math.round((Date.now() - lastSaveAt) / 1000) }),
+    c.json({
+      ...hub.metrics(),
+      db: repo.path,
+      lastSaveAgoSec: Math.round((Date.now() - lastSaveAt) / 1000),
+      llm: { ...llm.stats(), health: llm.health(), usage1h: repo.llmUsageSummary(1) },
+    }),
   );
 }
 
