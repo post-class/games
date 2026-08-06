@@ -19,6 +19,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinnedObject } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { Rng } from '../core/rng';
 import { VISUAL_BASE_HALF_LENGTH, type ShipDef, type VisualDef } from '../content/ships';
+import { missilePresentation, type GunDef, type MissileDef } from '../content/weapons';
 import { PartBuilder } from './PartBuilder';
 import { ShipVisualLifecycle } from './ShipVisualLifecycle';
 import { ROCK_TEXTURES, texture } from './textures';
@@ -859,29 +860,78 @@ export function createShipMesh(def: ShipDef): Object3D {
   return obj;
 }
 
-/** 弾のメッシュ (細長い発光体) */
-export function createTracerMesh(color: number, lengthScale = 1): Object3D {
-  const mesh = new Mesh(TUBE, resolveMaterial(`glow:${hex(color)}`));
-  mesh.scale.set(1.2, 1.2, 15 * lengthScale);
-  return mesh;
+/** 主砲の弾体。色だけでなく形状でも4種を識別できるようにする。 */
+export function createTracerMesh(color: number, lengthScale = 1, gun?: GunDef): Object3D {
+  const group = new Group();
+  const mode = gun?.presentation?.fireMode ?? 'beam';
+  const glow = resolveMaterial(`glow:${hex(color)}`);
+  if (mode === 'slug') {
+    const body = new Mesh(SPH, glow);
+    body.scale.set(1.9, 1.9, 5.5 * lengthScale);
+    group.add(body);
+    const wake = new Mesh(TUBE, glow);
+    wake.scale.set(0.7, 0.7, 8 * lengthScale);
+    wake.position.z = 3.5 * lengthScale;
+    group.add(wake);
+  } else if (mode === 'plasma') {
+    const core = new Mesh(TUBE, glow);
+    core.scale.set(2.5, 2.5, 13 * lengthScale);
+    group.add(core);
+    const ring = new Mesh(RING, glow);
+    ring.scale.setScalar(2.4);
+    ring.rotation.x = Math.PI / 2;
+    group.add(ring);
+  } else if (mode === 'particle') {
+    const core = new Mesh(SPH, glow);
+    core.scale.set(1.4, 1.4, 4.2 * lengthScale);
+    group.add(core);
+    for (const [x, y] of [[-1.5, 0.9], [1.5, -0.9], [0.5, 1.4]] as const) {
+      const particle = new Mesh(SPH, glow);
+      particle.scale.setScalar(0.55);
+      particle.position.set(x, y, 3.2 * lengthScale);
+      group.add(particle);
+    }
+  } else {
+    const mesh = new Mesh(TUBE, glow);
+    mesh.scale.set(1.2, 1.2, 15 * lengthScale);
+    group.add(mesh);
+  }
+  group.userData.weaponShape = mode;
+  return group;
 }
 
-/** ミサイルのメッシュ */
-export function createMissileMesh(color: number): Object3D {
+/** ミサイルのメッシュ。誘導方式ごとに塗装・ノズル・フィンの印象を変える。 */
+export function createMissileMesh(defOrColor: MissileDef | number): Object3D {
+  const def = typeof defOrColor === 'number' ? undefined : defOrColor;
+  const color = typeof defOrColor === 'number' ? defOrColor : defOrColor.color;
+  const presentation = def ? missilePresentation(def) : undefined;
   const b = new PartBuilder();
   const k: Keys = {
-    ...keysFor({ kind: 'arrow', hull: 0xdddddd, accent: 0x8a8f96, engine: color }),
+    ...keysFor({
+      kind: 'arrow',
+      hull: presentation?.detonation === 'torpedo' ? 0x9a8060 : 0xdddddd,
+      accent: presentation?.trail === 'spark' ? 0xbbeeff : 0x8a8f96,
+      engine: color,
+    }),
   };
-  b.add(TUBE, k.metal, { pos: [0, 0, 0], scale: [1.4, 1.4, 6.4] });
-  b.add(CONE, k.hull, { pos: [0, 0, -4.0], scale: [1.4, 1.4, 2.2] });
+  const heavy = presentation?.detonation === 'torpedo';
+  b.add(TUBE, k.metal, { pos: [0, 0, 0], scale: heavy ? [2.1, 2.1, 9] : [1.4, 1.4, 6.4] });
+  b.add(CONE, k.hull, { pos: [0, 0, heavy ? -6.0 : -4.0], scale: heavy ? [2.1, 2.1, 3.2] : [1.4, 1.4, 2.2] });
   b.add(RING, k.accent, { pos: [0, 0, 1.0], scale: 1.6 });
   for (const s of [-1, 1]) {
     b.add(BOX, k.accent, { pos: [s * 1.0, 0, 2.4], scale: [2.0, 0.14, 1.5] });
     b.add(BOX, k.accent, { pos: [0, s * 1.0, 2.4], scale: [0.14, 2.0, 1.5] });
   }
-  b.add(DISC, k.glow, { pos: [0, 0, 3.3], scale: 1.3, rot: [0, Math.PI, 0] });
-  b.add(CONE, k.glow, { pos: [0, 0, 4.6], scale: [1.0, 1.0, 2.6], rot: [Math.PI, 0, 0] });
-  return b.build(resolveMaterial);
+  b.add(DISC, k.glow, { pos: [0, 0, heavy ? 5.2 : 3.3], scale: heavy ? 2 : 1.3, rot: [0, Math.PI, 0] });
+  b.add(CONE, k.glow, {
+    pos: [0, 0, heavy ? 7.6 : 4.6],
+    scale: heavy ? [1.5, 1.5, 4.2] : [1.0, 1.0, 2.6],
+    rot: [Math.PI, 0, 0],
+  });
+  const obj = b.build(resolveMaterial);
+  obj.userData.missileTrail = presentation?.trail ?? 'smoke';
+  obj.userData.detonation = presentation?.detonation ?? 'small-warhead';
+  return obj;
 }
 
 // ───────── 障害物 ─────────

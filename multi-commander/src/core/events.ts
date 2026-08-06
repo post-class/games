@@ -12,9 +12,22 @@ export interface GameEvents {
     weaponKind: 'gun' | 'missile';
     weaponId: string;
     isPlayer: boolean;
+    /** 同一 ID の描画・音声を選ぶための軽量な分類情報 */
+    profile?: string;
+    recoil?: number;
   };
   /** シールドで受け止めた */
-  shieldHit: { target: Entity; point: Vector3; amount: number; isPlayer: boolean };
+  shieldHit: {
+    target: Entity;
+    point: Vector3;
+    amount: number;
+    isPlayer: boolean;
+    weaponId?: string;
+    damageType?: 'gun' | 'missile' | 'collision' | 'hazard';
+    distance?: number;
+    hitFace?: 'front' | 'rear' | 'left' | 'right';
+    critical?: boolean;
+  };
   /** アーマーまたはハルに通った。層を分けることで命中の手応えを描き分ける */
   armorHit: {
     target: Entity;
@@ -22,13 +35,39 @@ export interface GameEvents {
     amount: number;
     layer: 'armor' | 'hull';
     isPlayer: boolean;
+    weaponId?: string;
+    damageType?: 'gun' | 'missile' | 'collision' | 'hazard';
+    distance?: number;
+    hitFace?: 'front' | 'rear' | 'left' | 'right';
+    critical?: boolean;
   };
   /** 撃墜/破壊 */
   destroyed: { target: Entity; source?: Entity; killedByPlayer: boolean; reason?: DestructionReason };
   /** 爆発 (ミサイル起爆など) */
-  explosion: { pos: Vector3; radius: number; kind: 'missile' | 'ship' | 'small' };
+  explosion: {
+    pos: Vector3;
+    radius: number;
+    kind: 'missile' | 'ship' | 'small';
+    weaponId?: string;
+    detonation?: string;
+    affectedCount?: number;
+  };
   /** ミサイルロック状態の変化 */
-  lockChanged: { locked: boolean; target?: Entity };
+  lockChanged: {
+    locked: boolean;
+    target?: Entity;
+    progress?: number;
+    missileId?: string;
+    reason?: 'target-lost' | 'out-of-cone' | 'out-of-range' | 'complete';
+  };
+  /** 入力に対して武器が撃てなかった理由。HUD と音声の共通入口。 */
+  weaponDenied: {
+    shooter: Entity;
+    weaponKind: 'gun' | 'missile';
+    weaponId?: string;
+    reason: 'energy' | 'damaged' | 'no-ammo' | 'no-lock' | 'invalid-target' | 'cooldown';
+    isPlayer: boolean;
+  };
   /** 自機がロックされた */
   incomingLock: { active: boolean };
   /** 無線通信 (HUD にテキスト表示) */

@@ -4,7 +4,7 @@ import { bus } from '../core/events';
 import { clamp01, forwardOf, leadPoint, LOCAL_FORWARD, LOCAL_RIGHT } from '../core/math';
 import { isHostile } from '../content/factions';
 import { rng } from '../core/rng';
-import { gunDef, missileDef } from '../content/weapons';
+import { gunDef, missileDef, missilePresentation } from '../content/weapons';
 import type { Entity } from '../world/entity';
 import { spawnFlare, spawnMissile, spawnProjectile, type World } from '../world/world';
 import { gunOperational } from './subsystems';
@@ -52,7 +52,12 @@ export function fireGuns(
   const ship = e.ship;
   const input = e.input;
   if (!ship || !input) return;
-  void dt;
+
+  // 反動はシミュレーション上の短い残量として保持し、RenderSync が機体を後退させる。
+  // 古いランタイムを受けても描画だけで壊れないよう遅延初期化する。
+  if (!ship.gunRecoil) ship.gunRecoil = ship.gunCooldown.map(() => 0);
+  ship.weaponDeniedCooldown = Math.max(0, (ship.weaponDeniedCooldown ?? 0) - dt);
+  for (let i = 0; i < ship.gunRecoil.length; i++) ship.gunRecoil[i] = Math.max(0, ship.gunRecoil[i] - dt * 1.8);
   if (!input.firePrimary) return;
 
   const def = ship.def;
@@ -61,19 +66,27 @@ export function fireGuns(
   // 照準アシストの寄せ先を求めておく
   const assistTarget = assist && assist.strength > 0 ? world.byId(assist.targetId) : undefined;
 
+  let fired = 0;
+  let denied: 'energy' | 'damaged' | undefined;
   for (let i = 0; i < def.guns.length; i++) {
     if (ship.gunCooldown[i] > 0) continue;
     const hp = def.guns[i];
     const gun = gunDef(hp.gunId);
-    if (ship.energy < gun.energyCost) continue;
+    if (ship.energy < gun.energyCost) {
+      denied ??= 'energy';
+      continue;
+    }
     // 損傷した砲は沈黙する / 渋る
     if (!gunOperational(ship, hp.offset[0])) {
       ship.gunCooldown[i] = gun.refire;
+      denied ??= 'damaged';
       continue;
     }
 
     ship.energy -= gun.energyCost;
     ship.gunCooldown[i] = gun.refire;
+    ship.gunRecoil[i] = Math.max(ship.gunRecoil[i] ?? 0, gun.presentation?.recoil ?? 0);
+    fired += 1;
 
     _muzzle
       .set(hp.offset[0], hp.offset[1], hp.offset[2])
@@ -112,6 +125,18 @@ export function fireGuns(
       weaponKind: 'gun',
       weaponId: hp.gunId,
       isPlayer: e.id === world.playerId,
+      profile: gun.presentation?.audioProfile,
+      recoil: gun.presentation?.recoil,
+    });
+  }
+  if (fired === 0 && denied && e.id === world.playerId && ship.weaponDeniedCooldown <= 0) {
+    ship.weaponDeniedCooldown = 0.35;
+    bus.emit('weaponDenied', {
+      shooter: e,
+      weaponKind: 'gun',
+      weaponId: def.guns[0]?.gunId,
+      reason: denied,
+      isPlayer: true,
     });
   }
 }
@@ -188,6 +213,8 @@ export function fireTurrets(world: World, e: Entity, damageScale = 1): void {
     // damaged は gunOperational 内で不発を混ぜ、dead は完全停止させる。
     if (!gunOperational(ship, hp.offset[0])) continue;
     const gun = gunDef(hp.gunId);
+    if (!ship.gunRecoil) ship.gunRecoil = ship.gunCooldown.map(() => 0);
+    ship.gunRecoil[i] = Math.max(ship.gunRecoil[i] ?? 0, gun.presentation?.recoil ?? 0);
     if (ship.energy < gun.energyCost) continue;
     ship.energy -= gun.energyCost;
     ship.gunCooldown[i] = gun.refire * TURRET_REFIRE_SCALE;
@@ -220,6 +247,8 @@ export function fireTurrets(world: World, e: Entity, damageScale = 1): void {
       weaponKind: 'gun',
       weaponId: hp.gunId,
       isPlayer: false,
+      profile: gun.presentation?.audioProfile,
+      recoil: gun.presentation?.recoil,
     });
   }
 }
@@ -306,10 +335,19 @@ export function updateMissileLock(world: World, e: Entity, dt: number): void {
     return;
   }
 
+  const before = ship.lockedId;
   const target = world.byId(ship.targetId);
   if (!target || target.kind !== 'ship') {
     ship.lockProgress = Math.max(0, ship.lockProgress - dt / Math.max(0.2, def.lockTime));
     ship.lockedId = undefined;
+    if (before !== ship.lockedId) {
+      bus.emit('lockChanged', {
+        locked: false,
+        progress: ship.lockProgress,
+        missileId: def.id,
+        reason: 'target-lost',
+      });
+    }
     return;
   }
 
@@ -319,7 +357,6 @@ export function updateMissileLock(world: World, e: Entity, dt: number): void {
   const cone = _dir.dot(forwardOf(e.quat, _fwd));
 
   const inLock = distance < LOCK_RANGE && cone > LOCK_CONE;
-  const before = ship.lockedId;
   if (inLock) {
     ship.lockProgress = clamp01(ship.lockProgress + dt / def.lockTime);
     if (ship.lockProgress >= 1) ship.lockedId = target.id;
@@ -328,13 +365,19 @@ export function updateMissileLock(world: World, e: Entity, dt: number): void {
     ship.lockedId = undefined;
   }
   if (before !== ship.lockedId) {
-    bus.emit('lockChanged', { locked: !!ship.lockedId, target: ship.lockedId ? target : undefined });
+    bus.emit('lockChanged', {
+      locked: !!ship.lockedId,
+      target: ship.lockedId ? target : undefined,
+      progress: ship.lockProgress,
+      missileId: def.id,
+      reason: ship.lockedId ? 'complete' : distance >= LOCK_RANGE ? 'out-of-range' : 'out-of-cone',
+    });
   }
 }
 
 export interface FireMissileResult {
   fired: boolean;
-  reason?: 'no-ammo' | 'no-lock';
+  reason?: 'no-ammo' | 'no-lock' | 'invalid-target';
 }
 
 /** 副兵装の発射 */
@@ -342,10 +385,50 @@ export function fireMissile(world: World, e: Entity): FireMissileResult {
   const ship = e.ship;
   if (!ship) return { fired: false, reason: 'no-ammo' };
   const slot = activeMissileSlot(e);
-  if (!slot) return { fired: false, reason: 'no-ammo' };
+  if (!slot) {
+    if (e.id === world.playerId) {
+      bus.emit('weaponDenied', {
+        shooter: e,
+        weaponKind: 'missile',
+        reason: 'no-ammo',
+        isPlayer: true,
+      });
+    }
+    return { fired: false, reason: 'no-ammo' };
+  }
   const def = missileDef(slot.missileId);
+  const presentation = missilePresentation(def);
 
-  if (def.seeker !== 'none' && !ship.lockedId) return { fired: false, reason: 'no-lock' };
+  if (def.seeker !== 'none' && !ship.lockedId) {
+    if (e.id === world.playerId) {
+      bus.emit('weaponDenied', {
+        shooter: e,
+        weaponKind: 'missile',
+        weaponId: def.id,
+        reason: 'no-lock',
+        isPlayer: true,
+      });
+    }
+    return { fired: false, reason: 'no-lock' };
+  }
+  const target = ship.lockedId ? world.byId(ship.lockedId) : undefined;
+  if (
+    target?.ship &&
+    presentation.targetRole === 'capital' &&
+    target.ship.def.role !== 'capital' &&
+    target.ship.def.role !== 'transport'
+  ) {
+    if (e.id === world.playerId) {
+      bus.emit('weaponDenied', {
+        shooter: e,
+        weaponKind: 'missile',
+        weaponId: def.id,
+        reason: 'invalid-target',
+        isPlayer: true,
+      });
+    }
+    return { fired: false, reason: 'invalid-target' };
+  }
 
   ship.missiles[slot.index].count -= 1;
   if (ship.activeMissile !== slot.index) ship.activeMissile = slot.index;
@@ -385,6 +468,7 @@ export function fireMissile(world: World, e: Entity): FireMissileResult {
     weaponKind: 'missile',
     weaponId: slot.missileId,
     isPlayer: e.id === world.playerId,
+    profile: presentation.audioProfile,
   });
 
   if (def.seeker !== 'none') {

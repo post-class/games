@@ -612,7 +612,12 @@ export class Game {
             const r = fireMissile(this.world, player);
             if (!r.fired) {
               bus.emit('announce', {
-                text: r.reason === 'no-lock' ? 'ロックしていない' : 'ミサイル切れ',
+                text:
+                  r.reason === 'no-lock'
+                    ? 'ロックしていない'
+                    : r.reason === 'invalid-target'
+                      ? '対艦魚雷は大型目標を選択してください'
+                      : 'ミサイル切れ',
                 kind: 'warn',
               });
             }

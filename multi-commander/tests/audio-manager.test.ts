@@ -2,11 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Vector3 } from 'three';
 import { AudioManager } from '../src/audio/AudioManager';
 import { audio } from '../src/audio/AudioManager';
-import { CombatAudio } from '../src/audio/CombatAudio';
+import { CombatAudio, explosionAudioSize } from '../src/audio/CombatAudio';
 import { bus } from '../src/core/events';
 import { shipDef } from '../src/content/ships';
 import { newAi } from '../src/sim/ai';
 import { spawnShip, World } from '../src/world/world';
+import { settings } from '../src/app/settings';
 
 class FakeParam {
   value = 0;
@@ -53,6 +54,7 @@ class FakeAudioContext {
   readonly state = 'running';
   readonly destination = {};
   readonly sources: FakeBufferSource[] = [];
+  oscillatorCount = 0;
 
   createGain(): GainNode {
     return Object.assign(new FakeNode(), { gain: new FakeParam() }) as unknown as GainNode;
@@ -67,6 +69,7 @@ class FakeAudioContext {
   }
 
   createOscillator(): OscillatorNode {
+    this.oscillatorCount += 1;
     return Object.assign(new FakeNode(), {
       type: 'sine',
       frequency: new FakeParam(),
@@ -127,6 +130,103 @@ describe('AudioManager 無線音声', () => {
     expect(manager.radioVoice('   ')).toBe(0);
 
     manager.dispose();
+  });
+});
+
+describe('AudioManager 戦闘音声の安全性と間引き', () => {
+  it('AudioContext が無い環境、音量0、自動再生拒否でも例外を投げない', () => {
+    const withoutContext = new AudioManager();
+    expect(() => {
+      withoutContext.resume();
+      withoutContext.gun('laser', 0, 0);
+      withoutContext.missileLaunch('torpedo', 0, 0);
+      withoutContext.warning('missile', 'torpedo');
+    }).not.toThrow();
+    withoutContext.dispose();
+
+    vi.stubGlobal('window', { AudioContext: class extends FakeAudioContext {
+      override resume(): Promise<void> {
+        return Promise.reject(new Error('autoplay denied'));
+      }
+    } });
+    const muted = new AudioManager();
+    const previousMaster = settings.volumeMaster;
+    const previousSfx = settings.volumeSfx;
+    settings.volumeMaster = 0;
+    settings.volumeSfx = 0;
+    expect(() => {
+      muted.resume();
+      muted.gun('neutron-gun', 0, 0);
+      muted.explosion(0, 0, 'torpedo');
+    }).not.toThrow();
+    settings.volumeMaster = previousMaster;
+    settings.volumeSfx = previousSfx;
+    muted.dispose();
+  });
+
+  it('4種の主砲・4種のミサイルと命中/爆発音を安全に発音し、同時発音数を制限する', () => {
+    vi.stubGlobal('window', { AudioContext: FakeAudioContext });
+    const manager = new AudioManager();
+    manager.resume();
+    const context = manager.context as unknown as FakeAudioContext;
+
+    for (const id of ['laser', 'mass-driver', 'neutron-gun', 'particle-cannon']) {
+      manager.gun(id, 100, -0.25);
+    }
+    for (const id of ['dumbfire', 'heat-seeker', 'image-rec', 'torpedo']) {
+      manager.missileLaunch(id, 100, 0.25);
+    }
+    manager.shieldHit(100, 0);
+    manager.armorHit(100, 0, 'armor');
+    manager.armorHit(100, 0, 'hull');
+    manager.explosion(100, 0, 'small');
+    manager.explosion(100, 0, 'large');
+    manager.explosion(100, 0, 'torpedo');
+
+    // 同一時刻に異なるイベントを無制限に積まず、上限内で打ち切る。
+    const beforeBeeps = context.oscillatorCount;
+    for (let i = 0; i < 40; i++) manager.beep(300 + i, 0.2);
+    expect(context.oscillatorCount - beforeBeeps).toBeLessThanOrEqual(32);
+
+    const before = context.oscillatorCount;
+    manager.gun('laser', 100, 0);
+    expect(context.oscillatorCount).toBe(before);
+    manager.dispose();
+  });
+});
+
+describe('CombatAudio 音声プロファイル分類', () => {
+  it('爆発イベントの既存情報から小型・大型・魚雷を分類する', () => {
+    expect(explosionAudioSize('small', 100)).toBe('small');
+    expect(explosionAudioSize('ship', 10)).toBe('large');
+    expect(explosionAudioSize('missile', 30)).toBe('small');
+    expect(explosionAudioSize('missile', 70)).toBe('torpedo');
+  });
+
+  it('weaponFired の weaponId をミサイル音へそのまま渡す', () => {
+    const combatAudio = new CombatAudio();
+    const launch = vi.spyOn(audio, 'missileLaunch');
+    const shooter = spawnShip(new World(), {
+      def: shipDef('hornet'),
+      faction: 'confed',
+      pos: new Vector3(),
+      speed: 0,
+    });
+
+    for (const weaponId of ['dumbfire', 'heat-seeker', 'image-rec', 'torpedo']) {
+      bus.emit('weaponFired', {
+        shooter,
+        muzzle: new Vector3(),
+        direction: new Vector3(0, 0, -1),
+        weaponKind: 'missile',
+        weaponId,
+        isPlayer: false,
+      });
+    }
+
+    expect(launch.mock.calls.map(([id]) => id)).toEqual(['dumbfire', 'heat-seeker', 'image-rec', 'torpedo']);
+    launch.mockRestore();
+    combatAudio.dispose();
   });
 });
 

@@ -17,6 +17,11 @@ export interface DamageResult {
   destroyed: boolean;
 }
 
+export interface DamageOptions {
+  /** 武器固有のシールド削り倍率。未指定は従来の 1 倍。 */
+  shieldMultiplier?: number;
+}
+
 const _local = new Vector3();
 const _invQ = new Quaternion();
 
@@ -45,7 +50,12 @@ export function hitFaces(
  * ダメージを シールド → アーマー → ハル の順に通す。
  * 貫通した分だけ次の層へ流れるので、シールドが残っているうちは船体が守られる。
  */
-export function applyDamage(target: Entity, amount: number, hitPoint: Vector3): DamageResult {
+export function applyDamage(
+  target: Entity,
+  amount: number,
+  hitPoint: Vector3,
+  options: DamageOptions = {},
+): DamageResult {
   const ship = target.ship;
   const { shieldFace, armorFace } = hitFaces(target, hitPoint);
   const result: DamageResult = {
@@ -60,12 +70,13 @@ export function applyDamage(target: Entity, amount: number, hitPoint: Vector3): 
 
   ship.shieldDelay = SHIELD_RECHARGE_DELAY;
   let remaining = amount;
+  const shieldMultiplier = Math.max(0.1, options.shieldMultiplier ?? 1);
 
   const shield = ship.shield[shieldFace];
   if (shield > 0) {
-    const absorbed = Math.min(shield, remaining);
+    const absorbed = Math.min(shield, remaining * shieldMultiplier);
     ship.shield[shieldFace] = shield - absorbed;
-    remaining -= absorbed;
+    remaining -= absorbed / shieldMultiplier;
     result.shieldAbsorbed = absorbed;
   }
 
@@ -90,8 +101,13 @@ export function applyDamage(target: Entity, amount: number, hitPoint: Vector3): 
 }
 
 /** 爆風など、方向を持たない全周ダメージ */
-export function applySplashDamage(target: Entity, amount: number, origin: Vector3): DamageResult {
-  return applyDamage(target, amount, origin);
+export function applySplashDamage(
+  target: Entity,
+  amount: number,
+  origin: Vector3,
+  options: DamageOptions = {},
+): DamageResult {
+  return applyDamage(target, amount, origin, options);
 }
 
 /** HUD 表示用: シールド/アーマー/ハルの残存率 */

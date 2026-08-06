@@ -20,6 +20,7 @@ import {
 const _pos = new Vector3();
 const _quat = new Quaternion();
 const _aim = new Vector3();
+const _forward = new Vector3();
 /** 砲塔が的を見失ったときに向く方向 (艦の外側前方) */
 const _rest = new Vector3();
 /** これより近い弾は描かない (自機の砲口すぐの弾で視界が塞がるのを防ぐ) */
@@ -66,9 +67,9 @@ export class RenderSync {
     }
     if (e.kind === 'projectile' && e.projectile) {
       if (e.projectile.damage <= 0) return undefined; // フレアは VFX 側で描く
-      return createTracerMesh(e.projectile.gun.color, e.projectile.gun.tracer);
+      return createTracerMesh(e.projectile.gun.color, e.projectile.gun.tracer, e.projectile.gun);
     }
-    if (e.kind === 'missile' && e.missile) return createMissileMesh(e.missile.def.color);
+    if (e.kind === 'missile' && e.missile) return createMissileMesh(e.missile.def);
     if (e.kind === 'rock' && e.rock) {
       const obj = createRockMesh(e.rock.variant);
       // テンプレートは半径 0.5 の球基準なので、当たり判定半径に合わせる
@@ -161,6 +162,13 @@ export class RenderSync {
       _quat.copy(e.renderPrevQuat).slerp(e.quat, alpha);
       obj.position.copy(_pos);
       obj.quaternion.copy(_quat);
+      if (e.kind === 'ship' && e.ship?.gunRecoil?.length) {
+        const recoil = Math.max(0, ...e.ship.gunRecoil);
+        if (recoil > 0) {
+          _forward.set(0, 0, -1).applyQuaternion(_quat);
+          obj.position.addScaledVector(_forward, -recoil);
+        }
+      }
       this.plumes.get(e.id)?.update(e, dt);
       const turrets = this.turrets.get(e.id);
       if (turrets) this.aimTurrets(world, e, turrets);

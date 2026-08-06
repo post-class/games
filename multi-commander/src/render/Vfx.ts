@@ -85,6 +85,9 @@ export class VfxManager {
   private activeSprites: SpriteFx[] = [];
   private ballPool: Mesh[] = [];
   private activeBalls: BallFx[] = [];
+  /** 通常交戦で VFX が際限なく増えないための上限。古いものは自然に返却される。 */
+  private static readonly MAX_SPRITES = 512;
+  private static readonly MAX_BALLS = 96;
 
   private ballGeo = new SphereGeometry(1, 14, 10);
 
@@ -143,6 +146,7 @@ export class VfxManager {
       spin?: number;
     },
   ): void {
+    if (this.activeSprites.length >= VfxManager.MAX_SPRITES) return;
     const sprite = this.takeSprite(tex, o.color ?? 0xffffff, o.opacity ?? 1, o.additive !== false);
     sprite.position.copy(pos);
     sprite.scale.setScalar(o.size0);
@@ -160,6 +164,7 @@ export class VfxManager {
   }
 
   private pushBall(pos: Vector3, o: { size0: number; size1: number; life: number; c0: number; c1: number }): void {
+    if (this.activeBalls.length >= VfxManager.MAX_BALLS) return;
     const mesh = this.takeBall();
     mesh.position.copy(pos);
     mesh.scale.setScalar(o.size0);
@@ -177,15 +182,53 @@ export class VfxManager {
     });
   }
 
-  /** 砲口の閃光 */
-  muzzleFlash(pos: Vector3, color: number): void {
-    this.pushSprite(this.glow, pos, { color, size0: 5, size1: 11, life: 0.07, opacity: 0.95 });
+  /** 砲口の閃光。武器種別ごとに形状と輝度を変える。 */
+  muzzleFlash(
+    pos: Vector3,
+    color: number,
+    shape: 'needle' | 'heavy' | 'ring' | 'scatter' = 'needle',
+    brightness = 0.8,
+  ): void {
+    const size = shape === 'heavy' ? 8 : shape === 'ring' ? 6 : shape === 'scatter' ? 4 : 5;
+    this.pushSprite(this.glow, pos, {
+      color,
+      size0: size,
+      size1: size * (shape === 'heavy' ? 1.9 : 2.1),
+      life: shape === 'heavy' ? 0.13 : 0.07,
+      opacity: brightness,
+    });
+    if (shape === 'ring') {
+      this.pushSprite(this.ring, pos, {
+        color,
+        size0: 3,
+        size1: 15,
+        life: 0.18,
+        opacity: brightness * 0.75,
+      });
+    } else if (shape === 'scatter') {
+      for (let i = 0; i < 3; i++) {
+        this.pushSprite(this.spark, pos, {
+          color,
+          size0: 1.6,
+          size1: 0.2,
+          life: 0.15 + i * 0.03,
+          opacity: brightness,
+          vel: new Vector3(rng.signed(45), rng.signed(45), rng.signed(45)),
+        });
+      }
+    }
   }
 
   /** シールドで弾かれた */
-  shieldSpark(pos: Vector3, scale = 1): void {
+  shieldSpark(
+    pos: Vector3,
+    scale = 1,
+    weaponId?: string,
+    normal?: Vector3,
+  ): void {
+    const color = weaponId === 'neutron-gun' ? 0x9cecff : 0x66ccff;
     this.pushSprite(this.spark, pos, {
-      color: 0x66ccff,
+      color,
       size0: 7 * scale,
       size1: 20 * scale,
       life: 0.22,
@@ -199,32 +242,41 @@ export class VfxManager {
       life: 0.2,
       opacity: 0.75,
       additive: true,
+      vel: normal ? normal.clone().multiplyScalar(8) : undefined,
     });
   }
 
   /** 装甲/船体への被弾 */
-  hitSpark(pos: Vector3, scale = 1): void {
+  hitSpark(pos: Vector3, scale = 1, weaponId?: string, normal?: Vector3): void {
+    const color = weaponId === 'particle-cannon' ? 0xc78bff : weaponId === 'mass-driver' ? 0xffa24d : 0xffc26a;
     this.pushSprite(this.glow, pos, {
-      color: 0xffc26a,
+      color,
       size0: 5 * scale,
       size1: 15 * scale,
       life: 0.2,
       opacity: 1,
     });
+    const direction = normal?.clone().normalize();
     for (let i = 0; i < 4; i++) {
+      const velocity = direction
+        ? direction
+            .clone()
+            .multiplyScalar(rng.range(35, 80))
+            .add(new Vector3(rng.signed(22), rng.signed(22), rng.signed(22)))
+        : new Vector3(rng.signed(60), rng.signed(60), rng.signed(60));
       this.pushSprite(this.spark, pos, {
-        color: 0xffe0a0,
+        color: weaponId === 'particle-cannon' ? 0xe2c8ff : 0xffe0a0,
         size0: 2.5 * scale,
         size1: 0.5,
         life: rng.range(0.18, 0.4),
         opacity: 0.9,
-        vel: new Vector3(rng.signed(60), rng.signed(60), rng.signed(60)),
+        vel: velocity,
       });
     }
   }
 
   /** ハルまで抜けた被弾。火花だけでなく、内部から噴く橙色の閃光を足す。 */
-  hullHit(pos: Vector3, scale = 1): void {
+  hullHit(pos: Vector3, scale = 1, weaponId?: string, normal?: Vector3): void {
     this.pushSprite(this.plasmaBurst, pos, {
       color: 0xff7440,
       size0: 7 * scale,
@@ -241,20 +293,58 @@ export class VfxManager {
       additive: false,
       vel: new Vector3(rng.signed(12), rng.signed(12), rng.signed(12)),
     });
-    this.hitSpark(pos, scale * 1.12);
+    this.hitSpark(pos, scale * 1.12, weaponId, normal);
   }
 
-  /** ミサイルの飛行煙 */
-  missileTrail(pos: Vector3, color: number): void {
+  /** 主砲の短い飛翔エフェクト。遠距離でも種類を読み取れる最小限の尾。 */
+  projectileTrail(pos: Vector3, color: number, mode: 'beam' | 'slug' | 'plasma' | 'particle'): void {
+    if (mode === 'beam') {
+      this.pushSprite(this.glow, pos, { color, size0: 1.8, size1: 0.2, life: 0.08, opacity: 0.28 });
+    } else if (mode === 'slug') {
+      this.pushSprite(this.smoke, pos, {
+        color: 0x7d6658,
+        size0: 1.7,
+        size1: 4,
+        life: 0.22,
+        opacity: 0.18,
+        additive: false,
+      });
+    } else if (mode === 'plasma') {
+      this.pushSprite(this.spark, pos, { color, size0: 2.5, size1: 0.3, life: 0.16, opacity: 0.5 });
+    } else {
+      this.pushSprite(this.spark, pos, { color, size0: 1.7, size1: 0.1, life: 0.12, opacity: 0.55 });
+    }
+  }
+
+  /** ミサイルの飛行煙。推進方式で濃さと尾の色を変える。 */
+  missileTrail(pos: Vector3, color: number, trail: 'smoke' | 'ion' | 'spark' | 'heavy-smoke' = 'smoke'): void {
+    const heavy = trail === 'heavy-smoke';
+    const ion = trail === 'ion';
     this.pushSprite(this.smoke, pos, {
-      color: 0x99a0aa,
-      size0: 3,
-      size1: 16,
-      life: 0.7,
-      opacity: 0.35,
+      color: heavy ? 0x6d625c : 0x99a0aa,
+      size0: heavy ? 4.5 : 3,
+      size1: heavy ? 24 : 16,
+      life: heavy ? 1.1 : 0.7,
+      opacity: heavy ? 0.48 : ion ? 0.16 : 0.35,
       additive: false,
     });
-    this.pushSprite(this.glow, pos, { color, size0: 4, size1: 1, life: 0.12, opacity: 0.8 });
+    this.pushSprite(this.glow, pos, {
+      color,
+      size0: heavy ? 5.5 : 4,
+      size1: 1,
+      life: ion ? 0.18 : 0.12,
+      opacity: heavy ? 0.95 : 0.8,
+    });
+    if (trail === 'spark') {
+      this.pushSprite(this.spark, pos, {
+        color,
+        size0: 2.1,
+        size1: 0.1,
+        life: 0.22,
+        opacity: 0.8,
+        vel: new Vector3(rng.signed(18), rng.signed(18), rng.signed(18)),
+      });
+    }
   }
 
   /** フレアの発光 */
@@ -301,8 +391,14 @@ export class VfxManager {
   }
 
   /** 爆発。規模に応じて閃光・火球・破片・衝撃波リングを重ねる。 */
-  explosion(pos: Vector3, radius: number, kind: 'missile' | 'ship' | 'small' = 'small'): void {
-    const big = kind === 'ship';
+  explosion(
+    pos: Vector3,
+    radius: number,
+    kind: 'missile' | 'ship' | 'small' = 'small',
+    variant?: string,
+  ): void {
+    const torpedo = variant === 'torpedo';
+    const big = kind === 'ship' || torpedo;
     const s = Math.max(6, radius);
 
     // 芯の閃光
@@ -318,12 +414,12 @@ export class VfxManager {
       size0: s * 0.25,
       size1: s * (big ? 1.15 : 0.85),
       life: big ? 0.6 : 0.35,
-      c0: 0xffc266,
-      c1: 0x4a0f00,
+      c0: torpedo ? 0xffeea0 : 0xffc266,
+      c1: torpedo ? 0x3e2200 : 0x4a0f00,
     });
     const stages: Array<[Texture, number, number, number]> = [
       [this.fireball1, 0.0, big ? 0.9 : 0.6, 1],
-      [this.fireball2, 0.06, big ? 1.5 : 1.0, 0.95],
+      [this.fireball2, 0.06, big ? (torpedo ? 1.8 : 1.5) : 1.0, 0.95],
       [this.fireball3, 0.16, big ? 2.1 : 1.4, 0.8],
     ];
     for (const [map, delay, endScale, opacity] of stages) {
@@ -345,7 +441,7 @@ export class VfxManager {
       opacity: 0.6,
     });
     // 破片と煙
-    const shards = big ? 18 : 8;
+    const shards = big ? (torpedo ? 26 : 18) : 8;
     for (let i = 0; i < shards; i++) {
       const sp = big ? rng.range(60, 220) : rng.range(40, 130);
       const dir = new Vector3(rng.signed(1), rng.signed(1), rng.signed(1)).normalize().multiplyScalar(sp);

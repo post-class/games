@@ -123,10 +123,18 @@
   position: absolute;
   left: 50%;
   top: 22%;
+  max-width: min(86vw, 620px);
   transform: translateX(-50%);
+  padding: 7px 16px;
+  border: 1px solid rgba(127, 227, 176, 0.38);
+  border-radius: 3px;
+  background: rgba(4, 14, 14, 0.82);
   font-size: 26px;
+  font-weight: 700;
   letter-spacing: 0.1em;
+  line-height: 1.25;
   text-align: center;
+  white-space: normal;
   text-shadow: 0 0 10px #000, 0 0 24px currentColor;
   opacity: 0;
   transition: opacity 0.18s ease-out;
@@ -179,16 +187,40 @@
   position: absolute;
   right: 18px;
   top: 14px;
+  min-width: 170px;
+  max-width: min(30vw, 330px);
+  padding: 5px 8px;
+  border-left: 2px solid rgba(127, 227, 176, 0.35);
+  background: linear-gradient(90deg, rgba(4, 12, 14, 0.62), rgba(4, 12, 14, 0));
   text-align: right;
   font-size: 13px;
   line-height: 1.5;
 }
 .mc-killfeed div {
+  margin: 1px 0;
   text-shadow: 0 0 6px #000;
   animation: mc-fade-in 0.15s ease-out;
 }
 .mc-killfeed .ace {
   color: var(--ace);
+}
+.mc-killfeed .hit {
+  color: var(--good);
+}
+.mc-killfeed .destroyed {
+  color: var(--hud);
+  font-weight: 700;
+}
+.mc-killfeed .ace.destroyed {
+  color: var(--ace);
+}
+.mc-killfeed .torpedo {
+  color: #fff0a4;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.mc-killfeed .impact {
+  color: var(--hud-dim);
 }
 
 .mc-objectives {
@@ -620,17 +652,63 @@
 .mc-weapon-line.empty {
   opacity: 0.4;
 }
+.mc-weapon-selected {
+  margin: 2px 0 3px;
+  padding: 3px 4px;
+  border-left: 2px solid var(--hud);
+  background: rgba(127, 227, 176, 0.07);
+}
+.mc-weapon-selected .weapon-use {
+  margin: 2px 0;
+  color: #cdefdd;
+  font-size: 9px;
+  line-height: 1.25;
+}
+.mc-fire-status {
+  margin-top: 2px;
+  color: var(--good);
+  font-size: 9px;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+}
+.mc-fire-status.warn {
+  color: var(--warn);
+}
+.mc-fire-status.blocked {
+  color: var(--bad);
+  font-weight: 700;
+}
 .mc-lockstate {
   margin-top: 3px;
   font-size: 11px;
   letter-spacing: 0.1em;
   color: var(--hud-dim);
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 .mc-lockstate.locked {
   color: var(--bad);
 }
 .mc-lockstate.locking {
   color: var(--warn);
+}
+.mc-lockstate.ready {
+  color: var(--good);
+}
+.lock-meter {
+  display: inline-block;
+  width: 42px;
+  height: 5px;
+  border: 1px solid currentColor;
+  background: rgba(255, 255, 255, 0.08);
+  vertical-align: middle;
+}
+.lock-meter i {
+  display: block;
+  height: 100%;
+  background: currentColor;
+  transition: width 0.08s linear;
 }
 
 .mc-sys-line {
@@ -649,11 +727,43 @@
 
 @media (max-height: 760px) {
   .mc-cockpit {
-    height: 228px;
+    /* 武器用途・弾数・エネルギー・ロックを追加しても720pで切れない高さを確保する。 */
+    height: 300px;
   }
   .mc-vdu {
     font-size: 11px;
     line-height: 1.35;
+  }
+
+  /* 720p でも追加した武器情報を切り捨てず、右 VDU 内だけで読めるように詰める。 */
+  .mc-vdu.right {
+    padding: 4px 6px;
+    font-size: 8.5px;
+    line-height: 1.05;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+  .mc-vdu.right .mc-vdu-title {
+    margin-bottom: 2px;
+    padding-bottom: 2px;
+  }
+  .mc-vdu.right .mc-vdu-section {
+    margin: 2px 0 0;
+    padding-top: 1px;
+  }
+  .mc-vdu.right .mc-weapon-selected {
+    margin: 1px 0;
+    padding: 1px 2px;
+  }
+  .mc-vdu.right .mc-weapon-selected .weapon-use,
+  .mc-vdu.right .mc-fire-status {
+    margin: 1px 0;
+    font-size: 8px;
+    line-height: 1.05;
+  }
+  .mc-vdu.right .mc-lockstate {
+    margin-top: 1px;
+    font-size: 8px;
   }
 }
 

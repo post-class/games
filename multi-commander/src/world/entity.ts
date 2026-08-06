@@ -60,6 +60,10 @@ export interface ShipRuntime {
   collisionCooldown: number;
   /** 砲口ごとの再装填残時間 */
   gunCooldown: number[];
+  /** 発射直後の砲口ごとの反動残量。描画だけが参照し、セーブには依存しない。 */
+  gunRecoil: number[];
+  /** 発射不可通知の間引きタイマー */
+  weaponDeniedCooldown: number;
   missiles: MissileSlot[];
   activeMissile: number;
   flares: number;
@@ -100,6 +104,10 @@ export interface ProjectileRuntime {
   ownerId: number;
   ownerFaction: Faction;
   fromPlayer: boolean;
+  /** シールドにだけ適用する武器固有倍率 */
+  shieldMultiplier: number;
+  /** 描画/音声が同じ武器プロファイルを参照するための生成時刻 */
+  age: number;
 }
 
 export interface MissileRuntime {
@@ -112,6 +120,8 @@ export interface MissileRuntime {
   targetId?: number;
   /** 発射直後は誘導しない (自機に当たらないように) */
   armTime: number;
+  /** 飛翔時間。航跡の間引きと音の距離減衰に使う。 */
+  age: number;
   /** デコイに吸着した場合の対象 */
   decoyId?: number;
 }

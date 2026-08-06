@@ -3,10 +3,11 @@ import { bus } from '../core/events';
 import { settings } from '../app/settings';
 import { clamp01 } from '../core/math';
 import { isHostile } from '../content/factions';
-import { missileDef } from '../content/weapons';
+import { gunDef, gunPresentation, missileDef } from '../content/weapons';
 import { healthRatios } from '../sim/damage';
 import { radarQuality, stateOf, SUBSYSTEMS } from '../sim/subsystems';
 import { ittsPoint } from '../sim/targeting';
+import { activeMissileSlot } from '../sim/weapons';
 import type { ArmorFace, Entity } from '../world/entity';
 import type { World } from '../world/world';
 import { PILOTS } from '../content/pilots';
@@ -50,6 +51,19 @@ interface RadioLine {
   until: number;
 }
 
+interface PendingTorpedo {
+  targetId?: number;
+  targetPosition?: Vector3;
+  targetRadius?: number;
+  targetLabel?: string;
+  expiresAt: number;
+}
+
+interface PendingExplosion {
+  pos: Vector3;
+  radius: number;
+}
+
 /**
  * コクピット計器と照準表示 (DOM + SVG)。
  * ロジックからは毎フレーム update() を呼ぶだけ。
@@ -75,6 +89,9 @@ export class HudView {
   private speakingFaces: Array<{ el: HTMLElement; speaker: string; until: number }> = [];
   private killFeed: HTMLElement;
   private killLines: RadioLine[] = [];
+  private pendingTorpedoes: PendingTorpedo[] = [];
+  private pendingExplosions: PendingExplosion[] = [];
+  private playerFaction?: Entity['faction'];
   private objectivesBox: HTMLElement;
   private warnLock: HTMLElement;
   private warnMissile: HTMLElement;
@@ -254,6 +271,9 @@ export class HudView {
     this.radioLines = [];
     for (const line of this.killLines) line.el.remove();
     this.killLines = [];
+    this.pendingTorpedoes = [];
+    this.pendingExplosions = [];
+    this.playerFaction = undefined;
     this.speakingFaces = [];
 
     this.objectivesBox.textContent = '';
@@ -325,9 +345,21 @@ export class HudView {
     this.unsubs.push(
       bus.on('announce', (p) => {
         if (!p.text) return;
-        this.announce.textContent = p.text;
+        this.announce.textContent = readableAnnouncement(p.text);
         this.announce.className = `mc-announce show ${p.kind ?? 'info'}`;
         this.announceUntil = performance.now() + (p.durationMs ?? 1800);
+      }),
+      bus.on('weaponFired', (p) => {
+        if (!p.isPlayer || p.weaponKind !== 'missile' || p.weaponId !== 'torpedo') return;
+        this.pendingTorpedoes.push({
+          targetId: p.shooter.ship?.targetId,
+          expiresAt: performance.now() + 22000,
+        });
+        while (this.pendingTorpedoes.length > 4) this.pendingTorpedoes.shift();
+      }),
+      bus.on('explosion', (p) => {
+        if (p.kind !== 'missile') return;
+        this.pendingExplosions.push({ pos: p.pos.clone(), radius: p.radius });
       }),
       bus.on('radio', (p) => {
         const line = el('div', `mc-radio-line ${p.tone ?? 'friendly'}`);
@@ -376,10 +408,19 @@ export class HudView {
       }),
       bus.on('destroyed', (p) => {
         if (p.target.kind !== 'ship') return;
+        if (p.killedByPlayer) {
+          for (const torpedo of this.pendingTorpedoes) {
+            if (torpedo.targetId !== p.target.id) continue;
+            torpedo.targetPosition = p.target.pos.clone();
+            torpedo.targetRadius = p.target.radius;
+            torpedo.targetLabel = p.target.label;
+          }
+        }
         const line = el('div', p.target.ship?.ace ? 'ace' : '');
         const who = p.target.ship?.pilot ?? p.target.label ?? '?';
         const star = p.target.ship?.ace ? '★ ' : '';
-        line.textContent = p.killedByPlayer ? `${star}${who} を撃墜` : `${star}${who} 破壊`;
+        line.classList.add(p.killedByPlayer ? 'destroyed' : 'impact');
+        line.textContent = p.killedByPlayer ? `${star}${who} 撃破` : `${star}${who} 破壊`;
         this.killFeed.appendChild(line);
         this.killLines.push({ el: line, until: performance.now() + 5000 });
         while (this.killLines.length > 6) {
@@ -389,9 +430,13 @@ export class HudView {
       }),
       bus.on('shieldHit', (p) => {
         if (p.isPlayer) this.vignetteLevel = Math.min(0.6, this.vignetteLevel + 0.14);
+        else if (this.isHostileToPlayer(p.target)) this.pushCombatLine('命中確認 — シールド', 'hit');
       }),
       bus.on('armorHit', (p) => {
         if (p.isPlayer) this.vignetteLevel = Math.min(0.9, this.vignetteLevel + 0.3);
+        else if (this.isHostileToPlayer(p.target)) {
+          this.pushCombatLine(p.layer === 'hull' ? '命中確認 — 船体' : '命中確認 — 装甲', 'hit');
+        }
       }),
     );
   }
@@ -413,9 +458,11 @@ export class HudView {
 
     const now = performance.now();
     const player = f.world.player;
+    this.playerFaction = player?.faction;
 
     this.expire(this.radioLines, now);
     this.expire(this.killLines, now);
+    this.confirmTorpedoHits(f.world, now);
     this.stopFinishedSpeech(now);
     if (this.announceUntil && now > this.announceUntil) {
       this.announce.className = 'mc-announce';
@@ -466,6 +513,46 @@ export class HudView {
     while (lines.length && lines[0].until < now) {
       const old = lines.shift()!;
       old.el.remove();
+    }
+  }
+
+  private isHostileToPlayer(target: Entity): boolean {
+    return !!this.playerFaction && isHostile(this.playerFaction, target.faction);
+  }
+
+  private pushCombatLine(text: string, kind: 'hit' | 'torpedo'): void {
+    const line = el('div', kind);
+    line.textContent = text;
+    this.killFeed.appendChild(line);
+    this.killLines.push({ el: line, until: performance.now() + (kind === 'torpedo' ? 5200 : 2200) });
+    while (this.killLines.length > 6) {
+      const old = this.killLines.shift()!;
+      old.el.remove();
+    }
+  }
+
+  private confirmTorpedoHits(world: World, now: number): void {
+    this.pendingTorpedoes = this.pendingTorpedoes.filter((torpedo) => torpedo.expiresAt > now);
+    if (!this.pendingTorpedoes.length) {
+      this.pendingExplosions = [];
+      return;
+    }
+    if (!this.pendingExplosions.length) return;
+
+    for (const explosion of this.pendingExplosions.splice(0)) {
+      const match = this.pendingTorpedoes.findIndex((torpedo) => {
+        const target = torpedo.targetId === undefined ? undefined : world.byId(torpedo.targetId);
+        const targetPosition = target?.pos ?? torpedo.targetPosition;
+        const targetRadius = target?.radius ?? torpedo.targetRadius ?? 0;
+        if (!targetPosition) return false;
+        return explosion.pos.distanceTo(targetPosition) <= explosion.radius + targetRadius * 1.5;
+      });
+      if (match < 0) continue;
+      const targetId = this.pendingTorpedoes[match].targetId;
+      const target = targetId === undefined ? undefined : world.byId(targetId);
+      const targetLabel = target?.label ?? this.pendingTorpedoes[match].targetLabel;
+      this.pendingTorpedoes.splice(match, 1);
+      this.pushCombatLine(`魚雷命中${targetLabel ? ` — ${targetLabel}` : ''}`, 'torpedo');
     }
   }
 
@@ -706,12 +793,13 @@ export class HudView {
     const wingRatio = wing?.ship ? wing.ship.hull / Math.max(1, wing.ship.def.hull) : 0;
     const wingState = wing ? (wingRatio > 0.6 ? 'FORMED' : wingRatio > 0.2 ? 'DAMAGED' : 'CRITICAL') : 'NONE';
     const wingClass = wing ? (wingRatio > 0.6 ? 'ok' : wingRatio > 0.2 ? 'warn' : 'bad') : 'dim';
+    const usableSlot = activeMissileSlot(player);
 
     const lines: string[] = [];
     for (let i = 0; i < ship.missiles.length; i++) {
       const m = ship.missiles[i];
       const def = missileDef(m.missileId);
-      const active = i === ship.activeMissile;
+      const active = i === (usableSlot?.index ?? ship.activeMissile);
       lines.push(
         `<div class="mc-weapon-line ${active ? 'active' : ''} ${m.count === 0 ? 'empty' : ''}">` +
           `<span>${active ? '▸ ' : '  '}${escapeHtml(def.name)}</span><span>${m.count}</span></div>`,
@@ -720,25 +808,45 @@ export class HudView {
     if (lines.length === 0) lines.push('<div class="mc-vdu-empty">副兵装なし</div>');
     lines.push(`<div class="mc-weapon-line"><span>フレア</span><span>${ship.flares}</span></div>`);
 
-    const slot = ship.missiles[ship.activeMissile];
+    const selectedSlot = ship.missiles[ship.activeMissile];
+    const slot = usableSlot ? ship.missiles[usableSlot.index] : selectedSlot;
     const def = slot ? missileDef(slot.missileId) : undefined;
     let lock = '';
     if (def && def.seeker !== 'none') {
-      if (ship.lockedId) lock = '<div class="mc-lockstate locked">■ ロック完了</div>';
+      if (ship.lockedId !== undefined) {
+        lock = '<div class="mc-lockstate locked"><span class="lock-meter"><i style="width:100%"></i></span>■ ロック完了</div>';
+      }
       else if (ship.lockProgress > 0.02)
-        lock = `<div class="mc-lockstate locking">□ ロック中 ${(ship.lockProgress * 100) | 0}%</div>`;
-      else lock = '<div class="mc-lockstate">□ ロックなし</div>';
-    } else if (def && def.seeker !== 'none') {
-      lock = '<div class="mc-lockstate">□ LOCK READY</div>';
+        lock = `<div class="mc-lockstate locking"><span class="lock-meter"><i style="width:${(ship.lockProgress * 100).toFixed(1)}%"></i></span>□ ロック中 ${(ship.lockProgress * 100) | 0}%</div>`;
+      else lock = '<div class="mc-lockstate"><span class="lock-meter"><i style="width:0%"></i></span>□ ロック未完了</div>';
+    } else if (def) {
+      lock = '<div class="mc-lockstate ready"><span class="lock-meter"><i style="width:100%"></i></span>■ ロック不要 / 即時発射</div>';
     }
-    const selected = def ? def.shortName : 'GUNS';
+    const gun = ship.def.guns[0]?.gunId ? gunDef(ship.def.guns[0].gunId) : undefined;
+    const selected = def?.name ?? gun?.name ?? '武装なし';
+    const selectedUse =
+      def?.description ?? (gun ? gunPresentation(gun).description : undefined) ?? '使用できる武装がありません';
+    const ammo = def ? `${slot?.count ?? 0}` : gun ? '∞' : '—';
+    const energyCost = gun?.energyCost ?? 0;
+    const lockedTarget = ship.lockedId === undefined ? undefined : f.world.byId(ship.lockedId);
+    const fireStatus = def
+      ? missileFireStatus(ship, slot, def, lockedTarget)
+      : gun
+        ? gunFireStatus(ship, gun)
+        : '発射不可 — 武装なし';
     const body =
       `<div class="mc-vdu-section">TARGET</div>${targetHtml}` +
       `<div class="mc-vdu-section">NAV / WING</div>${navHtml}` +
       `<div class="row"><span class="k">WINGMAN</span><span class="${wingClass}">${escapeHtml(wingName)}</span></div>` +
       `<div class="row"><span class="k">STATUS</span><span class="${wingClass}">${wingState}</span></div>` +
       `<div class="mc-vdu-section">WEAPONS  [X]</div>` +
+      `<div class="mc-weapon-selected">` +
       `<div class="row"><span class="k">SELECTED</span><span class="active-weapon">${escapeHtml(selected)}</span></div>` +
+      `<div class="weapon-use">${escapeHtml(selectedUse)}</div>` +
+      `<div class="row"><span class="k">AMMO</span><span>${ammo}</span></div>` +
+      `<div class="row"><span class="k">ENERGY</span><span>${ship.energy.toFixed(0)} / ${ship.def.energy}${energyCost ? `　(−${energyCost}/shot)` : ''}</span></div>` +
+      `<div class="mc-fire-status ${fireStatus.startsWith('発射不可') ? 'blocked' : fireStatus.includes('損傷') ? 'warn' : ''}">${escapeHtml(fireStatus)}</div>` +
+      `</div>` +
       lines.join('') +
       lock;
     this.setVdu(this.vduRight, 'TARGET / NAV', body);
@@ -912,6 +1020,43 @@ function barColor(r: number): string {
   if (r > 0.6) return '#6fe38f';
   if (r > 0.3) return '#ffd166';
   return '#ff5d5d';
+}
+
+function gunFireStatus(ship: Entity['ship'], gun: ReturnType<typeof gunDef>): string {
+  if (!ship) return '発射不可 — 機体なし';
+  if (ship.energy < gun.energyCost) return '発射不可 — エネルギー不足';
+  const gunStates = ship.def.guns.map((hp) =>
+    stateOf(ship, ship.def.role === 'capital' ? 'turret' : hp.offset[0] < 0 ? 'gunsLeft' : 'gunsRight'),
+  );
+  if (gunStates.length > 0 && gunStates.every((state) => state === 'dead')) return '発射不可 — 砲損傷';
+  if (gunStates.some((state) => state !== 'ok')) return '砲損傷 — 火力低下 / 不発あり';
+  return '発射可能';
+}
+
+function missileFireStatus(
+  ship: Entity['ship'],
+  slot: { count: number } | undefined,
+  def: ReturnType<typeof missileDef>,
+  target?: Entity,
+): string {
+  if (!ship || !slot || slot.count <= 0) return '発射不可 — 弾切れ';
+  if (def.seeker !== 'none' && ship.lockedId === undefined) return '発射不可 — ロック未完了';
+  if (
+    def.targetRole === 'capital' &&
+    target?.ship &&
+    target.ship.def.role !== 'capital' &&
+    target.ship.def.role !== 'transport'
+  ) {
+    return '発射不可 — 大型目標のみ';
+  }
+  return '発射可能';
+}
+
+function readableAnnouncement(text: string): string {
+  if (text === 'ロックしていない') return '発射不可 — ロック未完了';
+  if (text === 'ミサイル切れ') return '発射不可 — 弾切れ';
+  if (text === '対艦魚雷は大型目標を選択してください') return '発射不可 — 魚雷は大型目標のみ';
+  return text;
 }
 
 function escapeHtml(s: string): string {

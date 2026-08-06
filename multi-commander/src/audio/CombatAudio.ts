@@ -11,6 +11,22 @@ const _rel = new Vector3();
 const _right = new Vector3();
 const _camDir = new Vector3();
 
+export type CombatExplosionSize = 'small' | 'large' | 'torpedo';
+
+/** 爆発イベントの既存情報だけで音の規模を選ぶ。新しい payload が無くても安全。 */
+export function explosionAudioSize(
+  kind: 'missile' | 'ship' | 'small',
+  radius: number,
+  detonation?: string,
+): CombatExplosionSize {
+  if (kind === 'small') return 'small';
+  if (kind === 'ship') return 'large';
+  if (detonation === 'torpedo') return 'torpedo';
+  // 現行の対艦魚雷の blastRadius (70) にだけ合わせる。岩(最大84)や
+  // 機雷(95)も kind=missile で通知されるため、単純な大小判定はしない。
+  return Math.abs(radius - 70) <= 1 ? 'torpedo' : 'small';
+}
+
 /**
  * イベントバスと音を繋ぐ層。
  * 距離減衰と左右のパンはカメラ姿勢から求める。
@@ -21,29 +37,38 @@ export class CombatAudio {
   private camera?: PerspectiveCamera;
   private playerId?: number;
   private wingmanId?: number;
+  private playerMissileId?: string;
+  private sequenceTimers = new Set<ReturnType<typeof setTimeout>>();
 
   constructor() {
     this.unsubs.push(
       bus.on('weaponFired', (p) => {
         const { distance, pan } = this.place(p.muzzle);
         if (p.weaponKind === 'gun') audio.gun(p.weaponId, p.isPlayer ? 0 : distance, pan);
-        else audio.missileLaunch(p.isPlayer ? 0 : distance, pan);
+        else {
+          if (p.isPlayer) this.playerMissileId = p.weaponId;
+          audio.missileLaunch(p.weaponId, p.isPlayer ? 0 : distance, pan);
+        }
       }),
       bus.on('shieldHit', (p) => {
         const { distance, pan } = this.place(p.point);
-        audio.shieldHit(p.isPlayer ? 0 : distance, pan);
+        audio.shieldHit(p.isPlayer ? 0 : distance, pan, p.weaponId);
       }),
       bus.on('armorHit', (p) => {
         const { distance, pan } = this.place(p.point);
-        audio.armorHit(p.isPlayer ? 0 : distance, pan, p.layer);
+        audio.armorHit(p.isPlayer ? 0 : distance, pan, p.layer, p.weaponId);
       }),
       bus.on('explosion', (p) => {
         const { distance, pan } = this.place(p.pos);
-        audio.explosion(distance, pan, false);
+        audio.explosion(distance, pan, explosionAudioSize(p.kind, p.radius, p.detonation));
       }),
       bus.on('destroyed', (p) => {
         const { distance, pan } = this.place(p.target.pos);
-        audio.explosion(distance, pan, true);
+        // ミサイル起爆では直後に explosion イベントが来るため、そこで
+        // 小型/魚雷を鳴らし、ここでは船体撃破音を二重にしない。
+        if (p.reason !== 'enemy-missile' && p.reason !== 'friendly-missile') {
+          audio.explosion(distance, pan, 'large');
+        }
         if (p.target.ship?.ace) {
           audio.motif('nemesis');
           this.music.playBattle('boss');
@@ -65,7 +90,21 @@ export class CombatAudio {
         }
       }),
       bus.on('lockChanged', (p) => {
-        if (p.locked) audio.lockTone(true);
+        audio.lockTone(p.locked, this.playerMissileId);
+      }),
+      bus.on('weaponDenied', (p) => {
+        if (!p.isPlayer) return;
+        const frequency =
+          p.reason === 'energy'
+            ? 180
+            : p.reason === 'damaged'
+              ? 240
+              : p.reason === 'no-lock'
+                ? 360
+                : p.reason === 'invalid-target'
+                  ? 430
+                  : 280;
+        audio.beep(frequency, 0.08, 0.16, 'square');
       }),
       bus.on('autopilot', (p) => {
         audio.beep(p.active ? 1100 : 700, 0.12, 0.2, 'triangle');
@@ -82,7 +121,13 @@ export class CombatAudio {
       bus.on('missionEnded', (p) => {
         // 曲が切り替わるまでの間を短いジングルで埋める
         const base = p.outcome === 'win' ? [523, 659, 784] : [392, 330, 262];
-        base.forEach((f, i) => setTimeout(() => audio.beep(f, 0.28, 0.22, 'triangle'), i * 180));
+        base.forEach((f, i) => {
+          const timer = setTimeout(() => {
+            this.sequenceTimers.delete(timer);
+            audio.beep(f, 0.28, 0.22, 'triangle');
+          }, i * 180);
+          this.sequenceTimers.add(timer);
+        });
       }),
     );
   }
@@ -106,6 +151,7 @@ export class CombatAudio {
     if (!active || !player?.ship) {
       this.playerId = undefined;
       this.wingmanId = undefined;
+      this.playerMissileId = undefined;
       audio.stopEngine();
       audio.setMusicDuck(1);
       this.music.update(dt);
@@ -123,6 +169,7 @@ export class CombatAudio {
     )?.id;
     const ship = player.ship;
     const def = ship.def;
+    this.playerMissileId = ship.missiles[ship.activeMissile]?.missileId;
     const power = Math.min(1, player.vel.length() / Math.max(1, def.maxSpeed));
     audio.updateEngine(
       power,
@@ -132,13 +179,14 @@ export class CombatAudio {
     );
 
     // 警報
-    if (world.byId(ship.incomingMissileId)) audio.warning('missile');
+    const incoming = world.byId(ship.incomingMissileId);
+    if (incoming?.missile) audio.warning('missile', incoming.missile.def.id);
     else if (ship.lockedByEnemy) audio.warning('lock');
     const h = healthRatios(player);
     if (h.shieldFront < 0.15 && h.shieldRear < 0.15 && h.hull < 0.6) audio.warning('shield');
 
     // ロック進行中の断続音
-    if (ship.lockProgress > 0.02 && ship.lockProgress < 1) audio.lockTone(false);
+    if (ship.lockProgress > 0.02 && ship.lockProgress < 1) audio.lockTone(false, this.playerMissileId);
 
     // 近くの敵の数で BGM の緊張度を決める
     let near = 0;
@@ -160,6 +208,8 @@ export class CombatAudio {
   dispose(): void {
     for (const u of this.unsubs) u();
     this.unsubs.length = 0;
+    for (const timer of this.sequenceTimers) clearTimeout(timer);
+    this.sequenceTimers.clear();
     this.music.stop();
   }
 }

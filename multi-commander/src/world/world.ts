@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from 'three';
 import type { Faction, ShipDef } from '../content/ships';
-import { gunDef, missileDef, type SeekerKind } from '../content/weapons';
+import { gunDef, gunPresentation, missileDef, missilePresentation, type SeekerKind } from '../content/weapons';
 import { newSubsystems } from '../sim/subsystems';
 import {
   newInput,
@@ -110,6 +110,8 @@ export function makeShipRuntime(def: ShipDef, fuelScale = 1): ShipRuntime {
     shieldDelay: 0,
     collisionCooldown: 0,
     gunCooldown: def.guns.map(() => 0),
+    gunRecoil: def.guns.map(() => 0),
+    weaponDeniedCooldown: 0,
     missiles: def.missiles.map((m): MissileSlot => ({ ...m })),
     activeMissile: 0,
     flares: def.flares,
@@ -199,6 +201,8 @@ export function spawnProjectile(world: World, o: SpawnProjectileOptions): Entity
     ownerId: o.ownerId,
     ownerFaction: o.ownerFaction,
     fromPlayer: o.fromPlayer,
+    shieldMultiplier: gunPresentation(gun).shieldMultiplier,
+    age: 0,
   };
   return world.add(e);
 }
@@ -230,7 +234,8 @@ export function spawnMissile(world: World, o: SpawnMissileOptions): Entity {
     ownerFaction: o.ownerFaction,
     fromPlayer: o.fromPlayer,
     targetId: o.targetId,
-    armTime: 0.25,
+    armTime: missilePresentation(def).armTime,
+    age: 0,
   };
   e.label = def.name;
   return world.add(e);
@@ -249,6 +254,8 @@ export function spawnFlare(world: World, o: { pos: Vector3; vel: Vector3; factio
     ownerId: -1,
     ownerFaction: o.faction,
     fromPlayer: false,
+    shieldMultiplier: 1,
+    age: 0,
   };
   return world.add(e);
 }

@@ -3,6 +3,7 @@ import { bus } from '../core/events';
 import { forwardOf, leadPoint } from '../core/math';
 import { rng } from '../core/rng';
 import { isHostile } from '../content/factions';
+import { missilePresentation } from '../content/weapons';
 import type { Entity } from '../world/entity';
 import type { World } from '../world/world';
 import { pointOnSegment, spheresOverlap, sweepSphere } from './collision';
@@ -71,6 +72,7 @@ export function updateOrdnance(world: World, dt: number): void {
 
     if (e.kind === 'projectile' || e.kind === 'flare') {
       const p = e.projectile!;
+      p.age = (p.age ?? 0) + dt;
       p.life -= dt;
       if (p.life <= 0) {
         world.kill(e);
@@ -89,6 +91,7 @@ export function updateOrdnance(world: World, dt: number): void {
 
 function updateMissile(world: World, e: Entity, dt: number): void {
   const m = e.missile!;
+  m.age = (m.age ?? 0) + dt;
   m.life -= dt;
   if (m.life <= 0) {
     detonate(world, e, undefined);
@@ -148,7 +151,8 @@ function updateMissile(world: World, e: Entity, dt: number): void {
   e.prevPos.copy(e.pos);
   e.pos.addScaledVector(e.vel, dt);
 
-  // 近接信管
+  // 近接信管。発射直後の安全なアーム時間中は、目標を横切っても起爆しない。
+  if (m.armTime > 0) return;
   for (const s of world.entities) {
     if (!s.alive || s.kind !== 'ship' || !s.ship) continue;
     if (s.id === m.ownerId) continue;
@@ -189,6 +193,8 @@ function detonate(world: World, e: Entity, at: Vector3 | undefined): void {
   const m = e.missile!;
   const center = at ?? e.pos;
   const def = m.def;
+  const presentation = missilePresentation(def);
+  let affectedCount = 0;
   for (const s of world.entities) {
     if (!s.alive || s.kind !== 'ship' || !s.ship) continue;
     const d = s.pos.distanceTo(center) - s.radius;
@@ -197,11 +203,23 @@ function detonate(world: World, e: Entity, at: Vector3 | undefined): void {
     const dmg = def.damage * (0.35 + 0.65 * falloff);
     const scaled = scaleDamage(world, dmg, m.fromPlayer, s.id === world.playerId);
     const res = applySplashDamage(s, scaled, center);
-    emitHit(world, s, center, res);
+    affectedCount += 1;
+    emitHit(world, s, center, res, {
+      weaponId: def.id,
+      damageType: 'missile',
+      origin: e.pos,
+    });
     applySubsystemDamage(world, s, res.hullDamage, res.armorFace);
     if (res.destroyed) destroyEntity(world, s, world.byId(m.ownerId), 'missile');
   }
-  bus.emit('explosion', { pos: center.clone(), radius: def.blastRadius, kind: 'missile' });
+  bus.emit('explosion', {
+    pos: center.clone(),
+    radius: def.blastRadius,
+    kind: 'missile',
+    weaponId: def.id,
+    detonation: presentation.detonation,
+    affectedCount,
+  });
   world.kill(e);
 }
 
@@ -228,14 +246,26 @@ function emitHit(
   target: Entity,
   point: Vector3,
   result: DamageResult,
+  context: {
+    weaponId?: string;
+    damageType?: 'gun' | 'missile' | 'collision' | 'hazard';
+    origin?: Vector3;
+  } = {},
 ): void {
   const isPlayer = target.id === world.playerId;
+  const distance = context.origin ? context.origin.distanceTo(target.pos) : undefined;
+  const critical = result.hullDamage >= (target.ship?.def.hull ?? Infinity) * 0.18;
   if (result.shieldAbsorbed > 0) {
     bus.emit('shieldHit', {
       target,
       point: point.clone(),
       amount: result.shieldAbsorbed,
       isPlayer,
+      weaponId: context.weaponId,
+      damageType: context.damageType,
+      distance,
+      hitFace: result.shieldFace,
+      critical,
     });
   }
   if (result.armorAbsorbed > 0) {
@@ -245,6 +275,11 @@ function emitHit(
       amount: result.armorAbsorbed,
       layer: 'armor',
       isPlayer,
+      weaponId: context.weaponId,
+      damageType: context.damageType,
+      distance,
+      hitFace: result.armorFace,
+      critical,
     });
   }
   if (result.hullDamage > 0) {
@@ -254,6 +289,11 @@ function emitHit(
       amount: result.hullDamage,
       layer: 'hull',
       isPlayer,
+      weaponId: context.weaponId,
+      damageType: context.damageType,
+      distance,
+      hitFace: result.armorFace,
+      critical,
     });
   }
 }
@@ -313,8 +353,12 @@ export function resolveProjectileHits(world: World): void {
 
     pointOnSegment(p.prevPos, p.pos, bestT, _hit);
     const dmg = scaleDamage(world, pr.damage, pr.fromPlayer, bestShip.id === world.playerId);
-    const res = applyDamage(bestShip, dmg, _hit);
-    emitHit(world, bestShip, _hit, res);
+    const res = applyDamage(bestShip, dmg, _hit, { shieldMultiplier: pr.shieldMultiplier ?? 1 });
+    emitHit(world, bestShip, _hit, res, {
+      weaponId: pr.gun.id,
+      damageType: 'gun',
+      origin: p.prevPos,
+    });
     applySubsystemDamage(world, bestShip, res.hullDamage, res.armorFace);
     if (res.destroyed) destroyEntity(world, bestShip, world.byId(pr.ownerId), 'gun');
     world.kill(p);
