@@ -211,7 +211,10 @@ export class InputManager {
       default:
         break;
     }
-    if (this.bound('pause', code)) this.actions.push('pause');
+    // メニュー中の Esc は ScreenHost がキャンセル／再開を処理する。
+    // ここでも pause action を積むと、ポーズ画面から Esc で再開した直後に
+    // 残留 action が再処理され、ポーズが即座に再表示されてしまう。
+    if (!this.uiMode && this.bound('pause', code)) this.actions.push('pause');
     if (this.uiMode) {
       // 数字キーはメニューの直接選択に使うので通す
       if (code.startsWith('Digit')) {

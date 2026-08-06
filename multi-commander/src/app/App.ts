@@ -111,6 +111,9 @@ export class App {
   // ───────── タイトル ─────────
 
   private showTitle(): void {
+    // 訓練中にタイトルへ戻っても、続きから再開したキャンペーンを
+    // 訓練任務として扱わないようにする。
+    this.trainingActive = false;
     this.game.sound.music.play('title');
     this.game.endMission();
     const hasSave = !!loadSave();
