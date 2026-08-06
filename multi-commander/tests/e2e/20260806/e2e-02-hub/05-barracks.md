@@ -1,0 +1,47 @@
+- generic [ref=f1e34]:
+  - heading "自室" [level=1] [ref=f1e35]
+  - generic [ref=f1e36]:
+    - generic [ref=f1e37]:
+      - heading "自室 / 戦績" [level=3] [ref=f1e38]
+      - generic [ref=f1e39]:
+        - img "少尉" [ref=f1e40]
+        - generic [ref=f1e41]: 階級 少尉 通算撃墜 0 出撃 0 回 達成 0 任務 第 1 章 / 7
+    - generic [ref=f1e42]:
+      - heading "勲章" [level=3] [ref=f1e43]
+      - generic [ref=f1e44]: まだ無い
+    - generic [ref=f1e45]:
+      - heading "飛行隊名簿" [level=3] [ref=f1e46]
+      - generic [ref=f1e47]:
+        - generic [ref=f1e50]:
+          - generic [ref=f1e51]: Spirit 田中 真理子
+          - generic [ref=f1e52]: 堅実 技量 62% 撃墜 0 出撃 0 昇進 0
+          - generic [ref=f1e53]: 指示に忠実で、決して持ち場を離れない。故郷に婚約者がいるという噂がある。
+        - generic [ref=f1e54]: 出撃可
+      - generic [ref=f1e55]:
+        - generic [ref=f1e58]:
+          - generic [ref=f1e59]: Maniac Todd Marsh
+          - generic [ref=f1e60]: 無鉄砲 技量 70% 撃墜 0 出撃 0 昇進 0
+          - generic [ref=f1e61]: 腕はある。命令は聞かない。「編隊を組め」と言った次の秒に単独で突っ込んでいる。
+        - generic [ref=f1e62]: 出撃可
+      - generic [ref=f1e63]:
+        - generic [ref=f1e66]:
+          - generic [ref=f1e67]: Angel Jeanne Duval
+          - generic [ref=f1e68]: 冷静 技量 80% 撃墜 0 出撃 0 昇進 0
+          - generic [ref=f1e69]: 無駄弾を撃たない。指示は簡潔で、状況判断が早い。飛行隊で最も信頼されている。
+        - generic [ref=f1e70]: 出撃可
+      - generic [ref=f1e71]:
+        - generic [ref=f1e74]:
+          - generic [ref=f1e75]: Tinman Peter Kowalczyk
+          - generic [ref=f1e76]: 老練 技量 76% 撃墜 0 出撃 0 昇進 0
+          - generic [ref=f1e77]: 三度撃墜されて三度帰ってきた。「機体は替えが効く。お前は効かない」が口癖。
+        - generic [ref=f1e78]: 出撃可
+      - generic [ref=f1e79]:
+        - generic [ref=f1e82]:
+          - generic [ref=f1e83]: Padre Tomás Rivas
+          - generic [ref=f1e84]: 厭世 技量 66% 撃墜 0 出撃 0 昇進 0
+          - generic [ref=f1e85]: 出撃前に必ず祈る。戦死者の名前を全員覚えている。それが重荷になっている。
+        - generic [ref=f1e86]: 出撃可
+  - generic [ref=f1e87]:
+    - generic [ref=f1e88] [cursor=pointer]: セーブスロットへ — 現在の戦役を保存
+    - generic [ref=f1e89] [cursor=pointer]: セーブスロットからロード
+    - generic [ref=f1e90] [cursor=pointer]: 戻る

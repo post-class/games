@@ -1,0 +1,18 @@
+- generic [ref=f1e604]:
+  - heading "統計" [level=1] [ref=f1e605]
+  - generic [ref=f1e606]:
+    - generic [ref=f1e607]:
+      - heading "飛行統計" [level=3] [ref=f1e608]
+      - list [ref=f1e609]:
+        - listitem [ref=f1e610]: 勝利 0 / 敗北 0
+        - listitem [ref=f1e611]: 発射 0 命中 0 命中率 0.0%
+        - listitem [ref=f1e612]: 戦闘時間 0.0 分
+        - listitem [ref=f1e613]: 最長僚機生存スコア 0.0 分
+        - listitem [ref=f1e614]: Nav 到達 0 護衛成功 0 / 0
+        - listitem [ref=f1e615]: 救援成功 0 置き去り 0
+        - listitem [ref=f1e616]: 戦役分岐勝率 0.0% 勝利 0 / 敗北 0
+        - listitem [ref=f1e617]: 戦役勝利点 0 前進 0 撤退 0
+    - generic [ref=f1e618]:
+      - heading "搭乗履歴" [level=3] [ref=f1e619]
+      - text: なし
+  - generic [ref=f1e620]: 戻る

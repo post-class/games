@@ -1,0 +1,22 @@
+- generic [ref=e19]:
+  - heading "TCS タイガーズ・クロー" [level=1] [ref=e20]
+  - generic [ref=e21]: CANON / ENYO Enyo Series 1/7 — Enyo 星系
+  - generic [ref=e23]:
+    - generic [ref=e24]:
+      - img "少尉" [ref=e25]
+      - generic [ref=e26]: 少尉 通算撃墜 0 出撃 0 回
+    - generic [ref=e27]: "次の任務: Enyo Series — 哨戒 — Enyo宙域"
+    - generic [ref=e28]: "戦況: Enyo — Enyo Series の戦況を確認中。 / 勝利点 0 / McCaffrey 54% / Gimle 48% / Vega 43%"
+  - generic [ref=e29]:
+    - generic [ref=e30] [cursor=pointer]: ブリーフィング室 — 任務の説明を受ける
+    - generic [ref=e32] [cursor=pointer]: 格納庫 — 機体と僚機を決める
+    - generic [ref=e34] [cursor=pointer]: 酒場 — 隊員と話す
+    - generic [ref=e36] [cursor=pointer]: 自室 — 名簿と戦績
+    - generic [ref=e38] [cursor=pointer]: キルボード
+    - generic [ref=e40] [cursor=pointer]: 戦況マップ
+    - generic [ref=e41] [cursor=pointer]: 訓練室
+    - generic [ref=e42] [cursor=pointer]: 統計
+    - generic [ref=e43] [cursor=pointer]: 出撃 (F-54 ホーネット / Angel)
+    - generic [ref=e45] [cursor=pointer]: 設定
+    - generic [ref=e46] [cursor=pointer]: タイトルへ戻る
+  - generic [ref=e47]: ▲▼ で選択 / Enter で決定

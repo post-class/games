@@ -1,0 +1,45 @@
+- generic [ref=e2005] [box=0,0,1280,720]:
+  - heading "戦況マップ" [level=1] [ref=e2006] [box=530,184,220,57]
+  - generic [ref=e2007] [box=150,251,980,245]:
+    - generic [ref=e2008] [box=169,261,942,539]:
+      - heading "戦役マップ — CANON / ENYO" [level=3] [ref=e2009] [box=171,261,940,25]
+      - generic [ref=e2010] [box=171,292,940,25]: シリーズ勝利点 0 履歴 0 任務 Enyo — Enyo Series の戦況を確認中。
+      - generic [ref=e2011] [box=171,321,940,65]:
+        - generic [ref=e2012] [box=180,343,106,19]: 現在地
+        - generic [ref=e2013] [box=296,329,806,49]:
+          - text: Enyo Series — Enyo
+          - generic [ref=e2014] [box=296,353,806,25]: patrol 勝利点 2 Enyo の航路を哨戒し、Kilrathi 偵察隊を退ける
+      - generic [ref=e2015] [box=171,390,940,65]:
+        - generic [ref=e2016] [box=180,412,106,19]: 次の分岐
+        - generic [ref=e2017] [box=296,398,806,49]:
+          - text: Enyo Series — Enyo
+          - generic [ref=e2018] [box=296,422,806,25]: defense 勝利点 2 Enyo の防衛拠点を守り、撤退船団を送り出す 敗北側から到達
+      - generic [ref=e2019] [box=171,459,940,65]:
+        - generic [ref=e2020] [box=180,481,106,19]: 次の分岐
+        - generic [ref=e2021] [box=296,467,806,49]:
+          - text: McAuliffe Series — McAuliffe
+          - generic [ref=e2022] [box=296,491,806,25]: escort 勝利点 3 補給船団を McAuliffe の集合点まで護衛する 勝利側から到達
+      - generic [ref=e2023] [box=171,528,940,65]:
+        - generic [ref=e2024] [box=180,550,106,19]: 未到達
+        - generic [ref=e2025] [box=296,536,806,49]:
+          - text: McAuliffe Series — McAuliffe
+          - generic [ref=e2026] [box=296,560,806,25]: defense 勝利点 2 後退中の艦隊を守り、補給拠点を再確保する
+      - generic [ref=e2027] [box=171,597,940,65]:
+        - generic [ref=e2028] [box=180,619,106,19]: 未到達
+        - generic [ref=e2029] [box=296,605,806,49]:
+          - text: Gateway Series — Gateway
+          - generic [ref=e2030] [box=296,629,806,25]: strike 勝利点 4 Gateway の敵前進基地と補給艦を破壊する
+      - generic [ref=e2031] [box=171,666,940,65]:
+        - generic [ref=e2032] [box=180,688,106,19]: 未到達
+        - generic [ref=e2033] [box=296,674,806,49]:
+          - text: Gateway Series — Gateway
+          - generic [ref=e2034] [box=296,698,806,25]: defense 勝利点 2 Gateway の Nav beacon と艦隊を防衛する
+      - generic [ref=e2035] [box=171,735,940,65]:
+        - generic [ref=e2036] [box=180,757,106,19]: 未到達
+        - generic [ref=e2037] [box=296,743,806,49]:
+          - text: Gateway Series — Gateway
+          - generic [ref=e2038] [box=296,767,806,25]: intercept 勝利点 5 敵爆撃隊を迎撃し、Gateway の跳躍点を確保する
+    - generic [ref=e2039] [box=169,814,942,56]:
+      - heading "CANON 戦役" [level=3] [ref=e2040] [box=169,814,942,25]
+      - generic [ref=e2041] [box=169,845,942,25]: この画面では Enyo → McAuliffe → Gateway の固定戦役だけを表示する。独自前線作戦は発生しない。
+  - generic [ref=e2042] [box=260,506,760,30]: 戻る

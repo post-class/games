@@ -1,0 +1,41 @@
+- generic [ref=e48]:
+  - banner [ref=e49]:
+    - heading "Enyo Series — 哨戒 — Enyo宙域" [level=1] [ref=e50]
+    - generic [ref=e51]: CANON / ENYO Enyo Series 1/7 — Enyo 星系
+  - generic [ref=e53]:
+    - generic [ref=e54]:
+      - generic:
+        - generic: ハルシオン大佐
+        - generic: TCS タイガーズ・クロー 艦長
+      - generic: 通信中
+    - generic [ref=e56]:
+      - generic [ref=e57]:
+        - generic [ref=e58]: Enyo — Enyo Series の戦況を確認中。
+        - generic [ref=e94]: 諸君、ようこそタイガーズ・クローへ。挨拶は後だ、いきなり仕事がある。
+      - generic [ref=e59]: ▼
+    - generic [ref=e60]:
+      - heading "その他" [level=3] [ref=e61]
+      - generic [ref=e63]:
+        - heading "飛行計画" [level=3] [ref=e64]
+        - img [ref=e65]:
+          - generic [ref=e68]: 母艦
+          - generic [ref=e70]: NAV 1
+          - generic [ref=e72]: NAV 2
+          - generic [ref=e74]: NAV 3
+          - generic [ref=e76]: 帰投
+      - generic [ref=e77]:
+        - generic [ref=e79]:
+          - heading "任務目標" [level=3] [ref=e80]
+          - list [ref=e81]:
+            - listitem [ref=e82]: 敵偵察機を全機撃破
+            - listitem [ref=e83]: NAV 3 まで哨戒
+            - listitem [ref=e84]: タイガーズ・クローへ帰投
+        - generic [ref=e86]:
+          - heading "機体" [level=3] [ref=e87]
+          - text: F-54 ホーネット
+          - generic [ref=e88]: "副兵装: ダムファイア ×2僚機: Angel"
+  - generic [ref=e89]:
+    - generic [ref=e90] [cursor=pointer]: 出撃 (操作案内あり)
+    - generic [ref=e91] [cursor=pointer]: 操作案内なしで出撃
+    - generic [ref=e92] [cursor=pointer]: 艦内へ戻る
+  - generic [ref=e93]: "Space で読み進める / Esc で読み飛ばす — 難易度: ふつう"

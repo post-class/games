@@ -1,0 +1,15 @@
+- generic [ref=e19] [box=0,0,1280,720]:
+  - heading "MULTI-COMMANDER" [level=1] [ref=e20] [box=242,265,797,77]
+  - generic [ref=e21] [box=509,352,263,15]: TCS TIGER’S CLAW — VEGA SECTOR
+  - generic [ref=e22] [box=150,377,980,139]:
+    - generic [ref=e23] [box=169,387,942,80]:
+      - heading "状況" [level=3] [ref=e24] [box=169,387,942,25]
+      - text: キルラシー帝国との戦争は6年目に入った。君はタイガーズ・クローに配属された新任パイロットだ。ブリーフィングを受け、出撃し、生きて帰れ。戦況は君の戦果で変わる。
+    - generic [ref=e25] [box=169,481,942,25]: "記録なし 難易度: ふつう"
+  - generic [ref=e26] [box=260,525,760,104]:
+    - generic [ref=e27] [cursor=pointer] [box=260,525,376,30]: 新しい戦役を始める (EXPANDED / McCAFFREY)
+    - generic [ref=e28] [box=645,525,376,30]: 続きから
+    - generic [ref=e29] [cursor=pointer] [box=260,562,376,30]: 新規戦役モードを切替 (EXPANDED / McCAFFREY)
+    - generic [ref=e30] [cursor=pointer] [box=645,562,376,30]: 設定
+    - generic [ref=e31] [cursor=pointer] [box=260,599,376,30]: 操作説明
+  - generic [ref=e32] [box=563,639,155,18]: ▲▼ で選択 / Enter で決定

@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>『ぽこもふ島』 ― AIペットと、動物たちが自分で生きる島</title>
+<style>
+  :root {
+    --grass:      #d9ee94;
+    --grass-deep: #bfe06a;
+    --ink:        #4a3b2a;
+    --ink-soft:   #6f5c44;
+    --purple:     #a892e0;
+    --purple-dp:  #7c63c4;
+    --cream:      #fffdf3;
+    --peach:      #ffb9a3;
+    --sky:        #9fd8ee;
+    --mint:       #a8e0b4;
+    --shadow:     0 6px 0 rgba(74, 59, 42, .13);
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    font-family: "Hiragino Maru Gothic ProN", "ヒラギノ丸ゴ ProN", "Zen Maru Gothic",
+                 "Hiragino Sans", "Yu Gothic", sans-serif;
+    color: var(--ink);
+    background-color: var(--grass);
+    background-image:
+      radial-gradient(circle, rgba(255,255,255,.55) 2px, transparent 2.5px),
+      radial-gradient(circle, rgba(255,232,120,.75) 2px, transparent 2.5px);
+    background-size: 48px 48px, 48px 48px;
+    background-position: 0 0, 24px 24px;
+    line-height: 1.9;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  img { display: block; max-width: 100%; }
+
+  .wrap { width: min(1080px, calc(100% - 40px)); margin-inline: auto; }
+
+  /* ---------- ヒーロー ---------- */
+  .hero {
+    padding: 56px 0 40px;
+    text-align: center;
+  }
+  .hero .switch-badge {
+    display: inline-block;
+    background: var(--cream);
+    border: 3px solid var(--ink);
+    border-radius: 999px;
+    padding: 4px 20px;
+    font-size: .8rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    box-shadow: var(--shadow);
+  }
+  .hero h1 {
+    margin: 22px 0 6px;
+    font-size: clamp(2.4rem, 7vw, 4.6rem);
+    letter-spacing: .04em;
+    line-height: 1.25;
+    color: var(--cream);
+    text-shadow:
+      4px 4px 0 var(--purple-dp), -4px 4px 0 var(--purple-dp),
+      4px -4px 0 var(--purple-dp), -4px -4px 0 var(--purple-dp),
+      0 5px 0 var(--purple-dp), 0 10px 14px rgba(74,59,42,.25);
+  }
+  .hero .sub {
+    font-size: clamp(1rem, 2.4vw, 1.3rem);
+    font-weight: 700;
+    color: var(--ink);
+    margin: 0 0 10px;
+  }
+  .hero .lead {
+    max-width: 42em;
+    margin: 0 auto 28px;
+    font-size: 1.02rem;
+    color: var(--ink-soft);
+  }
+  .hero-frame {
+    background: var(--cream);
+    border: 5px solid var(--ink);
+    border-radius: 28px;
+    padding: 10px;
+    box-shadow: 0 14px 0 rgba(74,59,42,.16);
+    overflow: hidden;
+  }
+  .hero-frame img { border-radius: 20px; }
+
+  .tags {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    justify-content: center;
+    margin: 26px 0 0;
+    padding: 0; list-style: none;
+  }
+  .tags li {
+    background: var(--purple);
+    color: #fff;
+    border: 3px solid var(--ink);
+    border-radius: 999px;
+    padding: 4px 18px;
+    font-size: .88rem;
+    font-weight: 700;
+    box-shadow: var(--shadow);
+  }
+  .tags li:nth-child(2n) { background: var(--peach); color: var(--ink); }
+  .tags li:nth-child(3n) { background: var(--sky);   color: var(--ink); }
+
+  /* ---------- セクション ---------- */
+  section { padding: 54px 0; }
+
+  .sec-title {
+    position: relative;
+    display: table;
+    margin: 0 auto 8px;
+    background: var(--cream);
+    border: 4px solid var(--ink);
+    border-radius: 999px;
+    padding: 8px 40px;
+    font-size: clamp(1.3rem, 3.4vw, 1.9rem);
+    box-shadow: var(--shadow);
+  }
+  .sec-lead {
+    text-align: center;
+    max-width: 46em;
+    margin: 14px auto 34px;
+    color: var(--ink-soft);
+  }
+
+  .panel {
+    background: rgba(255, 253, 243, .82);
+    border: 4px solid var(--ink);
+    border-radius: 26px;
+    padding: 26px 28px;
+    box-shadow: var(--shadow);
+  }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 22px;
+  }
+  .card {
+    background: var(--cream);
+    border: 4px solid var(--ink);
+    border-radius: 24px;
+    padding: 22px 24px 24px;
+    box-shadow: var(--shadow);
+  }
+  .card .emoji {
+    display: inline-grid;
+    place-items: center;
+    width: 54px; height: 54px;
+    border-radius: 50%;
+    background: var(--grass-deep);
+    border: 3px solid var(--ink);
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+  }
+  .card:nth-child(3n+2) .emoji { background: var(--peach); }
+  .card:nth-child(3n)   .emoji { background: var(--sky); }
+  .card h3 { margin: 6px 0 8px; font-size: 1.12rem; }
+  .card p  { margin: 0; font-size: .95rem; color: var(--ink-soft); }
+
+  /* ---------- 画面紹介 ---------- */
+  .shot {
+    display: grid;
+    grid-template-columns: 1.15fr .85fr;
+    gap: 28px;
+    align-items: center;
+  }
+  /* 画像側は常に広いカラムに置く */
+  .shot.reverse { grid-template-columns: .85fr 1.15fr; }
+  .shot.reverse > .shot-img { order: 2; }
+  @media (max-width: 820px) {
+    .shot, .shot.reverse { grid-template-columns: 1fr; }
+    .shot.reverse > .shot-img { order: 0; }
+  }
+
+  .shot-img {
+    background: var(--cream);
+    border: 5px solid var(--ink);
+    border-radius: 24px;
+    padding: 8px;
+    box-shadow: 0 10px 0 rgba(74,59,42,.15);
+  }
+  .shot-img .frame {
+    position: relative;
+    container-type: inline-size;
+  }
+  .shot-img img { border-radius: 16px; }
+  .shot-img figcaption {
+    font-size: .78rem;
+    color: var(--ink-soft);
+    text-align: right;
+    padding: 6px 6px 0;
+  }
+
+  /* 空の吹き出しに実際のセリフを重ねる */
+  .bubble-text {
+    position: absolute;
+    left: 35.5%; top: 12%;
+    width: 27%; height: 24%;
+    margin: 0;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    font-size: clamp(6px, 2.05cqw, 15px);
+    font-weight: 700;
+    line-height: 1.5;
+    color: var(--ink);
+    white-space: nowrap;   /* 吹き出しの外にはみ出さないよう改行位置は固定 */
+  }
+
+  .shot-body h3 {
+    margin: 0 0 10px;
+    font-size: clamp(1.15rem, 2.6vw, 1.5rem);
+  }
+  .shot-body p { margin: 0 0 14px; color: var(--ink-soft); }
+  .ticks { margin: 0; padding: 0; list-style: none; }
+  .ticks li {
+    position: relative;
+    padding-left: 1.7em;
+    margin-bottom: 6px;
+    font-size: .95rem;
+  }
+  .ticks li::before {
+    content: "🐾";
+    position: absolute; left: 0; top: 0;
+    font-size: .9em;
+  }
+
+  /* ---------- ペット紹介 ---------- */
+  .pets-strip {
+    background: linear-gradient(180deg, #eaf7c0 0%, #d3ecff 100%);
+    border: 5px solid var(--ink);
+    border-radius: 26px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .pet-names {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-top: 18px;
+  }
+  @media (max-width: 720px) {
+    .pet-names { grid-template-columns: repeat(2, 1fr); }
+  }
+  .pet-name {
+    background: var(--cream);
+    border: 3px solid var(--ink);
+    border-radius: 18px;
+    padding: 12px 12px 14px;
+    text-align: center;
+    box-shadow: var(--shadow);
+  }
+  .pet-name b { display: block; font-size: 1rem; }
+  .pet-name span { font-size: .8rem; color: var(--ink-soft); line-height: 1.6; }
+
+  /* ---------- 1日の流れ ---------- */
+  .flow {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 18px;
+    counter-reset: step;
+  }
+  .flow > div {
+    position: relative;
+    background: var(--cream);
+    border: 4px solid var(--ink);
+    border-radius: 22px;
+    padding: 30px 18px 20px;
+    box-shadow: var(--shadow);
+  }
+  .flow > div::before {
+    counter-increment: step;
+    content: counter(step);
+    position: absolute;
+    top: -18px; left: 18px;
+    width: 36px; height: 36px;
+    display: grid; place-items: center;
+    background: var(--purple);
+    color: #fff;
+    border: 3px solid var(--ink);
+    border-radius: 50%;
+    font-weight: 700;
+  }
+  .flow h4 { margin: 0 0 6px; font-size: 1rem; }
+  .flow p  { margin: 0; font-size: .88rem; color: var(--ink-soft); }
+
+  /* ---------- 比較表 ---------- */
+  .table-scroll { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--cream);
+    border: 4px solid var(--ink);
+    border-radius: 22px;
+    overflow: hidden;
+    min-width: 620px;
+    box-shadow: var(--shadow);
+  }
+  th, td { padding: 12px 16px; text-align: left; font-size: .93rem; }
+  thead th { background: var(--grass-deep); font-size: .95rem; }
+  tbody tr + tr td { border-top: 2px dashed rgba(74,59,42,.25); }
+  tbody th { font-weight: 700; white-space: nowrap; }
+
+  /* ---------- 技術 ---------- */
+  .spec {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 16px;
+  }
+  .spec div {
+    background: var(--cream);
+    border: 3px solid var(--ink);
+    border-radius: 18px;
+    padding: 14px 18px;
+    box-shadow: var(--shadow);
+  }
+  .spec b { display: block; font-size: .8rem; color: var(--purple-dp); letter-spacing: .06em; }
+  .spec span { font-size: .95rem; }
+
+  /* ---------- CTA / フッター ---------- */
+  .cta {
+    text-align: center;
+    background: var(--purple);
+    border: 5px solid var(--ink);
+    border-radius: 30px;
+    padding: 38px 26px;
+    color: #fff;
+    box-shadow: 0 12px 0 rgba(74,59,42,.18);
+  }
+  .cta h2 { margin: 0 0 10px; font-size: clamp(1.4rem, 4vw, 2.1rem); }
+  .cta p  { margin: 0 auto; max-width: 40em; }
+
+  footer {
+    text-align: center;
+    padding: 36px 0 56px;
+    font-size: .78rem;
+    color: var(--ink-soft);
+  }
+
+  /* ---------- スクロール表示 ---------- */
+  .reveal { opacity: 0; transform: translateY(24px); transition: opacity .6s ease, transform .6s ease; }
+  .reveal.on { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= ヒーロー ================= -->
+<header class="hero">
+  <div class="wrap">
+    <span class="switch-badge">ブラウザで遊べる 2D スローライフ</span>
+    <h1>ぽこもふ島</h1>
+    <p class="sub">AIペットと、動物たちが「自分で」生きる島</p>
+    <p class="lead">
+      誰にも管理されていない小さな島。動物たちは、朝起きて畑を耕し、木の実を分け合い、夜になれば眠ります。
+      そこにあなたの<strong>AIペット</strong>を1匹だけ連れて行けます。ペットは自分で考え、自分でしゃべり、
+      島の暮らしにまざっていく――ただ眺めているだけで、少しずつ物語が生まれる箱庭です。
+    </p>
+
+    <figure class="hero-frame">
+      <img src="images/hero.png" alt="動物たちが暮らす島の全景と、中央に立つ白いふわふわのAIペット">
+    </figure>
+
+    <ul class="tags">
+      <li>ブラウザだけでOK</li>
+      <li>ドット風2Dの箱庭</li>
+      <li>みんなの島で同時プレイ</li>
+      <li>LLMで会話するペット</li>
+      <li>ログアウト中も島は動く</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ================= コンセプト ================= -->
+<section>
+  <div class="wrap">
+    <h2 class="sec-title">3つの、たのしい</h2>
+    <p class="sec-lead">
+      「育てる」ゲームではありません。<strong>勝手に育っていく世界を、となりで見ている</strong>ゲームです。
+    </p>
+
+    <div class="cards">
+      <div class="card reveal">
+        <span class="emoji">🌱</span>
+        <h3>島が、自分で回る</h3>
+        <p>
+          島の動物たちは、あなたの指示なしで暮らしています。実りの季節には食べものが増え、
+          冬には巣にこもる。個体は年を取り、子が生まれ、群れが移動する。
+          あなたが見ていない間も、島の時間はきちんと進んでいます。
+        </p>
+      </div>
+      <div class="card reveal">
+        <span class="emoji">💬</span>
+        <h3>ペットが、自分で考える</h3>
+        <p>
+          AIペットはLLMで動いています。台本はありません。今日見たもの、
+          あなたが言ったこと、島で起きた事件を覚えていて、それを踏まえて話し、
+          自分で行き先を決めます。同じペットは二匹といません。
+        </p>
+      </div>
+      <div class="card reveal">
+        <span class="emoji">🫧</span>
+        <h3>やらなくても、いい</h3>
+        <p>
+          クエストの強制も、スタミナ切れの待ち時間もありません。
+          水をやってもいいし、ベンチに座って動物を眺めるだけでもいい。
+          「今日は何もしなかった日」がちゃんと成立する設計です。
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 世界 ================= -->
+<section>
+  <div class="wrap">
+    <h2 class="sec-title">動物たちは、待っていない</h2>
+    <p class="sec-lead">
+      NPCではなく「住民」。それぞれがお腹の空き具合・仲の良い相手・好きな場所を持ち、自分の都合で動きます。
+    </p>
+
+    <div class="shot">
+      <figure class="shot-img reveal">
+        <img src="images/screen-ecosystem.png" alt="昼は釣りや畑仕事をし、夜は巣で眠る動物たち">
+        <figcaption>※画面イメージ</figcaption>
+      </figure>
+      <div class="shot-body">
+        <h3>昼は働き、夜はちゃんと寝る</h3>
+        <p>
+          時間帯・天気・季節で行動が変わります。雨の日は木の下に集まり、
+          実りが少ない年はケンカも増える。ちょっと不便で、だから生きて見える島です。
+        </p>
+        <ul class="ticks">
+          <li><strong>生活サイクル</strong>：起床 → 採食 → 交流 → 巣づくり → 就寝</li>
+          <li><strong>成長と世代</strong>：こども個体が育ち、性格が親から少し似る</li>
+          <li><strong>関係性</strong>：仲良し・苦手が生まれ、群れの並びが変わる</li>
+          <li><strong>環境の記憶</strong>：荒らした畑は戻るのに時間がかかる</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= AIペット ================= -->
+<section>
+  <div class="wrap">
+    <h2 class="sec-title">きみのペットは、きみの言葉を覚える</h2>
+    <p class="sec-lead">
+      名前・性格・口ぐせを決めたら、あとはペット自身が育っていきます。会話も行動も、その場で生成されます。
+    </p>
+
+    <div class="shot reverse">
+      <figure class="shot-img reveal">
+        <div class="frame">
+          <img src="images/screen-talk.png" alt="プレイヤーの前で吹き出しを出して話しかけるAIペット">
+          <p class="bubble-text">きのう話してた<br>川むこうの木の実、<br>さがしてきたよ！</p>
+        </div>
+        <figcaption>※画面イメージ（セリフはLLMが生成します）</figcaption>
+      </figure>
+      <div class="shot-body">
+        <h3>台本なしの、ひとりごと</h3>
+        <p>
+          ペットは島で見たことを日記のように覚えています。あなたが「川の向こうが気になる」と言えば、
+          翌日ひとりで見に行って報告してくることも。褒めれば得意になり、放っておけば少し寂しがります。
+        </p>
+        <ul class="ticks">
+          <li><strong>ペルソナ設定</strong>：性格・話し方・好物・苦手を最初に決める</li>
+          <li><strong>長期記憶</strong>：あなたとの会話と島の出来事を記憶に残す</li>
+          <li><strong>自律行動</strong>：次に何をするかをペット自身が選ぶ</li>
+          <li><strong>関係の変化</strong>：懐き度で口調と距離感が変わっていく</li>
+          <li><strong>他の動物と交流</strong>：住民と友達になったり、ケンカしたり</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ペット図鑑 ================= -->
+<section>
+  <div class="wrap">
+    <h2 class="sec-title">相棒をえらぶ</h2>
+    <p class="sec-lead">見た目で選んでもいいし、性格で選んでもいい。5種のタマゴから1匹を連れて行けます。</p>
+
+    <figure class="pets-strip reveal">
+      <img src="images/pets.png" alt="5種類のAIペットのキャラクターデザイン">
+    </figure>
+
+    <div class="pet-names">
+      <div class="pet-name"><b>モフィ</b><span>雲のこ／おっとり甘えん坊。すぐ寝る</span></div>
+      <div class="pet-name"><b>ミズネ</b><span>水のねこ／クールで観察好き。皮肉屋</span></div>
+      <div class="pet-name"><b>ハッカ</b><span>薄荷うさぎ／世話焼き。畑がだいすき</span></div>
+      <div class="pet-name"><b>モモナ</b><span>桃みみ／おしゃべりで食いしんぼう</span></div>
+      <div class="pet-name"><b>ホシラ</b><span>星ちょう／夢見がちな夜型。星を語る</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= マルチプレイ ================= -->
+<section>
+  <div class="wrap">
+    <h2 class="sec-title">島は、みんなのもの</h2>
+    <p class="sec-lead">同じ島に他のプレイヤーとそのペットが同時にいます。集まっても、すれ違うだけでもかまいません。</p>
+
+    <div class="shot">
+      <figure class="shot-img reveal">
+        <img src="images/screen-multiplayer.png" alt="広場に集まる複数のプレイヤーとそれぞれのAIペット">
+        <figcaption>※画面イメージ</figcaption>
+      </figure>
+      <div class="shot-body">
+        <h3>ペット同士が、勝手に仲良くなる</h3>
+        <p>
+          いちばん面白いのは、あなたが席を外している間です。ペットたちは自分同士で会話し、
+          その内容を覚えて帰ってきます。「今日ミズネがこんなこと言ってたよ」と報告されるのが日常になります。
+        </p>
+        <ul class="ticks">
+          <li><strong>同時接続</strong>：広場や川辺で自然に出会う</li>
+          <li><strong>ペット間会話</strong>：プレイヤー不在でも交流し、噂が伝わる</li>
+          <li><strong>共同作業</strong>：橋づくりなど、みんなで少しずつ進める建設</li>
+          <li><strong>おでかけ</strong>：友だちの区画へ遊びに行き、記念撮影</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 1日の流れ ================= -->
+<section>
+  <div class="wrap">
+    <h2 class="sec-title">ある日の、5分</h2>
+    <p class="sec-lead">1回のプレイは5分でも成立します。長く遊べば、その分だけ島が変わります。</p>
+
+    <div class="flow">
+      <div class="reveal">
+        <h4>ログインする</h4>
+        <p>留守中に何が起きたかを、ペットが日記みたいに教えてくれる。</p>
+      </div>
+      <div class="reveal">
+        <h4>島をひとまわり</h4>
+        <p>実った木の実を拾い、荒れた畑を直し、動物たちの様子を見る。</p>
+      </div>
+      <div class="reveal">
+        <h4>ペットと話す</h4>
+        <p>今日の予定を聞く。何気ない一言が、明日の行動になる。</p>
+      </div>
+      <div class="reveal">
+        <h4>ちょっと作る</h4>
+        <p>ベンチや花壇をひとつ。住民の集まる場所が変わっていく。</p>
+      </div>
+      <div class="reveal">
+        <h4>見送る</h4>
+        <p>閉じても島は動き続ける。次に来たときの続きが、もう始まっている。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 差分 ================= -->
+<section>
+  <div class="wrap">
+    <h2 class="sec-title">似ているゲームと、どこが違う？</h2>
+    <p class="sec-lead">スローライフの気持ちよさはそのまま、「住民が本当に自律している」ことに全部を賭けています。</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th></th><th>よくあるスローライフ</th><th>ぽこもふ島</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>住民のセリフ</th>
+            <td>あらかじめ用意された台本から選ばれる</td>
+            <td>その場でLLMが生成。同じ会話は二度と起きない</td>
+          </tr>
+          <tr>
+            <th>住民の行動</th>
+            <td>決まった時間に決まった場所へ</td>
+            <td>空腹・天気・仲の良さから自分で決める</td>
+          </tr>
+          <tr>
+            <th>あなたの役割</th>
+            <td>指示を出す管理者</td>
+            <td>島に住む一人。見守るだけでも成立する</td>
+          </tr>
+          <tr>
+            <th>ペット</th>
+            <td>連れて歩く見た目のお供</td>
+            <td>記憶と性格を持ち、勝手に動き、勝手に友達を作る</td>
+          </tr>
+          <tr>
+            <th>遊ぶ場所</th>
+            <td>専用機／アプリのインストール</td>
+            <td>ブラウザを開くだけ。友だちにURLを送れる</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 技術 ================= -->
+<section>
+  <div class="wrap">
+    <h2 class="sec-title">つくりかた（予定）</h2>
+    <p class="sec-lead">インストール不要・軽量・すぐ共有できることを最優先にした構成です。</p>
+
+    <div class="panel">
+      <div class="spec">
+        <div><b>PLATFORM</b><span>Webブラウザ（PC / スマホ）</span></div>
+        <div><b>LANGUAGE</b><span>TypeScript（クライアント・サーバ共通）</span></div>
+        <div><b>GRAPHICS</b><span>2D クォータービューの手描き風タイル</span></div>
+        <div><b>NETWORK</b><span>マルチユーザー同時接続・サーバ権威の島時間</span></div>
+        <div><b>PET AI</b><span>LLMによるペルソナ・記憶・行動選択</span></div>
+        <div><b>ART</b><span>透過PNG素材を生成AIで制作しアセット化</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CTA ================= -->
+<section>
+  <div class="wrap">
+    <div class="cta reveal">
+      <h2>まずは、島に1匹置いてみる。</h2>
+      <p>
+        あとは何もしなくていいです。3日ぶりに開いたとき、あなたのペットが誰かと友達になっていて、
+        知らない木の実の話をしてきたら――このゲームは成功です。
+      </p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>
+      『ぽこもふ島』企画紹介資料（開発前のコンセプト版）<br>
+      掲載している画面イメージはすべて開発前のイメージであり、生成AIで作成したものです。実際の画面とは異なります。<br>
+      本資料は個人開発の企画資料であり、既存の商業タイトルとは一切関係ありません。
+    </p>
+  </div>
+</footer>
+
+<script>
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (e.isIntersecting) {
+        e.target.classList.add('on');
+        io.unobserve(e.target);
+      }
+    }
+  }, { rootMargin: '0px 0px -8% 0px' });
+
+  document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+</script>
+
+</body>
+</html>

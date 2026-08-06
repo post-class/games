@@ -1,0 +1,45 @@
+- generic [ref=e1917] [box=0,0,1280,720]:
+  - heading "キルボード" [level=1] [ref=e1918] [box=530,184,219,57]
+  - generic [ref=e1919] [box=150,251,980,245]:
+    - generic [ref=e1920] [box=169,261,942,95]:
+      - heading "キルボード" [level=3] [ref=e1921] [box=169,261,942,25]
+      - generic [ref=e1922] [box=169,292,942,64]: 飛行甲板の壁に貼られている板。順位は毎日書き換えられる。
+    - generic [ref=e1924] [box=169,370,942,29]:
+      - generic [ref=e1925] [box=169,373,26,23]: "1"
+      - generic [ref=e1926] [box=203,373,91,23]: Spirit
+      - generic [ref=e1928] [box=1072,373,39,23]: "0"
+    - generic [ref=e1929] [box=169,399,942,29]:
+      - generic [ref=e1930] [box=169,402,26,23]: "2"
+      - generic [ref=e1931] [box=203,402,91,23]: Maniac
+      - generic [ref=e1933] [box=1072,402,39,23]: "0"
+    - generic [ref=e1934] [box=169,428,942,29]:
+      - generic [ref=e1935] [box=169,431,26,23]: "3"
+      - generic [ref=e1936] [box=203,431,91,23]: Angel
+      - generic [ref=e1938] [box=1072,431,39,23]: "0"
+    - generic [ref=e1939] [box=169,456,942,29]:
+      - generic [ref=e1940] [box=169,459,26,23]: "4"
+      - generic [ref=e1941] [box=203,459,91,23]: Tinman
+      - generic [ref=e1943] [box=1072,459,39,23]: "0"
+    - generic [ref=e1944] [box=169,485,942,29]:
+      - generic [ref=e1945] [box=169,488,26,23]: "5"
+      - generic [ref=e1946] [box=203,488,91,23]: Padre
+      - generic [ref=e1948] [box=1072,488,39,23]: "0"
+    - generic [ref=e1949] [box=169,514,942,29]:
+      - generic [ref=e1950] [box=169,517,26,23]: "6"
+      - generic [ref=e1951] [box=203,517,91,23]: あなた
+      - generic [ref=e1953] [box=1072,517,39,23]: "0"
+    - generic [ref=e1954] [box=169,543,942,186]:
+      - heading "宿敵の記録" [level=3] [ref=e1955] [box=169,543,942,25]
+      - generic [ref=e1956] [box=169,574,942,52]:
+        - generic [ref=e1957] [box=169,588,26,23]: ★
+        - generic [ref=e1958] [box=203,577,91,46]: Caxki 交戦中 / 離脱 0
+        - generic [ref=e1961] [box=1072,588,39,23]: "0"
+      - generic [ref=e1962] [box=169,625,942,52]:
+        - generic [ref=e1963] [box=169,639,26,23]: ★
+        - generic [ref=e1964] [box=203,628,91,46]: 血塗られた爪 交戦中 / 離脱 0
+        - generic [ref=e1967] [box=1072,639,39,23]: "0"
+      - generic [ref=e1968] [box=169,677,942,52]:
+        - generic [ref=e1969] [box=169,691,26,23]: ★
+        - generic [ref=e1970] [box=203,680,91,46]: Deathstroke 交戦中 / 離脱 0
+        - generic [ref=e1973] [box=1072,691,39,23]: "0"
+  - generic [ref=e1974] [box=260,506,760,30]: 戻る

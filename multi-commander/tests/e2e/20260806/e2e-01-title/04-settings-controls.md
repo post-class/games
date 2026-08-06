@@ -1,0 +1,155 @@
+- generic [ref=e47] [box=0,0,1280,720]:
+  - heading "設定" [level=1] [ref=e48] [box=596,184,88,57]
+  - generic [ref=e49] [box=150,251,980,245]:
+    - generic [ref=e50] [box=169,261,942,35]:
+      - generic [ref=e169] [cursor=pointer] [box=169,261,73,35]: ゲーム
+      - generic [ref=e170] [cursor=pointer] [box=248,261,59,35]: 操作
+      - generic [ref=e171] [cursor=pointer] [box=313,261,102,35]: オーディオ
+    - generic [ref=e54] [box=169,296,942,1589]:
+      - generic [ref=e172] [box=169,296,942,36]:
+        - generic [ref=e173] [box=171,301,889,25]: マウス操縦
+        - button "ON" [ref=e175] [cursor=pointer] [box=1070,302,39,23]
+      - generic [ref=e176] [box=169,331,942,36]:
+        - generic [ref=e177] [box=171,336,707,25]: マウス感度
+        - generic [ref=e178] [box=888,336,221,25]:
+          - slider [ref=e179] [box=890,341,160,16]: "1"
+          - generic [ref=e180] [box=1060,336,49,25]: "1.0"
+      - generic [ref=e181] [box=169,367,942,36]:
+        - generic [ref=e182] [box=171,372,884,25]: 上下反転 (Y 軸)
+        - button "OFF" [ref=e184] [cursor=pointer] [box=1065,373,44,23]
+      - generic [ref=e185] [box=169,402,942,36]:
+        - generic [ref=e186] [box=171,407,889,25]: ゲームパッドのアナログスロットル
+        - button "ON" [ref=e188] [cursor=pointer] [box=1070,408,39,23]
+      - generic [ref=e189] [box=169,438,942,36]:
+        - generic [ref=e190] [box=171,443,707,25]: ゲームパッド デッドゾーン
+        - generic [ref=e191] [box=888,443,221,25]:
+          - slider [ref=e192] [box=890,447,160,16]: "0.12"
+          - generic [ref=e193] [box=1060,443,49,25]: 12%
+      - generic [ref=e194] [box=169,473,942,36]:
+        - generic [ref=e195] [box=171,478,707,25]: ゲームパッド感度
+        - generic [ref=e196] [box=888,478,221,25]:
+          - slider [ref=e197] [box=890,483,160,16]: "1"
+          - generic [ref=e198] [box=1060,478,49,25]: "1.0"
+      - generic [ref=e199] [box=169,509,942,36]:
+        - generic [ref=e200] [box=171,514,707,25]: 無線ログの表示時間
+        - generic [ref=e201] [box=888,514,221,25]:
+          - slider [ref=e202] [box=890,518,160,16]: "9"
+          - generic [ref=e203] [box=1060,514,49,25]: 9s
+      - generic [ref=e204] [box=169,544,942,36]:
+        - generic [ref=e205] [box=171,549,884,25]: コクピット装飾 (天蓋・ダッシュボード)
+        - button "OFF" [ref=e207] [cursor=pointer] [box=1065,550,44,23]
+      - generic [ref=e208] [box=169,580,942,36]:
+        - generic [ref=e209] [box=171,585,707,25]: 被弾カメラ揺れ
+        - generic [ref=e210] [box=888,585,221,25]:
+          - slider [ref=e211] [box=890,589,160,16]: "1"
+          - generic [ref=e212] [box=1060,585,49,25]: 100%
+      - generic [ref=e213] [box=169,615,942,36]:
+        - generic [ref=e214] [box=171,620,707,25]: 追尾視点の遅延
+        - generic [ref=e215] [box=888,620,221,25]:
+          - slider [ref=e216] [box=890,625,160,16]: "1"
+          - generic [ref=e217] [box=1060,620,49,25]: 100%
+      - generic [ref=e218] [box=169,651,942,36]:
+        - generic [ref=e219] [box=171,656,707,25]: アフターバーナー画角
+        - generic [ref=e220] [box=888,656,221,25]:
+          - slider [ref=e221] [box=890,660,160,16]: "1"
+          - generic [ref=e222] [box=1060,656,49,25]: 100%
+      - generic [ref=e223] [box=169,686,942,36]:
+        - generic [ref=e224] [box=171,691,884,25]: 自動水平 (ロール補助)
+        - button "OFF" [ref=e226] [cursor=pointer] [box=1065,692,44,23]
+      - generic [ref=e227] [box=169,722,942,36]:
+        - generic [ref=e228] [box=171,727,884,25]: 旋回補助 (目標へ微補正)
+        - button "OFF" [ref=e230] [cursor=pointer] [box=1065,728,44,23]
+      - generic [ref=e231] [box=169,757,942,36]:
+        - generic [ref=e232] [box=171,762,884,25]: 被弾時の時間減速
+        - button "OFF" [ref=e234] [cursor=pointer] [box=1065,763,44,23]
+      - generic [ref=e235] [box=169,793,942,36]:
+        - generic [ref=e236] [box=171,798,707,25]: 無線字幕サイズ
+        - generic [ref=e237] [box=888,798,221,25]:
+          - slider [ref=e238] [box=890,802,160,16]: "1"
+          - generic [ref=e239] [box=1060,798,49,25]: "1.0"
+      - generic [ref=e240] [box=169,828,942,1003]:
+        - heading "キー割り当て" [level=3] [ref=e241] [box=169,828,942,25]
+        - generic [ref=e242] [box=169,859,942,25]: 変更したい項目のボタンを押し、割り当てるキーを入力。Esc で取消。
+        - generic [ref=e243] [box=169,884,942,36]:
+          - generic [ref=e244] [box=171,889,898,25]: 機首上げ
+          - button "↑" [ref=e246] [cursor=pointer] [box=1079,890,30,23]
+        - generic [ref=e247] [box=169,919,942,36]:
+          - generic [ref=e248] [box=171,924,898,25]: 機首下げ
+          - button "↓" [ref=e250] [cursor=pointer] [box=1079,925,30,23]
+        - generic [ref=e251] [box=169,955,942,36]:
+          - generic [ref=e252] [box=171,960,898,25]: ヨー左
+          - button "←" [ref=e254] [cursor=pointer] [box=1079,961,30,23]
+        - generic [ref=e255] [box=169,990,942,36]:
+          - generic [ref=e256] [box=171,995,898,25]: ヨー右
+          - button "→" [ref=e258] [cursor=pointer] [box=1079,996,30,23]
+        - generic [ref=e259] [box=169,1026,942,36]:
+          - generic [ref=e260] [box=171,1031,898,25]: ロール左
+          - button "Q" [ref=e262] [cursor=pointer] [box=1079,1032,30,23]
+        - generic [ref=e263] [box=169,1061,942,36]:
+          - generic [ref=e264] [box=171,1066,899,25]: ロール右
+          - button "E" [ref=e266] [cursor=pointer] [box=1080,1067,29,23]
+        - generic [ref=e267] [box=169,1097,942,36]:
+          - generic [ref=e268] [box=171,1102,888,25]: アフターバーナー
+          - button "Tab" [ref=e270] [cursor=pointer] [box=1069,1103,40,23]
+        - generic [ref=e271] [box=169,1132,942,36]:
+          - generic [ref=e272] [box=171,1137,873,25]: 主砲
+          - button "Space" [ref=e274] [cursor=pointer] [box=1054,1138,55,23]
+        - generic [ref=e275] [box=169,1168,942,36]:
+          - generic [ref=e276] [box=171,1173,877,25]: ミサイル
+          - button "Enter" [ref=e278] [cursor=pointer] [box=1058,1174,51,23]
+        - generic [ref=e279] [box=169,1203,942,36]:
+          - generic [ref=e280] [box=171,1208,900,25]: ターゲット 次
+          - button "T" [ref=e282] [cursor=pointer] [box=1081,1209,29,23]
+        - generic [ref=e283] [box=169,1239,942,36]:
+          - generic [ref=e284] [box=171,1244,898,25]: ターゲット 最至近
+          - button "R" [ref=e286] [cursor=pointer] [box=1079,1245,30,23]
+        - generic [ref=e287] [box=169,1274,942,36]:
+          - generic [ref=e288] [box=171,1279,900,25]: ターゲット 正面
+          - button "Y" [ref=e290] [cursor=pointer] [box=1081,1280,29,23]
+        - generic [ref=e291] [box=169,1310,942,36]:
+          - generic [ref=e292] [box=171,1315,898,25]: オートパイロット
+          - button "A" [ref=e294] [cursor=pointer] [box=1079,1316,30,23]
+        - generic [ref=e295] [box=169,1345,942,36]:
+          - generic [ref=e296] [box=171,1350,899,25]: 通信メニュー
+          - button "C" [ref=e298] [cursor=pointer] [box=1080,1351,29,23]
+        - generic [ref=e299] [box=169,1381,942,36]:
+          - generic [ref=e300] [box=171,1386,898,25]: 被害状況
+          - button "D" [ref=e302] [cursor=pointer] [box=1079,1387,30,23]
+        - generic [ref=e303] [box=169,1416,942,36]:
+          - generic [ref=e304] [box=171,1421,899,25]: 視点切替
+          - button "F" [ref=e306] [cursor=pointer] [box=1080,1422,29,23]
+        - generic [ref=e307] [box=169,1452,942,36]:
+          - generic [ref=e308] [box=171,1457,897,25]: Nav マップ
+          - button "N" [ref=e310] [cursor=pointer] [box=1078,1458,31,23]
+        - generic [ref=e311] [box=169,1487,942,36]:
+          - generic [ref=e312] [box=171,1492,899,25]: 副兵装切替
+          - button "X" [ref=e314] [cursor=pointer] [box=1080,1493,29,23]
+        - generic [ref=e315] [box=169,1523,942,36]:
+          - generic [ref=e316] [box=171,1528,898,25]: フレア
+          - button "G" [ref=e318] [cursor=pointer] [box=1079,1529,30,23]
+        - generic [ref=e319] [box=169,1558,942,36]:
+          - generic [ref=e320] [box=171,1563,896,25]: マウス操縦 ON/OFF
+          - button "M" [ref=e322] [cursor=pointer] [box=1077,1564,32,23]
+        - generic [ref=e323] [box=169,1594,942,36]:
+          - generic [ref=e324] [box=171,1599,899,25]: 飛行モード切替
+          - button "Z" [ref=e326] [cursor=pointer] [box=1080,1600,29,23]
+        - generic [ref=e327] [box=169,1629,942,36]:
+          - generic [ref=e328] [box=171,1634,887,25]: ポーズ
+          - button "Esc" [ref=e330] [cursor=pointer] [box=1068,1635,41,23]
+        - generic [ref=e331] [box=169,1665,942,36]:
+          - generic [ref=e332] [box=171,1670,903,25]: 全速
+          - 'button "`" [ref=e334] [cursor=pointer] [box=1084,1671,25,23]'
+        - generic [ref=e335] [box=169,1700,942,36]:
+          - generic [ref=e336] [box=171,1705,847,25]: 停止
+          - button "Backspace" [ref=e338] [cursor=pointer] [box=1028,1706,81,23]
+        - generic [ref=e339] [box=169,1736,942,36]:
+          - generic [ref=e340] [box=171,1741,902,25]: スロットル増
+          - button "]" [ref=e342] [cursor=pointer] [box=1083,1742,26,23]
+        - generic [ref=e343] [box=169,1771,942,36]:
+          - generic [ref=e344] [box=171,1776,902,25]: スロットル減
+          - button "[" [ref=e346] [cursor=pointer] [box=1083,1777,26,23]
+        - generic [ref=e347] [box=169,1807,942,25]: "ゲームパッド: 左スティック=機首、RT=主砲、A/LT=ミサイル、LB/RB=ロール、右スティック縦=スロットル。"
+      - generic [ref=e348] [box=169,1845,942,39]:
+        - generic [ref=e349] [box=171,1852,854,25]: 初期設定に戻す
+        - button "リセット" [ref=e351] [cursor=pointer] [box=1035,1850,74,28]
+  - generic [ref=e75] [box=260,506,760,30]: 戻る

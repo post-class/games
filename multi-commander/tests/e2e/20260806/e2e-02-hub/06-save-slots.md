@@ -1,0 +1,39 @@
+- generic [ref=f1e91]:
+  - heading "戦役記録 — 保存" [level=1] [ref=f1e92]
+  - generic [ref=f1e93]: BARRACKS / 8 MEMORY SLOTS
+  - generic [ref=f1e94]:
+    - generic [ref=f1e95]: 帰艦後の現在状態を選んだスロットへ保存する。
+    - generic [ref=f1e97]:
+      - generic [ref=f1e98]: SLOT 1
+      - generic [ref=f1e99]: 空きスロット
+    - generic [ref=f1e100]:
+      - generic [ref=f1e101]: SLOT 2
+      - generic [ref=f1e102]: 空きスロット
+    - generic [ref=f1e103]:
+      - generic [ref=f1e104]: SLOT 3
+      - generic [ref=f1e105]: 空きスロット
+    - generic [ref=f1e106]:
+      - generic [ref=f1e107]: SLOT 4
+      - generic [ref=f1e108]: 空きスロット
+    - generic [ref=f1e109]:
+      - generic [ref=f1e110]: SLOT 5
+      - generic [ref=f1e111]: 空きスロット
+    - generic [ref=f1e112]:
+      - generic [ref=f1e113]: SLOT 6
+      - generic [ref=f1e114]: 空きスロット
+    - generic [ref=f1e115]:
+      - generic [ref=f1e116]: SLOT 7
+      - generic [ref=f1e117]: 空きスロット
+    - generic [ref=f1e118]:
+      - generic [ref=f1e119]: SLOT 8
+      - generic [ref=f1e120]: 空きスロット
+  - generic [ref=f1e121]:
+    - generic [ref=f1e122] [cursor=pointer]: SLOT 1へ保存
+    - generic [ref=f1e123] [cursor=pointer]: SLOT 2へ保存
+    - generic [ref=f1e124] [cursor=pointer]: SLOT 3へ保存
+    - generic [ref=f1e125] [cursor=pointer]: SLOT 4へ保存
+    - generic [ref=f1e126] [cursor=pointer]: SLOT 5へ保存
+    - generic [ref=f1e127] [cursor=pointer]: SLOT 6へ保存
+    - generic [ref=f1e128] [cursor=pointer]: SLOT 7へ保存
+    - generic [ref=f1e129] [cursor=pointer]: SLOT 8へ保存
+    - generic [ref=f1e130] [cursor=pointer]: 戻る

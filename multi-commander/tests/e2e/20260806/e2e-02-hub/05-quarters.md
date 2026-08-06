@@ -1,0 +1,47 @@
+- generic [ref=e1374] [box=0,0,1280,720]:
+  - heading "自室" [level=1] [ref=e1375] [box=596,166,88,57]
+  - generic [ref=e1376] [box=150,233,980,245]:
+    - generic [ref=e1377] [box=169,243,942,65]:
+      - heading "自室 / 戦績" [level=3] [ref=e1378] [box=169,243,942,25]
+      - generic [ref=e1379] [box=169,274,942,34]:
+        - img "少尉" [ref=e1380] [box=169,274,13,34]
+        - generic [ref=e1381] [box=192,278,366,25]: 階級 少尉 通算撃墜 0 出撃 0 回 達成 0 任務 第 1 章 / 7
+    - generic [ref=e1382] [box=169,322,942,56]:
+      - heading "勲章" [level=3] [ref=e1383] [box=169,322,942,25]
+      - generic [ref=e1384] [box=169,353,942,25]: まだ無い
+    - generic [ref=e1385] [box=169,391,942,411]:
+      - heading "飛行隊名簿" [level=3] [ref=e1386] [box=169,391,942,25]
+      - generic [ref=e1387] [box=169,422,942,76]:
+        - generic [ref=e1390] [box=233,428,824,63]:
+          - generic [ref=e1391] [box=233,428,824,21]: Spirit 田中 真理子
+          - generic [ref=e1392] [box=233,449,824,21]: 堅実 技量 62% 撃墜 0 出撃 0 昇進 0
+          - generic [ref=e1393] [box=233,470,824,21]: 指示に忠実で、決して持ち場を離れない。故郷に婚約者がいるという噂がある。
+        - generic [ref=e1394] [box=1069,447,42,25]: 出撃可
+      - generic [ref=e1395] [box=169,498,942,76]:
+        - generic [ref=e1398] [box=233,504,824,63]:
+          - generic [ref=e1399] [box=233,504,824,21]: Maniac Todd Marsh
+          - generic [ref=e1400] [box=233,525,824,21]: 無鉄砲 技量 70% 撃墜 0 出撃 0 昇進 0
+          - generic [ref=e1401] [box=233,546,824,21]: 腕はある。命令は聞かない。「編隊を組め」と言った次の秒に単独で突っ込んでいる。
+        - generic [ref=e1402] [box=1069,523,42,25]: 出撃可
+      - generic [ref=e1403] [box=169,574,942,76]:
+        - generic [ref=e1406] [box=233,580,824,63]:
+          - generic [ref=e1407] [box=233,580,824,21]: Angel Jeanne Duval
+          - generic [ref=e1408] [box=233,601,824,21]: 冷静 技量 80% 撃墜 0 出撃 0 昇進 0
+          - generic [ref=e1409] [box=233,622,824,21]: 無駄弾を撃たない。指示は簡潔で、状況判断が早い。飛行隊で最も信頼されている。
+        - generic [ref=e1410] [box=1069,599,42,25]: 出撃可
+      - generic [ref=e1411] [box=169,650,942,76]:
+        - generic [ref=e1414] [box=233,656,824,63]:
+          - generic [ref=e1415] [box=233,656,824,21]: Tinman Peter Kowalczyk
+          - generic [ref=e1416] [box=233,677,824,21]: 老練 技量 76% 撃墜 0 出撃 0 昇進 0
+          - generic [ref=e1417] [box=233,698,824,21]: 三度撃墜されて三度帰ってきた。「機体は替えが効く。お前は効かない」が口癖。
+        - generic [ref=e1418] [box=1069,675,42,25]: 出撃可
+      - generic [ref=e1419] [box=169,726,942,76]:
+        - generic [ref=e1422] [box=233,732,824,63]:
+          - generic [ref=e1423] [box=233,732,824,21]: Padre Tomás Rivas
+          - generic [ref=e1424] [box=233,753,824,21]: 厭世 技量 66% 撃墜 0 出撃 0 昇進 0
+          - generic [ref=e1425] [box=233,774,824,21]: 出撃前に必ず祈る。戦死者の名前を全員覚えている。それが重荷になっている。
+        - generic [ref=e1426] [box=1069,751,42,25]: 出撃可
+  - generic [ref=e1427] [box=260,487,760,67]:
+    - generic [ref=e1428] [cursor=pointer] [box=260,487,376,30]: セーブスロットへ — 現在の戦役を保存
+    - generic [ref=e1429] [cursor=pointer] [box=645,487,376,30]: セーブスロットからロード
+    - generic [ref=e1430] [cursor=pointer] [box=260,524,376,30]: 戻る

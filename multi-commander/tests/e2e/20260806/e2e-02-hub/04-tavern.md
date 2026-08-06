@@ -1,0 +1,33 @@
+- generic [ref=e984] [box=0,0,1280,720]:
+  - heading "酒場" [level=1] [ref=e985] [box=596,129,88,57]
+  - generic [ref=e986] [box=150,196,980,245]:
+    - generic [ref=e987] [box=169,206,942,95]:
+      - heading "酒場 / レクリエーション室" [level=3] [ref=e988] [box=169,206,942,25]
+      - generic [ref=e989] [box=169,237,942,64]: 出撃と出撃の合間。誰が何を考えているかは、ここでしか分からない。
+    - generic [ref=e994] [box=253,323,858,51]:
+      - generic [ref=e995] [box=253,323,858,25]: Spirit 田中 真理子・堅実・関係 ——
+      - generic [ref=e996] [box=253,349,858,25]: 故郷から手紙が来ました。まだ空は青いそうです。
+    - generic [ref=e1000] [box=253,419,858,51]:
+      - generic [ref=e1001] [box=253,419,858,25]: Maniac Todd Marsh・無鉄砲・関係 ——
+      - generic [ref=e1002] [box=253,446,858,25]: なあ、次は俺を連れて行けよ。あんたと飛ぶと数が稼げる。
+    - generic [ref=e1006] [box=253,516,858,51]:
+      - generic [ref=e1007] [box=253,516,858,25]: Angel Jeanne Duval・冷静・関係 ——
+      - generic [ref=e1008] [box=253,542,858,25]: 酒は一杯だけだ。明日も飛ぶ。
+    - generic [ref=e1012] [box=253,612,858,51]:
+      - generic [ref=e1013] [box=253,612,858,25]: Tinman Peter Kowalczyk・老練・関係 ——
+      - generic [ref=e1014] [box=253,639,858,25]: 座って飲め。生きてる間しか飲めん。
+    - generic [ref=e1018] [box=253,709,858,51]:
+      - generic [ref=e1019] [box=253,709,858,25]: Padre Tomás Rivas・厭世・関係 ——
+      - generic [ref=e1020] [box=253,735,858,25]: 祈っても減らないが、祈らないともっと減る気がする。
+    - generic [ref=e1021] [box=169,797,942,80]:
+      - heading "噂" [level=3] [ref=e1022] [box=169,797,942,25]
+      - generic [ref=e1023] [box=169,828,942,25]: キルラシーのエースが名前を集めているそうだ。撃墜した相手の名を刻むとか。
+      - generic [ref=e1024] [box=169,853,942,25]: 艦の跳躍機関が渋っているらしい。整備班が徹夜している。
+  - generic [ref=e1025] [box=260,450,760,141]:
+    - generic [ref=e1026] [cursor=pointer] [box=260,450,376,30]: Spirit と話す
+    - generic [ref=e1027] [cursor=pointer] [box=645,450,376,30]: Maniac と話す
+    - generic [ref=e1028] [cursor=pointer] [box=260,487,376,30]: Angel と話す
+    - generic [ref=e1029] [cursor=pointer] [box=645,487,376,30]: Tinman と話す
+    - generic [ref=e1030] [cursor=pointer] [box=260,524,376,30]: Padre と話す
+    - generic [ref=e1031] [cursor=pointer] [box=645,524,376,30]: 噂を聞く
+    - generic [ref=e1032] [cursor=pointer] [box=260,561,376,30]: 戻る

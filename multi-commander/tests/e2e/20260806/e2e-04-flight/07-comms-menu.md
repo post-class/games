@@ -1,0 +1,95 @@
+- generic [ref=f1e2]:
+  - generic:
+    - generic:
+      - generic: "マウス操縦: OFF"
+      - generic: ▸ 航路を確認して帰投
+    - generic:
+      - generic:
+        - generic:
+          - generic: SELF / SYSTEMS
+          - generic: あなた / F-54 ホーネット
+          - generic:
+            - generic: SHIELD
+            - generic: 100%
+          - generic:
+            - generic: ARMOR
+            - generic: 100%
+          - generic:
+            - generic: HULL
+            - generic: 100%
+          - generic:
+            - generic: GUN PWR
+            - generic: 110 / 110
+          - generic:
+            - generic: PRIMARY
+            - generic: LASER
+          - generic: SYSTEMS
+          - generic: RADAR READY
+          - generic: GUNS READY
+        - generic:
+          - generic:
+            - generic: 0 KPS
+            - generic:
+              - generic:
+                - generic: THROTTLE
+                - generic: 0%
+            - generic:
+              - generic:
+                - generic: GUN PWR
+                - generic: "110"
+            - generic:
+              - generic:
+                - generic: AB FUEL
+                - generic: 6.0s
+          - generic:
+            - generic: SHIELDS / ARMOR
+            - generic: HULL 100%
+          - generic: RADAR
+        - generic:
+          - generic: TARGET / NAV
+          - generic: TARGET
+          - generic:
+            - generic: NO TARGET
+            - generic: T / R / Y で選択
+          - generic: NAV / WING
+          - generic:
+            - generic: NAV
+            - generic: 帰投
+          - generic:
+            - generic: DIST
+            - generic: 4.8k
+          - generic:
+            - generic: WINGMAN
+            - generic: Angel
+          - generic:
+            - generic: STATUS
+            - generic: FORMED
+          - generic: WEAPONS [X]
+          - generic:
+            - generic:
+              - generic: SELECTED
+              - generic: ダムファイア
+            - generic: 即時発射・無誘導。読み合いで近距離を取る
+            - generic:
+              - generic: AMMO
+              - generic: "2"
+            - generic:
+              - generic: ENERGY
+              - generic: 110 / 110 (−3/shot)
+            - generic: 発射可能
+          - generic:
+            - generic: ▸ ダムファイア
+            - generic: "2"
+          - generic:
+            - generic: フレア
+            - generic: "12"
+          - generic: ■ ロック不要 / 即時発射
+    - generic:
+      - generic: 通信 [C で閉じる]
+      - generic:
+        - generic: 1. 編隊を組め (Form on my wing)
+        - generic: 2. 私の目標を攻撃 (Attack my target)
+        - generic: 3. 散開して交戦 (Break and attack)
+        - generic: 4. 支援に来い (Help me)
+        - generic: 5. 僚機の状況を報告 (Report)
+        - generic: 6. 敵を挑発する (Taunt)

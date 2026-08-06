@@ -1,0 +1,39 @@
+- generic [ref=e1848] [box=0,0,1280,720]:
+  - heading "戦役記録 — ロード" [level=1] [ref=e1849] [box=448,115,383,57]
+  - generic [ref=e1850] [box=529,182,223,15]: BARRACKS / 8 MEMORY SLOTS
+  - generic [ref=e1851] [box=150,207,980,211]:
+    - generic [ref=e1852] [box=169,217,942,25]: ロードすると現在の進行を置き換える。
+    - generic [ref=e1854] [box=169,249,467,37]:
+      - generic [ref=e1855] [box=178,255,90,25]: SLOT 1
+      - generic [ref=e1856] [box=278,255,349,25]: CANON / ENYO 1章 勝利点 0 撃墜 0
+    - generic [ref=e1857] [box=644,249,467,37]:
+      - generic [ref=e1858] [box=653,255,90,25]: SLOT 2
+      - generic [ref=e1859] [box=753,255,349,25]: CANON / ENYO 1章 勝利点 0 撃墜 0
+    - generic [ref=e1860] [box=169,290,467,37]:
+      - generic [ref=e1861] [box=178,296,90,25]: SLOT 3
+      - generic [ref=e1862] [box=278,296,349,25]: CANON / ENYO 1章 勝利点 0 撃墜 0
+    - generic [ref=e1863] [box=644,290,467,37]:
+      - generic [ref=e1864] [box=653,296,90,25]: SLOT 4
+      - generic [ref=e1865] [box=753,296,349,25]: CANON / ENYO 1章 勝利点 0 撃墜 0
+    - generic [ref=e1866] [box=169,330,467,37]:
+      - generic [ref=e1867] [box=178,336,90,25]: SLOT 5
+      - generic [ref=e1868] [box=278,336,349,25]: CANON / ENYO 1章 勝利点 0 撃墜 0
+    - generic [ref=e1869] [box=644,330,467,37]:
+      - generic [ref=e1870] [box=653,336,90,25]: SLOT 6
+      - generic [ref=e1871] [box=753,336,349,25]: CANON / ENYO 1章 勝利点 0 撃墜 0
+    - generic [ref=e1872] [box=169,371,467,37]:
+      - generic [ref=e1873] [box=178,377,90,25]: SLOT 7
+      - generic [ref=e1874] [box=278,377,349,25]: CANON / ENYO 1章 勝利点 0 撃墜 0
+    - generic [ref=e1875] [box=644,371,467,37]:
+      - generic [ref=e1876] [box=653,377,90,25]: SLOT 8
+      - generic [ref=e1877] [box=753,377,349,25]: CANON / ENYO 1章 勝利点 0 撃墜 0
+  - generic [ref=e1878] [box=260,427,760,178]:
+    - generic [ref=e1879] [cursor=pointer] [box=260,427,376,30]: SLOT 1をロード
+    - generic [ref=e1880] [cursor=pointer] [box=645,427,376,30]: SLOT 2をロード
+    - generic [ref=e1881] [cursor=pointer] [box=260,464,376,30]: SLOT 3をロード
+    - generic [ref=e1882] [cursor=pointer] [box=645,464,376,30]: SLOT 4をロード
+    - generic [ref=e1883] [cursor=pointer] [box=260,501,376,30]: SLOT 5をロード
+    - generic [ref=e1884] [cursor=pointer] [box=645,501,376,30]: SLOT 6をロード
+    - generic [ref=e1885] [cursor=pointer] [box=260,538,376,30]: SLOT 7をロード
+    - generic [ref=e1886] [cursor=pointer] [box=645,538,376,30]: SLOT 8をロード
+    - generic [ref=e1887] [cursor=pointer] [box=260,575,376,30]: 戻る

@@ -1,0 +1,45 @@
+- generic [ref=f1e354]:
+  - heading "キルボード" [level=1] [ref=f1e355]
+  - generic [ref=f1e356]:
+    - generic [ref=f1e357]:
+      - heading "キルボード" [level=3] [ref=f1e358]
+      - generic [ref=f1e359]: 飛行甲板の壁に貼られている板。順位は毎日書き換えられる。
+    - generic [ref=f1e361]:
+      - generic [ref=f1e362]: "1"
+      - generic [ref=f1e363]: Spirit
+      - generic [ref=f1e365]: "0"
+    - generic [ref=f1e366]:
+      - generic [ref=f1e367]: "2"
+      - generic [ref=f1e368]: Maniac
+      - generic [ref=f1e370]: "0"
+    - generic [ref=f1e371]:
+      - generic [ref=f1e372]: "3"
+      - generic [ref=f1e373]: Angel
+      - generic [ref=f1e375]: "0"
+    - generic [ref=f1e376]:
+      - generic [ref=f1e377]: "4"
+      - generic [ref=f1e378]: Tinman
+      - generic [ref=f1e380]: "0"
+    - generic [ref=f1e381]:
+      - generic [ref=f1e382]: "5"
+      - generic [ref=f1e383]: Padre
+      - generic [ref=f1e385]: "0"
+    - generic [ref=f1e386]:
+      - generic [ref=f1e387]: "6"
+      - generic [ref=f1e388]: あなた
+      - generic [ref=f1e390]: "0"
+    - generic [ref=f1e391]:
+      - heading "宿敵の記録" [level=3] [ref=f1e392]
+      - generic [ref=f1e393]:
+        - generic [ref=f1e394]: ★
+        - generic [ref=f1e395]: Caxki 交戦中 / 離脱 0
+        - generic [ref=f1e398]: "0"
+      - generic [ref=f1e399]:
+        - generic [ref=f1e400]: ★
+        - generic [ref=f1e401]: 血塗られた爪 交戦中 / 離脱 0
+        - generic [ref=f1e404]: "0"
+      - generic [ref=f1e405]:
+        - generic [ref=f1e406]: ★
+        - generic [ref=f1e407]: Deathstroke 交戦中 / 離脱 0
+        - generic [ref=f1e410]: "0"
+  - generic [ref=f1e411]: 戻る

@@ -1,0 +1,29 @@
+- generic [ref=e974] [box=0,0,1280,720]:
+  - heading "音楽クレジット" [level=1] [ref=e975] [box=486,128,309,57]
+  - generic [ref=e976] [box=150,195,980,177]:
+    - generic [ref=e977] [box=169,205,942,80]:
+      - heading "BGM" [level=3] [ref=e978] [box=169,205,942,25]
+      - text: Kevin MacLeod / IncompetechCreative Commons Attribution License（商用利用可・作者表記が必要）
+    - generic [ref=e979] [box=169,299,942,49]:
+      - text: 曲名、配布元URL、利用時の注意は
+      - code [ref=e980] [box=394,303,235,16]: public/audio/music/README.md
+      - text: を参照してください。リリース前にはIncompetechで各曲の最新クレジット文言を確認してください。
+  - generic [ref=e981] [box=140,394,1001,158]:
+    - heading "サウンドチェック" [level=3] [ref=e982] [box=140,413,1001,27]
+    - generic [ref=e983] [box=140,458,1001,24]: 各曲を十数秒ずつ聴き、音量の飛び・耳に刺さる音・無線の聞き取りやすさを確認してください。
+    - generic [ref=e984] [box=140,490,1001,27]:
+      - button "タイトル" [ref=e985] [box=140,490,93,27]
+      - button "母艦" [ref=e986] [box=239,490,93,27]
+      - button "ブリーフィング" [ref=e987] [box=338,490,107,27]
+      - button "哨戒" [ref=e988] [box=451,490,93,27]
+      - button "緊張" [ref=e989] [box=550,490,93,27]
+      - button "戦闘" [ref=e990] [box=650,490,93,27]
+      - button "激戦" [ref=e991] [box=749,490,93,27]
+      - button "宿敵" [ref=e992] [box=848,490,93,27]
+      - button "勝利" [ref=e993] [box=948,490,93,27]
+      - button "敗北" [ref=e994] [box=1047,490,93,27]
+    - generic [ref=e995] [box=140,525,1001,27]:
+      - button "僚機の声" [ref=e996] [box=140,525,93,27]
+      - button "宿敵の声" [ref=e997] [box=239,525,93,27]
+      - button "母艦の声" [active] [ref=e998] [box=338,525,93,27]
+  - generic [ref=e999] [box=260,562,760,30]: 戻る

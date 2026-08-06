@@ -1,0 +1,39 @@
+- generic [ref=f1e228]:
+  - heading "戦役記録 — ロード" [level=1] [ref=f1e229]
+  - generic [ref=f1e230]: BARRACKS / 8 MEMORY SLOTS
+  - generic [ref=f1e231]:
+    - generic [ref=f1e232]: ロードすると現在の進行を置き換える。
+    - generic [ref=f1e234]:
+      - generic [ref=f1e235]: SLOT 1
+      - generic [ref=f1e236]: CANON / ENYO 1章 勝利点 0 撃墜 0
+    - generic [ref=f1e237]:
+      - generic [ref=f1e238]: SLOT 2
+      - generic [ref=f1e239]: 空きスロット
+    - generic [ref=f1e240]:
+      - generic [ref=f1e241]: SLOT 3
+      - generic [ref=f1e242]: 空きスロット
+    - generic [ref=f1e243]:
+      - generic [ref=f1e244]: SLOT 4
+      - generic [ref=f1e245]: 空きスロット
+    - generic [ref=f1e246]:
+      - generic [ref=f1e247]: SLOT 5
+      - generic [ref=f1e248]: 空きスロット
+    - generic [ref=f1e249]:
+      - generic [ref=f1e250]: SLOT 6
+      - generic [ref=f1e251]: 空きスロット
+    - generic [ref=f1e252]:
+      - generic [ref=f1e253]: SLOT 7
+      - generic [ref=f1e254]: 空きスロット
+    - generic [ref=f1e255]:
+      - generic [ref=f1e256]: SLOT 8
+      - generic [ref=f1e257]: 空きスロット
+  - generic [ref=f1e258]:
+    - generic [ref=f1e259] [cursor=pointer]: SLOT 1をロード
+    - generic [ref=f1e260]: SLOT 2をロード
+    - generic [ref=f1e261]: SLOT 3をロード
+    - generic [ref=f1e262]: SLOT 4をロード
+    - generic [ref=f1e263]: SLOT 5をロード
+    - generic [ref=f1e264]: SLOT 6をロード
+    - generic [ref=f1e265]: SLOT 7をロード
+    - generic [ref=f1e266]: SLOT 8をロード
+    - generic [ref=f1e267] [cursor=pointer]: 戻る

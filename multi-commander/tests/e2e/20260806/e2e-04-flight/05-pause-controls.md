@@ -1,0 +1,100 @@
+- generic [ref=f1e4]:
+  - generic:
+    - generic: "マウス操縦: OFF"
+    - generic: ▸ 航路を確認して帰投
+  - generic:
+    - generic:
+      - generic:
+        - generic: SELF / SYSTEMS
+        - generic: あなた / F-54 ホーネット
+        - generic:
+          - generic: SHIELD
+          - generic: 100%
+        - generic:
+          - generic: ARMOR
+          - generic: 100%
+        - generic:
+          - generic: HULL
+          - generic: 100%
+        - generic:
+          - generic: GUN PWR
+          - generic: 110 / 110
+        - generic:
+          - generic: PRIMARY
+          - generic: LASER
+        - generic: SYSTEMS
+        - generic: RADAR READY
+        - generic: GUNS READY
+      - generic:
+        - generic:
+          - generic: 0 KPS
+          - generic:
+            - generic:
+              - generic: THROTTLE
+              - generic: 0%
+          - generic:
+            - generic:
+              - generic: GUN PWR
+              - generic: "110"
+          - generic:
+            - generic:
+              - generic: AB FUEL
+              - generic: 6.0s
+        - generic:
+          - generic: SHIELDS / ARMOR
+          - generic: HULL 100%
+        - generic: RADAR
+      - generic:
+        - generic: TARGET / NAV
+        - generic: TARGET
+        - generic:
+          - generic: NO TARGET
+          - generic: T / R / Y で選択
+        - generic: NAV / WING
+        - generic:
+          - generic: NAV
+          - generic: 帰投
+        - generic:
+          - generic: DIST
+          - generic: 4.8k
+        - generic:
+          - generic: WINGMAN
+          - generic: Angel
+        - generic:
+          - generic: STATUS
+          - generic: FORMED
+        - generic: WEAPONS [X]
+        - generic:
+          - generic:
+            - generic: SELECTED
+            - generic: ダムファイア
+          - generic: 即時発射・無誘導。読み合いで近距離を取る
+          - generic:
+            - generic: AMMO
+            - generic: "2"
+          - generic:
+            - generic: ENERGY
+            - generic: 110 / 110 (−3/shot)
+          - generic: 発射可能
+        - generic:
+          - generic: ▸ ダムファイア
+          - generic: "2"
+        - generic:
+          - generic: フレア
+          - generic: "12"
+        - generic: ■ ロック不要 / 即時発射
+  - generic [ref=f1e165]:
+    - heading "操作方法" [level=1] [ref=f1e166]
+    - generic [ref=f1e167]:
+      - generic [ref=f1e168]:
+        - heading "飛ぶ" [level=3] [ref=f1e169]
+        - text: マウスを照準から動かすと機首が向く (M でオン/オフ)。キーボードなら ↑↓←→。スロットルは ] [ かホイール、数字 1〜9 で割合指定。Tab でアフターバーナー。
+      - generic [ref=f1e170]:
+        - heading "戦う" [level=3] [ref=f1e171]
+        - text: Space か左クリックで主砲。T でターゲット切替、Y で正面の敵を掴む。Enter か右クリックでミサイル。
+      - generic [ref=f1e172]:
+        - heading "移動・指示" [level=3] [ref=f1e173]
+        - text: A でオートパイロット。C で通信メニュー。Esc でポーズ。
+    - generic [ref=f1e174]:
+      - generic [ref=f1e175] [cursor=pointer]: 音楽クレジット
+      - generic [ref=f1e176] [cursor=pointer]: 戻る

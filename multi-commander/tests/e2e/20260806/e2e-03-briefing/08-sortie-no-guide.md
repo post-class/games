@@ -1,0 +1,98 @@
+- generic [ref=e2]:
+  - generic:
+    - generic:
+      - generic: ◇ NAV 1 12.1k
+      - generic:
+        - generic: 発着管制:発艦位置へ。カタパルト、ロック。
+        - generic: 発着管制:カタパルト作動。行け！
+        - generic: 発着管制:発艦を確認。あとは任せる。生きて戻れ。
+        - generic: 管制:発艦を確認。哨戒コースへ乗れ。
+      - generic:
+        - generic: ▸ 敵偵察機を全機撃破
+        - generic: ▸ NAV 3 まで哨戒
+        - generic: ▸ タイガーズ・クローへ帰投
+      - generic: マウスを照準へ動かすと操縦できます (M でマウス操縦 OFF)
+    - generic:
+      - generic:
+        - generic:
+          - generic: SELF / SYSTEMS
+          - generic: あなた / F-38 スミター
+          - generic:
+            - generic: SHIELD
+            - generic: 100%
+          - generic:
+            - generic: ARMOR
+            - generic: 100%
+          - generic:
+            - generic: HULL
+            - generic: 100%
+          - generic:
+            - generic: GUN PWR
+            - generic: 130 / 130
+          - generic:
+            - generic: PRIMARY
+            - generic: MASS-DRIVER
+          - generic: SYSTEMS
+          - generic: RADAR READY
+          - generic: GUNS READY
+        - generic:
+          - generic:
+            - generic: 0 KPS
+            - generic:
+              - generic:
+                - generic: THROTTLE
+                - generic: 0%
+            - generic:
+              - generic:
+                - generic: GUN PWR
+                - generic: "130"
+            - generic:
+              - generic:
+                - generic: AB FUEL
+                - generic: 7.0s
+          - generic:
+            - generic: SHIELDS / ARMOR
+            - generic: HULL 100%
+          - generic: RADAR
+        - generic:
+          - generic: TARGET / NAV
+          - generic: TARGET
+          - generic:
+            - generic: NO TARGET
+            - generic: T / R / Y で選択
+          - generic: NAV / WING
+          - generic:
+            - generic: NAV
+            - generic: NAV 1
+          - generic:
+            - generic: DIST
+            - generic: 12.1k
+          - generic:
+            - generic: WINGMAN
+            - generic: Tinman
+          - generic:
+            - generic: STATUS
+            - generic: FORMED
+          - generic: WEAPONS [X]
+          - generic:
+            - generic:
+              - generic: SELECTED
+              - generic: ダムファイア
+            - generic: 即時発射・無誘導。読み合いで近距離を取る
+            - generic:
+              - generic: AMMO
+              - generic: "2"
+            - generic:
+              - generic: ENERGY
+              - generic: 130 / 130 (−5/shot)
+            - generic: 発射可能
+          - generic:
+            - generic: ▸ ダムファイア
+            - generic: "2"
+          - generic:
+            - generic: ヒートシーカー
+            - generic: "1"
+          - generic:
+            - generic: フレア
+            - generic: "12"
+          - generic: ■ ロック不要 / 即時発射

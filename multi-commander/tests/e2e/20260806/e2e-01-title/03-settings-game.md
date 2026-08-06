@@ -1,0 +1,25 @@
+- generic [ref=e47] [box=0,0,1280,720]:
+  - heading "設定" [level=1] [ref=e48] [box=596,189,88,57]
+  - generic [ref=e49] [box=150,256,980,236]:
+    - generic [ref=e50] [box=169,266,942,35]:
+      - generic [ref=e51] [cursor=pointer] [box=169,266,73,35]: ゲーム
+      - generic [ref=e52] [cursor=pointer] [box=248,266,59,35]: 操作
+      - generic [ref=e53] [cursor=pointer] [box=313,266,102,35]: オーディオ
+    - generic [ref=e54] [box=169,300,942,181]:
+      - generic [ref=e55] [box=169,300,942,36]:
+        - generic [ref=e56] [box=171,305,726,25]: 難易度
+        - generic [ref=e57] [box=907,305,202,25]:
+          - button "◀" [ref=e58] [cursor=pointer] [box=907,306,30,23]
+          - generic [ref=e59] [box=945,305,126,25]: ふつう
+          - button "▶" [ref=e60] [cursor=pointer] [box=1079,306,30,23]
+      - generic [ref=e61] [box=169,336,942,36]:
+        - generic [ref=e62] [box=171,341,889,25]: 照準アシスト (リード表示を強調)
+        - button "ON" [ref=e64] [cursor=pointer] [box=1070,342,39,23]
+      - generic [ref=e65] [box=169,371,942,36]:
+        - generic [ref=e66] [box=171,376,884,25]: 高度な操作を有効化 (飛行モード切替 Z)
+        - button "OFF" [ref=e68] [cursor=pointer] [box=1065,377,44,23]
+      - generic [ref=e69] [box=169,407,942,36]: 敵技量 58% ／ 被ダメ ×1 ／ 同時攻撃 2 機まで
+      - generic [ref=e71] [box=169,442,942,39]:
+        - generic [ref=e72] [box=171,449,854,25]: 初期設定に戻す
+        - button "リセット" [ref=e74] [cursor=pointer] [box=1035,447,74,28]
+  - generic [ref=e75] [box=260,501,760,30]: 戻る

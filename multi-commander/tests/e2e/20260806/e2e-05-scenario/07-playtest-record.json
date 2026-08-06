@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "exportedAt": 1786014933925,
+  "missions": [
+    {
+      "schemaVersion": 1,
+      "missionId": "training-quiet",
+      "missionTitle": "訓練室 — 航法・帰投",
+      "shipId": "hornet",
+      "difficultyId": "normal",
+      "startedAt": 1786014888080,
+      "durationSeconds": 21.283333333333406,
+      "navReached": [
+        {
+          "index": 0,
+          "name": "発艦点",
+          "atSeconds": 10.383333333333429
+        },
+        {
+          "index": 1,
+          "name": "帰投",
+          "atSeconds": 21.283333333333406
+        }
+      ],
+      "objectives": [
+        {
+          "id": "home",
+          "text": "航路を確認して帰投",
+          "state": "done"
+        }
+      ],
+      "objectiveTransitions": [
+        {
+          "id": "home",
+          "state": "done",
+          "atSeconds": 21.283333333333406
+        }
+      ],
+      "inputLatency": {
+        "samples": 2,
+        "averageMs": 18.399999998509884,
+        "maxMs": 22.69999999552965
+      },
+      "outcome": "win"
+    }
+  ]
+}

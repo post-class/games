@@ -1,0 +1,89 @@
+- generic [ref=f1e2]:
+  - generic:
+    - generic:
+      - generic: "マウス操縦: OFF"
+      - generic: ▸ 航路を確認して帰投
+    - generic:
+      - generic:
+        - generic:
+          - generic: SELF / SYSTEMS
+          - generic: あなた / F-54 ホーネット
+          - generic:
+            - generic: SHIELD
+            - generic: 100%
+          - generic:
+            - generic: ARMOR
+            - generic: 100%
+          - generic:
+            - generic: HULL
+            - generic: 100%
+          - generic:
+            - generic: GUN PWR
+            - generic: 110 / 110
+          - generic:
+            - generic: PRIMARY
+            - generic: LASER
+          - generic: SYSTEMS
+          - generic: RADAR READY
+          - generic: GUNS READY
+        - generic:
+          - generic:
+            - generic: 0 KPS
+            - generic:
+              - generic:
+                - generic: THROTTLE
+                - generic: 0%
+            - generic:
+              - generic:
+                - generic: GUN PWR
+                - generic: "110"
+            - generic:
+              - generic:
+                - generic: AB FUEL
+                - generic: 6.0s
+          - generic:
+            - generic: SHIELDS / ARMOR
+            - generic: HULL 100%
+          - generic: RADAR
+        - generic:
+          - generic: DAMAGE [D]
+          - generic:
+            - generic: シールド 前/後
+            - generic: 100%
+          - generic:
+            - generic: 装甲 前
+            - generic: 100%
+          - generic:
+            - generic: 装甲 後
+            - generic: 100%
+          - generic:
+            - generic: 装甲 左/右
+            - generic: 100%
+          - generic:
+            - generic: 船体
+            - generic: 100%
+          - generic: システム
+          - generic:
+            - generic: レーダー
+            - generic: 正常
+          - generic:
+            - generic: 左舷砲
+            - generic: 正常
+          - generic:
+            - generic: 右舷砲
+            - generic: 正常
+          - generic:
+            - generic: 砲塔
+            - generic: 正常
+          - generic:
+            - generic: エンジン
+            - generic: 正常
+          - generic:
+            - generic: シールド発生器
+            - generic: 正常
+          - generic:
+            - generic: 通信機
+            - generic: 正常
+          - generic:
+            - generic: 姿勢制御
+            - generic: 正常

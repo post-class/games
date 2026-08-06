@@ -1,0 +1,140 @@
+- generic [ref=e127] [box=0,0,1280,720]:
+  - heading "格納庫" [level=1] [ref=e128] [box=574,59,132,57]
+  - generic [ref=e130] [box=73,135,1134,439]:
+    - generic [ref=e133] [box=113,135,439,37]:
+      - heading "格納庫 / 飛行甲板" [level=3] [ref=e134] [box=113,135,439,19]
+      - generic [ref=e135] [box=113,157,439,15]: "整備班: 「割り当ては F-54 ホーネット。機体を選び、任務に合わせて loadout を決めろ。」"
+    - generic [ref=e136] [box=73,176,1134,24]: AIRFRAME COMPARISON 同じ基準で性能を比較
+    - generic [ref=e137] [box=73,203,1134,156]:
+      - article [ref=e138] [box=73,203,280,156]:
+        - generic [ref=e139] [box=79,208,268,38]:
+          - generic [ref=e140] [box=79,211,40,16]: HORNET
+          - strong [ref=e141] [box=124,208,223,19]: F-54 ホーネット
+          - generic [ref=e142] [box=124,232,223,14]: SELECTED
+        - img "F-54 ホーネット silhouette" [ref=e143] [box=79,247,268,48]:
+          - generic [ref=e147] [box=206,292,15,3]: BLUEPRINT
+        - generic [ref=e148] [box=79,296,268,16]: 制空 / 戦闘機 任務指定
+        - generic [ref=e149] [box=79,314,268,39]:
+          - generic [ref=e150] [box=79,314,131,12]:
+            - generic [ref=e151] [box=79,314,27,12]: SPD
+            - emphasis [ref=e154] [box=188,314,22,12]: "400"
+          - generic [ref=e155] [box=215,314,131,12]:
+            - generic [ref=e156] [box=215,314,27,12]: TURN
+            - emphasis [ref=e159] [box=325,314,22,12]: "1.90"
+          - generic [ref=e160] [box=79,327,131,12]:
+            - generic [ref=e161] [box=79,327,27,12]: ARM
+            - emphasis [ref=e164] [box=188,327,22,12]: "100"
+          - generic [ref=e165] [box=215,327,131,12]:
+            - generic [ref=e166] [box=215,327,27,12]: HULL
+            - emphasis [ref=e169] [box=325,327,22,12]: "100"
+          - generic [ref=e170] [box=79,340,131,12]:
+            - generic [ref=e171] [box=79,340,27,12]: GUN
+            - emphasis [ref=e174] [box=188,340,22,12]: "2"
+          - generic [ref=e175] [box=215,340,131,12]:
+            - generic [ref=e176] [box=215,340,27,12]: ORD
+            - emphasis [ref=e179] [box=325,340,22,12]: "2"
+      - article [ref=e180] [box=358,203,280,156]:
+        - generic [ref=e181] [box=364,208,268,22]:
+          - generic [ref=e182] [box=364,211,47,16]: SCIMITAR
+          - strong [ref=e183] [box=415,208,216,19]: F-38 スミター
+        - img "F-38 スミター silhouette" [ref=e184] [box=364,231,268,48]:
+          - generic [ref=e188] [box=490,275,15,3]: BLUEPRINT
+        - generic [ref=e189] [box=364,280,268,16]: 制空 / 戦闘機
+        - generic [ref=e190] [box=364,297,268,39]:
+          - generic [ref=e191] [box=364,297,131,12]:
+            - generic [ref=e192] [box=364,297,27,12]: SPD
+            - emphasis [ref=e195] [box=473,297,22,12]: "300"
+          - generic [ref=e196] [box=500,297,131,12]:
+            - generic [ref=e197] [box=500,297,27,12]: TURN
+            - emphasis [ref=e200] [box=610,297,22,12]: "1.50"
+          - generic [ref=e201] [box=364,311,131,12]:
+            - generic [ref=e202] [box=364,311,27,12]: ARM
+            - emphasis [ref=e205] [box=473,311,22,12]: "165"
+          - generic [ref=e206] [box=500,311,131,12]:
+            - generic [ref=e207] [box=500,311,27,12]: HULL
+            - emphasis [ref=e210] [box=610,311,22,12]: "180"
+          - generic [ref=e211] [box=364,324,131,12]:
+            - generic [ref=e212] [box=364,324,27,12]: GUN
+            - emphasis [ref=e215] [box=473,324,22,12]: "2"
+          - generic [ref=e216] [box=500,324,131,12]:
+            - generic [ref=e217] [box=500,324,27,12]: ORD
+            - emphasis [ref=e220] [box=610,324,22,12]: "3"
+      - article [ref=e221] [box=643,203,280,156]:
+        - generic [ref=e222] [box=649,208,268,22]:
+          - generic [ref=e223] [box=649,211,39,16]: RAPTOR
+          - strong [ref=e224] [box=693,208,224,19]: F-44 ラプター
+        - img "F-44 ラプター silhouette" [ref=e225] [box=649,231,268,48]:
+          - generic [ref=e229] [box=775,275,15,3]: BLUEPRINT
+        - generic [ref=e230] [box=649,280,268,16]: 制空 / 戦闘機
+        - generic [ref=e231] [box=649,297,268,39]:
+          - generic [ref=e232] [box=649,297,131,12]:
+            - generic [ref=e233] [box=649,297,27,12]: SPD
+            - emphasis [ref=e236] [box=758,297,22,12]: "280"
+          - generic [ref=e237] [box=785,297,131,12]:
+            - generic [ref=e238] [box=785,297,27,12]: TURN
+            - emphasis [ref=e241] [box=894,297,22,12]: "1.25"
+          - generic [ref=e242] [box=649,311,131,12]:
+            - generic [ref=e243] [box=649,311,27,12]: ARM
+            - emphasis [ref=e246] [box=758,311,22,12]: "290"
+          - generic [ref=e247] [box=785,311,131,12]:
+            - generic [ref=e248] [box=785,311,27,12]: HULL
+            - emphasis [ref=e251] [box=894,311,22,12]: "300"
+          - generic [ref=e252] [box=649,324,131,12]:
+            - generic [ref=e253] [box=649,324,27,12]: GUN
+            - emphasis [ref=e256] [box=758,324,22,12]: "4"
+          - generic [ref=e257] [box=785,324,131,12]:
+            - generic [ref=e258] [box=785,324,27,12]: ORD
+            - emphasis [ref=e261] [box=894,324,22,12]: "6"
+      - article [ref=e262] [box=927,203,280,156]:
+        - generic [ref=e263] [box=933,208,268,22]:
+          - generic [ref=e264] [box=933,211,37,16]: RAPIER
+          - strong [ref=e265] [box=975,208,226,19]: F-44A ラピアー II
+        - img "F-44A ラピアー II silhouette" [ref=e266] [box=933,231,268,48]:
+          - generic [ref=e270] [box=1060,275,15,3]: BLUEPRINT
+        - generic [ref=e271] [box=933,280,268,16]: 制空 / 戦闘機
+        - generic [ref=e272] [box=933,297,268,39]:
+          - generic [ref=e273] [box=933,297,131,12]:
+            - generic [ref=e274] [box=933,297,27,12]: SPD
+            - emphasis [ref=e277] [box=1043,297,22,12]: "450"
+          - generic [ref=e278] [box=1070,297,131,12]:
+            - generic [ref=e279] [box=1070,297,27,12]: TURN
+            - emphasis [ref=e282] [box=1179,297,22,12]: "1.85"
+          - generic [ref=e283] [box=933,311,131,12]:
+            - generic [ref=e284] [box=933,311,27,12]: ARM
+            - emphasis [ref=e287] [box=1043,311,22,12]: "145"
+          - generic [ref=e288] [box=1070,311,131,12]:
+            - generic [ref=e289] [box=1070,311,27,12]: HULL
+            - emphasis [ref=e292] [box=1179,311,22,12]: "160"
+          - generic [ref=e293] [box=933,324,131,12]:
+            - generic [ref=e294] [box=933,324,27,12]: GUN
+            - emphasis [ref=e297] [box=1043,324,22,12]: "4"
+          - generic [ref=e298] [box=1070,324,131,12]:
+            - generic [ref=e299] [box=1070,324,27,12]: ORD
+            - emphasis [ref=e302] [box=1179,324,22,12]: "5"
+    - generic [ref=e303] [box=73,363,1134,106]:
+      - generic [ref=e304] [box=80,369,1120,36]:
+        - heading "出撃構成 / F-54 ホーネット" [level=3] [ref=e305] [box=80,372,176,25]
+        - generic [ref=e306] [box=1127,369,74,25]: MISSION FIT
+      - generic [ref=e307] [box=80,405,1120,58]:
+        - generic [ref=e308] [box=80,407,618,56]:
+          - generic [ref=e309] [box=80,407,618,19]:
+            - generic [ref=e310] [box=80,408,35,16]: PRIMARY
+            - generic [ref=e311] [box=653,408,45,16]: レーザー砲
+          - generic [ref=e312] [box=80,426,618,19]:
+            - generic [ref=e313] [box=80,427,37,16]: MISSILES
+            - generic [ref=e314] [box=633,427,65,16]: ダムファイア ×2
+          - generic [ref=e315] [box=80,445,618,19]:
+            - generic [ref=e316] [box=80,446,31,16]: FLARES
+            - generic [ref=e317] [box=693,446,4,16]: "6"
+        - generic [ref=e318] [box=706,430,494,12]: "補給: フレア 72 予備部品 12 ミサイル DF 24 / HS 18 / IR 8 / TP 6"
+    - generic [ref=e320] [box=73,474,1134,101]:
+      - heading "僚機" [level=3] [ref=e321] [box=73,479,1134,25]
+      - generic [ref=e325] [box=121,512,1086,28]:
+        - generic [ref=e326] [box=121,512,1086,14]: Angel 2番機・冷静・技量 80%・撃墜 0・昇進 0
+        - generic [ref=e327] [box=121,527,1086,13]: 無駄弾を撃たない。指示は簡潔で、状況判断が早い。飛行隊で最も信頼されている。
+      - generic [ref=e328] [box=73,562,1134,13]: "出撃可能: Spirit / Maniac / Angel / Tinman / Padre"
+  - generic [ref=e329] [box=260,594,760,67]:
+    - generic [ref=e330] [cursor=pointer] [box=260,594,376,30]: 機体を変える (F-54 ホーネット)
+    - generic [ref=e331] [cursor=pointer] [box=645,594,376,30]: 僚機を変える (Angel)
+    - generic [ref=e332] [cursor=pointer] [box=260,631,376,30]: 単独で出撃する
+    - generic [ref=e333] [cursor=pointer] [box=645,631,376,30]: 戻る

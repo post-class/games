@@ -1,0 +1,13 @@
+- generic [ref=f1e510]:
+  - heading "訓練室" [level=1] [ref=f1e511]
+  - generic [ref=f1e512]:
+    - generic [ref=f1e513]:
+      - heading "実戦前訓練" [level=3] [ref=f1e514]
+      - generic [ref=f1e515]: キャンペーンの戦果・名簿・戦況は変わらない。操作、武装、帰投手順を確認できる。
+    - generic [ref=f1e516]: "種目: patrol敵機数: 3敵技量: 55%"
+  - generic [ref=f1e517]:
+    - generic [ref=f1e518] [cursor=pointer]: 種目を変える (patrol)
+    - generic [ref=f1e519] [cursor=pointer]: 敵機数を変える (3)
+    - generic [ref=f1e520] [cursor=pointer]: 敵技量を変える (55%)
+    - generic [ref=f1e521] [cursor=pointer]: 訓練を開始
+    - generic [ref=f1e522] [cursor=pointer]: 戻る

@@ -1,0 +1,15 @@
+- generic [ref=e5]:
+  - heading "MULTI-COMMANDER" [level=1] [ref=e6]
+  - generic [ref=e7]: TCS TIGER’S CLAW — VEGA SECTOR
+  - generic [ref=e8]:
+    - generic [ref=e9]:
+      - heading "状況" [level=3] [ref=e10]
+      - text: キルラシー帝国との戦争は6年目に入った。君はタイガーズ・クローに配属された新任パイロットだ。ブリーフィングを受け、出撃し、生きて帰れ。戦況は君の戦果で変わる。
+    - generic [ref=e11]: "記録なし 難易度: ふつう"
+  - generic [ref=e12]:
+    - generic [ref=e13] [cursor=pointer]: 新しい戦役を始める (CANON / ENYO)
+    - generic [ref=e14]: 続きから
+    - generic [ref=e15] [cursor=pointer]: 新規戦役モードを切替 (CANON / ENYO)
+    - generic [ref=e16] [cursor=pointer]: 設定
+    - generic [ref=e17] [cursor=pointer]: 操作説明
+  - generic [ref=e18]: ▲▼ で選択 / Enter で決定

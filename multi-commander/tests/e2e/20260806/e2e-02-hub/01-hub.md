@@ -1,0 +1,22 @@
+- generic [ref=e19] [box=0,0,1280,720]:
+  - heading "TCS タイガーズ・クロー" [level=1] [ref=e20] [box=395,154,490,57]
+  - generic [ref=e21] [box=459,221,362,20]: CANON / ENYO Enyo Series 1/7 — Enyo 星系
+  - generic [ref=e23] [box=169,262,942,75]:
+    - generic [ref=e24] [box=169,262,942,26]:
+      - img "少尉" [ref=e25] [box=169,262,10,26]
+      - generic [ref=e26] [box=189,262,178,25]: 少尉 通算撃墜 0 出撃 0 回
+    - generic [ref=e27] [box=169,288,942,25]: "次の任務: Enyo Series — 哨戒 — Enyo宙域"
+    - generic [ref=e28] [box=169,312,942,25]: "戦況: Enyo — Enyo Series の戦況を確認中。 / 勝利点 0 / McCaffrey 54% / Gimle 48% / Vega 43%"
+  - generic [ref=e29] [box=260,371,760,243]:
+    - generic [ref=e30] [cursor=pointer] [box=260,371,376,37]: ブリーフィング室 — 任務の説明を受ける
+    - generic [ref=e32] [cursor=pointer] [box=645,371,376,37]: 格納庫 — 機体と僚機を決める
+    - generic [ref=e34] [cursor=pointer] [box=260,415,376,37]: 酒場 — 隊員と話す
+    - generic [ref=e36] [cursor=pointer] [box=645,415,376,37]: 自室 — 名簿と戦績
+    - generic [ref=e38] [cursor=pointer] [box=260,459,376,37]: キルボード
+    - generic [ref=e40] [cursor=pointer] [box=645,459,376,37]: 戦況マップ
+    - generic [ref=e41] [cursor=pointer] [box=260,503,376,30]: 訓練室
+    - generic [ref=e42] [cursor=pointer] [box=645,503,376,30]: 統計
+    - generic [ref=e43] [cursor=pointer] [box=260,540,376,37]: 出撃 (F-54 ホーネット / Angel)
+    - generic [ref=e45] [cursor=pointer] [box=645,540,376,37]: 設定
+    - generic [ref=e46] [cursor=pointer] [box=260,584,376,30]: タイトルへ戻る
+  - generic [ref=e47] [box=563,624,155,18]: ▲▼ で選択 / Enter で決定

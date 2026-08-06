@@ -1,0 +1,16 @@
+- generic [ref=f1e128]:
+  - heading "リプレイ / キルカム" [level=1] [ref=f1e129]
+  - generic [ref=f1e130]: 直近30秒 — 固定ステップ記録
+  - generic [ref=f1e131]:
+    - generic [ref=f1e132]:
+      - strong [ref=f1e133]: 直近30秒 — 戦闘リプレイ
+      - generic [ref=f1e134]: 5.4s コクピット視点
+    - generic "戦闘リプレイ画面" [ref=f1e135]
+    - generic [ref=f1e136]:
+      - button "再生中" [ref=f1e137] [cursor=pointer]
+      - button "速度 1x" [ref=f1e138] [cursor=pointer]
+      - 'button "視点: コクピット" [ref=f1e139] [cursor=pointer]'
+      - slider [ref=f1e140]: "5.4"
+    - generic [ref=f1e141]: 記録された決定的な瞬間はありません。
+  - generic [ref=f1e142]: デブリーフへ戻る
+  - generic [ref=f1e144]: 再生画面のボタンで速度・視点・時間を操作 / Esc で戻る
