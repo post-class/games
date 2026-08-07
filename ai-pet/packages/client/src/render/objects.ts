@@ -38,8 +38,11 @@ interface Entry {
   key: string;
 }
 
-/** 種別ごとの描画サイズ（タイル単位）。木は大きく、花壇は小さく */
-const SCALE: Record<string, number> = {
+/**
+ * 種別ごとの描画サイズ（タイル単位）。木は大きく、花壇は小さく。
+ * 接地影（`shadows.ts`）が同じ大きさの楕円を敷くので export している。
+ */
+export const OBJECT_SCALE: Record<string, number> = {
   berry_tree: 1.9,
   field: 1.3,
   fishing_spot: 1.0,
@@ -50,6 +53,9 @@ const SCALE: Record<string, number> = {
   signboard: 1.2,
   well: 1.6,
   bridge: 1.0,
+  // 共同建設の完成物と足場（G-1 / G-2）。島の名所なので大きく置く
+  observatory: 2.4,
+  scaffold: 2.2,
 };
 
 export class ObjectLayer {
@@ -111,7 +117,7 @@ export class ObjectLayer {
     }
 
     const s = entry.sprite;
-    const scale = SCALE[key.replace('obj_', '')] ?? 1;
+    const scale = OBJECT_SCALE[key.replace('obj_', '')] ?? 1;
     s.width = TILE_PX * scale;
     s.height = TILE_PX * scale;
     s.x = view.x * TILE_PX;

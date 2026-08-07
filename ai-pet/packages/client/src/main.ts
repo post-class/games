@@ -14,6 +14,7 @@ import { Camera } from './render/camera.ts';
 import { TileMap } from './render/tilemap.ts';
 import { ActorLayer } from './render/sprites.ts';
 import { ObjectLayer } from './render/objects.ts';
+import { ShadowLayer } from './render/shadows.ts';
 import { NightSky, TimeTint } from './render/effects.ts';
 import { LightLayer } from './render/lights.ts';
 import { WeatherLayer } from './render/weather.ts';
@@ -54,6 +55,7 @@ const camera = new Camera({ viewW: stage.app.renderer.width, viewH: stage.app.re
 const tilemap = new TileMap(stage.app.renderer, stage.layers, textures.terrain, CHUNKS_X);
 const actorLayer = new ActorLayer(stage.layers, textures.chars, camera);
 const objectLayer = new ObjectLayer(stage.layers, textures.objects, camera);
+const shadows = new ShadowLayer(stage.layers, camera);
 const tint = new TimeTint(stage.layers);
 const nightSky = new NightSky(stage.layers);
 const lights = new LightLayer(stage.layers, camera);
@@ -477,6 +479,8 @@ stage.app.ticker.add(() => {
 
   objectLayer.sync(world);
   actorLayer.sync(world, now, dtSec);
+  // 影は actorLayer の後（自アバターの予測位置が確定してから）に描く
+  shadows.update(world, now, actorLayer.selfPos);
   lights.update(world, dtSec);
   tint.update(stage.app.renderer.width, stage.app.renderer.height, dtSec);
   nightSky.update(stage.app.renderer.width, stage.app.renderer.height, dtSec);

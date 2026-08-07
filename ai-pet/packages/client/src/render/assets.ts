@@ -33,6 +33,9 @@ const OBJECT_TYPES = [
   'signboard',
   'well',
   'bridge',
+  // 共同建設（G-1 / G-2）
+  'observatory',
+  'scaffold',
 ] as const;
 
 export interface LoadedTextures {

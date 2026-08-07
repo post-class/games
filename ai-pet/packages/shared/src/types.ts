@@ -157,7 +157,14 @@ export interface ResourceNode {
   wateredUntilTick?: number;
 }
 
-export type PlaceableType = 'bench' | 'flowerbed' | 'lantern' | 'signboard';
+/**
+ * 設置物の種別。
+ *
+ * 前半4種はプレイヤーが置けるもの（`PlaceMsg` の z.enum と一致させる）。
+ * `well` / `observatory` は**共同建設の完成物**なので、プレイヤーからは置けない
+ * （`PlaceMsg` 側には足さないこと）。
+ */
+export type PlaceableType = 'bench' | 'flowerbed' | 'lantern' | 'signboard' | 'well' | 'observatory';
 
 export interface Placeable {
   id: EntityId;

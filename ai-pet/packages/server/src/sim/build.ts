@@ -615,12 +615,22 @@ export class BuildSystem {
         max: RESOURCE.waterSourceMax,
         regenPerIslandHour: RESOURCE.waterRegenPerIslandHour,
       });
+      // 水場の資源は地形で表現するのでクライアントが絵を出さない（objects.ts が water を飛ばす）。
+      // それだけだと**完成した井戸が画面に何も現れない**ので、見た目の設置物も置く（G-2）。
+      this.world.addPlaceable({
+        id: this.world.allocId(),
+        type: 'well',
+        pos: { x: c.pos.x, y: c.pos.y },
+        ownerId: ISLAND_OWNER,
+        attract: 0,
+      });
       return;
     }
-    // 天文台は地形を変えない。attract の高い設置物として島の名所になる
+    // 天文台は地形を変えない。attract の高い設置物として島の名所になる。
+    // 以前は絵が無いのでランタンで代用していたが、それでは天文台に見えない（G-2）
     this.world.addPlaceable({
       id: this.world.allocId(),
-      type: 'lantern',
+      type: 'observatory',
       pos: { x: c.pos.x, y: c.pos.y },
       ownerId: ISLAND_OWNER,
       attract: OBSERVATORY_ATTRACT,

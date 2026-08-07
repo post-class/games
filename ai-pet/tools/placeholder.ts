@@ -310,6 +310,8 @@ const EDGE_PAIRS: readonly (readonly [string, string])[] = [
   ['sand', 'water'],
   ['grass', 'forest'],
   ['plaza', 'grass'],
+  ['grass', 'dirt'],
+  ['plaza', 'dirt'],
 ];
 
 /** mask のビット（tilemap.ts の EDGE_N/E/S/W と同じ） */
@@ -501,6 +503,11 @@ for (const spec of CHARS) {
   for (const dir of DIRS) {
     emit(`${spec.key}_${dir}.png`, drawChar(spec, dir).toPng());
   }
+}
+
+// 設置物・資源
+for (const spec of OBJECTS) {
+  emit(`obj_${spec.key}.png`, drawObject(spec).toPng());
 }
 
 written.sort();

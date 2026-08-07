@@ -50,6 +50,10 @@ export const EDGE_PAIRS: readonly EdgePair[] = [
   { from: 'sand', to: 'water' },
   { from: 'grass', to: 'forest' },
   { from: 'plaza', to: 'grass' },
+  // B-6: 実機で一番階段が目立つのはここだった。
+  // 広場の外周と島の道は `dirt` なので、上の4境界だけでは広場のまわりに遷移が入らない。
+  { from: 'grass', to: 'dirt' },
+  { from: 'plaza', to: 'dirt' },
 ];
 
 /** 遷移タイルのテクスチャを引くキー（アセット名から拡張子を取ったもの） */
