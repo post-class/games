@@ -20,6 +20,7 @@ import { harvest, isAvailable, updateResources } from './resource.ts';
 import { CritterAI, setCritterDeps } from './critter.ts';
 import { PetActions, type PetActionDeps } from './petAction.ts';
 import { InteractSystem } from './interact.ts';
+import { BuildSystem } from './build.ts';
 import type { IslandWorld } from './world.ts';
 
 const SEASON_LABEL: Record<string, string> = { spring: '春', summer: '夏', autumn: '秋', winter: '冬' };
@@ -47,6 +48,12 @@ export class IslandSim {
   readonly critterAI: CritterAI;
   /** プレイヤーの収穫・水やり */
   readonly interact: InteractSystem;
+  /** 設置物と共同建設 */
+  readonly build: BuildSystem;
+  /** 地形が変わったときに呼ばれる（チャンクの再送に使う） */
+  private terrainHooks: ((tiles: { x: number; y: number }[]) => void)[] = [];
+  /** プレイヤーの表示名を引く（建設の文面に使う）。hub から差し替える */
+  private nameLookup: ((playerId: string) => string | undefined) | null = null;
   /** ペットの行動系。ペットが登場するM4以降で hub から注入される */
   private petActions: PetActions | null = null;
   readonly seed: string;
@@ -82,6 +89,11 @@ export class IslandSim {
     this.interact = new InteractSystem(this.world, this.clock, {
       emitEvent: (input) => this.events.emit(this.tick, input),
     });
+    this.build = new BuildSystem(this.world, {
+      emitEvent: (input) => this.events.emit(this.tick, input),
+      onTerrainChanged: (tiles) => this.notifyTerrainChanged(tiles),
+      nameOf: (playerId) => this.nameLookup?.(playerId) ?? playerId,
+    });
   }
 
   /**
@@ -94,6 +106,35 @@ export class IslandSim {
 
   petStats(): Record<string, unknown> {
     return this.petActions?.stats() ?? { pets: 0 };
+  }
+
+  /** 地形が変わったときに呼ばれる処理を登録する（橋の完成でチャンクを再送する） */
+  onTerrainChanged(fn: (tiles: { x: number; y: number }[]) => void): void {
+    this.terrainHooks.push(fn);
+  }
+
+  private notifyTerrainChanged(tiles: { x: number; y: number }[]): void {
+    // 通れるようになった直後は、進行中の経路が古い。周辺のアクターの経路を捨てる
+    for (const a of this.world.actors.values()) {
+      if (!a.path || a.path.length === 0) continue;
+      const near = tiles.some((t) => Math.hypot(a.pos.x - t.x, a.pos.y - t.y) < 24);
+      if (near) {
+        a.path = null;
+        this.nav.clear(a.id);
+      }
+    }
+    for (const fn of this.terrainHooks) {
+      try {
+        fn(tiles);
+      } catch (e) {
+        console.error('[island] 地形変更の通知でエラー', e);
+      }
+    }
+  }
+
+  /** プレイヤー名の引き当てを差し替える（建設の文面に使う） */
+  setNameLookup(fn: (playerId: string) => string | undefined): void {
+    this.nameLookup = fn;
   }
 
   /** 毎tickの最後に呼ばれる処理を登録する（ブロードキャストなど） */

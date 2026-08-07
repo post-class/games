@@ -37,7 +37,9 @@ CREATE TABLE IF NOT EXISTS island_snapshot (
   placeables_json TEXT NOT NULL,
   tiles_decay     BLOB NOT NULL,            -- 128*128 の Uint8Array
   next_entity_id  INTEGER NOT NULL DEFAULT 1,   -- 追加: ID採番の継続
-  rng_state_json  TEXT NOT NULL DEFAULT '[0,0,0,0]' -- 追加: xorshift128 の状態
+  rng_state_json  TEXT NOT NULL DEFAULT '[0,0,0,0]', -- 追加: xorshift128 の状態
+  -- 追加: 共同建設（進捗と貢献者）。橋の地形は復元時に張り直す
+  constructions_json TEXT NOT NULL DEFAULT '[]'
 );
 
 CREATE TABLE IF NOT EXISTS player (

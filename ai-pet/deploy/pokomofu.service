@@ -1,0 +1,53 @@
+# 『ぽこもふ島』サーバ（docs 02章 ADR-006）
+#
+# 島の時間が進み続けることがゲームの前提なので常駐させる。
+# 停止時はスナップショットを保存してからexitするため、TimeoutStopSec に余裕を持たせている。
+
+[Unit]
+Description=Pokomofu Island game server
+Documentation=file:///srv/pokomofu/app/ai-pet/deploy/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pokomofu
+Group=pokomofu
+WorkingDirectory=/srv/pokomofu/app/ai-pet
+EnvironmentFile=/srv/pokomofu/app/.env
+ExecStart=/usr/bin/node packages/server/src/main.ts
+
+# 落ちても復帰する。復帰時は停止していた時間ぶん島時間を早送りする（最大24島時間）
+Restart=always
+RestartSec=3
+
+# SIGTERM で「スナップショット保存 → WALチェックポイント → exit」を行う。
+# 保存を途中で切らないよう長めに待つ（実測の保存は1ms未満だが、LLM応答待ちの中断も含める）
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+# ログは journald へ
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pokomofu
+
+# --- 権限を絞る ---
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+# DBの書き込み先だけ許可する
+ReadWritePaths=/srv/pokomofu/app/ai-pet/data
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+
+# 動物120体＋16人で RSS 400MB 以内が目標（docs 10章 §6）。超えたら再起動させる
+MemoryMax=1G
+
+[Install]
+WantedBy=multi-user.target

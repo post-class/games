@@ -13,12 +13,16 @@ import { loadTextures } from './render/assets.ts';
 import { Camera } from './render/camera.ts';
 import { TileMap } from './render/tilemap.ts';
 import { ActorLayer } from './render/sprites.ts';
+import { ObjectLayer } from './render/objects.ts';
 import { TimeTint } from './render/effects.ts';
+import { WeatherLayer } from './render/weather.ts';
 import { WorldState, interpolatedPos } from './state/world.ts';
 import { InputController } from './input.ts';
 import { BubbleLayer, ChatUi } from './ui/chat.ts';
 import { showEggSelect } from './ui/eggSelect.ts';
 import { PetPanel } from './ui/petPanel.ts';
+import { TouchPad, isTouchDevice } from './ui/touchPad.ts';
+import { Tutorial } from './ui/tutorial.ts';
 
 const SEASON_LABEL: Record<string, string> = { spring: '春', summer: '夏', autumn: '秋', winter: '冬' };
 const TOD_LABEL: Record<string, string> = { morning: '朝', day: '昼', evening: '夕', night: '夜' };
@@ -46,7 +50,9 @@ const world = new WorldState();
 const camera = new Camera({ viewW: stage.app.renderer.width, viewH: stage.app.renderer.height });
 const tilemap = new TileMap(stage.app.renderer, stage.layers, textures.terrain, CHUNKS_X);
 const actorLayer = new ActorLayer(stage.layers, textures.chars, camera);
+const objectLayer = new ObjectLayer(stage.layers, textures.objects, camera);
 const tint = new TimeTint(stage.layers);
+const weather = new WeatherLayer(stage.layers);
 const bubbles = new BubbleLayer();
 const petPanel = new PetPanel();
 
@@ -54,10 +60,15 @@ let clock: ClockWire | null = null;
 /** 自分のペット（表示名は吹き出しとチャットに使う） */
 let petName = 'ペット';
 
+// `?tut=1` で案内をやり直す（動作確認用）
+if (params.has('tut')) Tutorial.reset();
+const tutorial = new Tutorial();
+
 const chat = new ChatUi({
   onSend: (text) => {
     chat.addLine('わたし', text);
     socket?.send({ t: 'say', text });
+    tutorial.did('talk');
   },
 });
 
@@ -67,6 +78,7 @@ function renderClock(): void {
     `${clock.islandDay}日目 ${SEASON_LABEL[clock.season] ?? clock.season}・` +
     `${TOD_LABEL[clock.timeOfDay] ?? clock.timeOfDay} ${WEATHER_LABEL[clock.weather] ?? clock.weather}`;
   tint.setTimeOfDay(clock.timeOfDay);
+  weather.setWeather(clock.weather);
 }
 
 /** クリック地点のいちばん近い資源 */
@@ -202,10 +214,14 @@ let mock: import('./dev/mock.ts').MockIsland | null = null;
 let pendingTeleport: Vec2 | null = null;
 
 const input = new InputController(host, camera, {
-  onMoveAxis: (dx, dy) => socket?.send({ t: 'moveAxis', dx, dy }),
+  onMoveAxis: (dx, dy) => {
+    socket?.send({ t: 'moveAxis', dx, dy });
+    if (dx !== 0 || dy !== 0) tutorial.did('move');
+  },
   onMoveTo: (tile) => {
     if (!canStand({ x: tile.x + 0.5, y: tile.y + 0.5 })) return;
     socket?.send({ t: 'move', to: tile });
+    tutorial.did('move');
     // mockは経路探索がないので「サーバ側が瞬間移動させた」ことにする。
     // 予測位置はそのままにしておき、次のstepで来る値へ補正させる（補正経路の確認も兼ねる）
     if (mock) pendingTeleport = { x: tile.x + 0.5, y: tile.y + 0.5 };
@@ -222,6 +238,7 @@ const input = new InputController(host, camera, {
         if (Math.hypot(p.x - worldPos.x, p.y - worldPos.y) <= 1.2) {
           petPanel.show();
           socket?.send({ t: 'interact', targetId: petId, act: 'pet' });
+          tutorial.did('pet');
           return;
         }
       }
@@ -393,6 +410,22 @@ if (!MOCK) {
   }, 250);
 }
 
+// ---------- スマホのバーチャルパッド ----------
+
+/** タッチ端末のときだけ出す。`?pad=1` で強制表示（動作確認用） */
+let touchPad: TouchPad | null = null;
+if (isTouchDevice() || params.has('pad')) {
+  document.body.classList.add('has-pad');
+  touchPad = new TouchPad({
+    onAxis: (dx, dy) => socket?.send({ t: 'moveAxis', dx, dy }),
+    onCall: () => petPanel.toggle(),
+    onPlace: (type) => {
+      const p = selfPos(performance.now());
+      socket?.send({ t: 'place', type, pos: { x: Math.floor(p.x), y: Math.floor(p.y) } });
+    },
+  });
+}
+
 // ---------- メインループ ----------
 
 let lastFrameAt = performance.now();
@@ -404,14 +437,20 @@ stage.app.ticker.add(() => {
 
   camera.resize(stage.app.renderer.width, stage.app.renderer.height);
   input.update(now);
-  actorLayer.predictSelf(input.axis.dx, input.axis.dy, dtSec, canStand);
+  // キーボードとバーチャルパッドのどちらでも動く（同時に入っていればキーボードを優先）
+  const pad = touchPad?.value ?? { dx: 0, dy: 0 };
+  const axisX = input.axis.dx !== 0 ? input.axis.dx : pad.dx;
+  const axisY = input.axis.dy !== 0 ? input.axis.dy : pad.dy;
+  actorLayer.predictSelf(axisX, axisY, dtSec, canStand);
   camera.follow(selfPos(now));
 
   stage.layers.worldRoot.position.set(camera.containerX, camera.containerY);
   stage.layers.worldRoot.scale.set(camera.zoom);
 
+  objectLayer.sync(world);
   actorLayer.sync(world, now, dtSec);
   tint.update(stage.app.renderer.width, stage.app.renderer.height, dtSec);
+  weather.update(stage.app.renderer.width, stage.app.renderer.height, dtSec);
 
   // 吹き出しはDOMなので、ワールド座標を画面座標に変換して位置だけ動かす
   bubbles.update(now, (entityId) => {
@@ -441,6 +480,7 @@ if (params.has('debug')) {
     drawn: actorLayer.drawn,
     chunks: tilemap.count,
     zoom: camera.zoom,
+    objects: objectLayer.drawn,
     pos: selfPos(performance.now()),
   }));
 }

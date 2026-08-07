@@ -60,7 +60,13 @@ function detectLlmMode(): LlmMode {
 export const env = {
   port: num('PORT', DEFAULT_PORT),
   islandId: str('ISLAND_ID', 'main'),
-  islandSeed: str('ISLAND_SEED', 'pokomofu-1'),
+  /**
+   * 既定の島seed。
+   * `pokomofu-1` は島が分断されておらず橋の建設予定地が生まれなかったため、
+   * 橋・井戸・天文台が全部そろう `pokomofu-2` を既定にしている
+   * （共同建設は看板機能なので、既定の島に無いのは避けたい）。
+   */
+  islandSeed: str('ISLAND_SEED', 'pokomofu-2'),
   dbPath: str('DB_PATH', './data/island.db'),
 
   azureEndpoint: str('AZURE_OPENAI_ENDPOINT'),

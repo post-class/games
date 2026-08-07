@@ -132,12 +132,21 @@ if (restore.restored) {
 } else {
   // 新規の島だけ動物を散布する（復元時に呼ぶと二重配置になる）
   const critters = spawnInitialCritters(sim.world);
-  console.log(`[island] 新規作成: seed=${seed} 動物${critters.length}体を配置`);
+  // 建設予定地（橋・井戸・天文台）もこのときだけ決める
+  const built = sim.build.seedConstructions();
+  console.log(
+    `[island] 新規作成: seed=${seed} 動物${critters.length}体を配置 / ` +
+      `建設予定地 ${built.map((b) => b.type).join('・') || 'なし'}`,
+  );
   daily.setLastDoneIslandDay(sim.clock.islandDay - 1);
   saveIsland(sim, repo);
 }
 
 const hub = new ConnectionHub(sim, repo, pets, reflection, gossipReporter);
+
+// 建設の文面にプレイヤー名を出す／橋の完成で地形が変わったらチャンクを送り直す
+sim.setNameLookup((playerId) => hub.displayNameOf(playerId));
+sim.onTerrainChanged((tiles) => hub.resendTerrain(tiles));
 sim.start();
 
 // ---------- HTTP ----------
@@ -160,6 +169,8 @@ if (env.isDev) {
       gossip: gossipReporter.stats(),
       petTalk: petTalk.stats(),
       daily: daily.stats(),
+      build: sim.build.stats(),
+      interact: sim.interact.stats(),
     }),
   );
 }

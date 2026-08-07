@@ -22,6 +22,7 @@ import {
   type Actor,
   type IslandEvent,
   type IslandEventKind,
+  type Construction,
   type Placeable,
   type ResourceNode,
   type Season,
@@ -68,6 +69,8 @@ export interface SnapshotData {
   nextEntityId: number;
   /** RNGの状態（決定論の継続に必要） */
   rngState: [number, number, number, number];
+  /** 共同建設（進捗と貢献者）。地形の張り直しは BuildSystem.restore が行う */
+  constructions: Construction[];
 }
 
 /** island_event の1行。IslandEvent に採番されたidと島IDが付く */
@@ -121,6 +124,7 @@ interface SnapshotRow {
   tiles_decay: Buffer;
   next_entity_id: number;
   rng_state_json: string;
+  constructions_json: string;
 }
 
 interface PlayerRow {
@@ -191,6 +195,17 @@ function toRngState(json: string): [number, number, number, number] {
   return [0, 0, 0, 0];
 }
 
+/** 共同建設の復元。壊れたJSONは空配列（橋が水に戻るだけで破綻はしない） */
+function parseConstructions(json: string | null | undefined): Construction[] {
+  if (!json) return [];
+  try {
+    const v = JSON.parse(json) as unknown;
+    return Array.isArray(v) ? (v as Construction[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 export class Repo {
   readonly db: Database.Database;
   readonly path: string;
@@ -218,6 +233,10 @@ export class Repo {
     const cols = this.db.prepare('PRAGMA table_info(player)').all() as { name: string }[];
     if (!cols.some((c) => c.name === 'last_seen_island_day')) {
       this.db.exec('ALTER TABLE player ADD COLUMN last_seen_island_day INTEGER NOT NULL DEFAULT 1');
+    }
+    const snapCols = this.db.prepare('PRAGMA table_info(island_snapshot)').all() as { name: string }[];
+    if (snapCols.length > 0 && !snapCols.some((c) => c.name === 'constructions_json')) {
+      this.db.exec("ALTER TABLE island_snapshot ADD COLUMN constructions_json TEXT NOT NULL DEFAULT '[]'");
     }
   }
 
@@ -281,8 +300,9 @@ export class Repo {
     }
     const stmt = this.db.prepare(
       `INSERT INTO island_snapshot
-         (island_id, tick, critters_json, resources_json, placeables_json, tiles_decay, next_entity_id, rng_state_json)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         (island_id, tick, critters_json, resources_json, placeables_json, tiles_decay,
+          next_entity_id, rng_state_json, constructions_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(island_id) DO UPDATE SET
          tick = excluded.tick,
          critters_json = excluded.critters_json,
@@ -290,7 +310,8 @@ export class Repo {
          placeables_json = excluded.placeables_json,
          tiles_decay = excluded.tiles_decay,
          next_entity_id = excluded.next_entity_id,
-         rng_state_json = excluded.rng_state_json`,
+         rng_state_json = excluded.rng_state_json,
+         constructions_json = excluded.constructions_json`,
     );
     // 1島＝1行の上書きだが、将来ペット・関係性の保存を同じ契機に足すため
     // 最初からトランザクションで包んでおく（中断で half-written にならない）
@@ -304,6 +325,7 @@ export class Repo {
         Buffer.from(s.tilesDecay),
         s.nextEntityId,
         JSON.stringify(s.rngState),
+        JSON.stringify(s.constructions),
       );
     });
     tx(snap);
@@ -323,6 +345,7 @@ export class Repo {
       tilesDecay: new Uint8Array(row.tiles_decay),
       nextEntityId: row.next_entity_id,
       rngState: toRngState(row.rng_state_json),
+      constructions: parseConstructions(row.constructions_json),
     };
   }
 

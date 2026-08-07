@@ -10,6 +10,7 @@
 import { randomUUID } from 'node:crypto';
 import type { WebSocket } from 'ws';
 import {
+  CHUNK,
   MAP_H,
   MAP_W,
   PROTOCOL_VERSION,
@@ -46,6 +47,47 @@ interface Client {
   joined: boolean;
   /** メッセージ種別ごとの直近呼び出し時刻（レート制限用） */
   rate: Map<string, number[]>;
+}
+
+const PLACEABLE_LABEL: Record<string, string> = {
+  bench: 'ベンチ',
+  flowerbed: '花壇',
+  lantern: 'ランタン',
+  signboard: '看板',
+};
+
+const CONSTRUCTION_LABEL: Record<string, string> = { bridge: '橋', well: '井戸', observatory: '天文台' };
+
+function placeableLabel(type: string): string {
+  return PLACEABLE_LABEL[type] ?? type;
+}
+
+function constructionLabel(type: string): string {
+  return CONSTRUCTION_LABEL[type] ?? type;
+}
+
+/** 設置できなかった理由を1文にする */
+function placeMessage(reason: string): string {
+  const map: Record<string, string> = {
+    not_walkable: 'そこには置けません',
+    occupied: 'すでに何かあります',
+    too_close: 'すこし離して置いてください',
+    too_many: 'これ以上は置けません（古いものを片づけてください）',
+    out_of_range: '足もとの近くにしか置けません',
+    unknown_type: 'それは置けません',
+  };
+  return map[reason] ?? '置けませんでした';
+}
+
+/** 建設に手伝えなかった理由を1文にする */
+function contributeMessage(reason: string): string {
+  const map: Record<string, string> = {
+    not_found: 'そこに工事はありません',
+    too_far: '遠くて手伝えません',
+    already_done: 'もう完成しています',
+    rate: 'すこし休んでからにしましょう',
+  };
+  return map[reason] ?? 'いまは手伝えません';
 }
 
 /** 収穫・水やりが断られた理由を、プレイヤーに読める1文にする */
@@ -145,6 +187,62 @@ export class ConnectionHub {
       if (!this.closing) this.sendNearActor(entityId, msg);
     }, delayMs);
     this.pendingTimers.add(timer);
+  }
+
+  /** 共同建設の状態を全員に配る（進捗が動いたとき・入島時） */
+  broadcastConstructions(): void {
+    for (const c of this.clients.values()) {
+      if (!c.joined) continue;
+      this.send(c, this.constructionsMessage(c.playerId));
+    }
+  }
+
+  /** そのプレイヤー向けの建設一覧（自分の貢献値を載せる） */
+  private constructionsMessage(playerId: string): ServerMsg {
+    return {
+      t: 'constructions',
+      items: this.sim.build.constructions().map((c) => ({
+        i: c.id,
+        ty: c.type,
+        x: c.pos.x,
+        y: c.pos.y,
+        p: c.progress,
+        done: c.completedAtTick !== undefined,
+        mine: c.contributions[playerId] ?? 0,
+      })),
+    };
+  }
+
+  /** 設置物が増減したので、近くのクライアントへ最新のスナップショットを送り直す */
+  private resendSnapshotNear(pos: Vec2, radius = VIEW_MAX_W): void {
+    for (const c of this.clients.values()) {
+      if (!c.joined) continue;
+      const viewer = this.sim.world.actor(c.entityId);
+      if (!viewer) continue;
+      if (Math.hypot(viewer.pos.x - pos.x, viewer.pos.y - pos.y) > radius) continue;
+      this.send(c, this.sync.snapshotMessage(c.playerId, this.sim.clockState()));
+    }
+  }
+
+  /** 地形が変わったチャンクを、接続中の全員へ送り直す（クライアントは再要求しない設計のため） */
+  resendTerrain(tiles: { x: number; y: number }[]): void {
+    const chunks = new Set<number>();
+    const list: [number, number][] = [];
+    for (const t of tiles) {
+      const cx = Math.floor(t.x / CHUNK);
+      const cy = Math.floor(t.y / CHUNK);
+      const key = cy * 64 + cx;
+      if (chunks.has(key)) continue;
+      chunks.add(key);
+      list.push([cx, cy]);
+    }
+    if (list.length === 0) return;
+    for (const c of this.clients.values()) {
+      if (!c.joined) continue;
+      // まず「捨てて」と伝え、続けて新しい地形を送る
+      this.send(c, { t: 'terrainChanged', chunks: list });
+      for (const [cx, cy] of list) this.send(c, this.sync.chunkMessage(cx, cy));
+    }
   }
 
   /** ペットのオーナーが接続中なら通知を送る */
@@ -384,6 +482,9 @@ export class ConnectionHub {
           }
         }
 
+        // 共同建設の進捗（進捗バーの初期表示）
+        this.send(client, this.constructionsMessage(client.playerId));
+
         // 次回の留守中サマリの起点
         this.repo.updatePlayer(client.playerId, { lastSeenIslandDay: this.sim.clock.islandDay });
 
@@ -484,6 +585,45 @@ export class ConnectionHub {
           } else {
             this.send(client, { t: 'warn', code: res.reason, message: interactMessage(res.reason) });
           }
+        }
+        break;
+      }
+
+      case 'place': {
+        if (!actor) return;
+        const res = this.sim.build.place({
+          playerId: client.playerId,
+          type: msg.type,
+          pos: msg.pos,
+          playerPos: actor.pos,
+          tick: this.sim.tick,
+        });
+        if (res.ok) {
+          // 設置物は snapshot に載るので、周辺のクライアントへ現在の状態を配り直す
+          this.send(client, { t: 'notice', text: `${placeableLabel(msg.type)}を置いた`, importance: 3 });
+          this.resendSnapshotNear(actor.pos);
+        } else {
+          this.send(client, { t: 'warn', code: res.reason, message: placeMessage(res.reason) });
+        }
+        break;
+      }
+
+      case 'contribute': {
+        if (!actor) return;
+        const res = this.sim.build.contribute({
+          playerId: client.playerId,
+          constructionId: msg.constructionId,
+          playerPos: actor.pos,
+          tick: this.sim.tick,
+        });
+        if (res.ok) {
+          this.broadcastConstructions();
+          if (res.completed) {
+            this.broadcast({ t: 'notice', text: `${constructionLabel(res.construction.type)}が完成した！`, importance: 8 });
+          }
+        } else if (res.reason !== 'rate') {
+          // 連打（rate）は黙って捨てる。それ以外は理由を返す
+          this.send(client, { t: 'warn', code: res.reason, message: contributeMessage(res.reason) });
         }
         break;
       }

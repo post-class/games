@@ -40,12 +40,22 @@ test.describe('再接続', () => {
     // HUDのtickは切断中もクライアント側で進む（main.ts が1秒ごとに+4する）ので、
     // 「サーバから届いたtick」を見る必要がある
     const beforeTick = (await readTap(page)).lastTick;
+    const beforeWelcome = (await readTap(page)).welcomeCount;
 
     // ---- 切断 ----
     await goOffline(page, context);
+    // 切断状態の観測は取りこぼしうる（デバッグパネルは500msごと更新・再接続は最短500ms）。
+    // 「切断が見えた」か「再接続してwelcomeを受け直した」のどちらかで判定する。
     await expect
-      .poll(async () => (await readDebug(page)).net, { timeout: 20_000 })
-      .toMatch(/reconnecting|closed|connecting/);
+      .poll(
+        async () => {
+          const net = (await readDebug(page)).net;
+          if (/reconnecting|closed|connecting/.test(net)) return true;
+          return (await readTap(page)).welcomeCount > beforeWelcome;
+        },
+        { timeout: 20_000 },
+      )
+      .toBe(true);
 
     // ---- 復帰 ----
     await context.setOffline(false);

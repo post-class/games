@@ -74,6 +74,8 @@ export function restoreIsland(sim: IslandSim, repo: Repo): RestoreResult {
   });
 
   sim.relations.restore(repo.loadRelations());
+  // 建設は資源・設置物の復元より後。完成済みの橋は地形を張り直す（地形は保存していない）
+  if (snap) sim.build.restore(snap.constructions);
 
   return {
     restored: true,
@@ -100,6 +102,7 @@ function snapshotOf(sim: IslandSim): SnapshotData {
     tilesDecay: sim.world.decay,
     nextEntityId: sim.world.peekNextId(),
     rngState: sim.world.rng.getState(),
+    constructions: sim.build.constructions(),
   };
 }
 

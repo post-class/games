@@ -87,6 +87,16 @@ function makeSnapshot(opts?: { tick?: number; resources?: number; critters?: num
     tilesDecay: makeDecay(opts?.tick ?? 4800),
     nextEntityId: 3210,
     rngState: [123456789, 362436069, 521288629, 88675123],
+    // M7で追加。共同建設の進捗（橋の地形は復元時に張り直される）
+    constructions: [
+      {
+        id: 9001,
+        type: 'bridge',
+        pos: { x: 40.5, y: 64.5 },
+        progress: 40,
+        contributions: { p1: 25, p2: 15 },
+      },
+    ],
   };
 }
 

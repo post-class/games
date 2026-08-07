@@ -11,6 +11,8 @@ export interface DebugReadout {
   drawn?: number;
   /** 焼成済みチャンク数 */
   chunks?: number;
+  /** 描いたオブジェクト（資源・設置物）の数 */
+  objects?: number;
   zoom?: number;
   /** 自機の位置（E2Eテストが移動を検証するために使う） */
   pos?: { x: number; y: number };
@@ -43,6 +45,7 @@ export function attachDebugPanel(app: Application, read: () => DebugReadout): vo
         `tick   ${s.tick}`,
         `actors ${s.actors ?? 0} (draw ${s.drawn ?? 0})`,
         `chunks ${s.chunks ?? 0}`,
+        `objs   ${s.objects ?? 0}`,
         `zoom   ${(s.zoom ?? 1).toFixed(2)}`,
         `pos    ${(s.pos?.x ?? 0).toFixed(2)},${(s.pos?.y ?? 0).toFixed(2)}`,
       ].join('\n');
