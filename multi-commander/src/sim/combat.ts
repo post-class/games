@@ -101,10 +101,11 @@ function updateMissile(world: World, e: Entity, dt: number): void {
 
   const def = m.def;
   // 推進: 巡航速度まで加速
+  const maxSpeed = def.speed * (m.speedScale ?? 1);
   const speed = e.vel.length();
-  if (speed < def.speed) {
+  if (speed < maxSpeed) {
     forwardOf(e.quat, _fwd);
-    e.vel.addScaledVector(_fwd, Math.min(def.speed - speed, def.speed * 1.6 * dt));
+    e.vel.addScaledVector(_fwd, Math.min(maxSpeed - speed, maxSpeed * 1.6 * dt));
   }
 
   if (m.seeker !== 'none' && m.armTime <= 0) {
@@ -157,7 +158,7 @@ function updateMissile(world: World, e: Entity, dt: number): void {
     if (!s.alive || s.kind !== 'ship' || !s.ship) continue;
     if (s.id === m.ownerId) continue;
     if (!isHostile(m.ownerFaction, s.faction) && s.id !== m.targetId) continue;
-    const trigger = def.blastRadius * 0.55 + s.radius;
+    const trigger = def.blastRadius * 0.55 * (m.triggerScale ?? 1) + s.radius;
     const t = sweepSphere(e.prevPos, e.pos, s.pos, trigger);
     if (t !== null) {
       pointOnSegment(e.prevPos, e.pos, t, _hit);
@@ -194,12 +195,13 @@ function detonate(world: World, e: Entity, at: Vector3 | undefined): void {
   const center = at ?? e.pos;
   const def = m.def;
   const presentation = missilePresentation(def);
+  const blastRadius = def.blastRadius * (m.blastScale ?? 1);
   let affectedCount = 0;
   for (const s of world.entities) {
     if (!s.alive || s.kind !== 'ship' || !s.ship) continue;
     const d = s.pos.distanceTo(center) - s.radius;
-    if (d > def.blastRadius) continue;
-    const falloff = 1 - Math.max(0, d) / def.blastRadius;
+    if (d > blastRadius) continue;
+    const falloff = 1 - Math.max(0, d) / blastRadius;
     const dmg = def.damage * (0.35 + 0.65 * falloff);
     const scaled = scaleDamage(world, dmg, m.fromPlayer, s.id === world.playerId);
     const res = applySplashDamage(s, scaled, center);
@@ -214,7 +216,7 @@ function detonate(world: World, e: Entity, at: Vector3 | undefined): void {
   }
   bus.emit('explosion', {
     pos: center.clone(),
-    radius: def.blastRadius,
+    radius: blastRadius,
     kind: 'missile',
     weaponId: def.id,
     detonation: presentation.detonation,
@@ -343,7 +345,7 @@ export function resolveProjectileHits(world: World): void {
     for (const s of world.entities) {
       if (!s.alive || s.kind !== 'ship' || !s.ship) continue;
       if (s.id === pr.ownerId) continue;
-      const t = sweepSphere(p.prevPos, p.pos, s.pos, s.radius);
+      const t = sweepSphere(p.prevPos, p.pos, s.pos, s.radius * (pr.hitRadiusScale ?? 1));
       if (t !== null && t < bestT) {
         bestT = t;
         bestShip = s;

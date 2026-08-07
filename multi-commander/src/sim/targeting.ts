@@ -96,17 +96,22 @@ export function pruneTarget(world: World, self: Entity): void {
 }
 
 /** 主砲の代表弾速 (ITTS のリード計算に使う) */
-export function primaryGunSpeed(self: Entity): number {
+export function primaryGunSpeed(self: Entity, speedScale = 1): number {
   const ship = self.ship;
-  if (!ship || ship.def.guns.length === 0) return 1200;
+  if (!ship || ship.def.guns.length === 0) return 1200 * speedScale;
   let sum = 0;
   for (const g of ship.def.guns) sum += gunDef(g.gunId).speed;
-  return sum / ship.def.guns.length;
+  return (sum / ship.def.guns.length) * speedScale;
 }
 
 /** ITTS: 現在の主砲でターゲットに当たる射点 */
-export function ittsPoint(self: Entity, target: Entity, out = new Vector3()): Vector3 {
-  return leadPoint(self.pos, target.pos, target.vel, primaryGunSpeed(self), out);
+export function ittsPoint(
+  self: Entity,
+  target: Entity,
+  out = new Vector3(),
+  speedScale = 1,
+): Vector3 {
+  return leadPoint(self.pos, target.pos, target.vel, primaryGunSpeed(self, speedScale), out);
 }
 
 /** 自機を狙っているミサイルを探して警告に使う */

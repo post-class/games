@@ -180,6 +180,18 @@ const server = serve({ fetch: app.fetch, port: env.port }, (info) => {
   console.table(envSummary());
 });
 
+// ポートが埋まっているときのNodeの既定メッセージは読みにくいので、やることを書いて終わる
+server.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code !== 'EADDRINUSE') throw err;
+  console.error(
+    `\n[server] ポート ${env.port} は既に使われています。\n` +
+      `  前回のサーバが残っている場合: npm run dev で自動的に止めます（tools/free-port.mjs）\n` +
+      `  手動で調べる場合: lsof -nP -iTCP:${env.port} -sTCP:LISTEN\n` +
+      `  別のポートで動かす場合: PORT=8788 npm run dev\n`,
+  );
+  process.exit(1);
+});
+
 // ---------- WebSocket ----------
 
 const wss = new WebSocketServer({ noServer: true });

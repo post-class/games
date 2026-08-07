@@ -1,4 +1,5 @@
 import { Quaternion, Vector3 } from 'three';
+import { DEFAULT_PLAYER_WEAPON_MODIFIERS, type PlayerWeaponModifiers } from '../app/settings';
 import { AIM_PITCH_OFFSET } from '../core/aim';
 import { bus } from '../core/events';
 import { clamp01, forwardOf, leadPoint, LOCAL_FORWARD, LOCAL_RIGHT } from '../core/math';
@@ -48,6 +49,7 @@ export function fireGuns(
   damageScale = 1,
   assist?: AimAssist,
   playerAimPitchOffset = 0,
+  playerWeaponModifiers: PlayerWeaponModifiers = DEFAULT_PLAYER_WEAPON_MODIFIERS,
 ): void {
   const ship = e.ship;
   const input = e.input;
@@ -61,6 +63,9 @@ export function fireGuns(
   if (!input.firePrimary) return;
 
   const def = ship.def;
+  const isPlayer = e.id === world.playerId;
+  const gunSpeedScale = isPlayer ? playerWeaponModifiers.playerGunSpeedScale : 1;
+  const gunHitRadiusScale = isPlayer ? playerWeaponModifiers.playerGunHitRadiusScale : 1;
   forwardOf(e.quat, _fwd);
 
   // 照準アシストの寄せ先を求めておく
@@ -104,7 +109,7 @@ export function fireGuns(
     }
 
     if (assistTarget) {
-      applyAimAssist(_muzzle, _dir, assistTarget, gun.speed, assist!.strength);
+      applyAimAssist(_muzzle, _dir, assistTarget, gun.speed * gunSpeedScale, assist!.strength);
     }
 
     spawnProjectile(world, {
@@ -116,6 +121,8 @@ export function fireGuns(
       ownerFaction: e.faction,
       fromPlayer: e.id === world.playerId,
       damageScale,
+      speedScale: gunSpeedScale,
+      hitRadiusScale: gunHitRadiusScale,
     });
 
     bus.emit('weaponFired', {
@@ -381,7 +388,11 @@ export interface FireMissileResult {
 }
 
 /** 副兵装の発射 */
-export function fireMissile(world: World, e: Entity): FireMissileResult {
+export function fireMissile(
+  world: World,
+  e: Entity,
+  playerWeaponModifiers: PlayerWeaponModifiers = DEFAULT_PLAYER_WEAPON_MODIFIERS,
+): FireMissileResult {
   const ship = e.ship;
   if (!ship) return { fired: false, reason: 'no-ammo' };
   const slot = activeMissileSlot(e);
@@ -459,6 +470,9 @@ export function fireMissile(world: World, e: Entity): FireMissileResult {
     ownerFaction: e.faction,
     fromPlayer: e.id === world.playerId,
     targetId: def.seeker === 'none' ? undefined : ship.lockedId,
+    speedScale: e.id === world.playerId ? playerWeaponModifiers.playerMissileSpeedScale : 1,
+    triggerScale: e.id === world.playerId ? playerWeaponModifiers.playerMissileTriggerScale : 1,
+    blastScale: e.id === world.playerId ? playerWeaponModifiers.playerMissileBlastScale : 1,
   });
 
   bus.emit('weaponFired', {

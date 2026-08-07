@@ -1,4 +1,5 @@
 import type { FlightMode } from './flight';
+import type { PlayerWeaponModifiers } from '../app/settings';
 import type { World } from '../world/world';
 import { updateAi, type AiOptions } from './ai';
 import {
@@ -17,6 +18,8 @@ export interface StepOptions {
   aimAssist?: number;
   /** 画面上の固定照準に合わせる、プレイヤー主砲の仰角補正 (rad) */
   playerGunAimPitchOffset?: number;
+  /** プレイヤー発射物だけに適用する難易度補正 */
+  playerWeaponModifiers?: PlayerWeaponModifiers;
 }
 
 /**
@@ -40,7 +43,7 @@ export function simulateStep(world: World, dt: number, opts: StepOptions): void 
       e.id === world.playerId && opts.aimAssist
         ? { targetId: e.ship.targetId, strength: opts.aimAssist }
         : undefined;
-    fireGuns(world, e, dt, 1, assist, opts.playerGunAimPitchOffset);
+    fireGuns(world, e, dt, 1, assist, opts.playerGunAimPitchOffset, opts.playerWeaponModifiers);
   }
 
   updateOrdnance(world, dt);

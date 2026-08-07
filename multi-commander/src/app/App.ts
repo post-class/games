@@ -56,7 +56,7 @@ import {
   writeSave,
   type CampaignSave,
 } from './save';
-import { availableMissiles, clampLoadout, consumeLoadout, replenishForMission } from './supplies';
+import { availableMissiles, clampLoadout, consumeLoadout, replenishForMission, scaleLoadout } from './supplies';
 import { recordMissionStatistics } from './statistics';
 import { difficulty, settings, updateSettings } from './settings';
 import { showcase, type ShowcaseOptions, type ShowcaseResult } from './showroom';
@@ -267,7 +267,10 @@ export class App {
     const load: Loadout = {
       shipId: sel.shipId,
       gunId: sel.gunId,
-      missiles: clampLoadout(this.save.supplies, missilePackage),
+      missiles: clampLoadout(
+        this.save.supplies,
+        scaleLoadout(missilePackage, difficulty().playerMissileCountScale),
+      ),
       aceStates: this.save.aceStates,
       wingmanSlot: sel.wingmanSlot,
       flares: Math.min(12, this.save.supplies.flares),
@@ -706,6 +709,7 @@ export class App {
   private showHangar(): void {
     const def = this.currentMission();
     const sel = this.ensureSelection(def);
+    const displayLoadout = this.loadoutFor(def);
     const ships = PLAYABLE_SHIPS.filter((id) =>
       shipDef(id).missiles.length === 0 || shipDef(id).missiles.some((m) => availableMissiles(this.save.supplies, m.missileId) > 0),
     );
@@ -752,7 +756,11 @@ export class App {
     this.screens.show({
       background: artUrl('tex/bg-hangar', 'jpg'),
       title: '格納庫',
-      bodyHtml: hangarHtml(this.hubContext(), sel, def.playerShipId),
+      bodyHtml: hangarHtml(
+        this.hubContext(),
+        { ...sel, missiles: displayLoadout.missiles },
+        def.playerShipId,
+      ),
       items,
       onCancel: () => this.showHub(),
     });

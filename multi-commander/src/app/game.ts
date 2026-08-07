@@ -298,6 +298,7 @@ export class Game {
         flightMode: settings.flightMode,
         ai: this.aiOptions(),
         playerGunAimPitchOffset: AIM_PITCH_OFFSET,
+        playerWeaponModifiers: difficulty(),
       });
       if (this.endDelay <= 0) {
         const outcome = this.endedOutcome;
@@ -323,6 +324,7 @@ export class Game {
         flightMode: settings.flightMode,
         ai: this.aiOptions(),
         playerGunAimPitchOffset: AIM_PITCH_OFFSET,
+        playerWeaponModifiers: difficulty(),
       });
       this.runner?.update(dt);
       return;
@@ -359,6 +361,7 @@ export class Game {
       ai: this.aiOptions(),
       aimAssist: this.aimAssistStrength(),
       playerGunAimPitchOffset: AIM_PITCH_OFFSET,
+      playerWeaponModifiers: difficulty(),
     });
     this.runner?.update(dt);
     this.replay.record(this.world, this.input, dt);
@@ -550,6 +553,7 @@ export class Game {
         width: window.innerWidth,
         height: window.innerHeight,
         throttle: this.input.throttle,
+        playerGunSpeedScale: difficulty().playerGunSpeedScale,
         mouseFlight: this.input.mouseStickEnabled && !this.autopilot,
         mouseArmPending:
           this.input.mouseFlight && !this.input.gamepadConnected && !this.input.mouseArmed,
@@ -631,7 +635,7 @@ export class Game {
         case 'fireMissile':
           this.tutorial.noteAction(a);
           if (player && !this.autopilot) {
-            const r = fireMissile(this.world, player);
+            const r = fireMissile(this.world, player, difficulty());
             if (!r.fired) {
               bus.emit('announce', {
                 text:

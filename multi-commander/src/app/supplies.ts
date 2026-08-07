@@ -51,6 +51,19 @@ export function clampLoadout(
     .filter((m) => m.count > 0);
 }
 
+/** 難易度補正などで要求搭載数を増減させる。実在庫の上限は clampLoadout が適用する。 */
+export function scaleLoadout(
+  missiles: Array<{ missileId: string; count: number }> | undefined,
+  scale: number,
+): Array<{ missileId: string; count: number }> | undefined {
+  if (!missiles) return undefined;
+  const safeScale = Number.isFinite(scale) ? Math.max(0, scale) : 1;
+  return missiles.map((m) => ({
+    missileId: m.missileId,
+    count: Math.max(0, Math.ceil(nonNegativeCount(m.count) * safeScale)),
+  }));
+}
+
 export function consumeLoadout(supplies: SupplyState, missiles: Array<{ missileId: string; count: number }> | undefined): void {
   for (const m of missiles ?? []) {
     if (!Object.prototype.hasOwnProperty.call(supplies.missiles, m.missileId)) continue;

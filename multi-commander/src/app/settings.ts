@@ -142,7 +142,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  difficulty: 'normal',
+  difficulty: 'easy',
   mouseFlight: true,
   mouseSensitivity: 1,
   invertY: false,
@@ -294,7 +294,32 @@ function mergeKeyBindings(base: unknown, incoming: unknown): KeyBindings {
 
 // ───────── 難易度プロファイル ─────────
 
-export interface DifficultyProfile {
+/** プレイヤーが発射する武器だけに掛ける、命中性の補正。 */
+export interface PlayerWeaponModifiers {
+  /** 主砲弾速倍率 */
+  playerGunSpeedScale: number;
+  /** 主砲の実効命中半径倍率 */
+  playerGunHitRadiusScale: number;
+  /** ミサイル速度倍率 */
+  playerMissileSpeedScale: number;
+  /** ミサイル近接信管の判定半径倍率 */
+  playerMissileTriggerScale: number;
+  /** ミサイル爆発半径倍率 */
+  playerMissileBlastScale: number;
+  /** プレイヤー用ロードアウトのミサイル数倍率 */
+  playerMissileCountScale: number;
+}
+
+export const DEFAULT_PLAYER_WEAPON_MODIFIERS: PlayerWeaponModifiers = {
+  playerGunSpeedScale: 1,
+  playerGunHitRadiusScale: 1,
+  playerMissileSpeedScale: 1,
+  playerMissileTriggerScale: 1,
+  playerMissileBlastScale: 1,
+  playerMissileCountScale: 1,
+};
+
+export interface DifficultyProfile extends PlayerWeaponModifiers {
   id: DifficultyId;
   label: string;
   /** 敵 AI の技量 (0..1) */
@@ -333,6 +358,12 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyProfile> = {
     fuelScale: 1.6,
     enemyMissileRate: 0.4,
     playerSubsystemRate: 0.35,
+    playerGunSpeedScale: 1.35,
+    playerGunHitRadiusScale: 1.8,
+    playerMissileSpeedScale: 1.35,
+    playerMissileTriggerScale: 1.5,
+    playerMissileBlastScale: 1.25,
+    playerMissileCountScale: 2,
   },
   normal: {
     id: 'normal',
@@ -346,6 +377,7 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyProfile> = {
     fuelScale: 1,
     enemyMissileRate: 1,
     playerSubsystemRate: 0.7,
+    ...DEFAULT_PLAYER_WEAPON_MODIFIERS,
   },
   hard: {
     id: 'hard',
@@ -359,6 +391,7 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyProfile> = {
     fuelScale: 0.85,
     enemyMissileRate: 1.4,
     playerSubsystemRate: 1.15,
+    ...DEFAULT_PLAYER_WEAPON_MODIFIERS,
   },
 };
 

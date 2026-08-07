@@ -185,6 +185,8 @@ export interface SpawnProjectileOptions {
   ownerFaction: Faction;
   fromPlayer: boolean;
   damageScale?: number;
+  speedScale?: number;
+  hitRadiusScale?: number;
 }
 
 export function spawnProjectile(world: World, o: SpawnProjectileOptions): Entity {
@@ -192,7 +194,7 @@ export function spawnProjectile(world: World, o: SpawnProjectileOptions): Entity
   const q = new Quaternion().setFromUnitVectors(new Vector3(0, 0, -1), o.dir.clone().normalize());
   const e = baseEntity(world, 'projectile', o.ownerFaction, o.pos, q);
   e.radius = 1.5;
-  e.vel.copy(o.dir).normalize().multiplyScalar(gun.speed);
+  e.vel.copy(o.dir).normalize().multiplyScalar(gun.speed * (o.speedScale ?? 1));
   if (o.inheritVel) e.vel.add(o.inheritVel);
   e.projectile = {
     gun,
@@ -203,6 +205,7 @@ export function spawnProjectile(world: World, o: SpawnProjectileOptions): Entity
     fromPlayer: o.fromPlayer,
     shieldMultiplier: gunPresentation(gun).shieldMultiplier,
     age: 0,
+    hitRadiusScale: o.hitRadiusScale ?? 1,
   };
   return world.add(e);
 }
@@ -217,6 +220,9 @@ export interface SpawnMissileOptions {
   fromPlayer: boolean;
   targetId?: number;
   seekerOverride?: SeekerKind;
+  speedScale?: number;
+  triggerScale?: number;
+  blastScale?: number;
 }
 
 export function spawnMissile(world: World, o: SpawnMissileOptions): Entity {
@@ -224,7 +230,8 @@ export function spawnMissile(world: World, o: SpawnMissileOptions): Entity {
   const q = new Quaternion().setFromUnitVectors(new Vector3(0, 0, -1), o.dir.clone().normalize());
   const e = baseEntity(world, 'missile', o.ownerFaction, o.pos, q);
   e.radius = 3;
-  e.vel.copy(o.dir).normalize().multiplyScalar(def.speed * 0.5);
+  const speedScale = o.speedScale ?? 1;
+  e.vel.copy(o.dir).normalize().multiplyScalar(def.speed * speedScale * 0.5);
   if (o.inheritVel) e.vel.add(o.inheritVel);
   e.missile = {
     def,
@@ -236,6 +243,9 @@ export function spawnMissile(world: World, o: SpawnMissileOptions): Entity {
     targetId: o.targetId,
     armTime: missilePresentation(def).armTime,
     age: 0,
+    speedScale,
+    triggerScale: o.triggerScale ?? 1,
+    blastScale: o.blastScale ?? 1,
   };
   e.label = def.name;
   return world.add(e);
@@ -256,6 +266,7 @@ export function spawnFlare(world: World, o: { pos: Vector3; vel: Vector3; factio
     fromPlayer: false,
     shieldMultiplier: 1,
     age: 0,
+    hitRadiusScale: 1,
   };
   return world.add(e);
 }

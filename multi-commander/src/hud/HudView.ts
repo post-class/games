@@ -27,6 +27,8 @@ export interface HudFrame {
   height: number;
   /** 入力レバーのスロットル値 */
   throttle: number;
+  /** プレイヤー主砲の実弾速倍率。ITTS表示と弾道を一致させる。 */
+  playerGunSpeedScale?: number;
   mouseFlight: boolean;
   stick?: { x: number; y: number };
   objectives?: ObjectiveView[];
@@ -907,7 +909,7 @@ export class HudView {
       }
 
       // ── ITTS リード表示 ──
-      const leadPos = ittsPoint(player, target, this.tmpV);
+      const leadPos = ittsPoint(player, target, this.tmpV, f.playerGunSpeedScale ?? 1);
       const lp = worldToScreen(f.camera, leadPos, w, hgt);
       if (lp.onScreen) {
         this.lead.style.display = '';

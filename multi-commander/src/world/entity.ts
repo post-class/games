@@ -108,6 +108,8 @@ export interface ProjectileRuntime {
   shieldMultiplier: number;
   /** 描画/音声が同じ武器プロファイルを参照するための生成時刻 */
   age: number;
+  /** 発射時の難易度による実効命中半径倍率 */
+  hitRadiusScale: number;
 }
 
 export interface MissileRuntime {
@@ -124,6 +126,10 @@ export interface MissileRuntime {
   age: number;
   /** デコイに吸着した場合の対象 */
   decoyId?: number;
+  /** 発射時のプレイヤー補正。敵ミサイルはすべて 1。 */
+  speedScale: number;
+  triggerScale: number;
+  blastScale: number;
 }
 
 /** 小惑星。撃てば壊れ、ぶつかれば痛い障害物 */
