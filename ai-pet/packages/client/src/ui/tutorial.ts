@@ -16,6 +16,8 @@ export type TutorialStep = 'move' | 'talk' | 'pet' | 'harvest' | 'place' | 'done
 interface StepDef {
   id: TutorialStep;
   text: string;
+  /** タッチ端末での文言。キーの名前を出しても意味がないので言い換える */
+  touchText?: string;
   /** この操作をしたら次へ */
   next: TutorialStep;
   /** 操作がなくてもこの秒数で次へ（放置してもゲームが止まらない） */
@@ -26,30 +28,35 @@ const STEPS: readonly StepDef[] = [
   {
     id: 'move',
     text: 'WASD か 画面クリックで島を歩けます',
+    touchText: '左下のスティックか、行きたい場所をタップで歩けます',
     next: 'talk',
     timeoutSec: 40,
   },
   {
     id: 'talk',
     text: 'Enter で話しかけると、ペットが自分の言葉で返します',
+    touchText: '「はなす」で話しかけると、ペットが自分の言葉で返します',
     next: 'pet',
     timeoutSec: 60,
   },
   {
     id: 'pet',
     text: 'ペットをクリックすると撫でられます（Space で今の気持ちを見る）',
+    touchText: 'ペットをタップすると撫でられます（「ペット」で今の気持ち）',
     next: 'harvest',
     timeoutSec: 50,
   },
   {
     id: 'harvest',
     text: '木の実や畑をクリックすると採れます。水やりもできます',
+    touchText: '木の実や畑をタップすると採れます。水やりもできます',
     next: 'place',
     timeoutSec: 50,
   },
   {
     id: 'place',
     text: 'B でベンチを置くと、動物が集まってきます',
+    touchText: '「ベンチ」を押して置くと、動物が集まってきます',
     next: 'done',
     timeoutSec: 50,
   },
@@ -70,12 +77,36 @@ export class Tutorial {
     document.body.appendChild(this.el);
 
     this.el.addEventListener('click', () => this.skipAll());
+
+    // 画面の向きや幅が変わったら置き場所を見直す
+    window.addEventListener('resize', () => this.place());
+  }
+
+  /**
+   * 置き場所を決める。
+   *
+   * 広い画面は画面上部の中央に浮かせる。
+   * 狭い画面は**チャット欄の中（いちばん上）に流し込む**。
+   * 絶対配置で「チャット欄の少し上」に置くやり方だと、
+   * 通知が溜まってチャットログが伸びたときに必ず重なる。
+   */
+  private place(): void {
+    const narrow = window.matchMedia('(max-width: 640px)').matches;
+    const chat = document.querySelector('.chat');
+    if (narrow && chat) {
+      if (this.el.parentElement !== chat) chat.insertBefore(this.el, chat.firstChild);
+      this.el.classList.add('in-chat');
+    } else {
+      if (this.el.parentElement !== document.body) document.body.appendChild(this.el);
+      this.el.classList.remove('in-chat');
+    }
   }
 
   /** 島に入ったら開始する（ペット作成後に呼ぶ） */
   start(): void {
     if (!this.active) return;
     this.index = 0;
+    this.place();
     this.show();
   }
 
@@ -109,7 +140,9 @@ export class Tutorial {
   private show(): void {
     const current = STEPS[this.index];
     if (!current) return;
-    this.el.textContent = current.text;
+    // タッチ端末にキーの名前を出しても伝わらないので言い換える
+    const touch = window.matchMedia('(pointer: coarse)').matches || document.body.classList.contains('has-pad');
+    this.el.textContent = (touch && current.touchText) || current.text;
     this.el.classList.remove('hidden');
     // 出た瞬間に少し弾ませる（気づいてもらうため）
     this.el.classList.remove('pop');

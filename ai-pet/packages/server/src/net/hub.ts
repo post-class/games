@@ -16,6 +16,7 @@ import {
   PROTOCOL_VERSION,
   RATE_LIMITS,
   SNAPSHOT_INTERVAL_TICKS,
+  IDLE_SWEEP_INTERVAL_TICKS,
   TICK_HZ,
   VIEW_MAX_H,
   VIEW_MAX_W,
@@ -34,6 +35,7 @@ import { SyncService, type ViewRect } from './sync.ts';
 import { petCatalog, petToWire, type PetManager } from './petHandlers.ts';
 import type { ReflectionService } from '../pet/reflection.ts';
 import type { GossipReporter } from '../pet/gossipReport.ts';
+import { env } from '../env.ts';
 
 /** 島時間を送る間隔（変化がないときでも定期的に同期する） */
 const CLOCK_RESEND_TICKS = TICK_HZ * 4;
@@ -47,6 +49,8 @@ interface Client {
   joined: boolean;
   /** メッセージ種別ごとの直近呼び出し時刻（レート制限用） */
   rate: Map<string, number[]>;
+  /** 最後に何かを受け取った時刻。無音の接続を切るために使う */
+  lastMsgAt: number;
 }
 
 const PLACEABLE_LABEL: Record<string, string> = {
@@ -144,7 +148,29 @@ export class ConnectionHub {
       this.broadcastDeltas(tick);
       // 島のスナップショットと同じ間隔でプレイヤーの位置も保存する
       if (tick % SNAPSHOT_INTERVAL_TICKS === 0) this.persistAllPlayers();
+      if (tick % IDLE_SWEEP_INTERVAL_TICKS === 0) this.reapIdleClients();
     });
+  }
+
+  /**
+   * 無音になった接続を切る。
+   *
+   * 回線が落ちた・端末がスリープしたときはFINが届かないので、
+   * これが無いとアバターと視界の購読が島に残り続ける（長期運用でじわじわ増える）。
+   */
+  private reapIdleClients(): void {
+    const now = Date.now();
+    for (const client of [...this.clients.values()]) {
+      if (now - client.lastMsgAt <= env.clientIdleTimeoutMs) continue;
+      console.log(`[hub] 無音のため切断 playerId=${client.playerId || '(未参加)'}`);
+      // close ではなく terminate。相手が居ないので閉じる握手の返事は来ない
+      try {
+        client.ws.terminate();
+      } catch {
+        // すでに壊れている場合は気にしない
+      }
+      this.dropClient(client);
+    }
   }
 
   clientCount(): number {
@@ -307,6 +333,7 @@ export class ConnectionHub {
       entityId: 0,
       joined: false,
       rate: new Map(),
+      lastMsgAt: Date.now(),
     };
     this.clients.set(ws, client);
 
@@ -363,6 +390,9 @@ export class ConnectionHub {
   }
 
   private onMessage(client: Client, raw: string): void {
+    // 中身が何であれ「生きている」ことは分かる（壊れたメッセージでも切らない）
+    client.lastMsgAt = Date.now();
+
     const parsed = parseClientMsg(raw);
     if (!parsed.ok) {
       this.invalidMessages++;

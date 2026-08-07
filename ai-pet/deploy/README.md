@@ -55,6 +55,11 @@ NODE_ENV=production
 ISLAND_SEED=pokomofu-2
 DB_PATH=/srv/pokomofu/app/ai-pet/data/island.db
 LLM_MAX_RPH_PER_PLAYER=40
+
+# 無音になった接続を切るまでの時間（ms）。既定30000。
+# モバイル回線が不安定で「歩いている途中で切られる」報告が出たら伸ばす。
+# クライアントは5秒ごとにpingを送るので、30000は6回分の猶予にあたる。
+CLIENT_IDLE_TIMEOUT_MS=30000
 ```
 
 ```bash

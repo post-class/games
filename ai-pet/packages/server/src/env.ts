@@ -4,7 +4,7 @@
  */
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { DEFAULT_PORT } from '@ai-pet/shared';
+import { CLIENT_IDLE_TIMEOUT_MS, DEFAULT_PORT } from '@ai-pet/shared';
 
 function findEnvFile(): string | null {
   // packages/server/src → packages/server → packages → ai-pet → games(リポジトリルート)
@@ -76,6 +76,11 @@ export const env = {
 
   llmMode: detectLlmMode(),
   llmMaxRphPerPlayer: num('LLM_MAX_RPH_PER_PLAYER', 40),
+  /**
+   * 無音の接続を切るまでの時間（ms）。
+   * 回線が不安定な環境向けに延ばせるようにしている（テストでは短くする）。
+   */
+  clientIdleTimeoutMs: num('CLIENT_IDLE_TIMEOUT_MS', CLIENT_IDLE_TIMEOUT_MS),
   isDev: str('NODE_ENV', 'development') !== 'production',
 } as const;
 

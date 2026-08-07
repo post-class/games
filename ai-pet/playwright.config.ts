@@ -45,7 +45,22 @@ export default defineConfig({
     video: 'off',
   },
 
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+      // スマホ用のテストはこちらでは回さない（画面が広いと成り立たない検証がある）
+      testIgnore: '**/*.mobile.e2e.ts',
+    },
+    {
+      // 縦長・タッチ・狭い画面でしか出ない崩れを見るための枠。
+      // iOS Safari も対象だが WebKit は入れていないので、Chromium系の端末定義を使う
+      // （見たいのは画面幅とタッチ操作なので、描画エンジンの違いは目的から外れる）
+      name: 'mobile',
+      use: { ...devices['Pixel 7'] },
+      testMatch: '**/*.mobile.e2e.ts',
+    },
+  ],
 
   webServer: [
     {

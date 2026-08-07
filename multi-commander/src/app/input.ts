@@ -76,6 +76,10 @@ export class InputManager {
   throttle = 0.5;
   /** マウス操縦の有効/無効 (設定と M キーで切り替え) */
   mouseFlight = true;
+  /** チュートリアル用: キーボード操縦キーを一度でも受け取ったか */
+  flightInputUsed = false;
+  /** チュートリアル用: アフターバーナーキーを一度でも受け取ったか */
+  afterburnerUsed = false;
 
   /** ゲームパッドが接続され、入力を読めているか */
   get gamepadConnected(): boolean {
@@ -119,6 +123,15 @@ export class InputManager {
         // リピートはスロットル等の押しっぱなし判定にだけ使う
         return;
       }
+      if ([
+        settings.keyBindings.pitchUp,
+        settings.keyBindings.pitchDown,
+        settings.keyBindings.yawLeft,
+        settings.keyBindings.yawRight,
+        settings.keyBindings.rollLeft,
+        settings.keyBindings.rollRight,
+      ].includes(ev.code)) this.flightInputUsed = true;
+      if (ev.code === settings.keyBindings.afterburner) this.afterburnerUsed = true;
       this.keys.add(ev.code);
       if (!this.uiMode) this.recordInputEvent();
       this.handleEdge(ev);
@@ -184,6 +197,11 @@ export class InputManager {
       window.removeEventListener('contextmenu', onContextMenu);
       this.el.removeEventListener('wheel', onWheel);
     });
+  }
+
+  resetTutorialInputFlags(): void {
+    this.flightInputUsed = false;
+    this.afterburnerUsed = false;
   }
 
   private handleEdge(ev: KeyboardEvent): void {

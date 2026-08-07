@@ -26,7 +26,7 @@ import type { Entity, WingmanOrder } from '../world/entity';
 import { World } from '../world/world';
 import { DeckSequence } from './DeckSequence';
 import { CommsMenu, type CommsAction } from '../ui/CommsMenu';
-import { Tutorial } from '../ui/Tutorial';
+import { Tutorial, type TutorialMode } from '../ui/Tutorial';
 import { InputManager } from './input';
 import { difficulty, settings } from './settings';
 import { ReplayBuffer } from './replay';
@@ -69,6 +69,8 @@ export class Game {
   paused = false;
   /** オートパイロット作動中 */
   autopilot = false;
+  /** チュートリアル中は操作確認を優先し、敵弾で中断されないようにする */
+  private tutorialSafe = false;
   /** オートパイロットの目的地 (作動開始時に固定する) */
   private autopilotNavId?: number;
   /** 戦域離脱としてのオートパイロット (敵がいても継続する) */
@@ -157,7 +159,7 @@ export class Game {
   applySettings(): void {
     const d = difficulty();
     setCombatOptions({
-      playerDamageTaken: d.playerDamageTaken,
+      playerDamageTaken: this.tutorialSafe ? 0 : d.playerDamageTaken,
       playerDamageDealt: d.playerDamageDealt,
       playerSubsystemRate: d.playerSubsystemRate,
     });
@@ -201,7 +203,8 @@ export class Game {
 
   // ───────── ミッションの開始と終了 ─────────
 
-  startMission(def: MissionDef, loadout: Loadout, withTutorial = false): void {
+  startMission(def: MissionDef, loadout: Loadout, withTutorial: boolean | TutorialMode = false): void {
+    this.tutorialSafe = def.id.startsWith('tutorial-');
     this.runner?.dispose();
     this.vfx.vfx.clear();
     this.sync.clear();
@@ -236,12 +239,13 @@ export class Game {
     this.active = true;
     this.input.uiMode = false;
     this.input.commsMode = false;
+    this.input.resetTutorialInputFlags();
     this.input.disarmMouse();
     this.comms.setOpen(false);
     // 出撃直後は静止から。やさしい難易度では初速が入る
     this.input.throttle = this.world.player ? this.world.player.input!.throttle : 0;
     this.rig.mode = 'cockpit';
-    if (withTutorial) this.tutorial.start();
+    if (withTutorial) this.tutorial.start(withTutorial === true ? 'simple' : withTutorial);
     else this.tutorial.finish(false);
 
     // 発艦シーケンス。母艦から撃ち出されるところから始める
@@ -266,6 +270,8 @@ export class Game {
     this.world.reset();
     this.sync.clear();
     this.vfx.vfx.clear();
+    this.tutorialSafe = false;
+    this.applySettings();
     this.suspend();
   }
 
@@ -526,7 +532,13 @@ export class Game {
     this.sound.update(this.world, dtReal, this.active && !this.paused);
     if (this.active && !this.paused) {
       this.tutorial.update(
-        { world: this.world, input: this.input, autopilot: this.autopilot },
+        {
+          world: this.world,
+          input: this.input,
+          autopilot: this.autopilot,
+          commsOpen: this.comms.open,
+          navMapOpen: this.hud.navMap.open,
+        },
         dtReal,
       );
     }
@@ -559,18 +571,23 @@ export class Game {
     for (const a of actions) {
       switch (a) {
         case 'pause':
+          this.tutorial.noteAction(a);
           this.onPauseRequested?.();
           break;
         case 'viewToggle':
+          this.tutorial.noteAction(a);
           this.rig.toggle();
           break;
         case 'damageDisplay':
+          this.tutorial.noteAction(a);
           this.hud.damageMode = !this.hud.damageMode;
           break;
         case 'navMap':
+          this.tutorial.noteAction(a);
           this.hud.navMap.toggle();
           break;
         case 'comms':
+          this.tutorial.noteAction(a);
           if (!commsAvailable(player?.ship)) {
             bus.emit('announce', { text: '通信機が故障している', kind: 'bad' });
             break;
@@ -588,12 +605,14 @@ export class Game {
           this.input.commsMode = this.comms.open;
           break;
         case 'mouseToggle':
+          this.tutorial.noteAction(a);
           this.input.mouseFlight = !this.input.mouseFlight;
           bus.emit('announce', {
             text: `マウス操縦: ${this.input.mouseFlight ? 'ON' : 'OFF'}`,
           });
           break;
         case 'autopilot':
+          this.tutorial.noteAction(a);
           this.toggleAutopilot();
           break;
         case 'targetNext':
@@ -606,9 +625,11 @@ export class Game {
           if (player) targetFront(this.world, player);
           break;
         case 'nextSecondary':
+          this.tutorial.noteAction(a);
           if (player) cycleMissile(player);
           break;
         case 'fireMissile':
+          this.tutorial.noteAction(a);
           if (player && !this.autopilot) {
             const r = fireMissile(this.world, player);
             if (!r.fired) {
@@ -625,6 +646,7 @@ export class Game {
           }
           break;
         case 'flare':
+          this.tutorial.noteAction(a);
           if (player && !dropFlare(this.world, player)) {
             bus.emit('announce', { text: 'フレアなし', kind: 'warn' });
           }
@@ -633,12 +655,14 @@ export class Game {
           this.tryEject();
           break;
         case 'flightModeToggle':
+          this.tutorial.noteAction(a);
           if (settings.advanced) {
             settings.flightMode = settings.flightMode === 'wc' ? 'newton' : 'wc';
             bus.emit('announce', { text: `飛行モード: ${settings.flightMode.toUpperCase()}` });
           }
           break;
         default:
+          this.tutorial.noteAction(a);
           break;
       }
     }

@@ -104,6 +104,13 @@ export interface WsTapState {
   chunks: Record<string, string>;
   /** 直近に受け取った delta / snapshot の tick */
   lastTick: number;
+  /**
+   * 接続HUDに出た文字の履歴。
+   *
+   * 「切断 → 再接続中 → 接続OK」の途中の表示は数百msで消えるため、
+   * ポーリングでは取りこぼす。DOMの変化そのものを記録して確実に捕まえる。
+   */
+  netLabels: string[];
   /** welcome を受けた回数（再接続の検証に使う） */
   welcomeCount: number;
 }
@@ -115,6 +122,7 @@ const EMPTY_TAP: WsTapState = {
   actors: {},
   chunks: {},
   lastTick: 0,
+  netLabels: [],
   welcomeCount: 0,
 };
 
@@ -127,6 +135,7 @@ export async function installWsTap(page: Page): Promise<void> {
       actors: Record<number, { x: number; y: number }>;
       chunks: Record<string, string>;
       lastTick: number;
+      netLabels: string[];
       welcomeCount: number;
     }
     const holder = window as unknown as { __e2eTap?: Tap };
@@ -138,9 +147,27 @@ export async function installWsTap(page: Page): Promise<void> {
       actors: {},
       chunks: {},
       lastTick: 0,
+      netLabels: [],
       welcomeCount: 0,
     };
     holder.__e2eTap = tap;
+
+    // 接続HUDの文字が変わるたびに書き留める（同じ文字の連続は入れない）
+    const watchNet = (): void => {
+      const el = document.getElementById('hud-net');
+      if (!el) {
+        // まだ描かれていないので少し待つ
+        setTimeout(watchNet, 50);
+        return;
+      }
+      const record = (): void => {
+        const text = (el.textContent ?? '').trim();
+        if (text && tap.netLabels[tap.netLabels.length - 1] !== text) tap.netLabels.push(text);
+      };
+      record();
+      new MutationObserver(record).observe(el, { childList: true, characterData: true, subtree: true });
+    };
+    watchNet();
 
     const handle = (raw: string): void => {
       let msg: Record<string, unknown>;

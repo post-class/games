@@ -68,6 +68,16 @@ export const VIEW_MAX_H = 24;
 /** 視界に加える余裕（タイル） */
 export const VIEW_MARGIN = CHUNK;
 export const MAX_PLAYERS_PER_ISLAND = 16;
+/**
+ * 何も届かなくなってから接続を切るまでの時間（ms）。
+ *
+ * クライアントは5秒ごとに ping を送る。回線が切れた・端末がスリープした場合は
+ * TCPのFINが来ないまま無音になるので、これが無いとアバターが島に残り続ける。
+ * 6回分見送る長さにして、一時的な詰まりでは切らない。
+ */
+export const CLIENT_IDLE_TIMEOUT_MS = 30_000;
+/** 無音のクライアントを探す間隔（tick）。10秒ごと */
+export const IDLE_SWEEP_INTERVAL_TICKS = 40;
 
 // ---------- レート制限（1プレイヤーあたり） ----------
 export const RATE_LIMITS = {

@@ -406,3 +406,134 @@ html, body {
 /* パッドを出すときはチャット欄を上へ避ける */
 body.has-pad .chat { bottom: calc(150px + env(safe-area-inset-bottom)); }
 body.has-pad .chat-log { max-height: 22vh; }
+
+/* ---------- 最初の案内（チュートリアル） ---------- */
+
+/* 画面の上寄り中央。HUDチップの下に置き、視界の邪魔をしない位置にする */
+.tut {
+  position: fixed;
+  top: 58px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  max-width: min(92vw, 520px);
+  box-sizing: border-box;
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 2px solid #f2d9a6;
+  box-shadow: 0 3px 0 rgba(74, 59, 42, 0.12);
+  color: #5a4a35;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+  text-align: center;
+  cursor: pointer;
+  transition: opacity 0.35s ease;
+}
+
+.tut.hidden { opacity: 0; pointer-events: none; }
+
+/* 出た瞬間だけ小さく弾ませる（動きを嫌う設定では跳ねない） */
+.tut.pop { animation: tut-pop 0.4s ease; }
+
+@keyframes tut-pop {
+  0% { transform: translateX(-50%) scale(0.9); opacity: 0; }
+  60% { transform: translateX(-50%) scale(1.03); opacity: 1; }
+  100% { transform: translateX(-50%) scale(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tut.pop { animation: none; }
+}
+
+/*
+ * 狭い画面ではチャット欄の中（いちばん上）に流し込む。
+ * 絶対配置で「チャット欄の少し上」に置くと、通知が溜まって
+ * チャットログが伸びたときに必ず重なるため。
+ */
+.tut.in-chat {
+  position: static;
+  transform: none;
+  max-width: 100%;
+  width: 100%;
+  margin: 0 0 6px;
+  font-size: 12px;
+}
+
+.tut.in-chat.pop { animation: tut-pop-flow 0.4s ease; }
+
+@keyframes tut-pop-flow {
+  0% { transform: scale(0.94); opacity: 0; }
+  60% { transform: scale(1.02); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* 流し込んだときは非表示で場所も取らない（hiddenのままだと隙間が残る） */
+.tut.in-chat.hidden { display: none; }
+
+/* 音のON/OFFボタン（HUDチップと同じ見た目だが押せる） */
+.audio-chip {
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  border: 2px solid #f2d9a6;
+  /* .hud は pointer-events:none なので、押せるように戻す */
+  pointer-events: auto;
+}
+
+.audio-chip:active { transform: translateY(2px); }
+
+/* ---------- ミニマップ ---------- */
+
+.minimap {
+  position: fixed;
+  right: 10px;
+  top: max(10px, env(safe-area-inset-top));
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.minimap-toggle {
+  pointer-events: auto;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: #5a4a35;
+  background: var(--cream);
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  padding: 2px 12px;
+  box-shadow: var(--shadow);
+}
+
+.minimap canvas {
+  /* 128タイルを160pxに縮める。ドット絵なのでぼかさない */
+  width: 160px;
+  height: 160px;
+  image-rendering: pixelated;
+  background: rgba(255, 253, 243, 0.82);
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.minimap.closed canvas { display: none; }
+
+/* 狭い画面では少し小さく。デバッグパネル（右下）とは干渉しない位置にある */
+@media (max-width: 640px) {
+  .minimap canvas { width: 108px; height: 108px; }
+}
+
+/* ミニマップを開いているあいだ、ペット情報パネルはその下へ避ける */
+body.minimap-open .petpanel { top: 212px; }
+
+@media (max-width: 640px) {
+  body.minimap-open .petpanel { top: 158px; }
+}

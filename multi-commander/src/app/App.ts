@@ -45,6 +45,7 @@ import {
   type SortieOutcome,
 } from './roster';
 import { Game } from './game';
+import type { TutorialMode } from '../ui/Tutorial';
 import {
   advanceCampaignSave,
   loadSave,
@@ -84,6 +85,9 @@ export class App {
   private lastRankId = '2lt';
   /** 訓練室はキャンペーン進行を変更しない */
   private trainingActive = false;
+  /** タイトルから起動したチュートリアル。キャンペーン進行を変更しない */
+  private tutorialActive = false;
+  private tutorialMode: TutorialMode = 'simple';
   private trainingKind: DynamicMissionKind = 'patrol';
   private trainingEnemyCount = 3;
   private trainingSkill = 0.55;
@@ -114,6 +118,7 @@ export class App {
     // 訓練中にタイトルへ戻っても、続きから再開したキャンペーンを
     // 訓練任務として扱わないようにする。
     this.trainingActive = false;
+    this.tutorialActive = false;
     this.game.sound.music.play('title');
     this.game.endMission();
     const hasSave = !!loadSave();
@@ -132,6 +137,7 @@ export class App {
         },
       },
       { label: '設定', onSelect: () => this.showSettings(() => this.showTitle()) },
+      { label: 'チュートリアル', onSelect: () => this.showTutorialMenu() },
       { label: '操作説明', onSelect: () => this.showHelp() },
     ];
     const saved = loadSave();
@@ -187,6 +193,25 @@ export class App {
     });
   }
 
+  private showTutorialMenu(): void {
+    this.screens.show({
+      title: 'チュートリアル',
+      subtitle: 'TRAINING FLIGHT / SELECT COURSE',
+      bodyHtml:
+        `<div class="block"><h3>操作を練習する</h3>` +
+        `キャンペーンの戦果・補給・名簿を変更せず、専用の訓練空域で操作を確認できます。` +
+        `簡易チュートリアルは初回出撃時の案内と同じ内容です。` +
+        `詳細チュートリアルでは、戦闘以外の入力も順番に確認します。</div>` +
+        `<div class="dim">訓練中は Esc →「タイトルへ戻る」でいつでも終了できます。</div>`,
+      items: [
+        { label: '簡易チュートリアル — 基本6ステップ', onSelect: () => this.launchTutorial('simple') },
+        { label: '詳細チュートリアル — 全操作を確認', onSelect: () => this.launchTutorial('detailed') },
+        { label: '戻る', onSelect: () => this.showTitle() },
+      ],
+      onCancel: () => this.showTitle(),
+    });
+  }
+
   private showSettings(back: () => void): void {
     const panel = buildSettingsPanel(() => {
       this.game.applySettings();
@@ -215,6 +240,7 @@ export class App {
   }
 
   private currentMission(): MissionDef {
+    if (this.tutorialActive) return this.tutorialDef(this.tutorialMode);
     if (this.trainingActive) return this.trainingDef();
     if (this.save.campaignMode === 'expanded' && this.save.dynamicMission) return dynamicMissionDef(this.save.dynamicMission);
     const node = campaignNode(this.save.node, this.save.campaignMode);
@@ -537,6 +563,66 @@ export class App {
     return { ...base, id: `training-${this.trainingKind}`, title: `訓練室 — ${base.title}`, spawns, debriefWin: ['訓練終了。実戦では、敵も弾も戻ってこない。'], debriefLoss: ['訓練を中断した。機体を点検してもう一度試せる。'] };
   }
 
+  private tutorialDef(mode: TutorialMode): MissionDef {
+    const base = dynamicMissionDef({
+      id: `tutorial-${mode}`,
+      system: 'McCaffrey',
+      kind: 'patrol',
+      seed: 707,
+      returnNode: this.save.node,
+    });
+    return {
+      ...base,
+      id: `tutorial-${mode}`,
+      title: mode === 'detailed' ? '詳細チュートリアル — 操作訓練空域' : '簡易チュートリアル — 操作訓練空域',
+      briefing: [
+        'これは独立した訓練空域だ。キャンペーンの記録や補給は変化しない。',
+        mode === 'detailed'
+          ? '画面下の指示に従い、入力・HUD・戦闘・航法を順番に確認せよ。'
+          : '画面下の指示に従い、まずは飛行と戦闘の基本を確認せよ。',
+      ],
+      playerShipId: 'hornet',
+      playerMissiles: [
+        { missileId: 'dumbfire', count: 3 },
+        { missileId: 'heat-seeker', count: 3 },
+      ],
+      debriefWin: ['訓練を終了した。'],
+      debriefLoss: ['訓練を中断した。'],
+      // 操作確認を終えるまで空域を維持する。終了はポーズ画面から行う。
+      objectives: [{ id: 'practice', text: '操作を確認する', required: true, spec: { kind: 'survive', seconds: 999999 } }],
+    };
+  }
+
+  private launchTutorial(mode: TutorialMode): void {
+    const def = this.tutorialDef(mode);
+    const load: Loadout = {
+      shipId: def.playerShipId,
+      gunId: 'laser',
+      missiles: def.playerMissiles,
+      flares: 12,
+      wingmanSlot: 2,
+    };
+    this.tutorialActive = true;
+    this.tutorialMode = mode;
+    this.trainingActive = false;
+    this.screens.hide();
+    this.game.startMission(def, load, mode);
+  }
+
+  private showTutorialEnd(outcome: 'win' | 'loss'): void {
+    this.game.sound.music.play(outcome === 'win' ? 'victory' : 'defeat');
+    this.screens.show({
+      title: outcome === 'win' ? 'チュートリアル終了' : 'チュートリアル中断',
+      bodyHtml: `<div class="block">訓練空域を離れた。キャンペーンの記録・補給・名簿は変更されていない。</div>`,
+      items: [
+        { label: '同じチュートリアルをもう一度', onSelect: () => this.launchTutorial(this.tutorialMode) },
+        { label: 'チュートリアル選択へ', onSelect: () => this.showTutorialMenu() },
+        { label: 'タイトルへ戻る', onSelect: () => this.showTitle() },
+      ],
+      onCancel: () => this.showTutorialMenu(),
+    });
+  }
+
   private showTraining(): void {
     const kinds: DynamicMissionKind[] = ['patrol', 'escort', 'strike', 'rescue', 'quiet', 'capital'];
     this.screens.show({
@@ -559,6 +645,7 @@ export class App {
     const def = this.trainingDef();
     const load = this.loadoutFor(def);
     this.trainingActive = true;
+    this.tutorialActive = false;
     this.screens.hide();
     this.game.startMission(def, load, false);
   }
@@ -822,6 +909,11 @@ export class App {
 
   private onMissionEnd(outcome: 'win' | 'loss'): void {
     this.lastSummary = this.game.runner?.summary();
+    if (this.tutorialActive) {
+      this.tutorialActive = false;
+      this.showTutorialEnd(outcome);
+      return;
+    }
     if (this.trainingActive) {
       this.trainingActive = false;
       this.showTrainingDebrief(outcome);

@@ -28,7 +28,11 @@ async function goOffline(page: import('@playwright/test').Page, context: import(
   await context.setOffline(true);
   const closed = await forceDisconnect(page);
   expect(closed, '閉じられるWSが見つかりませんでした（WSタップが動いていない）').toBeGreaterThan(0);
-  await expect(page.locator(HUD_NET)).toHaveText(/再接続中…|切断/, { timeout: 20_000 });
+  // 途中の表示は数百msで消えるので、DOMの変化履歴で判定する
+  // （localhost相手だと再接続が速く、瞬間の表示をポーリングでは取りこぼす）
+  await expect
+    .poll(async () => (await readTap(page)).netLabels.some((l) => /再接続中…|切断/.test(l)), { timeout: 20_000 })
+    .toBe(true);
 }
 
 test.describe('再接続', () => {

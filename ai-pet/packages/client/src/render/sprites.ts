@@ -25,6 +25,16 @@ const CULL_MARGIN = 2;
 const ANCHOR_Y = 43 / CHAR_PX;
 
 /**
+ * 種ごとの表示倍率。
+ *
+ * いのししは絵が横長なので、48px枠に収めると高さが他の動物の6割ほどになり、
+ * 「ひとまわり大きい」という設定が見た目に出ない。枠ごと大きくして補う。
+ */
+const SPECIES_SCALE: Record<string, number> = {
+  boar: 1.3,
+};
+
+/**
  * 種別＋種＋向き からテクスチャを引く。
  * アセット名は docs 08章の命名規則（`{category}_{name}_{dir}`）に合わせる。
  */
@@ -211,8 +221,9 @@ export class ActorLayer {
     const tex = this.textures.get(view.kind, view.species, facing);
     const sprite = new Sprite(tex);
     sprite.anchor.set(0.5, ANCHOR_Y);
-    sprite.width = CHAR_PX;
-    sprite.height = CHAR_PX;
+    const scale = SPECIES_SCALE[view.species ?? ''] ?? 1;
+    sprite.width = CHAR_PX * scale;
+    sprite.height = CHAR_PX * scale;
     sprite.label = `actor:${view.id}`;
     this.parent.addChild(sprite);
     const entry: Entry = { sprite, texKey: `${CharTextureSet.prefixOf(view.kind, view.species)}_${facing}` };

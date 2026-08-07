@@ -16,6 +16,7 @@ import { ActorLayer } from './render/sprites.ts';
 import { ObjectLayer } from './render/objects.ts';
 import { TimeTint } from './render/effects.ts';
 import { WeatherLayer } from './render/weather.ts';
+import { Minimap } from './render/minimap.ts';
 import { WorldState, interpolatedPos } from './state/world.ts';
 import { InputController } from './input.ts';
 import { BubbleLayer, ChatUi } from './ui/chat.ts';
@@ -23,6 +24,7 @@ import { showEggSelect } from './ui/eggSelect.ts';
 import { PetPanel } from './ui/petPanel.ts';
 import { TouchPad, isTouchDevice } from './ui/touchPad.ts';
 import { Tutorial } from './ui/tutorial.ts';
+import { GameAudio, attachAudioToggle } from './ui/audio.ts';
 
 const SEASON_LABEL: Record<string, string> = { spring: '春', summer: '夏', autumn: '秋', winter: '冬' };
 const TOD_LABEL: Record<string, string> = { morning: '朝', day: '昼', evening: '夕', night: '夜' };
@@ -53,6 +55,7 @@ const actorLayer = new ActorLayer(stage.layers, textures.chars, camera);
 const objectLayer = new ObjectLayer(stage.layers, textures.objects, camera);
 const tint = new TimeTint(stage.layers);
 const weather = new WeatherLayer(stage.layers);
+const minimap = new Minimap();
 const bubbles = new BubbleLayer();
 const petPanel = new PetPanel();
 
@@ -64,11 +67,16 @@ let petName = 'ペット';
 if (params.has('tut')) Tutorial.reset();
 const tutorial = new Tutorial();
 
+// 音は既定OFF。HUDのボタンで切り替える
+const audio = new GameAudio();
+attachAudioToggle(audio);
+
 const chat = new ChatUi({
   onSend: (text) => {
     chat.addLine('わたし', text);
     socket?.send({ t: 'say', text });
     tutorial.did('talk');
+    audio.play('talk');
   },
 });
 
@@ -79,6 +87,7 @@ function renderClock(): void {
     `${TOD_LABEL[clock.timeOfDay] ?? clock.timeOfDay} ${WEATHER_LABEL[clock.weather] ?? clock.weather}`;
   tint.setTimeOfDay(clock.timeOfDay);
   weather.setWeather(clock.weather);
+  audio.setAmbience(clock.timeOfDay, clock.weather);
 }
 
 /** クリック地点のいちばん近い資源 */
@@ -239,6 +248,7 @@ const input = new InputController(host, camera, {
           petPanel.show();
           socket?.send({ t: 'interact', targetId: petId, act: 'pet' });
           tutorial.did('pet');
+          audio.play('pet');
           return;
         }
       }
@@ -249,6 +259,8 @@ const input = new InputController(host, camera, {
       // 在庫があれば収穫、無ければ水やり（畑と木にだけ効く）
       const act = res.amt >= 1 ? 'harvest' : 'water';
       socket?.send({ t: 'interact', targetId: res.i, act });
+      tutorial.did('harvest');
+      audio.play(act === 'harvest' ? 'harvest' : 'water');
       return;
     }
 
@@ -260,6 +272,8 @@ const input = new InputController(host, camera, {
     // 自分の足元に置く（サーバ側で歩ける場所か・近すぎないかを検証する）
     const p = selfPos(performance.now());
     socket?.send({ t: 'place', type, pos: { x: Math.floor(p.x), y: Math.floor(p.y) } });
+    tutorial.did('place');
+    audio.play('place');
   },
 });
 
@@ -280,10 +294,12 @@ function onMessage(msg: ServerMsg): void {
         petName = msg.pet.name;
         renderPet(msg.pet.affection);
         petPanel.update({ name: msg.pet.name, species: msg.pet.species, affection: msg.pet.affection });
+        tutorial.start();
       } else if (msg.petCatalog && msg.petCatalog.length > 0) {
         // ペットが居ないので、タマゴを選んでもらう
         showEggSelect(msg.petCatalog, (sel) => {
           socket?.send({ t: 'createPet', species: sel.species, name: sel.name, persona: sel.persona });
+          tutorial.start();
         });
       }
       boot?.classList.add('hidden');
@@ -317,6 +333,7 @@ function onMessage(msg: ServerMsg): void {
         tilemap.invalidate(cx, cy);
         requestedAt.delete(cy * CHUNKS_X + cx);
       }
+      minimap.invalidate();
       break;
     }
     case 'constructions':
@@ -330,6 +347,8 @@ function onMessage(msg: ServerMsg): void {
       break;
     case 'notice':
       chat.notice(msg.text);
+      // 日記は importance 6 で来る（1日の終わりなので合図を変える）
+      audio.play((msg.importance ?? 0) >= 6 ? 'diary' : 'notice');
       break;
     case 'petState':
       renderPet(msg.affection, msg.intent?.reason);
@@ -422,6 +441,8 @@ if (isTouchDevice() || params.has('pad')) {
     onPlace: (type) => {
       const p = selfPos(performance.now());
       socket?.send({ t: 'place', type, pos: { x: Math.floor(p.x), y: Math.floor(p.y) } });
+      tutorial.did('place');
+    audio.play('place');
     },
   });
 }
@@ -451,6 +472,8 @@ stage.app.ticker.add(() => {
   actorLayer.sync(world, now, dtSec);
   tint.update(stage.app.renderer.width, stage.app.renderer.height, dtSec);
   weather.update(stage.app.renderer.width, stage.app.renderer.height, dtSec);
+  tutorial.update(now);
+  minimap.update(world);
 
   // 吹き出しはDOMなので、ワールド座標を画面座標に変換して位置だけ動かす
   bubbles.update(now, (entityId) => {
