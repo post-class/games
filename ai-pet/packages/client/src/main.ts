@@ -69,6 +69,55 @@ function renderClock(): void {
   tint.setTimeOfDay(clock.timeOfDay);
 }
 
+/** クリック地点のいちばん近い資源 */
+function nearestResource(pos: Vec2, maxDist: number): { i: number; amt: number } | null {
+  let best: { i: number; amt: number } | null = null;
+  let bestD = maxDist;
+  for (const r of world.resources.values()) {
+    const d = Math.hypot(r.x - pos.x, r.y - pos.y);
+    if (d <= bestD) {
+      bestD = d;
+      best = { i: r.id, amt: r.amount };
+    }
+  }
+  return best;
+}
+
+/** クリック地点のいちばん近い建設中のもの */
+function nearestConstruction(pos: Vec2, maxDist: number): { i: number } | null {
+  let best: { i: number } | null = null;
+  let bestD = maxDist;
+  for (const c of constructions) {
+    if (c.done) continue;
+    const d = Math.hypot(c.x - pos.x, c.y - pos.y);
+    if (d <= bestD) {
+      bestD = d;
+      best = { i: c.i };
+    }
+  }
+  return best;
+}
+
+/** 共同建設の一覧（クリック判定とHUD表示に使う） */
+let constructions: import('@ai-pet/shared').ConstructionWire[] = [];
+
+/** 共同建設の進捗をHUDに出す（近くにあるものだけ） */
+function renderConstructions(items: import('@ai-pet/shared').ConstructionWire[]): void {
+  constructions = items;
+  const el = document.getElementById('hud-build');
+  if (!el) return;
+  const active = items.filter((c) => !c.done);
+  if (active.length === 0) {
+    el.classList.add('hidden');
+    return;
+  }
+  const label: Record<string, string> = { bridge: '橋', well: '井戸', observatory: '天文台' };
+  const c = active[0];
+  if (!c) return;
+  el.textContent = `${label[c.ty] ?? c.ty} ${Math.round(c.p)}%${c.mine > 0 ? `（あなた ${Math.round(c.mine)}）` : ''}`;
+  el.classList.remove('hidden');
+}
+
 /** ペットの懐き度と「いまの目標」をHUDに出す */
 function renderPet(affection: number, reason?: string): void {
   const el = document.getElementById('hud-pet');
@@ -163,17 +212,38 @@ const input = new InputController(host, camera, {
   },
   onZoom: (dir) => camera.stepZoom(dir),
   onPick: (worldPos) => {
-    // 自分のペットをクリックしたら、情報パネルを開いて撫でる
+    // 対象の優先順は「自分のペット → 資源 → 建設中のもの」。
+    // 触れるものが無ければクリック移動（onMoveTo）だけが働く
     const petId = world.petId;
-    if (petId === null) return;
-    const view = world.actors.get(petId);
-    if (!view) return;
-    const p = interpolatedPos(view, performance.now());
-    if (Math.hypot(p.x - worldPos.x, p.y - worldPos.y) > 1.2) return;
-    petPanel.show();
-    socket?.send({ t: 'interact', targetId: petId, act: 'pet' });
+    if (petId !== null) {
+      const view = world.actors.get(petId);
+      if (view) {
+        const p = interpolatedPos(view, performance.now());
+        if (Math.hypot(p.x - worldPos.x, p.y - worldPos.y) <= 1.2) {
+          petPanel.show();
+          socket?.send({ t: 'interact', targetId: petId, act: 'pet' });
+          return;
+        }
+      }
+    }
+
+    const res = nearestResource(worldPos, 1.4);
+    if (res) {
+      // 在庫があれば収穫、無ければ水やり（畑と木にだけ効く）
+      const act = res.amt >= 1 ? 'harvest' : 'water';
+      socket?.send({ t: 'interact', targetId: res.i, act });
+      return;
+    }
+
+    const build = nearestConstruction(worldPos, 1.6);
+    if (build) socket?.send({ t: 'contribute', constructionId: build.i });
   },
   onCall: () => petPanel.toggle(),
+  onPlace: (type) => {
+    // 自分の足元に置く（サーバ側で歩ける場所か・近すぎないかを検証する）
+    const p = selfPos(performance.now());
+    socket?.send({ t: 'place', type, pos: { x: Math.floor(p.x), y: Math.floor(p.y) } });
+  },
 });
 
 // ---------- サーバ接続（通常モード） ----------
@@ -222,6 +292,18 @@ function onMessage(msg: ServerMsg): void {
     case 'serverClosing':
       if (bootMsg) bootMsg.textContent = msg.reason;
       boot?.classList.remove('hidden');
+      break;
+    case 'terrainChanged': {
+      // 地形が変わったチャンクは焼き直しが必要なので、未受信に戻して取り直す
+      for (const [cx, cy] of msg.chunks) {
+        world.forgetChunk(cx, cy);
+        tilemap.invalidate(cx, cy);
+        requestedAt.delete(cy * CHUNKS_X + cx);
+      }
+      break;
+    }
+    case 'constructions':
+      renderConstructions(msg.items);
       break;
     case 'bubble':
       bubbles.show(msg.entityId, msg.text, msg.ms, now);

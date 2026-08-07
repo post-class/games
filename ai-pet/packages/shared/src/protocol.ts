@@ -141,6 +141,20 @@ export interface PlaceableWire {
   o: string;
 }
 
+/** 共同建設の1件（進捗バーの表示用） */
+export interface ConstructionWire {
+  i: number;
+  ty: string;
+  x: number;
+  y: number;
+  /** 0..100 */
+  p: number;
+  /** 完成済みか */
+  done: boolean;
+  /** 自分の貢献値 */
+  mine: number;
+}
+
 export interface ClockWire {
   tick: number;
   islandDay: number;
@@ -217,6 +231,13 @@ export type ServerMsg =
       res?: { i: number; amt: number }[];
       clock?: ClockWire;
     }
+  /**
+   * 地形が変わったことの通知（橋の完成など）。
+   * クライアントは該当チャンクを捨てて再要求する（焼き直しが必要なため）。
+   */
+  | { t: 'terrainChanged'; chunks: [number, number][]; tiles?: { x: number; y: number; terrain: number }[] }
+  /** 共同建設の状態（入島時と進捗が動いたとき） */
+  | { t: 'constructions'; items: ConstructionWire[] }
   | { t: 'bubble'; entityId: number; text: string; kind: 'say' | 'think'; ms: number }
   | { t: 'chatChunk'; convId: string; entityId: number; delta: string; done: boolean }
   | { t: 'notice'; text: string; importance: number }

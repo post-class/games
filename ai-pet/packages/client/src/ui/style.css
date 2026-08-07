@@ -336,3 +336,5 @@ html, body {
   color: var(--ink-soft);
   line-height: 1.5;
 }
+
+.hud-build { background: var(--sky); }

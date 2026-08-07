@@ -159,6 +159,14 @@ export class WorldState {
     return this.loadedChunks.has(chunkKey(cx, cy));
   }
 
+  /**
+   * チャンクを未受信に戻す（地形が変わったとき）。
+   * 呼んだあと main.ts の chunkReq ループが自動で取り直す。
+   */
+  forgetChunk(cx: number, cy: number): void {
+    this.loadedChunks.delete(chunkKey(cx, cy));
+  }
+
   /** chunkメッセージを適用する。未受信チャンクは描かないので、ここで初めて地形が入る */
   applyChunk(msg: ChunkMsgLike): AppliedChunk {
     const tiles = decodeChunkTerrain(msg.terrain);

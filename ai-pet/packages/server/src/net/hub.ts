@@ -48,6 +48,19 @@ interface Client {
   rate: Map<string, number[]>;
 }
 
+/** 収穫・水やりが断られた理由を、プレイヤーに読める1文にする */
+function interactMessage(reason: string): string {
+  const map: Record<string, string> = {
+    too_far: '遠くて手がとどきません',
+    empty: 'いまは採れるものがありません',
+    already_watered: 'もう水をあげたばかりです',
+    not_waterable: 'ここに水をやっても育ちません',
+    rate: 'すこし休んでからにしましょう',
+    not_found: 'そこには何もありません',
+  };
+  return map[reason] ?? 'いまはできません';
+}
+
 function viewRectAround(pos: Vec2): ViewRect {
   const hw = VIEW_MAX_W / 2;
   const hh = VIEW_MAX_H / 2;
@@ -452,8 +465,26 @@ export class ConnectionHub {
         const petActor = this.pets.petActorOf(client.playerId);
         if (msg.act === 'pet' && petActor && msg.targetId === petActor.id) {
           this.pets.handlePet({ playerId: client.playerId, send: (m) => this.send(client, m) });
+          break;
         }
-        // harvest / water はM7で実装する
+        if (msg.act === 'harvest' || msg.act === 'water') {
+          const opts = {
+            playerId: client.playerId,
+            playerName: client.displayName,
+            actorId: actor.id,
+            targetId: msg.targetId,
+            // 座標はサーバ権威の値を使う（クライアントの申告は信用しない）
+            playerPos: actor.pos,
+            tick: this.sim.tick,
+          };
+          const res =
+            msg.act === 'harvest' ? this.sim.interact.harvest(opts) : this.sim.interact.water(opts);
+          if (res.ok) {
+            this.send(client, { t: 'notice', text: res.text, importance: 3 });
+          } else {
+            this.send(client, { t: 'warn', code: res.reason, message: interactMessage(res.reason) });
+          }
+        }
         break;
       }
 

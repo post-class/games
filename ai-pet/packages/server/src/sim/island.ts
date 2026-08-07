@@ -19,6 +19,7 @@ import { relieveNeed, updateNeeds, urgency } from './needs.ts';
 import { harvest, isAvailable, updateResources } from './resource.ts';
 import { CritterAI, setCritterDeps } from './critter.ts';
 import { PetActions, type PetActionDeps } from './petAction.ts';
+import { InteractSystem } from './interact.ts';
 import type { IslandWorld } from './world.ts';
 
 const SEASON_LABEL: Record<string, string> = { spring: '春', summer: '夏', autumn: '秋', winter: '冬' };
@@ -44,6 +45,8 @@ export class IslandSim {
   readonly events: EventBus;
   readonly relations: RelationSystem;
   readonly critterAI: CritterAI;
+  /** プレイヤーの収穫・水やり */
+  readonly interact: InteractSystem;
   /** ペットの行動系。ペットが登場するM4以降で hub から注入される */
   private petActions: PetActions | null = null;
   readonly seed: string;
@@ -76,6 +79,9 @@ export class IslandSim {
     // ここで本実装を注入しないと既定の簡易版のまま動くので、必ず先に呼ぶ。
     setCritterDeps({ urgency, relieveNeed, harvest, isAvailable });
     this.critterAI = new CritterAI(this.world, this.nav, this.clock);
+    this.interact = new InteractSystem(this.world, this.clock, {
+      emitEvent: (input) => this.events.emit(this.tick, input),
+    });
   }
 
   /**

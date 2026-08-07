@@ -33,6 +33,7 @@ export type InputAction =
   | 'comms6';
 
 const THROTTLE_KEY_RATE = 0.9; // 毎秒
+const THROTTLE_KEY_STEP = 0.1; // キーを1回押すごとの変化量
 
 /**
  * キーボード + マウスの入力集約。
@@ -231,6 +232,10 @@ export class InputManager {
     if (code === 'KeyE' && (ev.altKey || ev.ctrlKey)) this.actions.push('eject');
     if (this.bound('throttleMax', code)) this.throttle = 1;
     if (this.bound('throttleStop', code)) this.throttle = 0;
+    // キーを短くタップした場合も操作として成立させる。押しっぱなし時は
+    // update() の連続入力も加わるため、細かい調整と大きな変更の両方に対応できる。
+    if (this.bound('throttleUp', code)) this.throttle = clamp01(this.throttle + THROTTLE_KEY_STEP);
+    if (this.bound('throttleDown', code)) this.throttle = clamp01(this.throttle - THROTTLE_KEY_STEP);
 
     if (code.startsWith('Digit')) {
       const n = Number(code.slice(5));

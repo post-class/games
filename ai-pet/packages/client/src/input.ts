@@ -35,6 +35,8 @@ export interface InputCallbacks {
   onPick?: (world: Vec2, screen: Vec2) => void;
   /** Space（ペット呼び出し） */
   onCall?: () => void;
+  /** B（ベンチ）/ F（花壇）/ L（ランタン）で設置 */
+  onPlace?: (type: 'bench' | 'flowerbed' | 'lantern') => void;
   /** Enter（チャット欄フォーカス） */
   onChatFocus?: () => void;
 }
@@ -96,6 +98,12 @@ export class InputController {
       }
       if (e.code === 'Enter') {
         this.cb.onChatFocus?.();
+        return;
+      }
+      // 設置物のショートカット（B/F/L）。移動キー（WASD）と重ならない位置を選んである
+      if (e.code === 'KeyB' || e.code === 'KeyF' || e.code === 'KeyL') {
+        const type = e.code === 'KeyB' ? 'bench' : e.code === 'KeyF' ? 'flowerbed' : 'lantern';
+        this.cb.onPlace?.(type);
         return;
       }
       if (!(e.code in KEY_AXIS)) return;

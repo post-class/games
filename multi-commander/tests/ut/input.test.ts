@@ -34,10 +34,15 @@ function makeWindow(): FakeWindow {
 }
 
 function makeElement(): HTMLElement {
+  const listeners = new Map<string, EventListener>();
   return {
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
+    addEventListener: vi.fn((type: string, listener: EventListener) => listeners.set(type, listener)),
+    removeEventListener: vi.fn((type: string) => listeners.delete(type)),
     getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 100 }),
+    dispatchEvent: (event: Event & { type: string }) => {
+      listeners.get(event.type)?.(event as unknown as Record<string, unknown>);
+      return true;
+    },
   } as unknown as HTMLElement;
 }
 
@@ -125,6 +130,33 @@ describe('InputManager', () => {
     key('KeyU');
     input.update(1);
     expect(input.throttle).toBe(1);
+
+    input.dispose();
+  });
+
+  it('スロットル増減キーの短い入力を1回の操作として受け付ける', () => {
+    const input = new InputManager(makeElement());
+    input.throttle = 0;
+
+    key('BracketRight');
+    expect(input.throttle).toBe(0.1);
+    key('BracketLeft');
+    expect(input.throttle).toBe(0);
+
+    input.dispose();
+  });
+
+  it('ホイール入力でスロットルを増減する', () => {
+    const element = makeElement();
+    const input = new InputManager(element);
+    input.throttle = 0.5;
+    const preventDefault = vi.fn();
+
+    element.dispatchEvent({ type: 'wheel', deltaY: -100, preventDefault } as unknown as Event & { type: string });
+    expect(input.throttle).toBe(0.6);
+    element.dispatchEvent({ type: 'wheel', deltaY: 100, preventDefault } as unknown as Event & { type: string });
+    expect(input.throttle).toBe(0.5);
+    expect(preventDefault).toHaveBeenCalledTimes(2);
 
     input.dispose();
   });

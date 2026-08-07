@@ -104,7 +104,8 @@ export class Game {
     this.hud = new HudView(overlay);
     this.comms = new CommsMenu(overlay, (a) => this.onComms(a));
     this.tutorial = new Tutorial(overlay);
-    this.input = new InputManager(overlay);
+    // HUD オーバーレイは pointer-events: none なので、ホイールは canvas で受ける。
+    this.input = new InputManager(canvas);
     this.sound.setCamera(this.scene.camera);
     // 自動再生制限があるので、最初の操作で音を起こす
     const wake = () => {
