@@ -20,9 +20,15 @@ import { DialogueService, TALK_RANGE, type DialogueResult } from '../pet/dialogu
 import type { PetBrain } from '../pet/brain.ts';
 import { memoryFromEvent } from '../pet/memory.ts';
 
-/** 吹き出しの表示時間（文字数から決める） */
+/**
+ * 吹き出しの表示時間（文字数から決める）。
+ *
+ * 以前は短い返事だと3.2秒で消えていて、目を離すと読めずに終わっていた
+ * （撮影のためにDOMを監視しないと捕まえられないほど短かった）。
+ * **気づけない短さは実質「無い」のと同じ**なので、下限5秒・上限8秒に広げている。
+ */
 function bubbleMs(text: string): number {
-  return Math.min(9000, 2200 + text.length * 180);
+  return Math.min(8000, Math.max(5000, 1800 + text.length * 200));
 }
 
 export interface PetSession {

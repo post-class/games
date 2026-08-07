@@ -14,6 +14,11 @@ import { collectConsoleErrors, ensurePet, gotoGame, meaningfulErrors, readDebug 
 /** 重なりを見る相手（案内バナーが隠してはいけないもの） */
 const OTHERS = '.hud-chip, .chat, .pad-btn';
 
+/** ミニマップの「実際に見えている部分」。閉じているときはトグルだけ */
+const MINIMAP_PARTS = '.minimap-toggle, .minimap canvas';
+
+const MINIMAP_TOGGLE = '[data-testid=minimap-toggle]';
+
 interface Box {
   top: number;
   bottom: number;
@@ -25,6 +30,33 @@ async function boxOf(page: import('@playwright/test').Page, selector: string): P
   const b = await page.locator(selector).boundingBox();
   if (!b) throw new Error(`要素が見つかりません: ${selector}`);
   return { top: b.y, bottom: b.y + b.height, left: b.x, right: b.x + b.width };
+}
+
+/**
+ * ミニマップとHUDチップの矩形が重なっている組み合わせを返す（E-5）。
+ *
+ * 390×844では時計・接続・ペット・音のチップが2段に折返し、
+ * 右上のミニマップの下に「音なし」チップが潜り込んでいた。
+ */
+async function minimapHits(page: import('@playwright/test').Page): Promise<string[]> {
+  return page.evaluate((sel) => {
+    const visible = (el: Element): boolean => {
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    };
+    const out: string[] = [];
+    const chips = [...document.querySelectorAll('.hud-chip')].filter(visible);
+    for (const m of [...document.querySelectorAll(sel)].filter(visible)) {
+      const a = m.getBoundingClientRect();
+      for (const c of chips) {
+        const b = c.getBoundingClientRect();
+        if (a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom) {
+          out.push(`${m.className || m.tagName}×${c.className}「${(c.textContent ?? '').trim().slice(0, 10)}」`);
+        }
+      }
+    }
+    return out;
+  }, MINIMAP_PARTS);
 }
 
 test.describe('スマホ画面', () => {
@@ -68,6 +100,31 @@ test.describe('スマホ画面', () => {
     expect(hits, `案内バナーが重なっている相手:\n${hits.join('\n')}`).toEqual([]);
 
     expect(meaningfulErrors(errors)).toEqual([]);
+  });
+
+  test('ミニマップがHUDチップに重ならない（閉じていても開いていても）', async ({ page }) => {
+    // 報告のあった条件（iPhone相当の390×844）をそのまま再現する。
+    // `mobile` プロジェクトの端末定義より狭いので、チップの折返しが増えて条件が厳しい
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoGame(page, { pad: '1' });
+    await ensurePet(page);
+
+    // タッチ端末では既定で閉じている。トグルだけが出ている状態で重なりを見る
+    await expect(page.locator('[data-testid=minimap]')).toHaveClass(/closed/);
+    expect(await minimapHits(page), 'ミニマップ（閉）とHUDチップが重なっている').toEqual([]);
+
+    // 開くと地図の本体（108px）が出る。こちらも重ならないこと
+    await page.locator(MINIMAP_TOGGLE).click();
+    await expect(page.locator('[data-testid=minimap]')).not.toHaveClass(/closed/);
+    await expect(page.locator('[data-testid=minimap-canvas]')).toBeVisible();
+    expect(await minimapHits(page), 'ミニマップ（開）とHUDチップが重なっている').toEqual([]);
+
+    // 右側を空けたぶんでチップが押し出されて横スクロールが出ていないこと
+    const widths = await page.evaluate(() => ({
+      scroll: document.documentElement.scrollWidth,
+      inner: window.innerWidth,
+    }));
+    expect(widths.scroll).toBe(widths.inner);
   });
 
   test('バーチャルパッドで実際に移動できる', async ({ page }) => {

@@ -14,7 +14,8 @@ import { Camera } from './render/camera.ts';
 import { TileMap } from './render/tilemap.ts';
 import { ActorLayer } from './render/sprites.ts';
 import { ObjectLayer } from './render/objects.ts';
-import { TimeTint } from './render/effects.ts';
+import { NightSky, TimeTint } from './render/effects.ts';
+import { LightLayer } from './render/lights.ts';
 import { WeatherLayer } from './render/weather.ts';
 import { Minimap } from './render/minimap.ts';
 import { WorldState, interpolatedPos } from './state/world.ts';
@@ -54,6 +55,8 @@ const tilemap = new TileMap(stage.app.renderer, stage.layers, textures.terrain, 
 const actorLayer = new ActorLayer(stage.layers, textures.chars, camera);
 const objectLayer = new ObjectLayer(stage.layers, textures.objects, camera);
 const tint = new TimeTint(stage.layers);
+const nightSky = new NightSky(stage.layers);
+const lights = new LightLayer(stage.layers, camera);
 const weather = new WeatherLayer(stage.layers);
 const minimap = new Minimap();
 const bubbles = new BubbleLayer();
@@ -86,6 +89,9 @@ function renderClock(): void {
     `${clock.islandDay}日目 ${SEASON_LABEL[clock.season] ?? clock.season}・` +
     `${TOD_LABEL[clock.timeOfDay] ?? clock.timeOfDay} ${WEATHER_LABEL[clock.weather] ?? clock.weather}`;
   tint.setTimeOfDay(clock.timeOfDay);
+  nightSky.setTimeOfDay(clock.timeOfDay);
+  nightSky.setIslandDay(clock.islandDay);
+  lights.setTimeOfDay(clock.timeOfDay);
   weather.setWeather(clock.weather);
   audio.setAmbience(clock.timeOfDay, clock.weather);
 }
@@ -125,6 +131,7 @@ let constructions: import('@ai-pet/shared').ConstructionWire[] = [];
 /** 共同建設の進捗をHUDに出す（近くにあるものだけ） */
 function renderConstructions(items: import('@ai-pet/shared').ConstructionWire[]): void {
   constructions = items;
+  lights.setConstructions(items);
   const el = document.getElementById('hud-build');
   if (!el) return;
   const active = items.filter((c) => !c.done);
@@ -470,7 +477,9 @@ stage.app.ticker.add(() => {
 
   objectLayer.sync(world);
   actorLayer.sync(world, now, dtSec);
+  lights.update(world, dtSec);
   tint.update(stage.app.renderer.width, stage.app.renderer.height, dtSec);
+  nightSky.update(stage.app.renderer.width, stage.app.renderer.height, dtSec);
   weather.update(stage.app.renderer.width, stage.app.renderer.height, dtSec);
   tutorial.update(now);
   minimap.update(world);

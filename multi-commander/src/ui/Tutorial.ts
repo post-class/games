@@ -15,11 +15,14 @@ export interface TutorialContext {
 
 interface Step {
   text: string;
-  /** 条件を満たしたか */
+  /** 旧チュートリアル互換用。進行判定には使用しない。 */
   done: (ctx: TutorialContext, self: Tutorial) => boolean;
-  /** 表示してから最低これだけ出す (秒) */
+  /** 旧チュートリアル互換用。進行判定には使用しない。 */
   minShow?: number;
 }
+
+/** 操作の達成状況に関係なく、一定時間ごとに案内を切り替える。 */
+const STEP_DURATION = 20;
 
 const SIMPLE_STEPS: Step[] = [
   {
@@ -120,7 +123,7 @@ const DETAILED_STEPS: Step[] = [
 
 /**
  * 初回プレイ向けの短い操作案内。
- * 条件を満たすと次へ進み、最後まで進むと以後は表示しない。
+ * 各ステップを20秒ずつ表示し、最後まで進むと最初へ戻って繰り返す。
  */
 export class Tutorial {
   active = false;
@@ -133,7 +136,6 @@ export class Tutorial {
   private mode: TutorialMode = 'simple';
   private usedActions = new Set<string>();
   private unsubs: Array<() => void> = [];
-  private doneAt?: number;
 
   constructor(container: HTMLElement) {
     this.el = document.createElement('div');
@@ -168,7 +170,6 @@ export class Tutorial {
     this.shotsFired = 0;
     this.missilesFired = 0;
     this.usedActions.clear();
-    this.doneAt = undefined;
     this.render();
   }
 
@@ -197,27 +198,15 @@ export class Tutorial {
     const steps = this.mode === 'detailed' ? DETAILED_STEPS : SIMPLE_STEPS;
     const step = steps[this.index];
     if (!step) {
-      this.finish();
-      return;
-    }
-    if (this.doneAt === undefined) {
-      if (this.stepElapsed >= (step.minShow ?? 0) && step.done(ctx, this)) {
-        this.doneAt = this.stepElapsed;
-        this.el.classList.add('done');
-      }
-      return;
-    }
-    // 達成表示を少し見せてから次へ
-    if (this.stepElapsed - this.doneAt > 1.1) {
-      this.index++;
+      this.index = 0;
       this.stepElapsed = 0;
-      this.doneAt = undefined;
-      this.el.classList.remove('done');
-      if (this.index >= steps.length) {
-        bus.emit('announce', { text: '訓練完了', kind: 'good' });
-        this.finish();
-        return;
-      }
+      this.render();
+      return;
+    }
+    // 入力の達成状況では進めず、各案内を一定時間表示する。
+    if (this.stepElapsed >= STEP_DURATION) {
+      this.index = (this.index + 1) % steps.length;
+      this.stepElapsed = 0;
       this.render();
     }
   }

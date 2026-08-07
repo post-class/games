@@ -21,8 +21,11 @@ export const RECONCILE_DURATION = 0.2;
 export const RECONCILE_SNAP = 3;
 /** 画面外判定のマージン（タイル） */
 const CULL_MARGIN = 2;
-/** スプライトのアンカー（足元の影の中心。placeholderの絵と一致させる） */
-const ANCHOR_Y = 43 / CHAR_PX;
+/**
+ * スプライトのアンカー（足元の影の中心。placeholderの絵と一致させる）。
+ * 接地影（`shadows.ts`）が同じ位置に楕円を描くので export している。
+ */
+export const ANCHOR_Y = 43 / CHAR_PX;
 
 /**
  * 種ごとの表示倍率。
@@ -30,7 +33,7 @@ const ANCHOR_Y = 43 / CHAR_PX;
  * いのししは絵が横長なので、48px枠に収めると高さが他の動物の6割ほどになり、
  * 「ひとまわり大きい」という設定が見た目に出ない。枠ごと大きくして補う。
  */
-const SPECIES_SCALE: Record<string, number> = {
+export const SPECIES_SCALE: Record<string, number> = {
   boar: 1.3,
 };
 

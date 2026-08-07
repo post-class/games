@@ -116,6 +116,54 @@ interface Bubble {
 /** 画面内に出す吹き出しの上限（多すぎるとうるさい） */
 const MAX_BUBBLES = 5;
 
+/**
+ * しっぽのぶん持ち上げる量（px）。
+ *
+ * `main.ts` が渡してくる座標は「ペットの頭のあたり」で、CSSの `.bubble` は
+ * そこに**箱の下辺**を合わせる。しっぽ（`.bubble::before`）は箱より14px下へ出るので、
+ * その分＋わずかな隙間を足して持ち上げ、しっぽの先がペットの頭を指すようにする。
+ * main.ts を触らずに位置を詰められるよう、オフセットはこちら側で吸収している。
+ */
+const TAIL_LIFT = 20;
+
+/** 重なりを避けるときの縦の隙間（px） */
+const STACK_GAP = 6;
+
+/** 画面上の吹き出しの矩形（左右は中央、yは**下辺**） */
+export interface BubbleBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * 重なった吹き出しを上へ逃がす。
+ *
+ * 下にいる子（yが大きい＝手前）を動かさず、かぶった子だけを持ち上げる。
+ * 返すのは入力と同じ順の新しい配列（`y` だけが変わる）。
+ * DOMを触らない純粋関数にしてあるのはテストしやすさのため。
+ */
+export function stackBubbles(boxes: readonly BubbleBox[], gap = STACK_GAP): BubbleBox[] {
+  const out = boxes.map((b) => ({ ...b }));
+  // yの大きい順（画面の下にある順）に確定させる
+  const order = out.map((_, i) => i).sort((a, b) => (out[b] as BubbleBox).y - (out[a] as BubbleBox).y);
+  const placed: BubbleBox[] = [];
+  for (const i of order) {
+    const it = out[i] as BubbleBox;
+    for (const q of placed) {
+      // 横がかすりもしないなら縦は気にしない
+      if (Math.abs(it.x - q.x) >= (it.w + q.w) / 2) continue;
+      // 矩形は (y - h) 〜 y。重なっていたら相手の上へ逃がす
+      if (it.y > q.y - q.h && it.y - it.h < q.y) it.y = q.y - q.h - gap;
+    }
+    // 画面の外まで押し出さない
+    if (it.y < it.h + 4) it.y = it.h + 4;
+    placed.push(it);
+  }
+  return out;
+}
+
 export class BubbleLayer {
   private root: HTMLElement;
   private bubbles: Bubble[] = [];
@@ -151,8 +199,15 @@ export class BubbleLayer {
     }
   }
 
-  /** 毎フレーム、画面座標に合わせて位置を更新する */
+  /**
+   * 毎フレーム、画面座標に合わせて位置を更新する。
+   *
+   * 「表示の切替 → 大きさの計測 → 位置の書き込み」を3段に分けている。
+   * 書いてから読むと要素ごとに再レイアウトが走るので、読みをまとめている。
+   */
   update(nowMs: number, screenPosOf: (entityId: number) => { x: number; y: number } | null): void {
+    // 1. 期限切れを片付け、画面に出すものだけ拾う
+    const shown: { b: Bubble; x: number; y: number }[] = [];
     for (let i = this.bubbles.length - 1; i >= 0; i--) {
       const b = this.bubbles[i] as Bubble;
       if (nowMs >= b.until) {
@@ -165,9 +220,27 @@ export class BubbleLayer {
         b.el.style.display = 'none';
         continue;
       }
+      // 大きさを測る前に表示に戻す（display:none のままだと0で返る）
       b.el.style.display = '';
-      b.el.style.left = `${Math.round(p.x)}px`;
-      b.el.style.top = `${Math.round(p.y)}px`;
+      shown.push({ b, x: p.x, y: p.y - TAIL_LIFT });
+    }
+    if (shown.length === 0) return;
+
+    // 2. まとめて計測 → 重なりを解消
+    const boxes = shown.map((s) => ({
+      x: s.x,
+      y: s.y,
+      w: s.b.el.offsetWidth,
+      h: s.b.el.offsetHeight,
+    }));
+    const stacked = stackBubbles(boxes);
+
+    // 3. まとめて書き込む
+    for (let i = 0; i < shown.length; i++) {
+      const s = shown[i] as { b: Bubble; x: number; y: number };
+      const box = stacked[i] as BubbleBox;
+      s.b.el.style.left = `${Math.round(box.x)}px`;
+      s.b.el.style.top = `${Math.round(box.y)}px`;
     }
   }
 

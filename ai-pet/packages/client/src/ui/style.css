@@ -254,33 +254,91 @@ html, body {
 /* ---------- 吹き出し ---------- */
 .bubbles { position: fixed; inset: 0; pointer-events: none; z-index: 15; }
 
+/*
+ * 宣伝資料（images/screen-talk.png）の吹き出しに寄せて大きく丸くしている。
+ * 輪郭は太い `--ink`、しっぽは「外側=輪郭 / 内側=塗り」の三角2枚で作る
+ * （1枚だと輪郭色のベタ塗りになって、宣伝資料の白抜きのしっぽにならない）。
+ */
 .bubble {
   position: absolute;
   transform: translate(-50%, -100%);
-  max-width: 13em;
+  transform-origin: 50% 100%;
+  max-width: min(18em, 62vw);
+  min-width: 3.2em;
   background: var(--cream);
-  border: 3px solid var(--ink);
-  border-radius: 14px;
-  padding: 4px 10px 5px;
-  font-size: 0.78rem;
+  border: 4px solid var(--ink);
+  border-radius: 24px;
+  padding: 10px 16px 11px;
+  font-size: 1rem;
   font-weight: 700;
-  line-height: 1.5;
-  box-shadow: 0 3px 0 rgba(74, 59, 42, 0.18);
+  line-height: 1.55;
+  text-align: center;
+  box-shadow: 0 4px 0 rgba(74, 59, 42, 0.18);
   white-space: pre-wrap;
+  animation: bubble-pop 0.18s ease-out;
 }
 
+/* 広い画面ではもう一段大きく（宣伝資料は画面のかなりの面積を占める） */
+@media (min-width: 900px) {
+  .bubble {
+    max-width: min(22em, 44vw);
+    font-size: 1.12rem;
+    border-radius: 28px;
+    padding: 12px 20px 13px;
+  }
+}
+
+/* しっぽ: 外側（輪郭）。箱の下辺から14px下へ出る＝chat.ts の TAIL_LIFT と対応 */
+.bubble::before,
 .bubble::after {
   content: '';
   position: absolute;
   left: 50%;
-  bottom: -9px;
-  transform: translateX(-50%);
-  border: 6px solid transparent;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-color: transparent;
+}
+
+.bubble::before {
+  bottom: -18px;
+  margin-left: -13px;
+  border-width: 18px 13px 0;
   border-top-color: var(--ink);
+}
+
+/* しっぽ: 内側（塗り）。輪郭を細く残しつつ、箱の下辺の線を消して吹き出しとつなぐ */
+.bubble::after {
+  bottom: -12px;
+  margin-left: -9px;
+  border-width: 16px 9px 0;
+  border-top-color: var(--cream);
+}
+
+@keyframes bubble-pop {
+  from { transform: translate(-50%, -100%) scale(0.86); opacity: 0; }
+  to { transform: translate(-50%, -100%) scale(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble { animation: none; }
 }
 
 .hud-pet { background: var(--peach); }
 .hud-chip.hidden { display: none; }
+
+/*
+ * ペットのチップだけはセリフを連結するので長くなる。
+ * `.hud` の padding-right でミニマップぶんを空けても、**1個のチップが行幅を超えると
+ * 折返さずにはみ出す**ため、390px幅でミニマップの下に潜り込んでいた（E-5）。
+ * 行幅で切って三点リーダに逃がす。
+ */
+.hud-pet {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* ---------- ペット情報パネル ---------- */
 .petpanel {
@@ -536,4 +594,21 @@ body.minimap-open .petpanel { top: 212px; }
 
 @media (max-width: 640px) {
   body.minimap-open .petpanel { top: 158px; }
+}
+
+/*
+ * ミニマップの幅ぶんをHUDの右側に空けておく（E-5）。
+ *
+ * HUDは `left/right: 10px` の折返しflexで、ミニマップと右端を共有している。
+ * スマホ（390px）ではチップが2段目まで伸びて「音なし」チップがミニマップの下に
+ * 潜り込んでいた。チップが折返す幅そのものを狭めれば、段数が増えても横で交わらない。
+ *
+ * 内訳: 閉じているときはトグルボタン（約42px）、開いているときは
+ * canvas（160px / 狭い画面は108px）＋輪郭6px に隙間を足した値。
+ */
+.hud { padding-right: 56px; }
+body.minimap-open .hud { padding-right: 190px; }
+
+@media (max-width: 640px) {
+  body.minimap-open .hud { padding-right: 136px; }
 }
