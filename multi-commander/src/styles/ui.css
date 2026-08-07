@@ -3,7 +3,8 @@
 .mc-comms {
   position: absolute;
   left: 24px;
-  bottom: calc(32vh + 18px);
+  /* 縮小したコクピットの直上に出し、視界中央へ食い込ませない。 */
+  bottom: calc(clamp(150px, 16vh, 170px) + var(--message-bar-height) + 18px);
   min-width: 320px;
   background: var(--panel);
   border: 1px solid var(--panel-line);

@@ -586,6 +586,10 @@ export class Game {
           this.tutorial.noteAction(a);
           this.hud.damageMode = !this.hud.damageMode;
           break;
+        case 'hudPanelToggle':
+          this.tutorial.noteAction(a);
+          this.hud.toggleRightVduPage();
+          break;
         case 'navMap':
           this.tutorial.noteAction(a);
           this.hud.navMap.toggle();

@@ -121,6 +121,8 @@ export class HudView {
 
   /** D キーで右 VDU を武装/被害に切り替える */
   damageMode = false;
+  /** V キーで切り替える、通常時の右 VDU ページ */
+  private rightVduPage: 'tactical' | 'weapons' = 'tactical';
   /** N キーで開く航法マップ */
   readonly navMap: NavMap;
   private shown = true;
@@ -283,6 +285,11 @@ export class HudView {
     this.vignetteLevel = 0;
     this.vignette.style.opacity = '0';
     this.navMap.setOpen(false);
+    this.rightVduPage = 'tactical';
+  }
+
+  toggleRightVduPage(): void {
+    this.rightVduPage = this.rightVduPage === 'tactical' ? 'weapons' : 'tactical';
   }
 
   private makeGauge(id: string, label: string): HTMLElement {
@@ -836,12 +843,13 @@ export class HudView {
       : gun
         ? gunFireStatus(ship, gun)
         : '発射不可 — 武装なし';
-    const body =
+    const tacticalBody =
       `<div class="mc-vdu-section">TARGET</div>${targetHtml}` +
       `<div class="mc-vdu-section">NAV / WING</div>${navHtml}` +
       `<div class="row"><span class="k">WINGMAN</span><span class="${wingClass}">${escapeHtml(wingName)}</span></div>` +
-      `<div class="row"><span class="k">STATUS</span><span class="${wingClass}">${wingState}</span></div>` +
-      `<div class="mc-vdu-section">WEAPONS  [X]</div>` +
+      `<div class="row"><span class="k">STATUS</span><span class="${wingClass}">${wingState}</span></div>`;
+    const weaponsBody =
+      `<div class="mc-vdu-section">SELECTED WEAPON</div>` +
       `<div class="mc-weapon-selected">` +
       `<div class="row"><span class="k">SELECTED</span><span class="active-weapon">${escapeHtml(selected)}</span></div>` +
       `<div class="weapon-use">${escapeHtml(selectedUse)}</div>` +
@@ -849,9 +857,15 @@ export class HudView {
       `<div class="row"><span class="k">ENERGY</span><span>${ship.energy.toFixed(0)} / ${ship.def.energy}${energyCost ? `　(−${energyCost}/shot)` : ''}</span></div>` +
       `<div class="mc-fire-status ${fireStatus.startsWith('発射不可') ? 'blocked' : fireStatus.includes('損傷') ? 'warn' : ''}">${escapeHtml(fireStatus)}</div>` +
       `</div>` +
+      `<div class="mc-vdu-section">ORDNANCE</div>` +
       lines.join('') +
       lock;
-    this.setVdu(this.vduRight, 'TARGET / NAV', body);
+    this.setVdu(
+      this.vduRight,
+      this.rightVduPage === 'tactical' ? 'TARGET / NAV  [V]' : 'WEAPONS  [V]',
+      this.rightVduPage === 'tactical' ? tacticalBody : weaponsBody,
+      this.rightVduPage === 'tactical' ? 'tactical' : 'weapons',
+    );
   }
 
   private setVdu(box: HTMLElement, title: string, bodyHtml: string, extraClass = ''): void {

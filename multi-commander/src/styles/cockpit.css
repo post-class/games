@@ -18,10 +18,10 @@
     linear-gradient(
       90deg,
       rgba(1, 4, 6, 0.78) 0,
-      rgba(1, 4, 6, 0.78) calc((100% - min(100vw, 133.333vh)) / 2),
-      rgba(1, 4, 6, 0) calc((100% - min(100vw, 133.333vh)) / 2 + 42px),
-      rgba(1, 4, 6, 0) calc(100% - (100% - min(100vw, 133.333vh)) / 2 - 42px),
-      rgba(1, 4, 6, 0.78) calc(100% - (100% - min(100vw, 133.333vh)) / 2),
+      rgba(1, 4, 6, 0.78) calc((100% - min(100vw, 140vh)) / 2),
+      rgba(1, 4, 6, 0) calc((100% - min(100vw, 140vh)) / 2 + 42px),
+      rgba(1, 4, 6, 0) calc(100% - (100% - min(100vw, 140vh)) / 2 - 42px),
+      rgba(1, 4, 6, 0.78) calc(100% - (100% - min(100vw, 140vh)) / 2),
       rgba(1, 4, 6, 0.78) 100%
     ),
     linear-gradient(180deg, rgba(2, 7, 9, 0.1), rgba(2, 7, 9, 0.25));
@@ -32,7 +32,7 @@
   top: 8px;
   bottom: var(--message-bar-height);
   left: 50%;
-  width: min(100vw, 133.333vh);
+  width: min(100vw, 140vh);
   transform: translateX(-50%);
   border-left: 2px solid rgba(25, 35, 41, 0.86);
   border-right: 2px solid rgba(25, 35, 41, 0.86);
@@ -317,10 +317,11 @@
 .mc-cockpit {
   position: absolute;
   left: 50%;
-  width: min(100vw, 133.333vh);
+  width: min(100vw, 140vh);
   transform: translateX(-50%);
   bottom: var(--message-bar-height);
-  height: clamp(228px, 31vh, 300px);
+  /* 計器盤を従来の約半分にして、前方視界を優先する。 */
+  height: clamp(150px, 16vh, 170px);
   pointer-events: none;
   z-index: 4;
   overflow: visible;
@@ -349,8 +350,8 @@
 .mc-pillar {
   position: absolute;
   top: -12px;
-  width: 24px;
-  height: 96px;
+  width: 18px;
+  height: 64px;
   background: linear-gradient(90deg, rgba(26, 34, 41, 0.96), rgba(9, 13, 17, 0.55));
   pointer-events: none;
 }
@@ -449,6 +450,7 @@
 .mc-vdu.right {
   font-size: 9px;
   line-height: 1.18;
+  overflow: hidden;
 }
 .mc-vdu.right .mc-vdu-section {
   margin: 3px 0 1px;
@@ -727,12 +729,30 @@
 
 @media (max-height: 760px) {
   .mc-cockpit {
-    /* 武器用途・弾数・エネルギー・ロックを追加しても720pで切れない高さを確保する。 */
-    height: 300px;
+    height: 150px;
   }
   .mc-vdu {
-    font-size: 11px;
-    line-height: 1.35;
+    font-size: 8.5px;
+    line-height: 1.08;
+    padding: 3px 5px;
+  }
+
+  .mc-vdu-title {
+    font-size: 8px;
+    margin-bottom: 2px;
+    padding-bottom: 1px;
+  }
+  .mc-vdu-section {
+    margin: 2px 0 1px;
+    padding-top: 1px;
+    font-size: 7px;
+  }
+  .mc-vdu .name {
+    font-size: 9px;
+  }
+  .mc-status-chip {
+    font-size: 7px;
+    margin-top: 1px;
   }
 
   /* 720p でも追加した武器情報を切り捨てず、右 VDU 内だけで読めるように詰める。 */
@@ -740,8 +760,7 @@
     padding: 4px 6px;
     font-size: 8.5px;
     line-height: 1.05;
-    overflow-y: auto;
-    scrollbar-width: thin;
+    overflow: hidden;
   }
   .mc-vdu.right .mc-vdu-title {
     margin-bottom: 2px;
@@ -765,6 +784,49 @@
     margin-top: 1px;
     font-size: 8px;
   }
+
+  /* 右 VDU は V キーでページ分割するため、各ページをスクロールなしで収める。 */
+  .mc-vdu.right.tactical,
+  .mc-vdu.right.weapons {
+    padding: 2px 4px;
+    font-size: 7px;
+    line-height: 1;
+  }
+  .mc-vdu.right.tactical .mc-vdu-section,
+  .mc-vdu.right.weapons .mc-vdu-section {
+    margin: 1px 0;
+    padding-top: 1px;
+    font-size: 7px;
+  }
+  .mc-vdu.right.weapons .weapon-use {
+    display: none;
+  }
+  .mc-vdu.right.compact {
+    padding: 0 3px;
+    font-size: 6.2px;
+    line-height: 1;
+  }
+  .mc-vdu.right.compact .mc-sys-sep {
+    margin-top: 1px;
+    padding-top: 1px;
+  }
+
+  .mc-gauges {
+    padding: 3px 5px;
+    gap: 2px;
+  }
+  .mc-gauge {
+    font-size: 7px;
+  }
+  .mc-gauge .bar {
+    height: 4px;
+  }
+  .mc-speed {
+    font-size: 14px;
+  }
+  .mc-speed small {
+    font-size: 7px;
+  }
 }
 
 /* 小さい画面では、左右 VDU と中央計器を2段に分けて横幅へ収める。 */
@@ -779,7 +841,7 @@
 
   .mc-cockpit {
     width: 100vw;
-    height: 340px;
+    height: 170px;
   }
 
   /* 縦長画面では左右 VDU を先に読ませ、中央計器を2段目へ送る。 */

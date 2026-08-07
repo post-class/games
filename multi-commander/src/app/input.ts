@@ -11,6 +11,7 @@ export type InputAction =
   | 'autopilot'
   | 'comms'
   | 'damageDisplay'
+  | 'hudPanelToggle'
   | 'viewToggle'
   | 'navMap'
   | 'nextSecondary'
@@ -569,6 +570,7 @@ const EDGE_BINDINGS: Array<[ControlBinding, InputAction]> = [
   ['autopilot', 'autopilot'],
   ['comms', 'comms'],
   ['damageDisplay', 'damageDisplay'],
+  ['hudPanelToggle', 'hudPanelToggle'],
   ['viewToggle', 'viewToggle'],
   ['navMap', 'navMap'],
   ['nextSecondary', 'nextSecondary'],
@@ -589,6 +591,7 @@ const KEY_LABELS: Record<string, string> = {
   Escape: 'Esc',
   Backquote: '`',
   Backspace: 'Backspace',
+  KeyV: 'V',
   BracketRight: ']',
   BracketLeft: '[',
   Equal: '=',

@@ -19,6 +19,7 @@ export type ControlBinding =
   | 'autopilot'
   | 'comms'
   | 'damageDisplay'
+  | 'hudPanelToggle'
   | 'viewToggle'
   | 'navMap'
   | 'nextSecondary'
@@ -50,6 +51,7 @@ export const CONTROL_BINDINGS: Array<{ id: ControlBinding; label: string }> = [
   { id: 'autopilot', label: 'オートパイロット' },
   { id: 'comms', label: '通信メニュー' },
   { id: 'damageDisplay', label: '被害状況' },
+  { id: 'hudPanelToggle', label: 'HUD情報切替' },
   { id: 'viewToggle', label: '視点切替' },
   { id: 'navMap', label: 'Nav マップ' },
   { id: 'nextSecondary', label: '副兵装切替' },
@@ -79,6 +81,7 @@ export const DEFAULT_KEY_BINDINGS: KeyBindings = {
   autopilot: 'KeyA',
   comms: 'KeyC',
   damageDisplay: 'KeyD',
+  hudPanelToggle: 'KeyV',
   viewToggle: 'KeyF',
   navMap: 'KeyN',
   nextSecondary: 'KeyX',
