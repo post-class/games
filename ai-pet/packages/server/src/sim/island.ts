@@ -50,6 +50,8 @@ export class IslandSim {
   readonly islandId: string;
   /** 直前のstepで島時間の表示が変わったか（クライアントへclockを送る判断に使う） */
   clockChanged = false;
+  /** 島日が変わったときに呼ばれる（終わった島日を受ける）。日記の生成に使う */
+  private dayEndHooks: ((endedIslandDay: number, tick: number) => void)[] = [];
 
   private timer: NodeJS.Timeout | null = null;
   private accumulatorMs = 0;
@@ -91,6 +93,25 @@ export class IslandSim {
   /** 毎tickの最後に呼ばれる処理を登録する（ブロードキャストなど） */
   onTick(fn: (tick: number) => void): void {
     this.hooks.push(fn);
+  }
+
+  /**
+   * 島日の境界で呼ばれる処理を登録する。引数は**終わった島日**。
+   * 早送り（fastforward）からも呼ばれる。
+   */
+  onIslandDayEnd(fn: (endedIslandDay: number, tick: number) => void): void {
+    this.dayEndHooks.push(fn);
+  }
+
+  /** 島日の境界を通知する（step と fastForward の両方から使う） */
+  notifyIslandDayEnd(endedIslandDay: number, tick: number): void {
+    for (const fn of this.dayEndHooks) {
+      try {
+        fn(endedIslandDay, tick);
+      } catch (e) {
+        console.error('[island] 島日境界の処理でエラー', e);
+      }
+    }
   }
 
   clockState(): ClockState {
@@ -136,6 +157,7 @@ export class IslandSim {
     this.tick++;
     const changed = this.clock.advance(this.tick);
     this.clockChanged = changed.dayChanged || changed.weatherChanged;
+    if (changed.dayChanged) this.notifyIslandDayEnd(this.clock.islandDay - 1, this.tick);
     if (changed.weatherChanged) {
       this.events.emit(this.tick, {
         kind: 'weather',

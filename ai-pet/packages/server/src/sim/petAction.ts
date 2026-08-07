@@ -34,6 +34,23 @@ const FOLLOW_CATCHUP = 3.2;
 const FOLLOW_GIVEUP = 60;
 /** 空腹・眠気がこの切迫度を超えたら、追従より自分の世話を優先する */
 const SELF_CARE_URGENCY = 0.55;
+/**
+ * 近くにペットが居たら声をかける距離と条件。
+ *
+ * 「ペットたちは自分同士で会話する」（宣伝資料）を Reflex 層で成立させる。
+ * LLMの行動決定（talk_to / visit_friend）だけに任せると、
+ * LLMが落ちているときやモックのときに一度も出会わなくなってしまう。
+ */
+const GREET_RADIUS = 3;
+/**
+ * 声をかけるのに必要な社交欲の切迫度。
+ * 0.25（社交欲70相当）だと出会ってから20分以上黙っていることになり、
+ * 看板機能の「ペット同士が勝手に話す」が体験できないので低くしてある。
+ * 連発は GREET_COOLDOWN_TICKS と petTalk 側のクールダウン（5分/20分）で抑える。
+ */
+const GREET_SOCIAL_URGENCY = 0.05;
+/** 同じ相手に声をかけ直す間隔（島の1分ぶん） */
+const GREET_COOLDOWN_TICKS = 240;
 /** 1回の採食量 */
 const EAT_PORTION = 1.5;
 /** 食料を探す半径（空腹で広がる） */
@@ -68,6 +85,8 @@ interface PetMemo {
   arrived: boolean;
   /** intentの実行を諦めたtick（連続で無駄な再試行をしないため） */
   intentFailedAtTick: number;
+  /** 最後に他のペットへ声をかけたtick */
+  lastGreetTick: number;
 }
 
 const memos = new WeakMap<Actor, PetMemo>();
@@ -75,7 +94,7 @@ const memos = new WeakMap<Actor, PetMemo>();
 function memoOf(actor: Actor): PetMemo {
   let m = memos.get(actor);
   if (!m) {
-    m = { lastNavTick: -9999, arrived: false, intentFailedAtTick: -9999 };
+    m = { lastNavTick: -9999, arrived: false, intentFailedAtTick: -9999, lastGreetTick: -9999 };
     memos.set(actor, m);
   }
   return m;
@@ -133,6 +152,39 @@ export class PetActions {
       this.setAction(pet, selfCare, tick);
       return;
     }
+    // 挨拶中は続ける。
+    // ここが無いと、次のtickで目標（intent）に上書きされて挨拶が1tickで終わり、
+    // ペット同士の会話の条件（socialize中）を満たす時間が無くなる（実測で発見）。
+    const current = pet.action;
+    if (
+      current &&
+      current.kind === 'socialize' &&
+      tick - current.startedAtTick < current.durationTicks &&
+      current.targetEntity !== undefined &&
+      this.world.actor(current.targetEntity) !== undefined
+    ) {
+      return;
+    }
+
+    // 通りがかった友だちには声をかける（目標より上、生存より下）。
+    // intentの行動種別で条件を絞ると、探索中のペットが一度も他のペットと話さなくなる（実測で発見）。
+    // 目標は消さないので、短い挨拶（10秒）が終わればもとの目標に戻る。
+    const friend = this.petToGreet(pet, tick);
+    if (friend) {
+      memoOf(pet).lastGreetTick = tick;
+      this.setAction(
+        pet,
+        {
+          kind: 'socialize',
+          targetEntity: friend.id,
+          startedAtTick: tick,
+          durationTicks: DURATION.socialize ?? 40,
+        },
+        tick,
+      );
+      return;
+    }
+
     if (intent) {
       const action = this.actionForIntent(pet, intent, tick);
       if (action) {
@@ -180,7 +232,21 @@ export class PetActions {
     return null;
   }
 
-  /** 既定行動: オーナーが居れば追従、居なければ島で過ごす */
+  /** 近くに居る他のペット（声をかける相手）。条件を満たさなければ null */
+  private petToGreet(pet: Actor, tick: number): Actor | null {
+    const m = memoOf(pet);
+    if (tick - m.lastGreetTick < GREET_COOLDOWN_TICKS) return null;
+    if (urgency(pet.needs.social) < GREET_SOCIAL_URGENCY) return null;
+
+    for (const other of this.world.actorsNear(pet.pos, GREET_RADIUS, pet.id)) {
+      if (other.kind !== 'pet') continue;
+      if (other.anim === 'sleep') continue;
+      return other;
+    }
+    return null;
+  }
+
+  /** 既定行動: オーナーが居れば追従、居なければ島で過ごす（挨拶は decide 側で判定する） */
   private defaultAction(pet: Actor, tick: number): ActiveAction {
     const owner = pet.ownerId ? this.deps.ownerActorOf(pet.ownerId) : undefined;
     if (owner) {

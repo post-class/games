@@ -31,7 +31,8 @@ import type { IslandSim } from '../sim/island.ts';
 import type { Repo } from '../db/repo.ts';
 import { SyncService, type ViewRect } from './sync.ts';
 import { petCatalog, petToWire, type PetManager } from './petHandlers.ts';
-import { forgetPet } from '../sim/petAction.ts';
+import type { ReflectionService } from '../pet/reflection.ts';
+import type { GossipReporter } from '../pet/gossipReport.ts';
 
 /** 島時間を送る間隔（変化がないときでも定期的に同期する） */
 const CLOCK_RESEND_TICKS = TICK_HZ * 4;
@@ -61,13 +62,26 @@ export class ConnectionHub {
   private readonly sync: SyncService;
   private readonly repo: Repo;
   private readonly pets: PetManager;
+  private readonly reflection: ReflectionService;
+  private readonly gossip: GossipReporter;
   private rejoins = 0;
+  /** 遅延送信のタイマー（停止時にまとめて解除する） */
+  private pendingTimers = new Set<NodeJS.Timeout>();
+  private closing = false;
 
   // 注意: Node の type-stripping で動かすため parameter property は使えない
-  constructor(sim: IslandSim, repo: Repo, pets: PetManager) {
+  constructor(
+    sim: IslandSim,
+    repo: Repo,
+    pets: PetManager,
+    reflection: ReflectionService,
+    gossip: GossipReporter,
+  ) {
     this.sim = sim;
     this.repo = repo;
     this.pets = pets;
+    this.reflection = reflection;
+    this.gossip = gossip;
     this.sync = new SyncService(sim.world);
     // ペットの追従にはオーナーのアバターが必要（接続中のプレイヤーだけを引く）
     pets.setOwnerLookup((playerId) => this.actorOfPlayer(playerId));
@@ -80,6 +94,67 @@ export class ConnectionHub {
 
   clientCount(): number {
     return this.clients.size;
+  }
+
+  /** プレイヤーの表示名（プロンプトに載せる） */
+  displayNameOf(playerId: string): string | undefined {
+    for (const c of this.clients.values()) if (c.playerId === playerId) return c.displayName;
+    return undefined;
+  }
+
+  /**
+   * あるアクターの近くにいるクライアント全員へ送る（ペット同士の会話の吹き出しなど）。
+   * 「席を外している間にペットが話していた」を他のプレイヤーからも見えるようにする。
+   */
+  sendNearActor(entityId: EntityId, msg: ServerMsg, radius = VIEW_MAX_W / 2): void {
+    const actor = this.sim.world.actor(entityId);
+    if (!actor) return;
+    for (const c of this.clients.values()) {
+      if (!c.joined) continue;
+      const viewer = this.sim.world.actor(c.entityId);
+      if (!viewer) continue;
+      if (Math.hypot(viewer.pos.x - actor.pos.x, viewer.pos.y - actor.pos.y) > radius) continue;
+      this.send(c, msg);
+    }
+  }
+
+  /**
+   * 一定時間後にアクター周辺へ送る（会話の掛け合いを間を置いて流すため）。
+   * サーバ停止時にタイマーが残らないよう、ここで一括管理する。
+   */
+  sendNearActorDelayed(entityId: EntityId, msg: ServerMsg, delayMs: number): void {
+    if (delayMs <= 0) {
+      this.sendNearActor(entityId, msg);
+      return;
+    }
+    const timer = setTimeout(() => {
+      this.pendingTimers.delete(timer);
+      if (!this.closing) this.sendNearActor(entityId, msg);
+    }, delayMs);
+    this.pendingTimers.add(timer);
+  }
+
+  /** ペットのオーナーが接続中なら通知を送る */
+  notifyOwnerOfPet(petId: number, text: string, importance = 5): void {
+    const session = this.pets.sessionList().find((s) => s.petId === petId);
+    if (!session) return;
+    const client = this.clientOfPlayer(session.playerId);
+    if (client) this.send(client, { t: 'notice', text, importance });
+  }
+
+  /** 日記ができたことを、そのペットのオーナーに知らせる */
+  sendDiary(petId: number, diary: string, affection: number): void {
+    const session = this.pets.sessionList().find((s) => s.petId === petId);
+    if (!session) return;
+    const client = this.clientOfPlayer(session.playerId);
+    if (!client) return;
+    this.send(client, { t: 'notice', text: diary, importance: 6 });
+    this.send(client, { t: 'petState', affection, mood: 'ねむそう' });
+  }
+
+  private clientOfPlayer(playerId: string): Client | undefined {
+    for (const c of this.clients.values()) if (c.playerId === playerId && c.joined) return c;
+    return undefined;
   }
 
   /** 接続中プレイヤーのアバター。切断済みなら undefined */
@@ -140,7 +215,11 @@ export class ConnectionHub {
       const actor = this.sim.world.actor(c.entityId);
       if (!actor) continue;
       try {
-        this.repo.updatePlayer(c.playerId, { pos: actor.pos, lastSeenAt: now });
+        this.repo.updatePlayer(c.playerId, {
+          pos: actor.pos,
+          lastSeenAt: now,
+          lastSeenIslandDay: this.sim.clock.islandDay,
+        });
       } catch (e) {
         console.error('[hub] プレイヤーの保存に失敗', e);
       }
@@ -154,24 +233,19 @@ export class ConnectionHub {
     if (actor) {
       // 切断時点の位置を保存する（次回ログインはここから始まる）
       try {
-        this.repo.updatePlayer(client.playerId, { pos: actor.pos, lastSeenAt: Date.now() });
+        this.repo.updatePlayer(client.playerId, {
+          pos: actor.pos,
+          lastSeenAt: Date.now(),
+          lastSeenIslandDay: this.sim.clock.islandDay,
+        });
       } catch (e) {
         console.error('[hub] 切断時のプレイヤー保存に失敗', e);
       }
       forgetActor(actor);
     }
 
-    // ペットも島から下げる（DBには残るので次回ログインで戻る）
-    const petEntityId = this.pets.leave(client.playerId);
-    if (petEntityId !== null) {
-      const petActor = this.sim.world.actor(petEntityId);
-      if (petActor) {
-        forgetActor(petActor);
-        forgetPet(petActor);
-      }
-      this.sim.nav.clear(petEntityId);
-      this.sim.world.removeActor(petEntityId);
-    }
+    // ペットは島に残す（オーナー不在でも暮らし続ける）。leave は null を返す
+    this.pets.leave(client.playerId);
     this.sim.nav.clear(client.entityId);
     this.sim.world.removeActor(client.entityId);
     this.sync.removeClient(client.playerId);
@@ -259,6 +333,47 @@ export class ConnectionHub {
           mapH: MAP_H,
         });
         this.send(client, this.sync.snapshotMessage(client.playerId, this.sim.clockState()));
+
+        // 留守中サマリ（ペットが日記みたいに教えてくれる）
+        if (restored && existing) {
+          const sinceIslandDay = existing.lastSeenIslandDay;
+          const passed = this.sim.clock.islandDay - sinceIslandDay;
+          if (passed >= 1) {
+            const summary = this.reflection.buildAwaySummary({
+              petId: restored.pet.id,
+              islandId: this.sim.islandId,
+              sinceIslandDay,
+              currentIslandDay: this.sim.clock.islandDay,
+              petName: restored.pet.persona.name,
+            });
+            this.send(client, {
+              t: 'awaySummary',
+              lines: summary.lines,
+              islandDaysPassed: summary.islandDaysPassed,
+            });
+          }
+        }
+        // 他のペットから聞いた話があれば報告する（宣伝資料「今日ミズネがこんなこと言ってたよ」）
+        if (restored) {
+          const report = this.gossip.take(restored.pet.id, this.sim.clock.islandDay, restored.pet.persona.name);
+          if (report) {
+            this.send(client, { t: 'notice', text: report.line, importance: 6 });
+            for (const item of report.items) {
+              this.send(client, { t: 'notice', text: item.text, importance: 5 });
+            }
+            this.send(client, {
+              t: 'bubble',
+              entityId: restored.actor.id,
+              text: report.items[0]?.text.slice(0, 40) ?? report.line,
+              kind: 'say',
+              ms: 6000,
+            });
+          }
+        }
+
+        // 次回の留守中サマリの起点
+        this.repo.updatePlayer(client.playerId, { lastSeenIslandDay: this.sim.clock.islandDay });
+
         console.log(
           `[hub] ${existing ? '再入島' : '新規'} ${client.displayName} (#${you.id}) ` +
             `pos=${you.pos.x.toFixed(1)},${you.pos.y.toFixed(1)} 接続数=${this.clients.size}`,
@@ -397,6 +512,9 @@ export class ConnectionHub {
   }
 
   closeAll(reason: string): void {
+    this.closing = true;
+    for (const t of this.pendingTimers) clearTimeout(t);
+    this.pendingTimers.clear();
     this.broadcast({ t: 'serverClosing', reason });
     for (const c of this.clients.values()) c.ws.close(1001, 'server closing');
     this.clients.clear();

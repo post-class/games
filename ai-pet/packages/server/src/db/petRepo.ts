@@ -173,6 +173,15 @@ export class PetRepo {
   // ---------- 記憶 ----------
 
   /** 1tickぶんをまとめて。1トランザクションで書く（half-written を作らない） */
+  /**
+   * 島にいるすべてのペットのID（接続していないぶんも含む）。
+   * 日記は「留守中も島の時間が進んでいる」ことを支える機能なので、不在ペットにも書く。
+   */
+  allPetIds(): number[] {
+    const rows = this.stmt('SELECT id FROM pet ORDER BY id').all() as { id: number }[];
+    return rows.map((r) => r.id);
+  }
+
   insertMemories(rows: readonly MemoryRecord[]): void {
     if (rows.length === 0) return;
     const ins = this.stmt(

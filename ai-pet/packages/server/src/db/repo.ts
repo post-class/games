@@ -40,6 +40,8 @@ export interface PlayerRecord {
   pos: Vec2;
   createdAt: number;
   lastSeenAt: number;
+  /** 前回いた島日（留守中サマリの起点） */
+  lastSeenIslandDay: number;
 }
 
 export interface IslandStateRecord {
@@ -130,6 +132,7 @@ interface PlayerRow {
   last_pos_y: number;
   created_at: number;
   last_seen_at: number;
+  last_seen_island_day: number;
 }
 
 interface EventRow {
@@ -155,6 +158,7 @@ function toPlayer(row: PlayerRow): PlayerRecord {
     pos: { x: row.last_pos_x, y: row.last_pos_y },
     createdAt: row.created_at,
     lastSeenAt: row.last_seen_at,
+    lastSeenIslandDay: row.last_seen_island_day ?? 1,
   };
 }
 
@@ -203,6 +207,18 @@ export class Repo {
     this.db.pragma('synchronous = NORMAL');
     // schema.sql は import できない（.sql）ので fs で読む
     this.db.exec(readFileSync(join(import.meta.dirname, 'schema.sql'), 'utf8'));
+    this.migrate();
+  }
+
+  /**
+   * 既存DBに後から足したカラムを補う。
+   * スキーマは CREATE TABLE IF NOT EXISTS なので、既にあるテーブルには列が増えない。
+   */
+  private migrate(): void {
+    const cols = this.db.prepare('PRAGMA table_info(player)').all() as { name: string }[];
+    if (!cols.some((c) => c.name === 'last_seen_island_day')) {
+      this.db.exec('ALTER TABLE player ADD COLUMN last_seen_island_day INTEGER NOT NULL DEFAULT 1');
+    }
   }
 
   close(): void {
@@ -336,6 +352,7 @@ export class Repo {
       pos: { x: opts.pos.x, y: opts.pos.y },
       createdAt: now,
       lastSeenAt: now,
+      lastSeenIslandDay: 1,
     };
     this.db
       .prepare(
@@ -356,7 +373,10 @@ export class Repo {
     return rec;
   }
 
-  updatePlayer(id: string, patch: { displayName?: string; pos?: Vec2; lastSeenAt?: number }): void {
+  updatePlayer(
+    id: string,
+    patch: { displayName?: string; pos?: Vec2; lastSeenAt?: number; lastSeenIslandDay?: number },
+  ): void {
     const sets: string[] = [];
     const args: (string | number)[] = [];
     if (patch.displayName !== undefined) {
@@ -370,6 +390,10 @@ export class Repo {
     if (patch.lastSeenAt !== undefined) {
       sets.push('last_seen_at = ?');
       args.push(patch.lastSeenAt);
+    }
+    if (patch.lastSeenIslandDay !== undefined) {
+      sets.push('last_seen_island_day = ?');
+      args.push(patch.lastSeenIslandDay);
     }
     if (sets.length === 0) return;
     args.push(id);

@@ -17,6 +17,7 @@ import type { IslandSim } from '../sim/island.ts';
 import type { PetRepo, PetRow } from '../db/petRepo.ts';
 import { buildPersona, PET_ARCHETYPES } from '../pet/persona.ts';
 import { DialogueService, TALK_RANGE, type DialogueResult } from '../pet/dialogue.ts';
+import type { PetBrain } from '../pet/brain.ts';
 import { memoryFromEvent } from '../pet/memory.ts';
 
 /** 吹き出しの表示時間（文字数から決める） */
@@ -80,6 +81,9 @@ export class PetManager {
   private sessions = new Map<string, PetSession>();
   /** 同時に走る会話は1プレイヤー1本まで（連投でLLMを積み上げない） */
   private talking = new Set<string>();
+  private brain: PetBrain | null = null;
+  /** ペットID → その島日にオーナーが島に来ていたか（日記の材料） */
+  private visitedIslandDay = new Map<number, number>();
 
   constructor(sim: IslandSim, repo: PetRepo, dialogue: DialogueService) {
     this.sim = sim;
@@ -89,12 +93,61 @@ export class PetManager {
     sim.events.onFlush((events) => this.rememberEvents(events));
   }
 
+  /** 行動決定層をつなぐ（会話直後の抑止と退島時の掃除に使う） */
+  attachBrain(brain: PetBrain): void {
+    this.brain = brain;
+  }
+
+  /** ペットIDからアクターを引く（日記の懐き度反映で使う） */
+  petActorOfPetId(petId: number): Actor | undefined {
+    for (const s of this.sessions.values()) {
+      if (s.petId === petId) return this.sim.world.actor(s.entityId);
+    }
+    return undefined;
+  }
+
+  /** その島日にオーナーが島に来ていたか */
+  ownerVisitedToday(petId: number): boolean {
+    return this.visitedIslandDay.get(petId) === this.sim.clock.islandDay;
+  }
+
+  /**
+   * サーバ再起動後、スナップショットから戻ったペットのアクターをセッションに結び直す。
+   *
+   * ペットは「オーナー不在でも島に居る」設計なので、
+   * これをしないと島にアクターだけ居てDBのペットと繋がらない（記憶も日記も書けない）状態になる。
+   */
+  rebindRestoredPets(): number {
+    let n = 0;
+    for (const actor of this.sim.world.actors.values()) {
+      if (actor.kind !== 'pet' || !actor.ownerId) continue;
+      const row = this.repo.findPetByPlayer(actor.ownerId);
+      if (!row) continue;
+      this.sessions.set(actor.ownerId, { playerId: actor.ownerId, petId: row.id, entityId: actor.id });
+      n++;
+    }
+    return n;
+  }
+
   // ---------- 入島・退島 ----------
 
   /** 既存のペットを島に出す。無ければ null（クライアントはタマゴ選択へ） */
   restore(playerId: string, pos: { x: number; y: number }): { pet: PetRow; actor: Actor } | null {
     const row = this.repo.findPetByPlayer(playerId);
     if (!row) return null;
+
+    // オーナーが居ない間もペットは島に残っている（宣伝資料の「ログアウト中も島は動く」）。
+    // まだ島に居るなら、その個体をそのまま引き継ぐ（位置も記憶もそのまま）。
+    const existing = this.sessions.get(playerId);
+    if (existing) {
+      const alive = this.sim.world.actor(existing.entityId);
+      if (alive) {
+        alive.affection = row.affection;
+        this.visitedIslandDay.set(row.id, this.sim.clock.islandDay);
+        return { pet: row, actor: alive };
+      }
+    }
+
     const actor = createPetActor(this.sim.world, {
       species: row.persona.species,
       name: row.persona.name,
@@ -103,6 +156,7 @@ export class PetManager {
     });
     actor.affection = row.affection;
     this.sessions.set(playerId, { playerId, petId: row.id, entityId: actor.id });
+    this.visitedIslandDay.set(row.id, this.sim.clock.islandDay);
     return { pet: row, actor };
   }
 
@@ -139,20 +193,44 @@ export class PetManager {
     const row = this.repo.createPet({ playerId, persona, traits: actor.traits, entityId: actor.id });
     actor.affection = row.affection;
     this.sessions.set(playerId, { playerId, petId: row.id, entityId: actor.id });
+    this.visitedIslandDay.set(row.id, this.sim.clock.islandDay);
     return { pet: row, actor };
   }
 
-  /** 切断時。アクターは島から消すが、DBのペットは残る */
+  /**
+   * 切断時。**ペットは島に残す**（オーナーが居ない間も暮らし続ける）。
+   *
+   * 宣伝資料の「3日ぶりに開いたとき、ペットが誰かと友達になっていて」を成立させるには、
+   * 不在中も島に居て、出来事を見て、記憶を溜めている必要がある。
+   * 消すのはサーバ停止時だけ（そのときはDBから復元される）。
+   */
   leave(playerId: string): EntityId | null {
     const s = this.sessions.get(playerId);
     if (!s) return null;
-    this.sessions.delete(playerId);
     this.talking.delete(playerId);
-    return s.entityId;
+    // セッションは残す（brainの不在間隔・記憶の複写・日記の対象に含めるため）
+    return null;
+  }
+
+  /** 島に残っているペットの数（不在オーナーぶんを含む） */
+  petsInIsland(): number {
+    let n = 0;
+    for (const s of this.sessions.values()) if (this.sim.world.actor(s.entityId)) n++;
+    return n;
   }
 
   sessionOf(playerId: string): PetSession | undefined {
     return this.sessions.get(playerId);
+  }
+
+  /** 接続中のペット一覧（PetBrain の activePets に渡す） */
+  sessionList(): PetSession[] {
+    return [...this.sessions.values()];
+  }
+
+  /** DBに居るすべてのペット（不在ぶんも含む。日記は不在ペットにも書く） */
+  allPetIds(): number[] {
+    return this.repo.allPetIds();
   }
 
   petActorOf(playerId: string): Actor | undefined {
@@ -218,6 +296,8 @@ export class PetManager {
         (delta) => send({ t: 'chatChunk', convId, entityId: petActor.id, delta, done: false }),
       )
       .then((res: DialogueResult) => {
+        // 会話の直後は行動決定を走らせない（docs §4.1）
+        this.brain?.noteTalked(session.petId, this.sim.tick);
         send({ t: 'chatChunk', convId, entityId: petActor.id, delta: '', done: true });
         send({ t: 'bubble', entityId: petActor.id, text: res.text, kind: 'say', ms: bubbleMs(res.text) });
         send({
@@ -323,6 +403,7 @@ export class PetManager {
     return {
       pets: this.sessions.size,
       talking: this.talking.size,
+      knownPets: this.repo.allPetIds().length,
       dialogue: this.dialogue.stats(),
     };
   }

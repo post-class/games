@@ -164,20 +164,37 @@ describe('ペットの作成と復元', () => {
     expect(pet.persona.dislikes).not.toContain('‮');
   });
 
-  test('切断で島から下がり、再入島で戻る（記憶と懐き度は残る）', () => {
+  test('切断してもペットは島に残る（オーナー不在でも暮らし続ける）', () => {
     const h = newHarness();
-    const { pet } = createPet(h);
+    const { pet, actor } = createPet(h);
+    actor.pos = { x: 70.5, y: 60.5 }; // どこかへ歩いて行った状態
     h.petRepo.updatePet(pet.id, { affection: 71 });
 
-    const entityId = h.pets.leave(PLAYER);
-    expect(entityId).not.toBeNull();
-    h.sim.world.removeActor(entityId!);
-    expect(h.sim.world.countActors('pet')).toBe(0);
+    // 切断してもアクターは消えない（消すのは leave の責務ではない）
+    expect(h.pets.leave(PLAYER)).toBeNull();
+    expect(h.sim.world.countActors('pet')).toBe(1);
+
+    // 再入島すると同じ個体を引き継ぐ（位置もそのまま）
+    const restored = h.pets.restore(PLAYER, { x: 64.5, y: 64.5 });
+    expect(restored).not.toBeNull();
+    expect(restored?.actor.id).toBe(actor.id);
+    expect(restored?.actor.pos.x).toBeCloseTo(70.5);
+    expect(restored?.pet.persona.name).toBe('みずね');
+    expect(restored?.actor.affection).toBe(71);
+    expect(h.sim.world.countActors('pet')).toBe(1);
+  });
+
+  test('島からペットが消えていれば作り直して復元する（サーバ再起動など）', () => {
+    const h = newHarness();
+    const { pet, actor } = createPet(h);
+    h.petRepo.updatePet(pet.id, { affection: 55 });
+    h.pets.leave(PLAYER);
+    h.sim.world.removeActor(actor.id);
 
     const restored = h.pets.restore(PLAYER, { x: 64.5, y: 64.5 });
     expect(restored).not.toBeNull();
-    expect(restored?.pet.persona.name).toBe('みずね');
-    expect(restored?.actor.affection).toBe(71);
+    expect(restored?.actor.id).not.toBe(actor.id);
+    expect(restored?.actor.affection).toBe(55);
   });
 
   test('ペットが居ないプレイヤーの復元はnull', () => {

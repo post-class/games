@@ -16,6 +16,7 @@ import {
   waitForTick,
   walk,
   wheelZoom,
+  ensurePet,
 } from './helpers.ts';
 
 /** チャンクが焼成されるまで待つ（250msごとに要求される） */
@@ -87,6 +88,8 @@ test.describe('基本動作（1人）', () => {
   test('ホイールでズームが3段変わる', async ({ page }) => {
     await gotoGame(page);
     await waitForTerrain(page);
+    // タマゴ選択のモーダルが前面にあるとキャンバスにホイールが届かないので先に片付ける
+    await ensurePet(page);
 
     // 既定は 1.00（ZOOM_STEPS = [0.75, 1.0, 1.5] の中央）
     await expect.poll(async () => (await readDebug(page)).zoom).toBeCloseTo(1.0, 2);

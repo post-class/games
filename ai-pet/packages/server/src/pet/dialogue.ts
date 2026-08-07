@@ -20,6 +20,7 @@ import type { WorldClock } from '../sim/clock.ts';
 import type { IslandWorld } from '../sim/world.ts';
 import { buildDialoguePrompt, moodOf, sanitizeLine, PERSONA_LIMITS } from './persona.ts';
 import { memoryFromTalk, selectMemories, type MemoryRecord } from './memory.ts';
+import type { GossipReporter } from './gossipReport.ts';
 
 /** 応答の最大長（プロンプトでも指示しているが、実際に切る） */
 const MAX_REPLY_CHARS = 80;
@@ -154,7 +155,9 @@ export class DialogueService {
   private world: IslandWorld;
   private clock: WorldClock;
   private lastAffectionGainTick = new Map<number, number>();
-  private counters = { total: 0, fallback: 0, byError: {} as Record<string, number> };
+  private counters = { total: 0, fallback: 0, byError: {} as Record<string, number>, gossipMixed: 0 };
+  /** 噂の報告係（M6）。未設定でも会話は成立する */
+  private gossip: GossipReporter | null = null;
 
   // 注意: Node の type-stripping で動かすため parameter property は使えない
   constructor(llm: LlmClient, repo: PetRepo, world: IslandWorld, clock: WorldClock) {
@@ -164,6 +167,15 @@ export class DialogueService {
     this.clock = clock;
   }
 
+  /**
+   * 噂の報告係をつなぐ。
+   * 「今日ミズネがこんなこと言ってたよ」を成立させるため、
+   * 聞いたばかりの噂を記憶の検索結果より優先してプロンプトに載せる。
+   */
+  attachGossipReporter(reporter: GossipReporter): void {
+    this.gossip = reporter;
+  }
+
   /** プロンプトを組み立てる（テストから覗けるように分離してある） */
   buildPrompt(req: DialogueRequest): { messages: LlmMessage[]; memories: MemoryRecord[] } {
     const { pet, petActor, tick } = req;
@@ -171,13 +183,22 @@ export class DialogueService {
     const nearbyActors = this.world.actorsNear(petActor.pos, 10, petActor.id).slice(0, LLM.maxNearby);
     const knownNames = [...nearbyActors.map((a) => a.name), req.ownerName];
 
-    const memories = selectMemories(all, {
+    const selected = selectMemories(all, {
       nowTick: tick,
       query: req.playerText,
       limit: LLM.maxMemories,
       maxChars: LLM.maxMemoryChars,
       knownNames,
     });
+
+    // 他のペットから聞いた話は「まだ話していないこと」なので先頭に置く。
+    // 検索スコアだけに任せると、古い噂が新しい観察に埋もれて報告されない。
+    const pending = this.gossip?.pendingForPrompt(pet.id, this.clock.islandDay) ?? [];
+    const memories =
+      pending.length === 0
+        ? selected
+        : [...pending, ...selected.filter((m) => !pending.some((p) => p.id === m.id))].slice(0, LLM.maxMemories);
+    if (pending.length > 0) this.counters.gossipMixed++;
 
     const clockState = this.clock.state(tick);
     const messages = buildDialoguePrompt({

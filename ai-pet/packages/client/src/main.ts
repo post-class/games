@@ -18,6 +18,7 @@ import { WorldState, interpolatedPos } from './state/world.ts';
 import { InputController } from './input.ts';
 import { BubbleLayer, ChatUi } from './ui/chat.ts';
 import { showEggSelect } from './ui/eggSelect.ts';
+import { PetPanel } from './ui/petPanel.ts';
 
 const SEASON_LABEL: Record<string, string> = { spring: '春', summer: '夏', autumn: '秋', winter: '冬' };
 const TOD_LABEL: Record<string, string> = { morning: '朝', day: '昼', evening: '夕', night: '夜' };
@@ -47,6 +48,7 @@ const tilemap = new TileMap(stage.app.renderer, stage.layers, textures.terrain, 
 const actorLayer = new ActorLayer(stage.layers, textures.chars, camera);
 const tint = new TimeTint(stage.layers);
 const bubbles = new BubbleLayer();
+const petPanel = new PetPanel();
 
 let clock: ClockWire | null = null;
 /** 自分のペット（表示名は吹き出しとチャットに使う） */
@@ -160,6 +162,18 @@ const input = new InputController(host, camera, {
     if (mock) pendingTeleport = { x: tile.x + 0.5, y: tile.y + 0.5 };
   },
   onZoom: (dir) => camera.stepZoom(dir),
+  onPick: (worldPos) => {
+    // 自分のペットをクリックしたら、情報パネルを開いて撫でる
+    const petId = world.petId;
+    if (petId === null) return;
+    const view = world.actors.get(petId);
+    if (!view) return;
+    const p = interpolatedPos(view, performance.now());
+    if (Math.hypot(p.x - worldPos.x, p.y - worldPos.y) > 1.2) return;
+    petPanel.show();
+    socket?.send({ t: 'interact', targetId: petId, act: 'pet' });
+  },
+  onCall: () => petPanel.toggle(),
 });
 
 // ---------- サーバ接続（通常モード） ----------
@@ -178,6 +192,7 @@ function onMessage(msg: ServerMsg): void {
         world.petId = msg.pet.id;
         petName = msg.pet.name;
         renderPet(msg.pet.affection);
+        petPanel.update({ name: msg.pet.name, species: msg.pet.species, affection: msg.pet.affection });
       } else if (msg.petCatalog && msg.petCatalog.length > 0) {
         // ペットが居ないので、タマゴを選んでもらう
         showEggSelect(msg.petCatalog, (sel) => {
@@ -219,6 +234,11 @@ function onMessage(msg: ServerMsg): void {
       break;
     case 'petState':
       renderPet(msg.affection, msg.intent?.reason);
+      petPanel.update({
+        affection: msg.affection,
+        mood: msg.mood,
+        ...(msg.intent ? { goal: msg.intent.goal, reason: msg.intent.reason } : {}),
+      });
       break;
     case 'awaySummary':
       for (const line of msg.lines) chat.notice(line);

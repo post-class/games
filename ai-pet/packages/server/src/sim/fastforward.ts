@@ -85,6 +85,8 @@ export function fastForward(sim: IslandSim, ticks: number): FastForwardResult {
       dayChanges++;
       // 年齢・繁殖・寿命・餓死はここで処理される
       sim.relations.onIslandDay(sim.tick);
+      // 留守中も日記は書かれる（「島の時間が進んでいた」ことの証拠になる）
+      sim.notifyIslandDayEnd(sim.clock.islandDay - 1, sim.tick);
     }
     sim.events.flush();
   }

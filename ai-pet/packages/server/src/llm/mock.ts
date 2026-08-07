@@ -125,9 +125,53 @@ export function mockJsonForSchema(schema: Record<string, unknown>, seed: number)
   }
 }
 
+/**
+ * ペット同士の会話プロンプトから話者名を拾う。
+ *
+ * `speaker` が実際のペット名と一致しないと `petTalk.ts` が全行を捨てるので、
+ * モックのままでは会話が起きない（安全側の設計が効いてしまう）。
+ * E2Eと手元の確認でモックでも会話を見られるように、プロンプトから名前を読む。
+ */
+function petTalkSpeakers(messages: LlmMessage[]): string[] {
+  const text = messages.map((m) => m.content).join('\n');
+  const names: string[] = [];
+  for (const m of text.matchAll(/^\[([12])匹目\]\s*(.+)$/gm)) {
+    const name = (m[2] ?? '').trim();
+    if (name.length > 0) names.push(name);
+  }
+  return names;
+}
+
+/** ペット同士の会話をモックで作る（話者名はプロンプトから拾う） */
+function mockPetTalk(messages: LlmMessage[], seed: number): unknown | null {
+  const names = petTalkSpeakers(messages);
+  if (names.length < 2) return null;
+  const [a, b] = names as [string, string];
+  const lines = [
+    { speaker: a, text: MOCK_REPLIES[seed % MOCK_REPLIES.length] ?? 'うん。' },
+    { speaker: b, text: MOCK_REPLIES[(seed + 3) % MOCK_REPLIES.length] ?? 'そうだね。' },
+    { speaker: a, text: MOCK_REPLIES[(seed + 7) % MOCK_REPLIES.length] ?? 'ふうん。' },
+  ];
+  return { lines, gossip: `${b}は${MOCK_REPLIES[(seed + 5) % MOCK_REPLIES.length] ?? 'げんきだった'}` };
+}
+
+/** スキーマがペット同士の会話用か（lines[].speaker を持つ） */
+function isPetTalkSchema(schema: Record<string, unknown>): boolean {
+  const props = isRecord(schema['properties']) ? schema['properties'] : {};
+  const lines = props['lines'];
+  if (!isRecord(lines)) return false;
+  const items = isRecord(lines['items']) ? lines['items'] : {};
+  const itemProps = isRecord(items['properties']) ? items['properties'] : {};
+  return 'speaker' in itemProps && 'text' in itemProps;
+}
+
 /** モック応答の全文を作る。schema があればJSON文字列を返す */
 export function mockText(messages: LlmMessage[], schema?: Record<string, unknown>): string {
   const seed = hashString(messages.map((m) => `${m.role}:${m.content}`).join('\n'));
+  if (schema && isPetTalkSchema(schema)) {
+    const talk = mockPetTalk(messages, seed);
+    if (talk) return JSON.stringify(talk);
+  }
   if (schema) return JSON.stringify(mockJsonForSchema(schema, seed));
   const idx = seed % MOCK_REPLIES.length;
   return MOCK_REPLIES[idx] ?? 'うん。';

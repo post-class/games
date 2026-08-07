@@ -48,7 +48,10 @@ CREATE TABLE IF NOT EXISTS player (
   last_pos_x    REAL NOT NULL,
   last_pos_y    REAL NOT NULL,
   created_at    INTEGER NOT NULL,
-  last_seen_at  INTEGER NOT NULL
+  last_seen_at  INTEGER NOT NULL,
+  -- 前回いた島日。留守中サマリで「島で何日すぎたか」を出すために必要
+  -- （last_seen_at は実時刻なので、島が止まっていた時間を含んでしまう）
+  last_seen_island_day INTEGER NOT NULL DEFAULT 1
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_player_secret ON player(secret_hash);
 CREATE INDEX IF NOT EXISTS idx_player_island ON player(island_id);

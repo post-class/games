@@ -56,8 +56,8 @@ export function restoreIsland(sim: IslandSim, repo: Repo): RestoreResult {
     world.placeables.clear();
     for (const p of snap.placeables) world.addPlaceable(p);
 
-    // 動物を戻す（プレイヤーとペットは接続時・作成時に復元する）
-    for (const [id, a] of [...world.actors]) if (a.kind === 'critter') world.actors.delete(id);
+    // 動物とペットを戻す（プレイヤーは接続時に作る）
+    for (const [id, a] of [...world.actors]) if (a.kind === 'critter' || a.kind === 'pet') world.actors.delete(id);
     for (const c of snap.critters) world.addActor(c);
 
     // island.tick と snapshot.tick は最大30秒ズレる。スナップショット側を採用する
@@ -80,14 +80,16 @@ export function restoreIsland(sim: IslandSim, repo: Repo): RestoreResult {
     tick: sim.tick,
     islandDay: islandRec.islandDay,
     offlineMs: Math.max(0, Date.now() - islandRec.updatedAt),
-    critters: snap?.critters.length ?? 0,
+    critters: snap?.critters.filter((a) => a.kind === 'critter').length ?? 0,
     resources: snap?.resources.length ?? 0,
   };
 }
 
 function snapshotOf(sim: IslandSim): SnapshotData {
+  // ペットも保存する。オーナー不在でも島に居続ける設計なので、
+  // 再起動で消えると「島の暮らしが続いている」感じが切れてしまう。
   const critters: Actor[] = [];
-  for (const a of sim.world.actors.values()) if (a.kind === 'critter') critters.push(a);
+  for (const a of sim.world.actors.values()) if (a.kind === 'critter' || a.kind === 'pet') critters.push(a);
   const resources: ResourceNode[] = [...sim.world.resources.values()];
   const placeables: Placeable[] = [...sim.world.placeables.values()];
   return {

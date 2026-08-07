@@ -357,3 +357,25 @@ export function meaningfulErrors(errors: readonly string[]): string[] {
       !/Failed to load resource/i.test(e),
   );
 }
+
+/**
+ * タマゴ選択が出ていたら適当なペットを作って閉じる。
+ *
+ * ペット未作成のプレイヤーには最初にモーダルが出るので、
+ * **キャンバスへのポインタ／ホイール操作を試すテストは先にこれを呼ぶこと**
+ * （モーダルが前面にあるとイベントが届かない。実際にズームのテストが落ちて分かった）。
+ */
+export async function ensurePet(page: Page, species = 'mofi', name = 'もふぃ'): Promise<boolean> {
+  const egg = page.locator('[data-testid=egg-select]');
+  // welcome の直後に出るので、少し待ってから判断する（count()の即時判定は取りこぼす）
+  try {
+    await egg.waitFor({ state: 'visible', timeout: 5_000 });
+  } catch {
+    return false; // すでにペットが居る（モーダルが出ない）
+  }
+  await page.click(`[data-testid=egg-card-${species}]`);
+  await page.fill('[data-testid=egg-name]', name);
+  await page.click('[data-testid=egg-decide]');
+  await egg.waitFor({ state: 'detached', timeout: 20_000 });
+  return true;
+}
