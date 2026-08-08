@@ -377,6 +377,20 @@
 
       function portraitData(factionId, index) {
         const file = `${factionId}-${String(index + 1).padStart(2, '0')}.png`;
+        // gpt-image-2で本人確認済みの相沢紗良試作。左右分割版を採用する。
+        if (factionId === 'confed' && index === 0) {
+          return {
+            portrait: `${sheetRoot}gpt_image_2_trial/confed-01-portrait.png`,
+            hobby: `${sheetRoot}gpt_image_2_trial/confed-01-hobby.png`
+          };
+        }
+        // 2026-08-09: 同一のGPT Image編集出力を左右に分割した新規画像のみを使用する。
+        // 左は現行肖像を忠実に高精細化した戦闘服イメージ、右は趣味の本番イメージ。
+        return {
+          portrait: `${sheetRoot}regenerated_portraits/${file}`,
+          hobby: `${sheetRoot}regenerated_hobbies/${file}`
+        };
+        /* 旧世代画像の参照（バックアップHTMLに保存）
         const nonhumanStarts = { kilrashi: 0, serecion: 5, ordo: 10, neurowm: 15 };
         if (Object.hasOwn(nonhumanStarts, factionId)) {
           const genderOrder = ['male', 'male', 'female', 'male', 'female', 'male', 'female', 'male', 'female', 'female'];
@@ -403,6 +417,7 @@
         const needsV7 = (factionId === 'confed' && index < 2) || ['kilrashi', 'serecion', 'ordo', 'neurowm'].includes(factionId);
         if (needsV7) return { portrait: `${sheetRoot}individual_split_v7/${file}`, hobby: `${sheetRoot}hobby_split_v7/${file}` };
         return { portrait: `${sheetRoot}individual_split_v6/${file}`, hobby: `${sheetRoot}hobby_split_v6/${file}` };
+        */
       }
 
       function rankFor(factionId, index, person) {

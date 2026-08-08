@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Taktika 文明と進化 — 全要素一覧</title>
+<style>
+  :root {
+    --bg: #14100c;
+    --bg2: #1d1811;
+    --panel: #26200f;
+    --line: #4a3a1e;
+    --gold: #e0b34a;
+    --gold-dim: #a88530;
+    --text: #e8ded0;
+    --text-dim: #a89b89;
+    --danger: #c0562f;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    padding: 0 20px 80px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+    font-size: 16px;
+    line-height: 1.8;
+  }
+
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+    image-rendering: auto;
+    border: 2px solid var(--line);
+    border-radius: 2px;
+    background: #000;
+  }
+
+  a { color: var(--gold); }
+
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 16px;
+    padding: 14px 0;
+    border-bottom: 2px solid var(--line);
+    margin-bottom: 28px;
+  }
+  header .logo { font-size: 20px; font-weight: 700; letter-spacing: .08em; color: var(--gold); }
+  header .tag { font-size: 14px; color: var(--text-dim); }
+  header .meta { margin-left: auto; font-size: 13px; color: var(--text-dim); }
+
+  section { margin: 0 0 56px; }
+
+  h2 {
+    font-size: 22px;
+    margin: 0 0 6px;
+    color: var(--gold);
+    border-left: 5px solid var(--gold-dim);
+    padding-left: 12px;
+    line-height: 1.4;
+  }
+  h2 .en {
+    display: block;
+    font-size: 12px;
+    letter-spacing: .18em;
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+  h3 { font-size: 17px; margin: 26px 0 6px; color: var(--gold); }
+  h3:first-child { margin-top: 0; }
+  h4 { font-size: 15px; margin: 20px 0 4px; color: #f0e7d8; }
+  p { margin: 0 0 14px; }
+  section > p { max-width: 90ch; }
+  .lead { font-size: 18px; }
+  .dim { color: var(--text-dim); font-size: 14px; }
+  .ruby { font-size: .82em; color: var(--text-dim); }
+
+  .hero { margin-bottom: 56px; }
+  .hero-copy {
+    font-size: clamp(24px, 4vw, 46px);
+    font-weight: 700;
+    line-height: 1.35;
+    margin: 0 0 12px;
+    color: #fff;
+  }
+  .hero-copy em { font-style: normal; color: var(--gold); }
+  .hero-sub { max-width: 70ch; }
+  figure { margin: 0; }
+  figcaption { font-size: 13px; color: var(--text-dim); margin-top: 8px; }
+  .hero-figure { margin-top: 24px; }
+
+  .res {
+    display: inline-block;
+    font-size: 13px;
+    padding: 0 7px;
+    margin-right: 4px;
+    border-radius: 3px;
+    border: 1px solid var(--line);
+    white-space: nowrap;
+    color: var(--text);
+  }
+  .res.f { border-color: #6c7420; background: #2a2c10; }
+  .res.w { border-color: #6b4a26; background: #2b1f12; }
+  .res.s { border-color: #55595c; background: #222526; }
+  .res.g { border-color: #7a6020; background: #2b2410; }
+
+  .grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  }
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--gold-dim);
+    border-radius: 3px;
+    padding: 16px 18px;
+  }
+  .card p:last-child { margin-bottom: 0; }
+  .card h3 { margin-top: 0; }
+  .card .num { font-size: 12px; letter-spacing: .2em; color: var(--gold-dim); }
+
+  .table-wrap { overflow-x: auto; margin-top: 14px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+    min-width: 640px;
+  }
+  caption {
+    text-align: left;
+    font-size: 13px;
+    color: var(--text-dim);
+    padding-bottom: 6px;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 7px 11px;
+    text-align: left;
+    vertical-align: top;
+  }
+  thead th { background: var(--panel); color: var(--gold); white-space: nowrap; }
+  tbody th { background: rgba(255,255,255,.02); white-space: nowrap; }
+  tbody tr:nth-child(even) td { background: rgba(255,255,255,.015); }
+  td.c, th.c { text-align: center; }
+  .age-row th { color: var(--gold); background: #2a2312; letter-spacing: .06em; }
+  .civ-row th { color: #fff; background: #35291a; letter-spacing: .06em; font-size: 15px; }
+  td.none { color: #7d7266; }
+
+  ul.plain { margin: 0 0 14px; padding-left: 1.3em; max-width: 90ch; }
+  ul.plain li { margin-bottom: 8px; }
+
+  .note {
+    border: 1px dashed var(--line);
+    border-radius: 3px;
+    padding: 12px 16px;
+    font-size: 14px;
+    color: var(--text-dim);
+    background: var(--bg2);
+    max-width: 90ch;
+  }
+
+  .cycle {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 16px;
+    font-size: 15px;
+  }
+  .cycle .box {
+    border: 1px solid var(--gold-dim);
+    background: var(--bg2);
+    border-radius: 3px;
+    padding: 6px 14px;
+    font-weight: 700;
+  }
+  .cycle .arrow { color: var(--gold); font-weight: 700; }
+
+  footer {
+    border-top: 2px solid var(--line);
+    padding-top: 16px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">MULTI-TAKTIKA</span>
+  <span class="tag">文明と進化 ― 全要素一覧</span>
+  <span class="meta"><a href="01_ゲーム宣伝.html">ゲーム紹介</a> / <a href="02_世界観.html">世界観</a> / 2026-08</span>
+</header>
+
+<!-- ================= HERO ================= -->
+<div class="hero">
+  <p class="hero-copy">同じ役割の兵が、<br><em>文明ごとに別物</em>になる。</p>
+  <p class="lead hero-sub">
+    Multi-Taktika の兵は、<strong>時代が上がると入れ替わり、文明ごとに系統そのものが違います。</strong>
+    「ヤマトの歩兵」と「アステカの歩兵」は名前も見た目も性能も別物で、
+    そもそも <strong>騎兵を一切持たない文明や、火器を作れない文明があります</strong>。
+    この資料では、4 資源・建物 25＋文明固有 8・ユニット 94・研究 26＋文明固有 8 の全要素を並べます。
+  </p>
+  <figure class="hero-figure">
+    <img src="assets/img/age-advance.png"
+         alt="時代進化の瞬間。町の中心から黄金の光柱が立ち上がり、その中に渦巻き文の刻まれた巨大な石柱の幻影が浮かぶ。地面には光の輪が広がり、村人と兵が見上げている">
+    <figcaption>▲ 時代進化の演出。町の中心の上に「碑」の幻影が浮かび、解読が一段進んだことが示されます。</figcaption>
+  </figure>
+</div>
+
+<!-- ================= 資源 ================= -->
+<section>
+  <h2>1. 資源と人口<span class="en">RESOURCES</span></h2>
+  <p>
+    資源は 4 種。役割をはっきり分けているので、<strong>「今どれが足りないか」がそのまま次の一手になります。</strong>
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>資源</th><th>採り方</th><th>主な使い道</th><th>切れると何が止まるか</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th><span class="res f">食料</span></th>
+          <td>農地・狩猟・漁・果樹・羊</td>
+          <td>村人・歩兵・時代進化</td>
+          <td>兵の増援と進化。序盤で最も詰まる。</td>
+        </tr>
+        <tr>
+          <th><span class="res w">木材</span></th>
+          <td>伐採（森）</td>
+          <td>建物・弓兵・攻城兵器・船</td>
+          <td>建物が建たない。生産ラインごと止まる。</td>
+        </tr>
+        <tr>
+          <th><span class="res s">石材</span></th>
+          <td>石切場</td>
+          <td>城・石壁・塔・投石機</td>
+          <td>守りが作れない。攻城もできない。</td>
+        </tr>
+        <tr>
+          <th><span class="res g">金</span></th>
+          <td>金鉱・交易・貢納</td>
+          <td>エリートユニット・上位研究・火器</td>
+          <td>文明の個性が出せない。上限が伸びない。</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>人口</h3>
+  <ul class="plain">
+    <li>家 1 軒で人口上限 <strong>+5</strong>。町の中心は <strong>+10</strong>。上限は <strong>200</strong>。</li>
+    <li>村人・兵・攻城兵器・船はすべて人口を食います。攻城兵器は 1 台で <strong>3</strong>、戦象は <strong>2</strong>。</li>
+    <li>戦域を増やすほど各戦線に兵が要るので、家の建て遅れがそのまま「令を配れない」に直結します。</li>
+  </ul>
+</section>
+
+<!-- ================= 時代進化 ================= -->
+<section>
+  <h2>2. 時代進化 ― 四つの世<span class="en">THE FOUR AGES</span></h2>
+  <p>
+    進化は町の中心で「解読」を行います。条件は <strong>資源</strong> と、<strong>その世の建物を 2 種以上建てていること</strong>。
+    解読中も内政と戦闘は止まりません。
+  </p>
+  <div class="table-wrap">
+    <table>
+      <caption>進化の条件と、進化して得るもの</caption>
+      <thead>
+        <tr><th>進化</th><th>必要資源</th><th>建物条件</th><th>解読</th><th class="c">戦域<br>スロット</th><th>兵に起きること</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th>黎明の世（開始）</th>
+          <td>―</td><td>―</td><td>―</td><td class="c">1</td>
+          <td>八国とも同じ兵しか持たない（後述）</td>
+        </tr>
+        <tr>
+          <th>→ 青銅の世</th>
+          <td><span class="res f">食料 500</span></td>
+          <td>黎明の建物 2 種</td><td>130 秒</td><td class="c">2</td>
+          <td><strong>文明ごとの兵種系統が枝分かれする</strong></td>
+        </tr>
+        <tr>
+          <th>→ 鉄器の世</th>
+          <td><span class="res f">食料 800</span><span class="res g">金 200</span></td>
+          <td>青銅の建物 2 種</td><td>160 秒</td><td class="c">4</td>
+          <td>各系統が第 2 段に入れ替わる。攻城と騎兵が解禁</td>
+        </tr>
+        <tr>
+          <th>→ 帝国の世</th>
+          <td><span class="res f">食料 1000</span><span class="res g">金 800</span></td>
+          <td>鉄器の建物 2 種</td><td>190 秒</td><td class="c">6</td>
+          <td>各系統が最終段へ。硝石を持つ文明だけ火器が出る</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>進化がもたらす、本作固有の変化</h3>
+  <p><strong>戦域スロットが増えます。</strong>これが他の RTS の時代進化と最も違う点です。</p>
+  <ul class="plain">
+    <li><strong>黎明（1 枠）</strong> ― 戦線は一本だけ。ほぼ内政ゲーム。</li>
+    <li><strong>青銅（2 枠）</strong> ― 攻めと守りを同時に持てる。令の切り替えを覚える段。</li>
+    <li><strong>鉄器（4 枠）</strong> ― ここから本番。捨てる戦域を選ぶ判断が始まります。</li>
+    <li><strong>帝国（6 枠）</strong> ― 全周で殴り合える。囮と本命の使い分けが決着に直結します。</li>
+  </ul>
+  <p class="note">
+    城 1 棟ごとに戦域スロットが <strong>+1</strong>（上限 6）。石材を城に回すか壁に回すかで、
+    「戦線の数」と「戦線の硬さ」のどちらを取るかを選ぶことになります。
+  </p>
+</section>
+
+<!-- ================= 建物 ================= -->
+<section>
+  <h2>3. 建物 ― 共通 25 種<span class="en">BUILDINGS</span></h2>
+  <p>
+    建物は八国でほぼ共通です（見た目は文明ごとに変わります）。
+    <strong>差が出るのはこの後の兵のほうで、建物は「どの兵を出せる箱か」という役割に徹しています。</strong>
+  </p>
+  <figure>
+    <img src="assets/img/elem-buildings.png"
+         alt="12種の建物を並べた資料。町の中心、家、農地、兵舎、射場、厩、市場、鍛冶場、見張り塔、城門付き石壁、城、港">
+    <figcaption>▲ 主要建物。上段：町の中心／家／農地／兵舎　中段：射場／厩／市場／鍛冶場　下段：見張り塔／石壁と城門／城／港</figcaption>
+  </figure>
+
+  <div class="table-wrap">
+    <table>
+      <caption>建物一覧（コストは標準値。文明ボーナスで変動します）</caption>
+      <thead>
+        <tr><th>建物</th><th>コスト</th><th>役割</th><th>備考</th></tr>
+      </thead>
+      <tbody>
+        <tr class="age-row"><th colspan="4">黎明の世</th></tr>
+        <tr><th>町の中心</th><td><span class="res w">木 350</span><span class="res s">石 150</span></td><td>村人生産・資源搬入・時代進化</td><td>これを全て失うと敗北。増設可。人口上限 +10</td></tr>
+        <tr><th>家</th><td><span class="res w">木 30</span></td><td>人口上限 +5</td><td>安いが建て忘れが最も多い</td></tr>
+        <tr><th>農地</th><td><span class="res w">木 60</span></td><td>食料を継続産出</td><td>収穫し切ると要再建</td></tr>
+        <tr><th>伐採所</th><td><span class="res w">木 100</span></td><td>木材の搬入点＋伐採研究</td><td>森のそばに建てて運搬距離を詰める</td></tr>
+        <tr><th>採掘場</th><td><span class="res w">木 100</span></td><td>石材・金の搬入点＋採掘研究</td><td>鉱脈の近くに</td></tr>
+        <tr><th>見張り小屋</th><td><span class="res w">木 25</span></td><td>視界を得るだけ</td><td>戦域の発生を早く知るための目</td></tr>
+        <tr><th>桟橋</th><td><span class="res w">木 100</span></td><td>漁船・輸送船</td><td>水域マップでは食料源として強力</td></tr>
+
+        <tr class="age-row"><th colspan="4">青銅の世</th></tr>
+        <tr><th>兵舎</th><td><span class="res w">木 175</span></td><td>その文明の近接歩兵</td><td>前線に建てると増援が速い</td></tr>
+        <tr><th>射場</th><td><span class="res w">木 175</span></td><td>その文明の遠隔歩兵</td><td>持たない文明もある（モンゴル）</td></tr>
+        <tr><th>市場</th><td><span class="res w">木 175</span></td><td>資源交換・交易荷車・貢納</td><td>余った資源を足りない資源に替える窓口</td></tr>
+        <tr><th>鍛冶場</th><td><span class="res w">木 150</span></td><td>武器・防具の研究</td><td>研究できる範囲が文明で違う</td></tr>
+        <tr><th>木柵</th><td><span class="res w">木 2</span>／1 枚</td><td>足止め</td><td>壊されるが、時間は稼げる</td></tr>
+        <tr><th>木門</th><td><span class="res w">木 30</span></td><td>自軍だけ通れる出入口</td><td>柵で囲うときに必須</td></tr>
+        <tr><th>見張り塔</th><td><span class="res w">木 25</span><span class="res s">石 125</span></td><td>矢を放つ。視界も広い</td><td>村人が退避できる</td></tr>
+
+        <tr class="age-row"><th colspan="4">鉄器の世</th></tr>
+        <tr><th>厩</th><td><span class="res w">木 175</span></td><td>その文明の騎兵・獣兵</td><td>騎兵を持たない 2 文明は建てられない</td></tr>
+        <tr><th>学舎</th><td><span class="res w">木 200</span></td><td>技術研究。<strong>「令」の研究もここ</strong></td><td>本作で最重要の建物。後述</td></tr>
+        <tr><th>祈祷所</th><td><span class="res w">木 175</span></td><td>祈祷師の生産・治療研究</td><td>兵を捨てずに回せるようになる</td></tr>
+        <tr><th>攻城工房</th><td><span class="res w">木 200</span></td><td>その文明の攻城兵器</td><td>作れる兵器が文明ごとに違う</td></tr>
+        <tr><th>石壁</th><td><span class="res s">石 5</span>／1 枚</td><td>本格的な遮断</td><td>破られた穴はその試合ずっと残る</td></tr>
+        <tr><th>城門</th><td><span class="res s">石 200</span></td><td>石壁の出入口</td><td>攻城兵器はここを通るしかない</td></tr>
+        <tr><th>城</th><td><span class="res s">石 650</span></td><td>エリート生産・強力な防御・<strong>戦域スロット +1</strong></td><td>石材の最大の使い道</td></tr>
+        <tr><th>港</th><td><span class="res w">木 150</span></td><td>軍船・火船・輸送船</td><td>水域マップでは第 2 の前線になる</td></tr>
+
+        <tr class="age-row"><th colspan="4">帝国の世</th></tr>
+        <tr><th>火薬工房</th><td><span class="res w">木 200</span><span class="res g">金 200</span></td><td>火器と火薬兵器</td><td><strong>硝石を持たない 2 文明は建てられない</strong></td></tr>
+        <tr><th>砲塔</th><td><span class="res s">石 200</span><span class="res g">金 100</span></td><td>射程の長い固定砲台</td><td>1 基で戦域ひとつを止められる</td></tr>
+        <tr><th>碑の写し</th><td><span class="res w">木 1000</span><span class="res s">石 1000</span><span class="res g">金 1000</span></td><td>記念碑。建てて 10 分守れば勝利</td><td>建設中は全プレイヤーに位置が見える</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>文明固有の建物 ― 8 種</h3>
+  <p>共通建物のうち一部は、文明ごとに置き換わったり、そもそも建てられなかったりします。</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>文明</th><th>建てられないもの</th><th>固有・置き換え建物</th><th>効果</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>ヤマト</th><td>―</td><td><strong>櫓</strong><span class="ruby">（やぐら）</span>（見張り塔の置き換え）</td><td>射程が長く、兵を 5 名まで収容できる</td></tr>
+        <tr><th>ローマ</th><td>―</td><td><strong>街道</strong>（敷設物）</td><td>上を通る自軍の移動速度 +30%。戦域間の増援が速い</td></tr>
+        <tr><th>唐</th><td>―</td><td><strong>翰林院</strong><span class="ruby">（かんりんいん）</span>（学舎の置き換え）</td><td>研究が 20% 速く、20% 安い</td></tr>
+        <tr><th>ヴァイキング</th><td>厩・石壁・城門・火薬工房</td><td><strong>船小屋</strong>（港の置き換え）</td><td>船が安く、長船を作れる。壁は木柵で代用する</td></tr>
+        <tr><th>マリ</th><td>―</td><td><strong>塩蔵</strong><span class="ruby">（えんぞう）</span></td><td>交易荷車の収入 +25%。市場を 3 つまで建てられる</td></tr>
+        <tr><th>アステカ</th><td>厩・火薬工房</td><td><strong>神殿基壇</strong></td><td>石材で建て、周囲の兵の生産速度 +20%</td></tr>
+        <tr><th>ペルシア</th><td>―</td><td><strong>地下水路</strong><span class="ruby">（カナート）</span></td><td>周囲の村人の採集速度 +15%</td></tr>
+        <tr><th>モンゴル</th><td>城・石壁・城門</td><td><strong>大天幕</strong>（城の置き換え）</td><td>いつでも畳んで移動できる城。耐久は城の 60%。戦域スロット +1 は同じ</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================= 共通ユニット ================= -->
+<section>
+  <h2>4. 共通ユニット ― 黎明の世と支援<span class="en">COMMON UNITS</span></h2>
+  <p>
+    黎明の世は、八国とも同じ兵しか持ちません。
+    <a href="02_世界観.html">世界観設定</a>のとおり <strong>この時代はまだ碑が一行も読めておらず、八国は互いの存在すら知らない</strong>ためです。
+    枝分かれは青銅の世から始まります。
+  </p>
+  <div class="table-wrap">
+    <table>
+      <caption>黎明の世の兵（全文明共通・4 種）</caption>
+      <thead><tr><th>ユニット</th><th>生産</th><th>コスト</th><th>役割</th></tr></thead>
+      <tbody>
+        <tr><th>村人</th><td>町の中心</td><td><span class="res f">食 50</span></td><td>採集・建設・修理。前線でも壁と塔を建てられる</td></tr>
+        <tr><th>棍棒兵</th><td>町の中心</td><td><span class="res f">食 50</span></td><td>最弱の近接。獣払いと土地取りのついで</td></tr>
+        <tr><th>狩人</th><td>町の中心</td><td><span class="res f">食 40</span><span class="res w">木 20</span></td><td>弓を持つが戦力としては数合わせ。狩りにも使う</td></tr>
+        <tr><th>斥候</th><td>町の中心</td><td><span class="res f">食 30</span></td><td>足が速いだけの偵察兵。戦域の発生を最速で拾う</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <caption>支援ユニット（全文明共通・7 種）</caption>
+      <thead><tr><th>ユニット</th><th>世</th><th>コスト</th><th>役割</th></tr></thead>
+      <tbody>
+        <tr><th>伝令</th><td>青銅</td><td><span class="res f">食 30</span></td><td>戦域に令が届くまでの遅延を短縮する。戦闘力はゼロ</td></tr>
+        <tr><th>交易荷車</th><td>青銅</td><td><span class="res w">木 100</span></td><td>他国の市場との往復で金を得る。距離が遠いほど儲かる</td></tr>
+        <tr><th>祈祷師</th><td>鉄器</td><td><span class="res g">金 100</span></td><td>負傷兵の治療。近くの味方の士気を保つ</td></tr>
+        <tr><th>漁船</th><td>黎明</td><td><span class="res w">木 75</span></td><td>魚を獲る。水域マップの序盤の柱</td></tr>
+        <tr><th>輸送船</th><td>鉄器</td><td><span class="res w">木 125</span></td><td>兵を運ぶ。海路のほうが速いこの世界では要所</td></tr>
+        <tr><th>軍船</th><td>鉄器</td><td><span class="res w">木 90</span><span class="res g">金 30</span></td><td>矢を放つ船。岸の戦域に横から干渉できる</td></tr>
+        <tr><th>火船</th><td>鉄器</td><td><span class="res w">木 75</span></td><td>体当たりで敵船を焼く。使い捨て</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================= 文明別 兵種ツリー ================= -->
+<section>
+  <h2>5. 文明別 兵種ツリー ― 全 8 文明<span class="en">CIVILIZATION UNIT TREES</span></h2>
+  <p class="lead">
+    ここが本作の文明差の本体です。<strong>役割（近接・遠隔・騎兵・攻城）は共通ですが、
+    中身の兵は文明ごとに完全に別</strong>で、時代が上がるごとに次の段へ入れ替わります。
+    そして <strong>持っていない役割がある文明があります</strong> ―― それが弱さではなく、その文明の戦い方を決めます。
+  </p>
+
+  <figure>
+    <img src="assets/img/civ-melee-compare.png"
+         alt="4文明の帝国期の近接歩兵。円錐形の兜と長槍のヤマト長柄組、羽根飾り兜と槍のローマ・トリアリイ、緑の羽飾りと黒曜刃の棍棒のアステカ羽飾り戦士、鎖状の面覆いと鱗鎧のペルシア長槍隊">
+    <figcaption>▲ 同じ「帝国期の重近接歩兵」でも文明ごとに別物。左から 長柄組（ヤマト）／トリアリイ（ローマ）／羽飾り戦士（アステカ）／長槍隊（ペルシア）</figcaption>
+  </figure>
+
+  <figure style="margin-top:24px">
+    <img src="assets/img/civ-ranged-compare.png"
+         alt="4文明の帝国期の兵。手銃を構える唐の火銃手、ラクダに乗り槍を持つマリの重駱駝騎兵、振り向いて弓を引くモンゴルの重騎射兵、両手斧を振るヴァイキングの大斧兵">
+    <figcaption>▲ 左上 火銃手（唐）／右上 重駱駝騎兵（マリ）／左下 重騎射兵（モンゴル）／右下 大斧兵（ヴァイキング）</figcaption>
+  </figure>
+
+  <div class="table-wrap">
+    <table>
+      <caption>文明別 兵種ツリー。「―」はその文明がその役割・段を持たないことを示します</caption>
+      <thead>
+        <tr><th>系統</th><th>青銅の世</th><th>鉄器の世</th><th>帝国の世</th></tr>
+      </thead>
+      <tbody>
+
+        <tr class="civ-row"><th colspan="4">ヤマト ― 練度で守り抜く。全系統を持つが立ち上がりが遅い</th></tr>
+        <tr><th>近接</th><td>足軽</td><td>武者</td><td>長柄組</td></tr>
+        <tr><th>遠隔</th><td>弓足軽</td><td>大弓兵</td><td>鉄砲足軽</td></tr>
+        <tr><th>騎兵</th><td class="none">―</td><td>母衣武者<span class="ruby">（ほろむしゃ）</span></td><td>騎馬武者</td></tr>
+        <tr><th>攻城</th><td class="none">―</td><td>井楼<span class="ruby">（せいろう／攻城櫓）</span></td><td>大筒</td></tr>
+        <tr><th>城のエリート</th><td colspan="3">武士 ― 敵のエリートユニットに対して攻撃が大きく上がる</td></tr>
+
+        <tr class="civ-row"><th colspan="4">ローマ ― 唯一すべての系統が 3 段揃う。穴も尖りもない</th></tr>
+        <tr><th>近接</th><td>ハスタティ</td><td>プリンキペス</td><td>トリアリイ</td></tr>
+        <tr><th>遠隔</th><td>投石手</td><td>弩兵<span class="ruby">（スコルピオ手）</span></td><td>手銃兵</td></tr>
+        <tr><th>騎兵</th><td>軽エクィテス</td><td>エクィテス</td><td>重装エクィテス</td></tr>
+        <tr><th>攻城</th><td class="none">―</td><td>破城槌<span class="ruby">（アリエス）</span>／バリスタ</td><td>オナゲル</td></tr>
+        <tr><th>城のエリート</th><td colspan="3">レギオン ― 隣に同じレギオンが並ぶほど防御が上がる</td></tr>
+
+        <tr class="civ-row"><th colspan="4">唐 ― 遠隔と攻城が最強。近接は最も弱い</th></tr>
+        <tr><th>近接</th><td>歩卒</td><td>陌刀手<span class="ruby">（はくとうしゅ）</span></td><td>長槍隊</td></tr>
+        <tr><th>遠隔</th><td>弓手</td><td>弩手</td><td>火銃手</td></tr>
+        <tr><th>騎兵</th><td class="none">―</td><td>軽騎</td><td>鉄騎</td></tr>
+        <tr><th>攻城</th><td class="none">―</td><td>床子弩<span class="ruby">（しょうしど／大型弩砲）</span></td><td>火箭車<span class="ruby">（かせんしゃ）</span></td></tr>
+        <tr><th>城のエリート</th><td colspan="3">連弩兵 ― 1 回の射撃で複数の矢を放つ</td></tr>
+
+        <tr class="civ-row"><th colspan="4">ヴァイキング ― <strong>騎兵を一切持たない。</strong>火器も投石も無い。海と突撃で殴る</th></tr>
+        <tr><th>近接</th><td>略奪者</td><td>盾衛<span class="ruby">（じゅんえい）</span></td><td>大斧兵</td></tr>
+        <tr><th>遠隔</th><td>投槍兵</td><td>短弓兵</td><td class="none">―（火器なし）</td></tr>
+        <tr><th>騎兵</th><td class="none">―</td><td class="none">―</td><td class="none">―</td></tr>
+        <tr><th>攻城</th><td class="none">―</td><td>焼き討ち隊<span class="ruby">（火矢）</span></td><td>破城槌</td></tr>
+        <tr><th>船（固有）</th><td class="none">―</td><td>長船<span class="ruby">（ロングシップ）</span></td><td>大長船</td></tr>
+        <tr><th>城のエリート</th><td colspan="3">ベルセルク ― 時間とともに自己回復する</td></tr>
+
+        <tr class="civ-row"><th colspan="4">マリ ― 射撃と駱駝。攻城の最上位を持たない</th></tr>
+        <tr><th>近接</th><td>槍手</td><td>綿甲兵<span class="ruby">（めんこうへい）</span></td><td>長槍手</td></tr>
+        <tr><th>遠隔</th><td>弓手</td><td>大弓手</td><td>火縄手</td></tr>
+        <tr><th>騎兵</th><td class="none">―</td><td>駱駝騎兵<span class="ruby">（らくだきへい）</span></td><td>重駱駝騎兵</td></tr>
+        <tr><th>攻城</th><td class="none">―</td><td>破城槌</td><td>投石機<span class="ruby">（最上位なし）</span></td></tr>
+        <tr><th>城のエリート</th><td colspan="3">近衛弓兵 ― 矢が防具を貫通する</td></tr>
+
+        <tr class="civ-row"><th colspan="4">アステカ ― <strong>騎兵も火器も鉄の防具もない。</strong>歩兵の数と石造攻城で押す</th></tr>
+        <tr><th>近接</th><td>棍棒戦士</td><td>黒曜刃兵<span class="ruby">（こくようじんへい）</span></td><td>羽飾り戦士</td></tr>
+        <tr><th>遠隔</th><td>吹き矢兵</td><td>投槍器兵<span class="ruby">（アトラトル）</span></td><td class="none">―（硝石なし）</td></tr>
+        <tr><th>騎兵</th><td class="none">―</td><td class="none">―（馬がいない）</td><td class="none">―</td></tr>
+        <tr><th>攻城</th><td class="none">―</td><td>投石機</td><td>大投石機</td></tr>
+        <tr><th>城のエリート</th><td colspan="3">ジャガー戦士 ― 他の歩兵に対する攻撃が非常に高い</td></tr>
+
+        <tr class="civ-row"><th colspan="4">ペルシア ― 唯一「獣兵」系統を持つ。すべて重く、すべて遅い</th></tr>
+        <tr><th>近接</th><td>不死隊<span class="ruby">（ふしたい）</span></td><td>重盾兵</td><td>長槍隊</td></tr>
+        <tr><th>遠隔</th><td>弓兵</td><td>大弓兵</td><td>火筒兵</td></tr>
+        <tr><th>騎兵</th><td class="none">―</td><td>具足騎兵</td><td>重装騎兵<span class="ruby">（カタフラクト）</span></td></tr>
+        <tr><th>獣兵（固有系統）</th><td class="none">―</td><td>戦象</td><td>装甲戦象</td></tr>
+        <tr><th>攻城</th><td class="none">―</td><td>攻城塔</td><td>大砲</td></tr>
+        <tr><th>城のエリート</th><td colspan="3">親衛象 ― 極端に硬く、周囲の敵をまとめて弾く</td></tr>
+
+        <tr class="civ-row"><th colspan="4">モンゴル ― <strong>徒歩の遠隔がなく、近接は 1 段だけ、攻城はほぼ無い。</strong>代わりに騎兵が青銅から出る</th></tr>
+        <tr><th>近接</th><td class="none">―</td><td>下馬兵<span class="ruby">（1 段のみ）</span></td><td class="none">―</td></tr>
+        <tr><th>遠隔（徒歩）</th><td class="none">―</td><td class="none">―</td><td class="none">―</td></tr>
+        <tr><th>騎兵</th><td><strong>軽騎兵</strong><span class="ruby">（唯一 青銅から騎兵）</span></td><td>騎射兵</td><td>重騎射兵</td></tr>
+        <tr><th>攻城</th><td class="none">―</td><td class="none">―</td><td>簡易投石機<span class="ruby">（性能低）</span></td></tr>
+        <tr><th>城のエリート</th><td colspan="3">親衛弓騎兵 ― 移動しながら射撃でき、減速しない（大天幕で生産）</td></tr>
+
+      </tbody>
+    </table>
+  </div>
+
+  <h3>各文明の「穴」と「尖り」</h3>
+  <p>穴があるほど、その文明は残った系統で勝ち筋を作らなければなりません。そこが個性です。</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>文明</th><th>持っていないもの</th><th>代わりに尖っているところ</th><th>勝ち筋</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>ヤマト</th><td>青銅期の騎兵</td><td>歩兵の防御研究が 1 段多い</td><td>序盤を守り切り、鉄器以降の練度で押し返す</td></tr>
+        <tr><th>ローマ</th><td>―（穴なし）</td><td>街道で戦域間の増援が最速</td><td>全戦域に均等に手を回して、崩れた側へ即座に増援</td></tr>
+        <tr><th>唐</th><td>近接の攻撃研究が 1 段少ない</td><td>遠隔と攻城が全文明最強。研究が安く速い</td><td>遠隔で削り、攻城で建物を壊して押し切る</td></tr>
+        <tr><th>ヴァイキング</th><td><strong>騎兵・火器・投石・石壁</strong></td><td>近接の攻撃が最高。船が最強。ベルセルクが自己回復</td><td>海から降りて短期決戦。長引かせると負ける</td></tr>
+        <tr><th>マリ</th><td>攻城の最上位</td><td>遠隔の射程研究が 1 段多い。金が最も稼げる</td><td>金で兵を回し続け、駱駝で敵の騎兵を食う</td></tr>
+        <tr><th>アステカ</th><td><strong>騎兵・火器・鉄の防具研究</strong></td><td>歩兵の生産が最速。建設が最速。石造攻城が安い</td><td>数で戦域を埋める。固有研究「綿甲」で矢に耐える</td></tr>
+        <tr><th>ペルシア</th><td>機動力（全兵が遅い）</td><td>獣兵系統。開始資源が最多</td><td>重い編成を 1〜2 戦域に集中させて正面から割る</td></tr>
+        <tr><th>モンゴル</th><td><strong>徒歩の遠隔・近接の上位段・攻城・城</strong></td><td>青銅から騎兵。全兵の移動が最速。大天幕で拠点を動かせる</td><td>戦域を固定せず、常に弱い戦域を選んで殴り続ける</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="note">
+    <strong>「持っていない」は、そのままゲームの読み合いになります。</strong>
+    たとえば相手がアステカだと分かった時点で「騎兵は来ない」と確定するので、
+    こちらは槍兵を切って弓兵に寄せられます。逆にアステカ側はそれを読んで、
+    数と建設速度で戦域を先に固めにきます。
+  </p>
+</section>
+
+<!-- ================= 攻城兵器 ================= -->
+<section>
+  <h2>6. 攻城兵器 ― 文明ごとに形が違う<span class="en">SIEGE ENGINES</span></h2>
+  <p>
+    攻城兵器も共通ではありません。<strong>石が豊富な文明は投石系、火薬を持つ文明は火器系、
+    木しかない文明は櫓と破城槌</strong>と、土地の事情がそのまま兵器の形になります。
+  </p>
+  <figure>
+    <img src="assets/img/civ-siege-compare.png"
+         alt="4文明の攻城兵器。瓦屋根の木造攻城櫓、ロケット筒を積んだ二輪の火箭車、蛇の彫刻がある縄と丸太の投石機、獣皮と青緑の板で覆われた車輪付き攻城塔">
+    <figcaption>▲ 左上 井楼（ヤマト）／右上 火箭車（唐）／左下 大投石機（アステカ）／右下 攻城塔（ペルシア）</figcaption>
+  </figure>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>兵器</th><th>持つ文明</th><th>コスト</th><th>得意</th><th>弱点</th></tr></thead>
+      <tbody>
+        <tr><th>破城槌</th><td>ローマ・ヴァイキング・マリ</td><td><span class="res w">木 160</span><span class="res g">金 75</span></td><td>門と建物。中に歩兵を入れて運べる</td><td>移動が遅い。野戦では役に立たない</td></tr>
+        <tr><th>井楼（攻城櫓）</th><td>ヤマト</td><td><span class="res w">木 200</span></td><td>壁を越えて歩兵を送り込む。石を使わない</td><td>壁を壊さないので、退くと元に戻る</td></tr>
+        <tr><th>攻城塔</th><td>ペルシア</td><td><span class="res w">木 220</span><span class="res g">金 100</span></td><td>井楼の上位。硬く、多く運べる</td><td>非常に遅い。堀の前で止まる</td></tr>
+        <tr><th>投石機</th><td>アステカ・マリ</td><td><span class="res w">木 200</span><span class="res s">石 150</span></td><td>密集した敵兵と建物をまとめて</td><td>味方も巻き込む。近接されると無力</td></tr>
+        <tr><th>大投石機</th><td>アステカ</td><td><span class="res w">木 250</span><span class="res s">石 250</span></td><td>射程が長く、壁を確実に崩す</td><td>組み立てが必要。金は要らないが石を食う</td></tr>
+        <tr><th>バリスタ／床子弩</th><td>ローマ・唐</td><td><span class="res w">木 180</span><span class="res g">金 100</span></td><td>直射で兵を貫く。対建物より対兵</td><td>建物にはほとんど効かない</td></tr>
+        <tr><th>オナゲル</th><td>ローマ</td><td><span class="res w">木 200</span><span class="res s">石 200</span></td><td>投石系の最上位。安定して壁を崩す</td><td>味方への被害も最大</td></tr>
+        <tr><th>火箭車</th><td>唐</td><td><span class="res w">木 200</span><span class="res g">金 200</span></td><td>広範囲に一斉射。歩兵の塊を焼き払う</td><td>一度撃つと長い再装填。建物には弱い</td></tr>
+        <tr><th>大筒</th><td>ヤマト</td><td><span class="res w">木 200</span><span class="res g">金 180</span></td><td>単発火力が高く、塔を潰せる</td><td>射程が大砲より短い</td></tr>
+        <tr><th>大砲</th><td>ペルシア</td><td><span class="res w">木 220</span><span class="res g">金 220</span></td><td>単発火力が最大。城を最速で落とす</td><td>最も高価。護衛なしで置くと即失う</td></tr>
+        <tr><th>焼き討ち隊</th><td>ヴァイキング</td><td><span class="res f">食 80</span><span class="res w">木 40</span></td><td>兵器ではなく歩兵。火矢で建物を焼く</td><td>壁は壊せない。守備兵に弱い</td></tr>
+        <tr><th>簡易投石機</th><td>モンゴル</td><td><span class="res w">木 180</span><span class="res s">石 100</span></td><td>持ち運びが速い唯一の攻城兵器</td><td>威力が他文明の投石機の 60%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">
+    攻城兵器は人口 3 を占め、単独では必ず死にます。<strong>「包囲」の令は、攻城兵器を前に出しつつ歩兵で護衛する動きを一枚にまとめたもの</strong>です。
+    直接操作でやると 4〜5 手かかる動きが、令 1 枚で回り続けます。
+  </p>
+</section>
+
+<!-- ================= 相性 ================= -->
+<section>
+  <h2>7. 兵種の相性<span class="en">COUNTER SYSTEM</span></h2>
+  <p>
+    相性は <strong>兵の名前ではなく役割</strong> で決まります。ヤマトの長柄組でもペルシアの長槍隊でも、
+    「長槍」であれば騎兵に強いという扱いです。
+  </p>
+  <div class="cycle">
+    <span class="box">槍・長槍</span><span class="arrow">▶ 強い ▶</span>
+    <span class="box">騎兵</span><span class="arrow">▶ 強い ▶</span>
+    <span class="box">遠隔</span><span class="arrow">▶ 強い ▶</span>
+    <span class="box">槍・長槍</span>
+  </div>
+  <p class="dim">※ 剣（刀剣系近接）・攻城兵器・獣兵はこの輪の外側にいて、別の役割を持ちます。</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>役割</th><th>強い相手</th><th>弱い相手</th><th>この役割の存在理由</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>槍・長槍</th><td>騎兵・獣兵</td><td>遠隔・投石系</td><td>安く、騎兵の突入を止める。戦線の床</td></tr>
+        <tr><th>刀剣系近接</th><td>槍・建物</td><td>遠隔</td><td>硬い。押し込むときの主力</td></tr>
+        <tr><th>遠隔</th><td>近接歩兵全般</td><td>騎兵・攻城兵器</td><td>数の差を火力で埋める</td></tr>
+        <tr><th>騎兵</th><td>遠隔・攻城兵器・村人</td><td>槍・長槍・駱駝騎兵</td><td>速い。戦域を跨いで駆けつけられる唯一の兵</td></tr>
+        <tr><th>獣兵（ペルシアのみ）</th><td>槍の壁・密集歩兵</td><td>火器・大型弩砲</td><td>槍兵に止められない突破力</td></tr>
+        <tr><th>攻城兵器</th><td>建物・壁・密集歩兵</td><td>騎兵・接近戦全般</td><td>城を落とす。護衛が前提</td></tr>
+        <tr><th>火器</th><td>重装甲の兵・獣兵</td><td>騎兵（連射が遅い）</td><td>硬さを無効化する。帝国期の答え</td></tr>
+        <tr><th>祈祷師</th><td>―（治療）</td><td>すべて</td><td>兵を使い捨てにしなくて済む</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">
+    <strong>役割を持たない文明は、相性の輪から降りることになります。</strong>
+    騎兵を持たないヴァイキングとアステカは、相手の遠隔兵を騎兵で狩れないので、
+    近接をまっすぐ当てて数で押すしかありません。だから両文明は近接の攻撃力と生産速度が突出しています。
+  </p>
+</section>
+
+<!-- ================= エリート ================= -->
+<section>
+  <h2>8. 城のエリートユニット ― 8 種<span class="en">ELITE UNITS</span></h2>
+  <p>
+    城（モンゴルは大天幕）でのみ生産でき、金を要します。<strong>いずれも相性の輪をどこかで意図的に破ります。</strong>
+  </p>
+  <figure>
+    <img src="assets/img/elem-uniques.png"
+         alt="8体のエリートユニット。上段は武士、レギオン、連弩兵、ベルセルク。下段は近衛弓兵、ジャガー戦士、親衛象、親衛弓騎兵">
+    <figcaption>▲ 上段：武士（ヤマト）／レギオン（ローマ）／連弩兵（唐）／ベルセルク（ヴァイキング）　下段：近衛弓兵（マリ）／ジャガー戦士（アステカ）／親衛象（ペルシア）／親衛弓騎兵（モンゴル）</figcaption>
+  </figure>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>エリート</th><th>文明</th><th>コスト</th><th>特性</th><th>輪をどう破るか</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>武士</th><td>ヤマト</td><td><span class="res f">食 60</span><span class="res g">金 30</span></td><td>他国のエリートに対して攻撃が大きく上がる</td><td>相手の切り札を名指しで殺す</td></tr>
+        <tr><th>レギオン</th><td>ローマ</td><td><span class="res f">食 65</span><span class="res g">金 25</span></td><td>隣に同じレギオンが並ぶほど防御が上がる</td><td>遠隔に溶かされない近接歩兵になる</td></tr>
+        <tr><th>連弩兵</th><td>唐</td><td><span class="res w">木 40</span><span class="res g">金 40</span></td><td>1 回の射撃で複数の矢を放つ</td><td>密集した近接歩兵を一方的に処理する</td></tr>
+        <tr><th>ベルセルク</th><td>ヴァイキング</td><td><span class="res f">食 65</span><span class="res g">金 25</span></td><td>時間とともに自己回復する</td><td>補給のない敵地で戦線を維持できる</td></tr>
+        <tr><th>近衛弓兵</th><td>マリ</td><td><span class="res w">木 40</span><span class="res g">金 35</span></td><td>矢が防具を貫通する</td><td>重装歩兵の硬さを無効化する</td></tr>
+        <tr><th>ジャガー戦士</th><td>アステカ</td><td><span class="res f">食 60</span><span class="res g">金 30</span></td><td>他の近接歩兵に対する攻撃が非常に高い</td><td>歩兵同士の押し合いを力で割る</td></tr>
+        <tr><th>親衛象</th><td>ペルシア</td><td><span class="res f">食 200</span><span class="res g">金 75</span></td><td>極端に硬く、周囲の敵をまとめて弾く</td><td>槍兵の壁を物量で踏み越える</td></tr>
+        <tr><th>親衛弓騎兵</th><td>モンゴル</td><td><span class="res w">木 50</span><span class="res g">金 65</span></td><td>移動しながら射撃でき、減速しない</td><td>槍兵に捕まらない騎兵として振る舞う</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================= 研究 ================= -->
+<section>
+  <h2>9. 研究 ― 共通 26 項目＋文明固有 8<span class="en">TECHNOLOGIES</span></h2>
+  <p><strong>鍛冶場が「兵の質」、学舎が「指揮の質」</strong>を担当します。</p>
+
+  <h3>鍛冶場 ― 兵の質（8 項目）</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>研究</th><th>世</th><th>コスト</th><th>効果</th></tr></thead>
+      <tbody>
+        <tr><th>打刃</th><td>青銅</td><td><span class="res f">食 100</span></td><td>近接兵の攻撃 +1</td></tr>
+        <tr><th>鋼刃</th><td>鉄器</td><td><span class="res f">食 150</span><span class="res g">金 50</span></td><td>近接兵の攻撃 +1（累積）</td></tr>
+        <tr><th>鏃</th><td>青銅</td><td><span class="res f">食 100</span><span class="res w">木 50</span></td><td>遠隔兵の攻撃 +1</td></tr>
+        <tr><th>鋼鏃</th><td>鉄器</td><td><span class="res f">食 150</span><span class="res g">金 50</span></td><td>遠隔兵の攻撃 +1（累積）</td></tr>
+        <tr><th>革鎧</th><td>青銅</td><td><span class="res f">食 100</span></td><td>歩兵の防御 +1</td></tr>
+        <tr><th>鎖鎧</th><td>鉄器</td><td><span class="res f">食 200</span><span class="res g">金 100</span></td><td>歩兵の防御 +1（累積）</td></tr>
+        <tr><th>板金鎧</th><td>帝国</td><td><span class="res f">食 300</span><span class="res g">金 150</span></td><td>歩兵の防御 +2（累積）</td></tr>
+        <tr><th>馬鎧</th><td>鉄器</td><td><span class="res f">食 150</span><span class="res g">金 150</span></td><td>騎兵・獣兵の防御 +2</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>学舎 ― 指揮の質（7 項目・本作固有）</h3>
+  <p>
+    ここが Multi-Taktika の研究ツリーで最も重要な枝です。
+    <strong>兵を強くするのではなく、令の通りを良くする研究</strong>が並びます。
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>研究</th><th>世</th><th>コスト</th><th>効果</th><th>これが効く場面</th></tr></thead>
+      <tbody>
+        <tr><th>旗竿</th><td>鉄器</td><td><span class="res w">木 200</span><span class="res g">金 100</span></td><td>戦域スロット +1</td><td>城を建てる石材がないとき</td></tr>
+        <tr><th>早馬</th><td>鉄器</td><td><span class="res f">食 150</span><span class="res g">金 100</span></td><td>令の切り替え待ち時間 −30%</td><td>戦況が細かく動く乱戦</td></tr>
+        <tr><th>復唱</th><td>鉄器</td><td><span class="res f">食 200</span></td><td>令が戦域に届くまでの遅延 −50%</td><td>本陣から遠い戦域を抱えたとき</td></tr>
+        <tr><th>二重旗</th><td>帝国</td><td><span class="res w">木 300</span><span class="res g">金 300</span></td><td>1 つの戦域に令を 2 枚まで重ねられる</td><td>「包囲」＋「死守」など複合運用</td></tr>
+        <tr><th>測量</th><td>青銅</td><td><span class="res f">食 100</span></td><td>建物の視界 +4</td><td>戦域の発生を早く知る</td></tr>
+        <tr><th>写本</th><td>鉄器</td><td><span class="res f">食 200</span><span class="res g">金 100</span></td><td>以降の研究コスト −15%</td><td>長期戦を狙うとき</td></tr>
+        <tr><th>徴兵令</th><td>帝国</td><td><span class="res f">食 400</span><span class="res g">金 200</span></td><td>すべての兵の生産速度 +25%</td><td>6 戦域を同時に維持する終盤</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>その他の建物の研究（11 項目）</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>建物</th><th>研究</th><th>効果</th></tr></thead>
+      <tbody>
+        <tr><th rowspan="2">伐採所</th><td>両手斧</td><td>伐採速度 +20%</td></tr>
+        <tr><td>大鋸</td><td>伐採速度 +20%（累積）</td></tr>
+        <tr><th rowspan="2">採掘場</th><td>鶴嘴</td><td>石材・金の採掘速度 +15%</td></tr>
+        <tr><td>坑道</td><td>鉱脈の埋蔵量 +30%</td></tr>
+        <tr><th rowspan="2">町の中心 / 農地</th><td>犂<span class="ruby">（すき）</span></td><td>農地の産出量 +30%</td></tr>
+        <tr><td>輪作</td><td>農地の産出量 +40%（累積）</td></tr>
+        <tr><th rowspan="2">市場</th><td>荷駄</td><td>交易荷車の速度 +25%</td></tr>
+        <tr><td>隊商</td><td>交易の収入 +30%</td></tr>
+        <tr><th>祈祷所</th><td>薬草</td><td>治療速度 +50%</td></tr>
+        <tr><th>港</th><td>造船</td><td>船の生産速度 +30%・耐久 +20%</td></tr>
+        <tr><th>城</th><td>鋳造</td><td>エリートユニットの生産コスト −20%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>文明固有の研究と制限（8 項目）</h3>
+  <p>
+    共通研究のうち、<strong>そもそも研究できない項目がある文明</strong>があります。
+    その代わりに、その文明にしかない研究が 1 つ与えられます。
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>文明</th><th>研究できないもの</th><th>固有研究</th><th>効果</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>ヤマト</th><td>―</td><td>鍛錬</td><td>歩兵の防御 +1（板金鎧に上乗せ。歩兵防御が全文明最高になる）</td></tr>
+        <tr><th>ローマ</th><td>―</td><td>軍団編成</td><td>兵舎・射場・厩の生産待ち行列が 2 倍の長さになる</td></tr>
+        <tr><th>唐</th><td>鋼刃<span class="ruby">（近接の上位攻撃）</span></td><td>火薬術</td><td>火器と火箭車の攻撃 +25%</td></tr>
+        <tr><th>ヴァイキング</th><td>板金鎧・馬鎧</td><td>狂戦</td><td>近接兵は体力が減るほど攻撃が上がる</td></tr>
+        <tr><th>マリ</th><td>オナゲル系の上位攻城</td><td>射法</td><td>遠隔兵の射程 +1（全文明最長になる）</td></tr>
+        <tr><th>アステカ</th><td><strong>鎖鎧・板金鎧・馬鎧</strong><span class="ruby">（鉄が出ない）</span></td><td>綿甲</td><td>歩兵の遠隔耐性 +3。鉄の鎧の代替になる</td></tr>
+        <tr><th>ペルシア</th><td>―</td><td>灌漁</td><td>農地の産出量 +20%（累積）。重い編成を支える</td></tr>
+        <tr><th>モンゴル</th><td>板金鎧</td><td>駅伝</td><td>令の遅延が距離に関係なく一定になる（実質「復唱」の上位）</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================= 勝敗 ================= -->
+<section>
+  <h2>10. 勝敗<span class="en">VICTORY</span></h2>
+  <div class="grid">
+    <div class="card">
+      <p class="num">一</p>
+      <h3>制圧</h3>
+      <p>相手の町の中心をすべて破壊する。最も直接的で、最も時間がかかります。</p>
+    </div>
+    <div class="card">
+      <p class="num">二</p>
+      <h3>碑の写し</h3>
+      <p>帝国の世で記念碑を建て、10 分守り切る。建設を始めた瞬間に全プレイヤーへ位置が公開されるので、守れる算段があってから始める賭けになります。</p>
+    </div>
+    <div class="card">
+      <p class="num">三</p>
+      <h3>服属</h3>
+      <p>相手が旗を巻いて降伏する。この世界では滅亡ではないので、キャンペーンでは次の話へ続きます。</p>
+    </div>
+    <div class="card" style="border-top-color:var(--danger)">
+      <p class="num">敗北</p>
+      <h3>令が届かなくなったとき</h3>
+      <p>町の中心をすべて失うか、戦の作法を破って諸侯が離反し、令の届く戦域がゼロになった時点で敗北です。</p>
+    </div>
+  </div>
+  <p class="dim" style="margin-top:14px">
+    ※ 数値はすべて設計時の想定値で、実装時のバランス調整で変わります。掲載画像は要素を伝えるためのイメージで、
+    文明ごとの全ユニットの絵は一部のみ掲載しています。
+  </p>
+</section>
+
+<footer>
+  Multi-Taktika ― 文明と進化。<a href="01_ゲーム宣伝.html">ゲーム紹介資料</a> / <a href="02_世界観.html">世界観設定資料</a>
+</footer>
+
+</body>
+</html>
