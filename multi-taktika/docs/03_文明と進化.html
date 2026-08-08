@@ -153,6 +153,36 @@
   .civ-row th { color: #fff; background: #35291a; letter-spacing: .06em; font-size: 15px; }
   td.none { color: #7d7266; }
 
+  /* 兵種ツリーのユニット絵入りセル */
+  table.tree { min-width: 900px; }
+  table.tree td { padding: 10px 11px; }
+  .uw {
+    display: inline-block;
+    vertical-align: top;
+    text-align: center;
+    width: 108px;
+    margin-right: 10px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .uw:last-child { margin-right: 0; }
+  .uw img.u {
+    display: block;
+    width: 104px;
+    height: 104px;
+    margin: 0 auto 5px;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    background: #efe6d2;
+  }
+  .uw small {
+    display: block;
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.4;
+  }
+  .uw em { font-style: normal; color: var(--gold); }
+
   ul.plain { margin: 0 0 14px; padding-left: 1.3em; max-width: 90ch; }
   ul.plain li { margin-bottom: 8px; }
 
@@ -455,7 +485,7 @@
   </figure>
 
   <div class="table-wrap">
-    <table>
+    <table class="tree">
       <caption>文明別 兵種ツリー。「―」はその文明がその役割・段を持たないことを示します</caption>
       <thead>
         <tr><th>系統</th><th>青銅の世</th><th>鉄器の世</th><th>帝国の世</th></tr>
@@ -463,61 +493,219 @@
       <tbody>
 
         <tr class="civ-row"><th colspan="4">ヤマト ― 練度で守り抜く。全系統を持つが立ち上がりが遅い</th></tr>
-        <tr><th>近接</th><td>足軽</td><td>武者</td><td>長柄組</td></tr>
-        <tr><th>遠隔</th><td>弓足軽</td><td>大弓兵</td><td>鉄砲足軽</td></tr>
-        <tr><th>騎兵</th><td class="none">―</td><td>母衣武者<span class="ruby">（ほろむしゃ）</span></td><td>騎馬武者</td></tr>
-        <tr><th>攻城</th><td class="none">―</td><td>井楼<span class="ruby">（せいろう／攻城櫓）</span></td><td>大筒</td></tr>
+        <tr>
+          <th>近接</th>
+          <td><span class="uw"><img class="u" src="assets/img/units/y-ashigaru.webp" alt="足軽">足軽</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/y-musha.webp" alt="武者">武者</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/y-nagae.webp" alt="長柄組">長柄組</span></td>
+        </tr>
+        <tr>
+          <th>遠隔</th>
+          <td><span class="uw"><img class="u" src="assets/img/units/y-yumiashigaru.webp" alt="弓足軽">弓足軽</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/y-daikyu.webp" alt="大弓兵">大弓兵</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/y-teppo.webp" alt="鉄砲足軽">鉄砲足軽</span></td>
+        </tr>
+        <tr>
+          <th>騎兵</th>
+          <td class="none">―</td>
+          <td><span class="uw"><img class="u" src="assets/img/units/y-horo.webp" alt="母衣武者">母衣武者<small>ほろむしゃ</small></span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/y-kiba.webp" alt="騎馬武者">騎馬武者</span></td>
+        </tr>
+        <tr>
+          <th>攻城</th>
+          <td class="none">―</td>
+          <td><span class="uw"><img class="u" src="assets/img/units/y-seiro.webp" alt="井楼">井楼<small>せいろう／攻城櫓</small></span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/y-ozutsu.webp" alt="大筒">大筒</span></td>
+        </tr>
         <tr><th>城のエリート</th><td colspan="3">武士 ― 敵のエリートユニットに対して攻撃が大きく上がる</td></tr>
 
         <tr class="civ-row"><th colspan="4">ローマ ― 唯一すべての系統が 3 段揃う。穴も尖りもない</th></tr>
-        <tr><th>近接</th><td>ハスタティ</td><td>プリンキペス</td><td>トリアリイ</td></tr>
-        <tr><th>遠隔</th><td>投石手</td><td>弩兵<span class="ruby">（スコルピオ手）</span></td><td>手銃兵</td></tr>
-        <tr><th>騎兵</th><td>軽エクィテス</td><td>エクィテス</td><td>重装エクィテス</td></tr>
-        <tr><th>攻城</th><td class="none">―</td><td>破城槌<span class="ruby">（アリエス）</span>／バリスタ</td><td>オナゲル</td></tr>
+        <tr>
+          <th>近接</th>
+          <td><span class="uw"><img class="u" src="assets/img/units/r-hastati.webp" alt="ハスタティ">ハスタティ</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/r-principes.webp" alt="プリンキペス">プリンキペス</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/r-triarii.webp" alt="トリアリイ">トリアリイ</span></td>
+        </tr>
+        <tr>
+          <th>遠隔</th>
+          <td><span class="uw"><img class="u" src="assets/img/units/r-slinger.webp" alt="投石手">投石手</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/r-scorpio.webp" alt="弩兵">弩兵<small>スコルピオ手</small></span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/r-handgun.webp" alt="手銃兵">手銃兵</span></td>
+        </tr>
+        <tr>
+          <th>騎兵</th>
+          <td><span class="uw"><img class="u" src="assets/img/units/r-eq-light.webp" alt="軽エクィテス">軽エクィテス</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/r-eq.webp" alt="エクィテス">エクィテス</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/r-eq-heavy.webp" alt="重装エクィテス">重装エクィテス</span></td>
+        </tr>
+        <tr>
+          <th>攻城</th>
+          <td class="none">―</td>
+          <td>
+            <span class="uw"><img class="u" src="assets/img/units/r-ram.webp" alt="破城槌">破城槌<small>アリエス</small></span>
+            <span class="uw"><img class="u" src="assets/img/units/r-ballista.webp" alt="バリスタ">バリスタ</span>
+          </td>
+          <td><span class="uw"><img class="u" src="assets/img/units/r-onager.webp" alt="オナゲル">オナゲル</span></td>
+        </tr>
         <tr><th>城のエリート</th><td colspan="3">レギオン ― 隣に同じレギオンが並ぶほど防御が上がる</td></tr>
 
         <tr class="civ-row"><th colspan="4">唐 ― 遠隔と攻城が最強。近接は最も弱い</th></tr>
-        <tr><th>近接</th><td>歩卒</td><td>陌刀手<span class="ruby">（はくとうしゅ）</span></td><td>長槍隊</td></tr>
-        <tr><th>遠隔</th><td>弓手</td><td>弩手</td><td>火銃手</td></tr>
-        <tr><th>騎兵</th><td class="none">―</td><td>軽騎</td><td>鉄騎</td></tr>
-        <tr><th>攻城</th><td class="none">―</td><td>床子弩<span class="ruby">（しょうしど／大型弩砲）</span></td><td>火箭車<span class="ruby">（かせんしゃ）</span></td></tr>
+        <tr>
+          <th>近接</th>
+          <td><span class="uw"><img class="u" src="assets/img/units/t-hosotsu.webp" alt="歩卒">歩卒</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/t-hakuto.webp" alt="陌刀手">陌刀手<small>はくとうしゅ</small></span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/t-nagayari.webp" alt="長槍隊">長槍隊</span></td>
+        </tr>
+        <tr>
+          <th>遠隔</th>
+          <td><span class="uw"><img class="u" src="assets/img/units/t-yumite.webp" alt="弓手">弓手</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/t-dote.webp" alt="弩手">弩手</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/t-kaju.webp" alt="火銃手">火銃手</span></td>
+        </tr>
+        <tr>
+          <th>騎兵</th>
+          <td class="none">―</td>
+          <td><span class="uw"><img class="u" src="assets/img/units/t-keiki.webp" alt="軽騎">軽騎</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/t-tekki.webp" alt="鉄騎">鉄騎</span></td>
+        </tr>
+        <tr>
+          <th>攻城</th>
+          <td class="none">―</td>
+          <td><span class="uw"><img class="u" src="assets/img/units/t-shoshido.webp" alt="床子弩">床子弩<small>しょうしど／大型弩砲</small></span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/t-kasensha.webp" alt="火箭車">火箭車<small>かせんしゃ</small></span></td>
+        </tr>
         <tr><th>城のエリート</th><td colspan="3">連弩兵 ― 1 回の射撃で複数の矢を放つ</td></tr>
 
         <tr class="civ-row"><th colspan="4">ヴァイキング ― <strong>騎兵を一切持たない。</strong>火器も投石も無い。海と突撃で殴る</th></tr>
-        <tr><th>近接</th><td>略奪者</td><td>盾衛<span class="ruby">（じゅんえい）</span></td><td>大斧兵</td></tr>
-        <tr><th>遠隔</th><td>投槍兵</td><td>短弓兵</td><td class="none">―（火器なし）</td></tr>
+        <tr>
+          <th>近接</th>
+          <td><span class="uw"><img class="u" src="assets/img/units/v-raider.webp" alt="略奪者">略奪者</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/v-shield.webp" alt="盾衛">盾衛<small>じゅんえい</small></span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/v-axe.webp" alt="大斧兵">大斧兵</span></td>
+        </tr>
+        <tr>
+          <th>遠隔</th>
+          <td><span class="uw"><img class="u" src="assets/img/units/v-javelin.webp" alt="投槍兵">投槍兵</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/v-bow.webp" alt="短弓兵">短弓兵</span></td>
+          <td class="none">―（火器なし）</td>
+        </tr>
         <tr><th>騎兵</th><td class="none">―</td><td class="none">―</td><td class="none">―</td></tr>
-        <tr><th>攻城</th><td class="none">―</td><td>焼き討ち隊<span class="ruby">（火矢）</span></td><td>破城槌</td></tr>
-        <tr><th>船（固有）</th><td class="none">―</td><td>長船<span class="ruby">（ロングシップ）</span></td><td>大長船</td></tr>
+        <tr>
+          <th>攻城</th>
+          <td class="none">―</td>
+          <td><span class="uw"><img class="u" src="assets/img/units/v-fire.webp" alt="焼き討ち隊">焼き討ち隊<small>火矢</small></span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/v-ram.webp" alt="破城槌">破城槌</span></td>
+        </tr>
+        <tr>
+          <th>船（固有）</th>
+          <td class="none">―</td>
+          <td><span class="uw"><img class="u" src="assets/img/units/v-longship.webp" alt="長船">長船<small>ロングシップ</small></span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/v-greatship.webp" alt="大長船">大長船</span></td>
+        </tr>
         <tr><th>城のエリート</th><td colspan="3">ベルセルク ― 時間とともに自己回復する</td></tr>
 
         <tr class="civ-row"><th colspan="4">マリ ― 射撃と駱駝。攻城の最上位を持たない</th></tr>
-        <tr><th>近接</th><td>槍手</td><td>綿甲兵<span class="ruby">（めんこうへい）</span></td><td>長槍手</td></tr>
-        <tr><th>遠隔</th><td>弓手</td><td>大弓手</td><td>火縄手</td></tr>
-        <tr><th>騎兵</th><td class="none">―</td><td>駱駝騎兵<span class="ruby">（らくだきへい）</span></td><td>重駱駝騎兵</td></tr>
-        <tr><th>攻城</th><td class="none">―</td><td>破城槌</td><td>投石機<span class="ruby">（最上位なし）</span></td></tr>
+        <tr>
+          <th>近接</th>
+          <td><span class="uw"><img class="u" src="assets/img/units/m-yarite.webp" alt="槍手">槍手</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/m-menko.webp" alt="綿甲兵">綿甲兵<small>めんこうへい</small></span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/m-naga.webp" alt="長槍手">長槍手</span></td>
+        </tr>
+        <tr>
+          <th>遠隔</th>
+          <td><span class="uw"><img class="u" src="assets/img/units/m-yumi.webp" alt="弓手">弓手</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/m-daikyu.webp" alt="大弓手">大弓手</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/m-hinawa.webp" alt="火縄手">火縄手</span></td>
+        </tr>
+        <tr>
+          <th>騎兵</th>
+          <td class="none">―</td>
+          <td><span class="uw"><img class="u" src="assets/img/units/m-camel.webp" alt="駱駝騎兵">駱駝騎兵<small>らくだきへい</small></span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/m-camel-heavy.webp" alt="重駱駝騎兵">重駱駝騎兵</span></td>
+        </tr>
+        <tr>
+          <th>攻城</th>
+          <td class="none">―</td>
+          <td><span class="uw"><img class="u" src="assets/img/units/m-ram.webp" alt="破城槌">破城槌</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/m-catapult.webp" alt="投石機">投石機<small>最上位なし</small></span></td>
+        </tr>
         <tr><th>城のエリート</th><td colspan="3">近衛弓兵 ― 矢が防具を貫通する</td></tr>
 
         <tr class="civ-row"><th colspan="4">アステカ ― <strong>騎兵も火器も鉄の防具もない。</strong>歩兵の数と石造攻城で押す</th></tr>
-        <tr><th>近接</th><td>棍棒戦士</td><td>黒曜刃兵<span class="ruby">（こくようじんへい）</span></td><td>羽飾り戦士</td></tr>
-        <tr><th>遠隔</th><td>吹き矢兵</td><td>投槍器兵<span class="ruby">（アトラトル）</span></td><td class="none">―（硝石なし）</td></tr>
+        <tr>
+          <th>近接</th>
+          <td><span class="uw"><img class="u" src="assets/img/units/a-club.webp" alt="棍棒戦士">棍棒戦士</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/a-obsidian.webp" alt="黒曜刃兵">黒曜刃兵<small>こくようじんへい</small></span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/a-feather.webp" alt="羽飾り戦士">羽飾り戦士</span></td>
+        </tr>
+        <tr>
+          <th>遠隔</th>
+          <td><span class="uw"><img class="u" src="assets/img/units/a-blowgun.webp" alt="吹き矢兵">吹き矢兵</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/a-atlatl.webp" alt="投槍器兵">投槍器兵<small>アトラトル</small></span></td>
+          <td class="none">―（硝石なし）</td>
+        </tr>
         <tr><th>騎兵</th><td class="none">―</td><td class="none">―（馬がいない）</td><td class="none">―</td></tr>
-        <tr><th>攻城</th><td class="none">―</td><td>投石機</td><td>大投石機</td></tr>
+        <tr>
+          <th>攻城</th>
+          <td class="none">―</td>
+          <td><span class="uw"><img class="u" src="assets/img/units/a-catapult.webp" alt="投石機">投石機</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/a-bigcatapult.webp" alt="大投石機">大投石機</span></td>
+        </tr>
         <tr><th>城のエリート</th><td colspan="3">ジャガー戦士 ― 他の歩兵に対する攻撃が非常に高い</td></tr>
 
         <tr class="civ-row"><th colspan="4">ペルシア ― 唯一「獣兵」系統を持つ。すべて重く、すべて遅い</th></tr>
-        <tr><th>近接</th><td>不死隊<span class="ruby">（ふしたい）</span></td><td>重盾兵</td><td>長槍隊</td></tr>
-        <tr><th>遠隔</th><td>弓兵</td><td>大弓兵</td><td>火筒兵</td></tr>
-        <tr><th>騎兵</th><td class="none">―</td><td>具足騎兵</td><td>重装騎兵<span class="ruby">（カタフラクト）</span></td></tr>
-        <tr><th>獣兵（固有系統）</th><td class="none">―</td><td>戦象</td><td>装甲戦象</td></tr>
-        <tr><th>攻城</th><td class="none">―</td><td>攻城塔</td><td>大砲</td></tr>
+        <tr>
+          <th>近接</th>
+          <td><span class="uw"><img class="u" src="assets/img/units/p-immortal.webp" alt="不死隊">不死隊<small>ふしたい</small></span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/p-shield.webp" alt="重盾兵">重盾兵</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/p-naga.webp" alt="長槍隊">長槍隊</span></td>
+        </tr>
+        <tr>
+          <th>遠隔</th>
+          <td><span class="uw"><img class="u" src="assets/img/units/p-bow.webp" alt="弓兵">弓兵</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/p-daikyu.webp" alt="大弓兵">大弓兵</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/p-gun.webp" alt="火筒兵">火筒兵</span></td>
+        </tr>
+        <tr>
+          <th>騎兵</th>
+          <td class="none">―</td>
+          <td><span class="uw"><img class="u" src="assets/img/units/p-cav.webp" alt="具足騎兵">具足騎兵</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/p-cataphract.webp" alt="重装騎兵">重装騎兵<small>カタフラクト</small></span></td>
+        </tr>
+        <tr>
+          <th>獣兵（固有系統）</th>
+          <td class="none">―</td>
+          <td><span class="uw"><img class="u" src="assets/img/units/p-elephant.webp" alt="戦象">戦象</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/p-elephant-armored.webp" alt="装甲戦象">装甲戦象</span></td>
+        </tr>
+        <tr>
+          <th>攻城</th>
+          <td class="none">―</td>
+          <td><span class="uw"><img class="u" src="assets/img/units/p-tower.webp" alt="攻城塔">攻城塔</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/p-cannon.webp" alt="大砲">大砲</span></td>
+        </tr>
         <tr><th>城のエリート</th><td colspan="3">親衛象 ― 極端に硬く、周囲の敵をまとめて弾く</td></tr>
 
         <tr class="civ-row"><th colspan="4">モンゴル ― <strong>徒歩の遠隔がなく、近接は 1 段だけ、攻城はほぼ無い。</strong>代わりに騎兵が青銅から出る</th></tr>
-        <tr><th>近接</th><td class="none">―</td><td>下馬兵<span class="ruby">（1 段のみ）</span></td><td class="none">―</td></tr>
+        <tr>
+          <th>近接</th>
+          <td class="none">―</td>
+          <td><span class="uw"><img class="u" src="assets/img/units/g-dismount.webp" alt="下馬兵">下馬兵<small>1 段のみ</small></span></td>
+          <td class="none">―</td>
+        </tr>
         <tr><th>遠隔（徒歩）</th><td class="none">―</td><td class="none">―</td><td class="none">―</td></tr>
-        <tr><th>騎兵</th><td><strong>軽騎兵</strong><span class="ruby">（唯一 青銅から騎兵）</span></td><td>騎射兵</td><td>重騎射兵</td></tr>
-        <tr><th>攻城</th><td class="none">―</td><td class="none">―</td><td>簡易投石機<span class="ruby">（性能低）</span></td></tr>
+        <tr>
+          <th>騎兵</th>
+          <td><span class="uw"><img class="u" src="assets/img/units/g-light.webp" alt="軽騎兵"><em>軽騎兵</em><small>唯一 青銅から騎兵</small></span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/g-archer.webp" alt="騎射兵">騎射兵</span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/g-heavy.webp" alt="重騎射兵">重騎射兵</span></td>
+        </tr>
+        <tr>
+          <th>攻城</th>
+          <td class="none">―</td>
+          <td class="none">―</td>
+          <td><span class="uw"><img class="u" src="assets/img/units/g-catapult.webp" alt="簡易投石機">簡易投石機<small>性能低</small></span></td>
+        </tr>
         <tr><th>城のエリート</th><td colspan="3">親衛弓騎兵 ― 移動しながら射撃でき、減速しない（大天幕で生産）</td></tr>
 
       </tbody>
