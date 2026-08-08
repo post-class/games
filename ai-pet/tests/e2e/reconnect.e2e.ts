@@ -28,11 +28,30 @@ async function goOffline(page: import('@playwright/test').Page, context: import(
   await context.setOffline(true);
   const closed = await forceDisconnect(page);
   expect(closed, '閉じられるWSが見つかりませんでした（WSタップが動いていない）').toBeGreaterThan(0);
-  // 途中の表示は数百msで消えるので、DOMの変化履歴で判定する
-  // （localhost相手だと再接続が速く、瞬間の表示をポーリングでは取りこぼす）
+  // 「クライアントが切断に気づいた」ことを確認する。
+  //
+  // 判定を**履歴だけに頼らない**のが要点。DOMの変化履歴（netLabels）は
+  // 「再接続中…」が数百msしか出ない場合に取りこぼすことがあり、実測で3〜6回に1回落ちていた。
+  // `setOffline(true)` の間は再接続に失敗し続けるので**現在の状態も reconnecting/connecting のまま**。
+  // そこで「履歴に出た」か「いまその状態にある」のどちらかで通す。
+  // （履歴側は main.ts の renderNet が発生源で push する `__netTrace` も合流させてある）
+  let seen: string[] = [];
+  let liveNet = '';
   await expect
-    .poll(async () => (await readTap(page)).netLabels.some((l) => /再接続中…|切断/.test(l)), { timeout: 20_000 })
+    .poll(
+      async () => {
+        seen = (await readTap(page)).netLabels;
+        liveNet = (await readDebug(page)).net;
+        return seen.some((l) => /再接続中…|切断/.test(l)) || /reconnecting|closed|connecting/.test(liveNet);
+      },
+      { timeout: 20_000 },
+    )
     .toBe(true);
+  // 落ちたときに何が観測できていたのか分かるようにする（原因の切り分けで毎回ここを疑うため）
+  expect(
+    seen.some((l) => /再接続中…|切断/.test(l)) || /reconnecting|closed|connecting/.test(liveNet),
+    `切断を観測できませんでした。netLabels=${JSON.stringify(seen)} net=${liveNet}`,
+  ).toBe(true);
 }
 
 test.describe('再接続', () => {
@@ -89,6 +108,10 @@ test.describe('再接続', () => {
 
   test('再接続後もwelcomeを受け直して同じ島に戻る', async ({ page, context }) => {
     await gotoGame(page);
+    // ⚠️ **切る前に「繋がりきった」ことを待つ。**
+    // これが無いと接続が落ち着く前に切ってしまい、goOffline が切断を観測できずに落ちる
+    // （同じ helper を使うもう一方のテストにはこの待機があり、そちらだけ安定していた）。
+    await expect(page.locator(HUD_NET)).toContainText('接続OK');
     const before = await readTap(page);
     expect(before.welcomeCount).toBe(1);
     expect(before.seed).not.toBeNull();

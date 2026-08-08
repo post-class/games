@@ -1,21 +1,20 @@
 {
   "mcpServers": {
-    "playwright-headed": {
+    "chrome-devtools": {
       "command": "npx",
       "args": [
-        "-y",
-        "@playwright/mcp@latest",
-        "--user-data-dir",
-        ".tmp/playwright"
+        "chrome-devtools-mcp@latest",
+        "--headless=true",
+        "--isolated=true",
+        "--no-performance-crux",
+        "--no-usage-statistics"
       ]
     },
-    "playwright-headless": {
+    "chrome-devtools-headed": {
       "command": "npx",
       "args": [
-        "-y",
-        "@playwright/mcp@latest",
-        "--headless",
-        "--isolated"
+        "chrome-devtools-mcp@latest",
+        "--autoConnect"
       ]
     }
   }

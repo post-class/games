@@ -173,6 +173,13 @@ function renderNet(state: ConnState, rttMs: number): void {
   };
   hudNet.textContent = label[state];
   hudNet.className = 'hud-chip' + (state === 'open' ? '' : state === 'connecting' ? ' warn' : ' bad');
+  // E2Eの観測用。**`__netTrace` を作るのはテストの初期化スクリプトだけ**なので、
+  // 本番では optional chaining が空振りするだけでコストは無い。
+  //
+  // なぜ必要か: 「再接続中…」は500msしか出ないため、HUDの文字を MutationObserver で
+  // 追う方式だと取りこぼす（M7・M8でも同じ取りこぼしを2回対処している）。
+  // 状態遷移そのものを発生源で記録すれば、観測がタイミングに依存しなくなる。
+  (window as unknown as { __netTrace?: string[] }).__netTrace?.push(label[state]);
 }
 
 /** 自アバターの描画位置（予測を優先。無ければ補間値、それも無ければ島の中心） */

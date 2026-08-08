@@ -38,7 +38,8 @@ export function showEggSelect(catalog: readonly PetCatalogEntry[], onDecide: (se
               (c) => `
             <button class="egg-card${c.species === selected ? ' on' : ''}" data-species="${c.species}"
                     data-testid="egg-card-${c.species}">
-              <img src="/assets/placeholder/pet_${c.species}_s.png" alt="${c.displayName}">
+              <img src="/assets/game/pet_${c.species}_s.png" alt="${c.displayName}"
+                   onerror="this.src='/assets/placeholder/pet_${c.species}_s.png'">
               <b>${c.displayName}</b>
               <span>${c.archetype}</span>
             </button>`,

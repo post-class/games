@@ -80,7 +80,8 @@ export class PetPanel {
 
     this.root.innerHTML = `
       <div class="petpanel-head">
-        <img src="/assets/placeholder/pet_${s.species}_s.png" alt="">
+        <img src="/assets/game/pet_${s.species}_s.png" alt=""
+             onerror="this.src='/assets/placeholder/pet_${s.species}_s.png'">
         <div>
           <b>${escapeHtml(s.name)}</b>
           <span>${escapeHtml(s.mood ?? '')}</span>

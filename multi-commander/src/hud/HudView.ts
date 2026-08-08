@@ -4,7 +4,7 @@ import { settings } from '../app/settings';
 import { clamp01 } from '../core/math';
 import { isHostile } from '../content/factions';
 import { gunDef, gunPresentation, missileDef } from '../content/weapons';
-import { healthRatios } from '../sim/damage';
+import { healthRatios, healthValues, type HealthValue } from '../sim/damage';
 import { radarQuality, stateOf, SUBSYSTEMS } from '../sim/subsystems';
 import { ittsPoint } from '../sim/targeting';
 import { activeMissileSlot } from '../sim/weapons';
@@ -774,6 +774,7 @@ export class HudView {
     let targetHtml = '<div class="mc-vdu-empty mc-target-idle"><b>NO TARGET</b><span>T / R / Y で選択</span></div>';
     if (target?.ship) {
       const h = healthRatios(target);
+      const values = healthValues(target);
       const d = target.pos.distanceTo(player.pos);
       const cls = target.ship.ace
         ? 'ace'
@@ -785,12 +786,18 @@ export class HudView {
       const closing = this.tmpV.copy(target.vel).sub(player.vel).dot(
         this.tmpV.clone().copy(target.pos).sub(player.pos).normalize(),
       );
+      const targetValue = (label: string, value: HealthValue): string =>
+        `<span style="color:${barColor(value.max > 0 ? value.current / value.max : 0)}">${label} ${Math.round(value.current)}/${Math.round(value.max)}</span>`;
+      const targetValues = (leftLabel: string, left: HealthValue, rightLabel: string, right: HealthValue): string =>
+        `<span class="mc-target-values">${targetValue(leftLabel, left)}<span class="mc-target-gap"> </span>${targetValue(rightLabel, right)}</span>`;
       targetHtml = [
         `<div class="name ${cls}">${target.ship.ace ? '★ ' : ''}${escapeHtml(target.ship.pilot ?? target.label ?? '')}</div>`,
         `<div class="row"><span class="k">TYPE</span><span>${escapeHtml(target.ship.def.name)}</span></div>`,
         `<div class="row"><span class="k">DIST</span><span>${d.toFixed(0)}</span></div>`,
         `<div class="row"><span class="k">${closing < 0 ? 'CLOSING' : 'BREAKING'}</span><span>${Math.abs(closing).toFixed(0)}</span></div>`,
-        `<div class="row"><span class="k">SHIELD</span><span style="color:${barColor((h.shieldFront + h.shieldRear) / 2)}">${(((h.shieldFront + h.shieldRear) / 2) * 100) | 0}%</span></div>`,
+        `<div class="row"><span class="k">SHIELD F/R</span>${targetValues('F', values.shield.front, 'R', values.shield.rear)}</div>`,
+        `<div class="row"><span class="k">ARMOR F/R</span>${targetValues('F', values.armor.front, 'R', values.armor.rear)}</div>`,
+        `<div class="row"><span class="k">ARMOR L/R</span>${targetValues('L', values.armor.left, 'R', values.armor.right)}</div>`,
         `<div class="row"><span class="k">HULL</span><span style="color:${barColor(h.hull)}">${(h.hull * 100) | 0}%</span></div>`,
       ].join('');
     }

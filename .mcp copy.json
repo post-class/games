@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "playwright-headed": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--user-data-dir",
+        ".tmp/playwright"
+      ]
+    },
+    "playwright-headless": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--headless",
+        "--isolated"
+      ]
+    }
+  }
+}

@@ -1,0 +1,26 @@
+model_context_window = 1050000
+model_auto_compact_token_limit = 850000
+
+[mcp_servers.playwright-headed]
+command = "npx"
+args = [
+  "-y",
+  "@playwright/mcp@latest",
+  "--user-data-dir",
+  ".tmp/playwright"
+]
+default_tools_approval_mode = "approve"
+
+[mcp_servers.playwright-headless]
+command = "npx"
+args = [
+  "-y",
+  "@playwright/mcp@latest",
+  "--headless",
+  "--isolated"
+]
+default_tools_approval_mode = "approve"
+
+[agents]
+max_threads = 10
+max_depth = 1

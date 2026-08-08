@@ -43,6 +43,8 @@ export interface MissileSlot {
 
 export interface ShipRuntime {
   def: ShipDef;
+  /** 飛行モデルに適用する最高速倍率。通常は 1 (難易度の敵速度補正などに使う)。 */
+  speedScale: number;
   hull: number;
   armor: Record<ArmorFace, number>;
   shield: Record<ShieldFace, number>;

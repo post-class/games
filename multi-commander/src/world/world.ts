@@ -101,6 +101,7 @@ function baseEntity(world: World, kind: EntityKind, faction: Faction, pos: Vecto
 export function makeShipRuntime(def: ShipDef, fuelScale = 1): ShipRuntime {
   return {
     def,
+    speedScale: 1,
     hull: def.hull,
     armor: { ...def.armor },
     shield: { front: def.shield.front, rear: def.shield.rear },
@@ -132,6 +133,8 @@ export interface SpawnShipOptions {
   quat?: Quaternion;
   /** 初速 (未指定なら前方へ maxSpeed*0.5) */
   speed?: number;
+  /** 飛行モデルの最高速倍率 */
+  speedScale?: number;
   label?: string;
   tag?: string;
   pilot?: string;
@@ -158,6 +161,7 @@ export function spawnShip(world: World, o: SpawnShipOptions): Entity {
   e.input = newInput();
 
   const rt = makeShipRuntime(o.def, o.fuelScale ?? 1);
+  rt.speedScale = Math.max(0.01, o.speedScale ?? 1);
   if (o.gunOverride) {
     rt.def = { ...o.def, guns: o.def.guns.map((g) => ({ ...g, gunId: o.gunOverride! })) };
     rt.gunCooldown = rt.def.guns.map(() => 0);
@@ -169,9 +173,9 @@ export function spawnShip(world: World, o: SpawnShipOptions): Entity {
   e.ship = rt;
   if (o.ai) e.ai = o.ai;
 
-  const speed = o.speed ?? o.def.maxSpeed * 0.5;
+  const speed = (o.speed ?? o.def.maxSpeed * 0.5) * rt.speedScale;
   e.vel.set(0, 0, -1).applyQuaternion(quat).multiplyScalar(speed);
-  e.input.throttle = Math.min(1, speed / o.def.maxSpeed);
+  e.input.throttle = Math.min(1, speed / (o.def.maxSpeed * rt.speedScale));
   return world.add(e);
 }
 

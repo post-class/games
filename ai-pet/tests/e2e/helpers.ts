@@ -138,8 +138,12 @@ export async function installWsTap(page: Page): Promise<void> {
       netLabels: string[];
       welcomeCount: number;
     }
-    const holder = window as unknown as { __e2eTap?: Tap };
+    const holder = window as unknown as { __e2eTap?: Tap; __netTrace?: string[] };
     if (holder.__e2eTap) return;
+    // 接続状態の遷移を**発生源（main.ts の renderNet）から**受け取るための箱。
+    // HUDの文字を MutationObserver で追うだけだと、500msしか出ない「再接続中…」を
+    // 取りこぼすことがあった（実測で3回に1回）。この配列があると main.ts が push してくれる。
+    holder.__netTrace = [];
     const tap: Tap = {
       seed: null,
       islandId: null,
@@ -228,8 +232,14 @@ export async function installWsTap(page: Page): Promise<void> {
 /** ページ内に溜まったサーバ真値を読む */
 export async function readTap(page: Page): Promise<WsTapState> {
   const raw = await page.evaluate(() => {
-    const holder = window as unknown as { __e2eTap?: unknown };
-    return holder.__e2eTap ?? null;
+    const holder = window as unknown as { __e2eTap?: unknown; __netTrace?: string[] };
+    const tap = holder.__e2eTap as { netLabels?: string[] } | undefined;
+    if (!tap) return null;
+    // MutationObserver で拾った分と、発生源から push された分を合わせる。
+    // 取りこぼしを埋めるのが目的なので、順序より「出現したか」を保証する
+    const observed = tap.netLabels ?? [];
+    const traced = holder.__netTrace ?? [];
+    return { ...tap, netLabels: [...observed, ...traced] };
   });
   return (raw as WsTapState | null) ?? { ...EMPTY_TAP };
 }

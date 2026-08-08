@@ -423,6 +423,7 @@ function doAttack(
   const input = e.input!;
   const ai = e.ai!;
   const ship = e.ship!;
+  const maxSpeed = ship.def.maxSpeed * Math.max(0.01, ship.speedScale);
   const { speed, range } = gunProfile(e);
 
   leadPoint(e.pos, target.pos, target.vel, speed, _lead);
@@ -434,13 +435,13 @@ function doAttack(
   const targetSpeed = target.vel.length();
   let want: number;
   const standoff = tooCloseFor(e, target);
-  if (distance < standoff * 1.6) want = Math.max(0.3, targetSpeed / ship.def.maxSpeed - 0.2);
-  else if (distance < 900 + standoff) want = clamp01(targetSpeed / ship.def.maxSpeed + 0.1);
+  if (distance < standoff * 1.6) want = Math.max(0.3, targetSpeed / maxSpeed - 0.2);
+  else if (distance < 900 + standoff) want = clamp01(targetSpeed / maxSpeed + 0.1);
   else want = 1;
   input.throttle = clamp01(want);
   // 相手に振り切られそうなときだけ AB を使う
   input.afterburner =
-    distance > 1000 && targetSpeed > ship.def.maxSpeed * 0.9 && ship.fuel > ship.def.fuel * 0.4;
+    distance > 1000 && targetSpeed > maxSpeed * 0.9 && ship.fuel > ship.def.fuel * 0.4;
 
   const cos = tryFireGuns(world, e, target, distance);
 
@@ -693,7 +694,7 @@ function doFormation(world: World, e: Entity, dt: number): void {
     steerToDirection(e, _tmp, 2.4, 0.4);
   }
   const leaderSpeed = leader.vel.length();
-  const want = leaderSpeed / e.ship!.def.maxSpeed + (d > 260 ? 0.4 : 0);
+  const want = leaderSpeed / (e.ship!.def.maxSpeed * Math.max(0.01, e.ship!.speedScale)) + (d > 260 ? 0.4 : 0);
   input.throttle = clamp01(want);
   input.afterburner = d > 900 && e.ship!.fuel > 1;
   ai.mode = 'escort';

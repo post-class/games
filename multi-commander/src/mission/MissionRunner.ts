@@ -537,6 +537,7 @@ export class MissionRunner {
         pos,
         quat,
         speed: g.speed ?? def.maxSpeed * 0.6,
+        speedScale: isHostile(g.faction, 'confed') && this.difficulty.id === 'easy' ? 0.5 : 1,
         tag: g.tag,
         pilot,
         ace: isAce,

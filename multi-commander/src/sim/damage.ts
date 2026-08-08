@@ -135,3 +135,35 @@ export function healthRatios(e: Entity): {
     hull: r(ship.hull, def.hull),
   };
 }
+
+export interface HealthValue {
+  current: number;
+  max: number;
+}
+
+/** HUD 表示用: シールド/アーマー/ハルの現在値と最大値。 */
+export function healthValues(e: Entity): {
+  shield: { front: HealthValue; rear: HealthValue };
+  armor: Record<ArmorFace, HealthValue>;
+  hull: HealthValue;
+} {
+  const ship = e.ship!;
+  const def = ship.def;
+  const value = (current: number, max: number): HealthValue => ({
+    current: Math.max(0, Math.min(max, current)),
+    max: Math.max(0, max),
+  });
+  return {
+    shield: {
+      front: value(ship.shield.front, def.shield.front),
+      rear: value(ship.shield.rear, def.shield.rear),
+    },
+    armor: {
+      front: value(ship.armor.front, def.armor.front),
+      rear: value(ship.armor.rear, def.armor.rear),
+      left: value(ship.armor.left, def.armor.left),
+      right: value(ship.armor.right, def.armor.right),
+    },
+    hull: value(ship.hull, def.hull),
+  };
+}

@@ -1,23 +1,12 @@
 model_context_window = 1050000
 model_auto_compact_token_limit = 850000
 
-[mcp_servers.playwright-headed]
+[mcp_servers.chrome-devtools-headed]
 command = "npx"
 args = [
   "-y",
-  "@playwright/mcp@latest",
-  "--user-data-dir",
-  ".tmp/playwright"
-]
-default_tools_approval_mode = "approve"
-
-[mcp_servers.playwright-headless]
-command = "npx"
-args = [
-  "-y",
-  "@playwright/mcp@latest",
-  "--headless",
-  "--isolated"
+  "chrome-devtools-mcp@latest",
+  "--autoConnect",
 ]
 default_tools_approval_mode = "approve"
 

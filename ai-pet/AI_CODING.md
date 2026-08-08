@@ -215,11 +215,52 @@ cd packages/server && DB_PATH=/absolute/path/to/ai-pet/.tmp/scratch.db node src/
 「サーバを止める → 十分待つ → DBを書き換える → 起動する」の順を守る。逆だと上書きされる。
 ⚠️ 使い終わった `.tmp/*.db` は消す。
 
-## 12. 並行作業するとき
+## 12. 並行作業とマシン負荷
+
+リポジトリ全体の方針は `../AI_CODING.md` の「マシンの負荷を上げすぎない」を見ること。
+ここは ai-pet 固有の実測値と手順。
+
+### ファイルの衝突
 
 - **同じファイルを複数人／複数エージェントで同時に触らない。** 担当ファイルを先に割る
 - 衝突しやすい箇所: `packages/client/src/main.ts`（配線の集約点）、
-  `packages/shared/src/constants.ts`、`packages/client/src/ui/style.css`、`tools/placeholder.ts`
+  `packages/shared/src/constants.ts`、`packages/client/src/ui/style.css`、`tools/placeholder.ts`、
+  `packages/client/src/render/tilemap.ts`、`packages/client/src/render/objects.ts` の `OBJECT_SCALE`
 - `main.ts` は配線だけなので、機能側はクラスを export して**配線は最後にまとめて1人がやる**のが安全
-- 後片付けで**広いパターンの `pkill` を使わない**（他の作業の dev サーバを巻き込む）。
-  自分が起動したPIDだけを止める
+
+### 負荷（実測）
+
+| やること | 単独 | 他と同時 |
+|---|---|---|
+| `npm test`（ユニット881件） | 約15秒 | — |
+| `npm run typecheck` | 約5秒 | — |
+| `npx playwright test`（E2E 24件） | **約2.5分** | **34分**（13倍） |
+| `npm run sim:long` | 数十秒〜 | — |
+
+- **E2E とブラウザ確認を同時に走らせない。** E2E は `webServer` で自前のサーバ（8788/5199）を起こすので、
+  開発用（8787/5173）と**ポートは衝突しないが CPU で衝突する**
+- ブラウザを使わない作業（アセット生成・型検査・ユニットテスト・ドキュメント）は同時に回してよい
+- 終わったら必ず止める。自分が起動したPIDだけを止める:
+  ```bash
+  lsof -nP -iTCP:8787 -sTCP:LISTEN -t | xargs -r kill
+  lsof -nP -iTCP:5173 -sTCP:LISTEN -t | xargs -r kill
+  ```
+- ⚠️ `pkill -f vite` / `pkill -f node` / `pkill -f main.ts` は**他の作業を巻き込む**ので使わない
+  （実際にサブエージェントが親の dev サーバを落とした）
+
+### 間欠失敗を追うとき
+
+**繰り返し実行しない。** `tests/e2e/reconnect.e2e.ts` を `--repeat-each` で5回追いかけたが、
+失敗率が 2/6 → 1/6 → 3/8 → 5/8 → 4/8 と振れるだけで原因に近づかなかった（負荷を除いても約50%）。
+
+正しい手順:
+
+```bash
+npx playwright test tests/e2e/reconnect.e2e.ts --workers=1 --trace on   # 1回だけ
+npx playwright show-trace test-results/<...>/trace.zip                   # 中身を見る
+```
+
+- `test-results/<...>/error-context.md` に**失敗時のページ状態（HUDの文字を含む）**が入るので先に読む
+- 判定を「DOMの変化履歴」だけに頼ると数百msの中間表示を取りこぼす。
+  **現在値も併せて見る**か、状態遷移を発生源で記録する
+  （`main.ts` の `renderNet` は `window.__netTrace` があれば push する。作るのはE2Eの初期化スクリプトだけ）

@@ -485,6 +485,16 @@
 .mc-vdu .row .k {
   color: var(--hud-dim);
 }
+.mc-target-values {
+  display: inline-flex;
+  gap: 7px;
+  min-width: 0;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.mc-target-gap {
+  display: none;
+}
 
 .mc-center {
   display: grid;
@@ -797,6 +807,25 @@
     margin: 1px 0;
     padding-top: 1px;
     font-size: 7px;
+  }
+  /* ターゲットの部位別残量を追加しても、NAV / WING まで枠内に収める。 */
+  .mc-vdu.right.tactical {
+    padding-top: 1px;
+    padding-bottom: 1px;
+    line-height: 0.9;
+  }
+  .mc-vdu.right.tactical .mc-vdu-title {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    line-height: 0.9;
+  }
+  .mc-vdu.right.tactical .mc-vdu-section {
+    margin: 0;
+    padding-top: 0;
+    line-height: 0.9;
+  }
+  .mc-vdu.right.tactical .name {
+    line-height: 0.9;
   }
   .mc-vdu.right.weapons .weapon-use {
     display: none;

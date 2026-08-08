@@ -26,6 +26,9 @@ export function updateFlight(e: Entity, dt: number, mode: FlightMode = 'wc'): vo
   const input = e.input;
   if (!ship || !input) return;
   const def = ship.def;
+  const speedScale = Math.max(0.01, ship.speedScale);
+  const maxSpeed = def.maxSpeed * speedScale;
+  const afterburnerSpeed = def.abSpeed * speedScale;
 
   // ── アフターバーナー & 燃料 ──
   const wantsAb = input.afterburner && ship.fuelMax > 0 && afterburnerAvailable(ship);
@@ -43,7 +46,7 @@ export function updateFlight(e: Entity, dt: number, mode: FlightMode = 'wc'): vo
   // 機体の癖: 最高速付近では旋回性能が落ちる。
   // 重い機体は penalty が大きいので「曲がりたければ絞る」判断が要る。
   const speedNow = e.vel.length();
-  const speedRatio = clamp01(speedNow / Math.max(1, def.maxSpeed));
+  const speedRatio = clamp01(speedNow / Math.max(1, maxSpeed));
   const speedTurnScale = 1 - def.handling.turnSpeedPenalty * speedRatio * speedRatio;
   // 姿勢制御が壊れていれば旋回が鈍る
   const turnScale = (ab ? AB_TURN_PENALTY : 1) * speedTurnScale * thrusterOutput(ship);
@@ -63,7 +66,7 @@ export function updateFlight(e: Entity, dt: number, mode: FlightMode = 'wc'): vo
     // アーケード飛行: 速度ベクトルが機首方向へ追従する
     // エンジン損傷で最高速が落ちる
     const power = engineOutput(ship);
-    const targetSpeed = (ab ? def.abSpeed : throttle * def.maxSpeed) * power;
+    const targetSpeed = (ab ? afterburnerSpeed : throttle * maxSpeed) * power;
     _desired.copy(_fwd).multiplyScalar(targetSpeed);
     _delta.copy(_desired).sub(e.vel);
     // drift が大きい機体は速度が機首に追いつくのが遅く、旋回中に流れる
@@ -82,7 +85,7 @@ export function updateFlight(e: Entity, dt: number, mode: FlightMode = 'wc'): vo
       const sp = e.vel.length();
       if (sp > 1e-4) e.vel.multiplyScalar(Math.max(0, sp - brake) / sp);
     }
-    const cap = ab ? def.abSpeed : def.maxSpeed * 1.25;
+    const cap = ab ? afterburnerSpeed : maxSpeed * 1.25;
     const sp = e.vel.length();
     if (sp > cap) e.vel.multiplyScalar(cap / sp);
   }

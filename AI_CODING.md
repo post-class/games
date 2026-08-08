@@ -6,47 +6,49 @@
 # node
 - npm 11.12.1, node v24.11.1, が導入済み
 
+# マシンの負荷を上げすぎない
+
+ローカルの1台で動いている。**ブラウザを起こすものが一番重い。**
+実測: E2E全件は単独なら2.5分だが、他の作業と同時に走らせたら**34分（13倍）**かかった。
+Chrome の CPU 使用率が数百%になったらやりすぎ。
+
+## 守ること
+
+- **同時に走らせるものを数える。** 目安は「ブラウザを起こすもの1つ、サーバ1組」まで。
+  数えるべきもの: dev サーバ / Vite / Playwright の `webServer` / MCPブラウザ / サブエージェント
+- **テストを繰り返し実行して原因を探らない。** `--repeat-each` は使っても2まで。
+  間欠失敗を追うなら**繰り返しではなく `--trace on` で1回**録って中身を見る。
+  （繰り返すと結果が振れるだけで、改善したのかノイズなのか区別できない。実際に
+  2/6→1/6→3/8→5/8→4/8 と振れて読み違えた）
+- **作業前に `ps` で残留を確認し、終わったら止める。** 止めるのは**自分が起動したPIDだけ**。
+  `pkill -f vite` や `pkill -f node` のような広いパターンは他の作業を巻き込むので禁止
+- **サブエージェントは同時2本まで**（ユーザ指定）。各自がサーバとブラウザを起こす前提で数える
+- 長く走るものは `run_in_background` にして、待つ間に**ブラウザを使わない作業**を並べる
+  （アセット生成・ドキュメント更新・型検査など）
+- 重い処理を始める前・終えた後に一言報告する（ユーザが気づいて止めに来る状況を作らない）
+
 # tools　usage
 
 ## img-gen-gpt スキル
 透過PNGが作れるので、デザイン全般に活用してください。
 
 ## browser スキル
-browserスキルは使用しないでください。代わりに playwright mcp を使用してください。
+browserスキルは使用しないでください。代わりに chrome-devtools mcp を使用してください。
 
 ## web-search-google スキル
 Web検索時に使用してください。
 使えない場合は、フェッチでYahoo検索を利用してください。
 
-## playwright-headless MCP
-ブラウザテスト、URLフェッチ、Web検索で利用してください。
-- URLフェッチ、Web検索、SPAサイトの本文取得では、基本的に `playwright` を優先してください。
-- 特に本文抽出が必要な場合は、`browser_navigate` または `browser_tabs` でページを開いた後に `browser_snapshot` を使ってテキスト取得してください。
-- 検索の場合YahooのGETパラメータで検索してください。 https://search.yahoo.co.jp/search
-- 基本的にステートフルのため、シーケンシャルに呼んでください。
+## chrome-devtools MCP
+headlessモードのchromeブラウザ操作ツールです。
 
-### 「本田宗一郎」を検索する例
-#### Step 1: `browser_tabs` — 新規タブでクエリ付き URL を開く
-```json
-{
-  "tool_name": "browser_tabs",
-  "arguments": {
-    "action": "new",
-    "url": "https://search.yahoo.co.jp/search?p=%E6%9C%AC%E7%94%B0%E5%AE%97%E4%B8%80%E9%83%8E"
-  }
-}
-```
-#### Step 2: `browser_snapshot`
-```json
-{
-  "tool_name": "browser_snapshot",
-  "arguments": {
-    "depth": 8
-  }
-}
-```
+## chrome-devtools-headed MCP
+ユーザが開いているブラウザを使ったブラウザツールです。
+音声/カメラ/ログイン/ユーザのブラウザ操作をして欲しいとき/ユーザがすでに開いているブラウザを操作したい時 などの確認や操作が必要なときに使用してください。
+基本的には負荷の少ない chrome-devtools の方をできるだけ使用してください。
 
-## playwright-headed MCP
-playwright-headless　では実行できない、音声/カメラ/ログイン などが必要なときは、headlessがついてない playwright-headed　を使用してください。
-基本的には負荷の少ない playwright-headless の方をできるだけ使用してください。
-
+# html コーディング規約
+- 左右の余白は20px とし、ブラウザの幅を広げると、領域も広がるようにする
+- 文字の大きさは、normalを16px として、基準とする。
+- ヘッダ領域の文字を大きくしすぎたり、冗長な情報を詰め込むと、メインコンテンツの領域が狭まります。最低限としてください。
+- htmlを作ったら必ず chrome-devtools mcp でキャプチャを撮って見た目の確認をしてください。
