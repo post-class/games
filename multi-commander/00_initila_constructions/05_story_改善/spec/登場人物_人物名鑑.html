@@ -184,7 +184,7 @@
 
       <div id="roster" aria-live="polite"></div>
 
-      <div class="scope"><strong style="color:var(--gold)">人物設計の基準：</strong> 人類20名は日本人・白人・黒人・アラブ人・タイ人・インドネシア人・中国人・韓国人を配置。主人公は固定せず、この20名から選択する。非人類は獣人、宇宙人、アンドロイド・ロボット系、エネルギー・不定体系に分類し、各勢力10名・最高権力者を左上に配置する。</div>
+      <div class="scope"><strong style="color:var(--gold)">人物設計の基準：</strong> 人類36名は、日本・イギリス・イタリア・ガーナ・ケニア・レバノン・エジプト・タイ・韓国・ナイジェリア・エチオピアの各文化圏から配置。主人公は固定せず、この中から選択する。非人類は獣人、宇宙人、アンドロイド・ロボット系、エネルギー・不定体系に分類し、各勢力10名・最高権力者を左上に配置する。</div>
 
       <dialog id="persona-dialog" aria-labelledby="dialog-title">
         <div class="dialog-head"><div><div class="kicker" id="dialog-faction"></div><h2 id="dialog-title"></h2><p id="dialog-callsign"></p></div><button class="dialog-close" type="button" aria-label="詳細を閉じる">閉じる</button></div>
@@ -351,7 +351,7 @@
       ];
 
       const factionLabels = { confed: '人類', kilrashi: 'キルラシー（獣人）', serecion: 'セレシオン（エネルギー、不定体系）', ordo: 'オルド（宇宙人）', neurowm: 'ニューロウム（アンドロイド、ロボット系）' };
-      const humanEthnicities = ['日本人', '白人', '黒人', 'アラブ人', 'タイ人', 'インドネシア人', '中国人', '韓国人'];
+      const humanEthnicities = ['日本', 'イギリス', 'イタリア', 'ガーナ', 'ケニア', 'レバノン', 'エジプト', 'タイ', '韓国', 'ナイジェリア', 'エチオピア'];
       const speciesCategories = { confed: '人類', kilrashi: '獣人', serecion: 'エネルギー、不定体系', ordo: '宇宙人', neurowm: 'アンドロイド、ロボット系' };
       const relationshipPairs = [
         ['kilrashi-1', 'kilrashi-2', '兄妹。カクシとラギティカは同じ家門の血誓を継ぐ。'],
@@ -542,7 +542,7 @@
       function identityFor(meta, faction, index) {
         const ageMatch = meta.match(/(\d+)歳/);
         const gender = faction.id === 'confed' ? meta.split('/')[0].trim() : meta.includes('女性') || meta.includes('雌') ? '女性型' : meta.includes('男性') || meta.includes('雄') ? '男性型' : '性別を持たない個体表現';
-        const humanEthnicity = ['日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','白人','白人','黒人','黒人','アラブ人','アラブ人','アジア系','アジア系','白人','白人','黒人','黒人','アラブ人','アラブ人','アジア系','アジア系'];
+        const humanEthnicity = ['日本','日本','日本','日本','日本','日本','日本','日本','日本','日本','日本','日本','日本','日本','日本','日本','日本','日本','日本','日本','イギリス','イタリア','ガーナ','ケニア','レバノン','エジプト','タイ','韓国','イギリス','イタリア','ナイジェリア','エチオピア','レバノン','エジプト','タイ','韓国'];
         const ethnicity = faction.id === 'confed' ? humanEthnicity[index] : null;
         return { gender, age: ageMatch ? `${ageMatch[1]}歳` : meta.split('/').slice(1).join('/').trim(), ethnicity, category: speciesCategories[faction.id] };
       }
