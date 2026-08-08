@@ -92,6 +92,19 @@ export function berryTreeState(amount: number, max: number, x: number, y: number
   return amount <= 0 ? 'empty' : 'full';
 }
 
+/**
+ * 木の絵を変える季節（F-4）。
+ *
+ * `SeasonTint` の色被せだけだと「緑の森に橙の膜が掛かった」ようにしか見えず、
+ * 「別物に見える」という完了条件に届かなかった。葉の絵そのものを差し替える。
+ * **秋と冬だけ**なのは、春夏の緑は基本アセットで足りるため（枚数を増やさない）。
+ */
+export type TreeSeason = 'autumn' | 'winter' | null;
+
+export function treeSeasonOf(season: string): TreeSeason {
+  return season === 'autumn' || season === 'winter' ? season : null;
+}
+
 /** 描画に使うスプライトの実体 */
 interface Entry {
   sprite: Sprite;
@@ -148,18 +161,35 @@ export const OBJECT_SCALE: Record<string, number> = {
   bush: 1.15,
 };
 
+// 季節差分（F-4）は骨格が同じなので、基本の状態と同じ寸法にする。
+// ここで足しておかないと `place()` の寸法引きが 1 に落ちて木が急に小さくなる
+for (const st of ['full', 'empty', 'young'] as const) {
+  for (const se of ['autumn', 'winter'] as const) {
+    OBJECT_SCALE[`berry_tree_${st}_${se}`] = OBJECT_SCALE[`berry_tree_${st}`] ?? 1.9;
+  }
+}
+
 export class ObjectLayer {
   private container: Container;
   private textures: ObjectTextureSet;
   private camera: Camera;
   private sprites = new Map<number, Entry>();
   private drawnCount = 0;
+  private treeSeason: TreeSeason = null;
 
   // 注意: Node の type-stripping で動かすため parameter property は使えない
   constructor(layers: Pick<Layers, 'entities'>, textures: ObjectTextureSet, camera: Camera) {
     this.container = layers.entities;
     this.textures = textures;
     this.camera = camera;
+  }
+
+  /**
+   * 季節を伝える（F-4）。木の葉の絵が変わる。
+   * `place()` はキーが変わったらスプライトを作り直すので、ここでは値を持つだけでよい。
+   */
+  setSeason(season: string): void {
+    this.treeSeason = treeSeasonOf(season);
   }
 
   /** 毎フレーム、受信した資源・設置物に合わせてスプライトを整える */
@@ -197,7 +227,11 @@ export class ObjectLayer {
   private resourceKey(r: ResourceView): string {
     if (r.type !== 'berry_tree') return `obj_${r.type}`;
     const state = berryTreeState(r.amount, r.max, r.x, r.y);
-    return this.textures.resolve(`obj_berry_tree_${state}`, 'obj_berry_tree');
+    // 季節 → 状態 → 基本 の順に落とす（アセットが無くても必ず描ける）
+    const names: string[] = [];
+    if (this.treeSeason) names.push(`obj_berry_tree_${state}_${this.treeSeason}`);
+    names.push(`obj_berry_tree_${state}`, 'obj_berry_tree');
+    return this.textures.resolve(...names);
   }
 
   private place(

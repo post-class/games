@@ -18,6 +18,7 @@ import {
   meaningfulErrors,
   readDebug,
   readTap,
+  readWsTrace,
 } from './helpers.ts';
 
 /** バックオフ最大8秒＋接続にかかる時間を見込んだ余裕 */
@@ -25,9 +26,21 @@ const RECONNECT_TIMEOUT = 30_000;
 
 /** 回線を落として、開いているWSを切る */
 async function goOffline(page: import('@playwright/test').Page, context: import('@playwright/test').BrowserContext): Promise<void> {
-  await context.setOffline(true);
+  // ⚠️ **順序が重要。ソケットを閉じてから オフラインにする。**
+  //
+  // 逆順（オフライン → close）にしていたときは 15〜25% の頻度で失敗していた。
+  // `ws.close()` は「閉じる」ハンドシェイク（Closeフレームの送受信）を始めるだけなので、
+  // **オフラインだとハンドシェイクが完了できず、close イベントがページに飛んでこない**ことがある。
+  // その結果「閉じたと数えたのにクライアントの状態が open のまま」になっていた。
+  // 発生源のトレース（`wsTrace`）で確認した実際の並び:
+  //
+  //   443ms connect / 626ms onopen / 1631ms e2e:close() 実行 … その後 onclose が来ない
+  //
+  // 先に閉じれば close イベントは確実に飛ぶ。再接続は最短500msのバックオフなので、
+  // その前に `setOffline(true)` を掛ければ「繋ぎ直そうとしても繋がらない」状況は再現できる。
   const closed = await forceDisconnect(page);
   expect(closed, '閉じられるWSが見つかりませんでした（WSタップが動いていない）').toBeGreaterThan(0);
+  await context.setOffline(true);
   // 「クライアントが切断に気づいた」ことを確認する。
   //
   // 判定を**履歴だけに頼らない**のが要点。DOMの変化履歴（netLabels）は
@@ -35,22 +48,26 @@ async function goOffline(page: import('@playwright/test').Page, context: import(
   // `setOffline(true)` の間は再接続に失敗し続けるので**現在の状態も reconnecting/connecting のまま**。
   // そこで「履歴に出た」か「いまその状態にある」のどちらかで通す。
   // （履歴側は main.ts の renderNet が発生源で push する `__netTrace` も合流させてある）
+  //
+  // ⚠️ `expect.poll` は失敗すると**自前のメッセージを出せない**（タイムアウトの汎用文になる）ので、
+  // 自分でポーリングして、落ちたときに観測内容を全部出す形にしている。
+  // 原因の切り分けで毎回ここを疑うため、`wsTrace`（ソケットのライフサイクル）まで出す。
   let seen: string[] = [];
   let liveNet = '';
-  await expect
-    .poll(
-      async () => {
-        seen = (await readTap(page)).netLabels;
-        liveNet = (await readDebug(page)).net;
-        return seen.some((l) => /再接続中…|切断/.test(l)) || /reconnecting|closed|connecting/.test(liveNet);
-      },
-      { timeout: 20_000 },
-    )
-    .toBe(true);
-  // 落ちたときに何が観測できていたのか分かるようにする（原因の切り分けで毎回ここを疑うため）
+  let ok = false;
+  const deadline = Date.now() + 20_000;
+  while (Date.now() < deadline) {
+    seen = (await readTap(page)).netLabels;
+    liveNet = (await readDebug(page)).net;
+    ok = seen.some((l) => /再接続中…|切断/.test(l)) || /reconnecting|closed|connecting/.test(liveNet);
+    if (ok) break;
+    await page.waitForTimeout(200);
+  }
+  const wsTrace = await readWsTrace(page);
   expect(
-    seen.some((l) => /再接続中…|切断/.test(l)) || /reconnecting|closed|connecting/.test(liveNet),
-    `切断を観測できませんでした。netLabels=${JSON.stringify(seen)} net=${liveNet}`,
+    ok,
+    `切断を観測できませんでした。\n  閉じたソケット数=${closed}\n  netLabels=${JSON.stringify(seen)}\n` +
+      `  net=${liveNet}\n  wsTrace=\n    ${wsTrace.join('\n    ')}`,
   ).toBe(true);
 }
 

@@ -421,3 +421,38 @@ and absolutely no cast shadow or ellipse on the ground beneath it.
    `uv run --with httpx --with pyyaml --with python-dotenv --with openai` が必要
 4. `--env-file`: リポジトリ直下の `games/.env` を渡す（`ai-pet/` からなら `../.env`）。
    `AZURE_OPENAI_ENDPOINT`（`US` なし）はペットのLLM用で画像モデルが無いため、渡すと404になる
+
+---
+
+## 追加分: 季節の木（docs/03 の F-4 / 2026-08-08）
+
+6枚生成 / medium・1024x1024 / 合計 **$0.066**。うち採用は4枚（苗木2枚は色替えに差し替え）。
+
+共通スタイル句（`obj_*` の英語版。C-1 と同じもの）に、木の骨格を毎回同じにするための一句を足した:
+
+```
+A single small round-canopy fruit tree: one fluffy round ball of foliage sitting on a short thick
+light-brown trunk, wider than tall canopy, no other plants.
+```
+
+| 出力 | 個別の指示 | 採否 |
+|---|---|---|
+| `obj_berry_tree_full_autumn` | `The foliage is AUTUMN: warm orange #e8a45c and amber #d98b3f leaves with a few soft red leaves mixed in, and several round red berries hanging in the leaves.` | ✅ |
+| `obj_berry_tree_empty_autumn` | `The foliage is AUTUMN: ... NO berries and no fruit at all, only leaves.` | ✅ |
+| `obj_berry_tree_full_winter` | `The foliage is WINTER: the round canopy is bare twigs covered with soft white snow #ffffff caps, almost no leaves, and a few round red berries still visible among the snowy twigs.` | ✅ |
+| `obj_berry_tree_empty_winter` | `The foliage is WINTER: ... NO berries and no fruit at all.` | ✅ |
+| `obj_berry_tree_young_autumn` | `A SMALL YOUNG sapling version: ... a small round tuft of AUTUMN orange leaves on a very thin short trunk.` | ❌ → 色替え |
+| `obj_berry_tree_young_winter` | `A SMALL YOUNG sapling version: ... a tiny round tuft of bare twigs with white snow ...` | ❌ → 色替え |
+
+`dead`（枯れ木）は季節に関係なく枝だけなので作っていない。
+
+### ⚠️ 判明したこと
+
+1. **「小さな苗木を1本だけ」は効かない。** 2枚とも**大木＋苗木の2本**が描かれた。
+   苗木だけ切り出すと退色していて（`strip-ground` が薄い葉を地面と判定して削った）使えなかった。
+   → `tools/recolor-foliage.py` を新設し、**基本の苗木の葉だけを色替え**して作った。
+   形が基本と完全に一致するので、季節が変わって差し替わっても「別の木に化けた」ように見えない
+2. 大木4枚は1回で通った。ポイントは「丸い葉のかたまり＋短い太い幹」を**毎回書く**こと
+   （「前の画像と同じ」は効かないのはキャラと同じ）
+3. 生成物には今回も足元の地面が焼き込まれていたので `tools/strip-ground.py` を通した
+   （除去量は 1,461〜33,933px とばらついた。**薄い色の葉は削られることがある**ので目で確認する）

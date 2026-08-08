@@ -138,12 +138,16 @@ export async function installWsTap(page: Page): Promise<void> {
       netLabels: string[];
       welcomeCount: number;
     }
-    const holder = window as unknown as { __e2eTap?: Tap; __netTrace?: string[] };
+    const holder = window as unknown as { __e2eTap?: Tap; __netTrace?: string[]; __wsTrace?: string[] };
     if (holder.__e2eTap) return;
     // 接続状態の遷移を**発生源（main.ts の renderNet）から**受け取るための箱。
     // HUDの文字を MutationObserver で追うだけだと、500msしか出ない「再接続中…」を
     // 取りこぼすことがあった（実測で3回に1回）。この配列があると main.ts が push してくれる。
     holder.__netTrace = [];
+    // ソケットのライフサイクル（connect / onopen / onclose / scheduleReconnect / setState）。
+    // `socket.ts` の `wsTrace()` がこの配列があるときだけ push する。
+    // 「閉じたのに状態遷移が起きない」の切り分け用
+    holder.__wsTrace = [];
     const tap: Tap = {
       seed: null,
       islandId: null,
@@ -258,18 +262,31 @@ export async function readTap(page: Page): Promise<WsTapState> {
  */
 export async function forceDisconnect(page: Page): Promise<number> {
   return page.evaluate(() => {
-    const holder = window as unknown as { __e2eSockets?: WebSocket[] };
+    const holder = window as unknown as { __e2eSockets?: WebSocket[]; __wsTrace?: string[] };
     const list = holder.__e2eSockets ?? [];
     let closed = 0;
     for (const ws of list) {
+      // 何を閉じた／飛ばしたかを wsTrace に残す（Viteのソケットを誤って閉じていないかの確認）
+      holder.__wsTrace?.push(
+        `${Math.round(performance.now())}ms e2e:forceDisconnect 候補 url=${ws.url} readyState=${ws.readyState}`,
+      );
       if (!ws.url.includes('/ws')) continue;
       if (ws.readyState === 0 || ws.readyState === 1) {
         ws.close();
         closed++;
+        holder.__wsTrace?.push(`${Math.round(performance.now())}ms e2e:close() 実行 url=${ws.url}`);
       }
     }
     return closed;
   });
+}
+
+/**
+ * ソケットのライフサイクルのトレースを読む。
+ * 失敗メッセージに入れると「close が届いたか / state が動いたか」が一目で分かる。
+ */
+export async function readWsTrace(page: Page): Promise<string[]> {
+  return page.evaluate(() => (window as unknown as { __wsTrace?: string[] }).__wsTrace ?? []);
 }
 
 /** タップが見ている生存アクターIDの一覧 */

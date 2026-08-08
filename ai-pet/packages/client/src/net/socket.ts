@@ -15,6 +15,25 @@ export interface SocketOptions {
   onState?: (state: ConnState, info: { attempt: number; rttMs: number }) => void;
 }
 
+/**
+ * E2Eの切り分け用トレース。
+ *
+ * **`__wsTrace` を作るのはテストの初期化スクリプトだけ**なので、本番では
+ * optional chaining が空振りするだけでコストは無い（`main.ts` の `__netTrace` と同じ作法）。
+ *
+ * なぜ必要か: `tests/e2e/reconnect.e2e.ts` の強制切断が
+ * **「閉じたと数えているのに状態遷移が起きない」**ことが 15〜25% の頻度で起きていて、
+ * トレース（trace.zip）では「/ws が1本だけ・welcome 1回・チップは接続OK」までしか分からなかった。
+ * close が届いているのか、届いていて state が動いていないのかを区別するために、
+ * ソケットのライフサイクルを発生源で記録する。
+ */
+function wsTrace(event: string, extra?: Record<string, unknown>): void {
+  const holder = window as unknown as { __wsTrace?: string[] };
+  if (!holder.__wsTrace) return;
+  const at = Math.round(performance.now());
+  holder.__wsTrace.push(extra ? `${at}ms ${event} ${JSON.stringify(extra)}` : `${at}ms ${event}`);
+}
+
 function defaultUrl(): string {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${proto}//${location.host}/ws`;
@@ -41,8 +60,10 @@ export class GameSocket {
     const url = this.opts.url ?? defaultUrl();
     const ws = new WebSocket(url);
     this.ws = ws;
+    wsTrace('connect', { url, attempt: this.attempt });
 
     ws.onopen = () => {
+      wsTrace('onopen');
       this.attempt = 0;
       this.setState('open');
       this.send({
@@ -73,6 +94,7 @@ export class GameSocket {
     };
 
     ws.onclose = () => {
+      wsTrace('onclose', { closedByUser: this.closedByUser, isCurrent: this.ws === ws });
       this.stopPing();
       if (this.closedByUser) {
         this.setState('closed');
@@ -83,11 +105,13 @@ export class GameSocket {
 
     ws.onerror = () => {
       // oncloseが続いて呼ばれるのでここでは何もしない
+      wsTrace('onerror');
     };
   }
 
   private scheduleReconnect(): void {
     this.attempt++;
+    wsTrace('scheduleReconnect', { attempt: this.attempt });
     this.setState('reconnecting');
     const delay = Math.min(8000, 500 * 2 ** (this.attempt - 1));
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
@@ -108,6 +132,8 @@ export class GameSocket {
   }
 
   private setState(s: ConnState): void {
+    // pong ごとに同じ state で呼ばれるので、変化したときだけ記録する（ログが埋まらないように）
+    if (s !== this.state) wsTrace('setState', { to: s });
     this.state = s;
     this.opts.onState?.(s, { attempt: this.attempt, rttMs: this.rttMs });
   }

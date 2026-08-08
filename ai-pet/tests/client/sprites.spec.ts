@@ -11,7 +11,12 @@ import {
   CharTextureSet,
   SLEEP_ALPHA,
   SPECIES_SCALE,
+  WALK_BOB_PX,
+  WALK_TILT_RAD,
   charLook,
+  walkPhaseOffset,
+  walkPose,
+  walkPoseFor,
 } from '../../packages/client/src/render/sprites.ts';
 import { sleepNames } from '../../packages/client/src/render/assets.ts';
 import {
@@ -124,5 +129,54 @@ describe('D-6 いのししのスケールハック', () => {
     expect(SPECIES_SCALE['boar']).toBe(BOAR_SCALE);
     // 1.0 未満にすると接地影（shadows.ts）まで小さくなるので、下限だけ縛る
     expect(BOAR_SCALE).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('D-4 歩行の2コマ表現', () => {
+  it('止まっているときは何も動かさない', () => {
+    expect(walkPoseFor(false, 1234, 7, false)).toEqual({ bob: 0, tilt: 0 });
+  });
+
+  it('prefers-reduced-motion では歩いても動かさない', () => {
+    expect(walkPoseFor(true, 1234, 7, true)).toEqual({ bob: 0, tilt: 0 });
+  });
+
+  it('跳ねは常に上向き（地面へ潜らない）', () => {
+    for (let i = 0; i <= 40; i++) {
+      expect(walkPose(i / 40).bob, `${i}`).toBeLessThanOrEqual(0);
+      expect(walkPose(i / 40).bob, `${i}`).toBeGreaterThanOrEqual(-WALK_BOB_PX);
+    }
+  });
+
+  it('1周期に着地が2回ある（＝2歩）', () => {
+    // 着地 = 跳ねが 0 に戻る点。0, 0.5, 1 の3点（両端は同じ足）
+    const grounded: number[] = [];
+    for (let i = 0; i < 100; i++) {
+      if (Math.abs(walkPose(i / 100).bob) < 1e-9) grounded.push(i / 100);
+    }
+    expect(grounded).toEqual([0, 0.5]);
+  });
+
+  it('傾きは1周期に1往復（1歩目と2歩目で逆に傾く＝足踏みに見える）', () => {
+    // 前半は片側、後半は反対側
+    expect(walkPose(0.25).tilt).toBeGreaterThan(0);
+    expect(walkPose(0.75).tilt).toBeLessThan(0);
+    expect(Math.abs(walkPose(0.25).tilt)).toBeCloseTo(WALK_TILT_RAD, 10);
+  });
+
+  it('傾きは控えめ（転びそうに見えない）', () => {
+    // 0.1rad ≈ 5.7° を超えると転びそうに見えた
+    expect(WALK_TILT_RAD).toBeLessThan(0.1);
+  });
+
+  it('個体ごとに位相がずれる（群れが行進して見えない）', () => {
+    const offs = [1, 2, 3, 17, 99].map(walkPhaseOffset);
+    expect(new Set(offs).size).toBe(offs.length);
+    for (const o of offs) {
+      expect(o).toBeGreaterThanOrEqual(0);
+      expect(o).toBeLessThan(1);
+    }
+    // 決定論
+    expect(walkPhaseOffset(42)).toBe(walkPhaseOffset(42));
   });
 });

@@ -58,8 +58,20 @@ const OBJECT_TYPES = [
  */
 const BERRY_TREE_STATES = ['full', 'empty', 'young', 'dead'] as const;
 
+/**
+ * 季節で絵が変わる木（F-4）。**秋と冬だけ**。
+ * 春夏は基本の緑をそのまま使うので差分を持たない。
+ * 枯れ木（`dead`）は季節に関係なく枝だけなので作らない。
+ */
+const BERRY_TREE_SEASONS = ['autumn', 'winter'] as const;
+const BERRY_TREE_SEASON_STATES = ['full', 'empty', 'young'] as const;
+
 export function berryTreeStateNames(): string[] {
-  return BERRY_TREE_STATES.map((s) => `obj_berry_tree_${s}.png`);
+  const out = BERRY_TREE_STATES.map((s) => `obj_berry_tree_${s}.png`);
+  for (const se of BERRY_TREE_SEASONS) {
+    for (const st of BERRY_TREE_SEASON_STATES) out.push(`obj_berry_tree_${st}_${se}.png`);
+  }
+  return out;
 }
 
 export interface LoadedTextures {

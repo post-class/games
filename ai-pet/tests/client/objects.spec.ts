@@ -12,8 +12,10 @@ import {
   OBJECT_SCALE,
   ObjectTextureSet,
   berryTreeState,
+  treeSeasonOf,
   type BerryTreeState,
 } from '../../packages/client/src/render/objects.ts';
+import { berryTreeStateNames } from '../../packages/client/src/render/assets.ts';
 
 const MAX = 6;
 
@@ -141,5 +143,54 @@ describe('OBJECT_SCALE: 小オブジェクトと木の状態差分', () => {
     }
     // 焚き火は夜の広場の主役なので、岩や切り株より大きい
     expect(OBJECT_SCALE['campfire']).toBeGreaterThan(OBJECT_SCALE['rock'] as number);
+  });
+});
+
+describe('F-4 木の季節差分', () => {
+  it('絵が変わるのは秋と冬だけ（春夏は基本の緑を使う）', () => {
+    expect(treeSeasonOf('autumn')).toBe('autumn');
+    expect(treeSeasonOf('winter')).toBe('winter');
+    expect(treeSeasonOf('spring')).toBeNull();
+    expect(treeSeasonOf('summer')).toBeNull();
+    // 知らない値が来ても落ちない（サーバの季節名が増えたときに基本へ落ちる）
+    expect(treeSeasonOf('rainy')).toBeNull();
+  });
+
+  it('季節の絵が無ければ状態の絵へ、それも無ければ基本の1枚へ落ちる', () => {
+    const base = new ObjectTextureSet([['obj_berry_tree', null as never]], null as never);
+    expect(base.resolve('obj_berry_tree_full_winter', 'obj_berry_tree_full', 'obj_berry_tree')).toBe(
+      'obj_berry_tree',
+    );
+    const withState = new ObjectTextureSet(
+      [
+        ['obj_berry_tree', null as never],
+        ['obj_berry_tree_full', null as never],
+      ],
+      null as never,
+    );
+    expect(
+      withState.resolve('obj_berry_tree_full_winter', 'obj_berry_tree_full', 'obj_berry_tree'),
+    ).toBe('obj_berry_tree_full');
+  });
+
+  it('季節差分にも寸法がある（無いと木が急に1タイルへ縮む）', () => {
+    for (const st of ['full', 'empty', 'young'] as const) {
+      for (const se of ['autumn', 'winter'] as const) {
+        expect(OBJECT_SCALE[`berry_tree_${st}_${se}`], `${st}_${se}`).toBe(
+          OBJECT_SCALE[`berry_tree_${st}`],
+        );
+      }
+    }
+  });
+
+  it('読み込み対象の名前に季節差分が入っている（枯れ木は季節差分を作らない）', () => {
+    const names = berryTreeStateNames();
+    for (const st of ['full', 'empty', 'young'] as const) {
+      for (const se of ['autumn', 'winter'] as const) {
+        expect(names, `${st}_${se}`).toContain(`obj_berry_tree_${st}_${se}.png`);
+      }
+    }
+    expect(names).not.toContain('obj_berry_tree_dead_autumn.png');
+    expect(names).not.toContain('obj_berry_tree_dead_winter.png');
   });
 });

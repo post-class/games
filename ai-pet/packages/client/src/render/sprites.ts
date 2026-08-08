@@ -92,6 +92,63 @@ export const SPECIES_SCALE: Record<string, number> = {
 export const SLEEP_ALPHA = 0.75;
 
 /**
+ * 歩行の2コマ表現（D-4）
+ *
+ * 元は「上下に跳ねるだけ」だった（`Math.sin(nowMs / 90)`）。
+ * 上下だけだと**左右どちらの足を出しているか分からない**ので、跳ねているのに足踏みに見えない。
+ *
+ * コマ画像を44枚追加する案もあったが、
+ * 生成AIは「同じキャラの2コマ目」を安定して描けない（3方向の作画で実証済み・`tools/gen-assets.md`）。
+ * 代わりに**1周期で2回跳ね、傾きは1往復させる**。
+ * 「傾き＋着地」の組が左右で逆になるので、2コマのアニメと同じ読み方ができる。
+ * 傾きの回転軸はアンカー（足元 `ANCHOR_Y`）なので、体だけが振れて足は地面に残る。
+ *
+ * `prefers-reduced-motion` では**完全に止める**（上下の跳ねも止める）。
+ */
+export const WALK_CYCLE_MS = 620;
+/** 跳ねる高さ（px）。1周期に2回。2.2 を超えると「飛んでいる」に見えた */
+export const WALK_BOB_PX = 1.8;
+/**
+ * 体の傾き（ラジアン）。0.07 ≈ 4°。
+ * 0.055（3.2°）だと 48px の絵で頭が2.7pxしか振れず、キャプチャを並べても違いが読めなかった。
+ * 0.1（5.7°）を超えると転びそうに見える。
+ */
+export const WALK_TILT_RAD = 0.07;
+
+export interface WalkPose {
+  /** y に足す量（px）。上が負 */
+  bob: number;
+  /** スプライトの回転（ラジアン） */
+  tilt: number;
+}
+
+const WALK_STILL: WalkPose = { bob: 0, tilt: 0 };
+
+/** 個体ごとに歩行の位相をずらす（群れが行進して見えるのを防ぐ） */
+export function walkPhaseOffset(id: number): number {
+  return ((id * 2246822519) % 1000) / 1000;
+}
+
+/**
+ * 歩行中の姿勢。`t` は 0..1 の周期内位置（1周期＝2歩）。
+ *
+ * 跳ねは `|sin(2πt)|` で**常に上向き**（1周期で2回の着地＝2歩）、
+ * 傾きは `sin(2πt)` で1周期に1往復。これで「1歩目は右に傾いて着地、2歩目は左」になる。
+ */
+export function walkPose(t: number): WalkPose {
+  let p = t % 1;
+  if (p < 0) p += 1;
+  const a = p * Math.PI * 2;
+  return { bob: -Math.abs(Math.sin(a)) * WALK_BOB_PX, tilt: Math.sin(a) * WALK_TILT_RAD };
+}
+
+/** 歩行中でなければ静止姿勢。`reduced` のときも静止させる */
+export function walkPoseFor(walking: boolean, nowMs: number, id: number, reduced: boolean): WalkPose {
+  if (!walking || reduced) return WALK_STILL;
+  return walkPose(nowMs / WALK_CYCLE_MS + walkPhaseOffset(id));
+}
+
+/**
  * アクター1体の見た目（テクスチャキーと不透明度）を決める（D-3）。
  *
  * `sync()` は Pixi と camera が要るのでテストから引きにくい。
@@ -162,6 +219,10 @@ export class ActorLayer {
   private readonly textures: CharTextureSet;
   private readonly camera: Camera;
   private readonly entries = new Map<EntityId, Entry>();
+
+  /** `prefers-reduced-motion` なら歩行の演出を止める（起動時に1回だけ見る） */
+  private readonly reducedMotion =
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /** 自アバターの予測位置（world / タイル単位）。未設定なら予測しない */
   selfPos: Vec2 | null = null;
@@ -268,8 +329,11 @@ export class ActorLayer {
       if (!visible) continue;
       this.drawn++;
 
-      // 歩行中の上下の跳ね（演出のみ。placeholderにコマがないため簡易表現）
-      const bob = view.anim === 'walk' || (isSelf && this.selfMoving) ? Math.sin(nowMs / 90 + view.id) * 1.5 : 0;
+      // 歩行の2コマ表現（D-4）。跳ね＋左右の傾きで足踏みに見せる
+      const walking = view.anim === 'walk' || (isSelf && this.selfMoving);
+      const pose = walkPoseFor(walking, nowMs, view.id, this.reducedMotion);
+      const bob = pose.bob;
+      sprite.rotation = pose.tilt;
       // 団子を扇状にほぐす（D-7）。自分は動かさない（操作している位置がずれると気持ち悪い）
       const key = (Math.round(view.y) << 8) | (Math.round(view.x) & 0xff);
       const off = isSelf

@@ -21,6 +21,8 @@ import { NightSky, SeasonTint, TimeTint } from './render/effects.ts';
 import { LightLayer } from './render/lights.ts';
 import { WeatherLayer } from './render/weather.ts';
 import { WaveLayer } from './render/waves.ts';
+import { SnowGround } from './render/snow.ts';
+import { ZzzLayer } from './render/zzz.ts';
 import { Minimap } from './render/minimap.ts';
 import { WorldState, interpolatedPos } from './state/world.ts';
 import { InputController } from './input.ts';
@@ -71,6 +73,10 @@ const nightSky = new NightSky(stage.layers);
 const lights = new LightLayer(stage.layers, camera);
 // 海岸線の白波（B-4）。decal レイヤ（ground の上・shadow の下）に描く
 const waves = new WaveLayer(stage.layers, camera);
+// 冬の雪の地面（F-4）。waves と同じ decal レイヤ（ground の上・shadow の下）
+const snowGround = new SnowGround(stage.layers, camera);
+// 眠っている個体の上に出す zzz（D-3）。light レイヤ（entities の上）に描く
+const zzz = new ZzzLayer(stage.layers, camera);
 const weather = new WeatherLayer(stage.layers);
 const minimap = new Minimap();
 const bubbles = new BubbleLayer();
@@ -108,6 +114,8 @@ function renderClock(): void {
     `${TOD_LABEL[clock.timeOfDay] ?? clock.timeOfDay} ${WEATHER_LABEL[clock.weather] ?? clock.weather}`;
   tint.setTimeOfDay(clock.timeOfDay);
   seasonTint.setSeason(clock.season);
+  objectLayer.setSeason(clock.season);
+  snowGround.setSeason(clock.season);
   nightSky.setTimeOfDay(clock.timeOfDay);
   nightSky.setIslandDay(clock.islandDay);
   lights.setTimeOfDay(clock.timeOfDay);
@@ -638,12 +646,14 @@ stage.app.ticker.add(() => {
 
   // 波は地面の装飾なのでキャラより先に更新する（カメラを worldRoot へ流し込んだ後）
   waves.update(world, dtSec);
+  snowGround.update(world);
   objectLayer.sync(world);
   constructionLayer.update();
   actorLayer.sync(world, now, dtSec);
   // 影は actorLayer の後（自アバターの予測位置が確定してから）に描く
   shadows.update(world, now, actorLayer.selfPos);
   lights.update(world, dtSec);
+  zzz.update(world, now, dtSec);
   seasonTint.update(stage.app.renderer.width, stage.app.renderer.height, dtSec);
   tint.update(stage.app.renderer.width, stage.app.renderer.height, dtSec);
   nightSky.update(stage.app.renderer.width, stage.app.renderer.height, dtSec);

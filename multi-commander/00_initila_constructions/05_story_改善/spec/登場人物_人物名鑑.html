@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Multi Commander 世界観に登場する五勢力100人の人物名鑑" />
+    <meta name="description" content="Multi Commander 世界観に登場する五勢力60人の人物名鑑" />
     <link rel="icon" href="data:," />
     <title>THE VEIL FRONT | 登場人物名鑑</title>
     <style>
@@ -146,7 +146,7 @@
         <div class="eyebrow">Multi Commander / Narrative Bible / Character Dossier</div>
         <h1>THE <span>CREW &amp; RIVALS</span></h1>
         <p class="lead">ヴェガ宙域で生きる五勢力の人物名鑑。名前だけのNPCではなく、戦い方・実績・政治的な立場を一つのカードにまとめ、出撃前に「誰と飛び、誰を撃つのか」が分かる状態を作る。</p>
-        <div class="notice"><strong>仕様範囲</strong><p>人類20人＋非人類4勢力各20人、計100人。主人公は固定キャラクターにせず、20名の人類から選択する。各人類系統は20代男女・50〜60代男性・30〜40代女性を各1名ずつ配置し、非人類勢力は最高権力者を左上に配置する。</p></div>
+        <div class="notice"><strong>仕様範囲</strong><p>人類20人＋非人類4勢力各10人、計60人。主人公は固定キャラクターにせず、20名の人類から選択する。各人類系統は20代男女・50〜60代男性・30〜40代女性を各1名ずつ配置し、非人類勢力は最高権力者を左上に配置する。</p></div>
       </header>
 
       <nav aria-label="勢力一覧">
@@ -154,8 +154,8 @@
       </nav>
 
       <section class="summary" aria-label="人物名鑑の集計">
-        <div class="metric"><strong>100</strong><span>総登場人物</span></div>
-        <div class="metric"><strong>20 + 4 × 20</strong><span>人類＋非人類4勢力</span></div>
+        <div class="metric"><strong>60</strong><span>総登場人物</span></div>
+        <div class="metric"><strong>20 + 4 × 10</strong><span>人類＋非人類4勢力</span></div>
         <div class="metric"><strong>20</strong><span>主人公候補（人類から選択）</span></div>
         <div class="metric"><strong>1〜10</strong><span>戦闘レベルの共通尺度</span></div>
       </section>
@@ -179,12 +179,12 @@
 
       <section id="directory">
         <div class="section-head"><div><div class="kicker">Index / Read the roster</div><h2>人物を絞り込む</h2></div><p>戦闘レベル10は「その人物が強い」だけでなく、戦場で判断を変えられるレベル。エースは撃墜数ではなく、戦況を変えた実績を持つ人物とする。</p></div>
-        <div class="filterbar" role="group" aria-label="人物フィルター"><button class="active" data-filter="all">全員</button><button data-filter="ace">エース級のみ</button><button data-filter="young">若年層（36歳以下）</button><button data-filter="high">戦闘レベル8以上</button><span class="hint" id="filter-count">100人を表示中</span></div>
+        <div class="filterbar" role="group" aria-label="人物フィルター"><button class="active" data-filter="all">全員</button><button data-filter="ace">エース級のみ</button><button data-filter="young">若年層（36歳以下）</button><button data-filter="high">戦闘レベル8以上</button><span class="hint" id="filter-count">60人を表示中</span></div>
       </section>
 
       <div id="roster" aria-live="polite"></div>
 
-      <div class="scope"><strong style="color:var(--gold)">人物設計の基準：</strong> 人類20名は日本人・白人・黒人・アラブ人・中華アジア系を4名ずつ配置し、各系統に20代男女、50〜60代男性、30〜40代女性を1名ずつ設定。主人公は固定せず、この20名から選択する。非人類は獣人、宇宙人、アンドロイド・ロボット系、エネルギー・不定体系に分類し、各勢力20名・最高権力者を左上に配置する。</div>
+      <div class="scope"><strong style="color:var(--gold)">人物設計の基準：</strong> 人類20名は日本人・白人・黒人・アラブ人・タイ人・インドネシア人・中国人・韓国人を配置。主人公は固定せず、この20名から選択する。非人類は獣人、宇宙人、アンドロイド・ロボット系、エネルギー・不定体系に分類し、各勢力10名・最高権力者を左上に配置する。</div>
 
       <dialog id="persona-dialog" aria-labelledby="dialog-title">
         <div class="dialog-head"><div><div class="kicker" id="dialog-faction"></div><h2 id="dialog-title"></h2><p id="dialog-callsign"></p></div><button class="dialog-close" type="button" aria-label="詳細を閉じる">閉じる</button></div>
@@ -220,8 +220,8 @@
           id: 'confed', code: 'CONFED / HUMAN', name: 'アウレリア連邦（人類）', color: '#73d7ff',
           desc: '空母と前進基地をつなぐ開拓国家。男女比は1：1。軍人だけでなく、救難・整備・情報・政治の人材も前線にいる。',
           people: [
-            ['高橋 真理子（タカハシ マリコ）','Valkyrie','女 / 26歳','艦載戦闘機隊長',10,'ヴェガ門前で孤立した護衛隊を再編し、民間船87隻を帰還させた。'],
-            ['佐藤 恒一（サトウ コウイチ）','Blue Hour','男 / 28歳','迎撃編隊リーダー',9,'キルラシーの先遣隊を三度撃退。敵エースとの無線交渉記録を残す。'],
+            ['朝倉 澪（アサクラ ミオ）','Valkyrie','女 / 26歳','艦載戦闘機隊長',10,'ヴェガ門前で孤立した護衛隊を再編し、民間船87隻を帰還させた。'],
+            ['神谷 隼人（カミヤ ハヤト）','Blue Hour','男 / 28歳','迎撃編隊リーダー',9,'キルラシーの先遣隊を三度撃退。敵エースとの無線交渉記録を残す。'],
             ['山本 恒一（ヤマモト コウイチ）','Gravewind','男 / 52歳','重攻撃隊指揮官',10,'補給艦を狙う敵艦隊旗艦を単機で足止め。戦果より撤退を優先した。'],
             ['小林 直子（コバヤシ ナオコ）','Lattice','女 / 34歳','偵察・電子戦士官',9,'ラグランジュ裂谷で通信妨害下の編隊を無傷で離脱させた。'],
             ['Claire Bennett（クレア・ベネット）','Moth','女 / 24歳','救難艇パイロット',6,'撃墜後の脱出ポッドを最短時間で14基回収した。'],
@@ -236,123 +236,83 @@
             ['Omar Rahman（オマル・ラーマン）','Tallow','男 / 30歳','爆撃機パイロット',7,'採掘帯の封鎖艦に対し、最小限の損害で航路を開いた。'],
             ['Khalid Mansour（ハリド・マンスール）','Patch','男 / 52歳','戦闘整備主任',5,'損傷した14機を出撃可能に戻し、前線の機体不足を埋めた。'],
             ['Noor Al-Hadi（ヌール・アルハディ）','Lumen','女 / 36歳','医療担当・副操縦士',4,'被弾艦内で負傷者を治療しながら帰投を完了。'],
-            ['Lin Mei（リン・メイ）','Wisp','女 / 21歳','訓練生パイロット',3,'初出撃で味方機のロックを解除し、衝突を回避した。'],
-            ['Zhang Wei（チャン・ウェイ）','Latch','男 / 27歳','通信傍受員',4,'敵の中継器増設地点を特定し、偵察隊を導いた。'],
+            ['Ploy Srisuk（プロイ・スリスック）','Wisp','女 / 21歳','訓練生パイロット',3,'初出撃で味方機のロックを解除し、衝突を回避した。'],
+            ['Budi Santoso（ブディ・サントソ）','Latch','男 / 27歳','通信傍受員',4,'敵の中継器増設地点を特定し、偵察隊を導いた。'],
             ['Chen Guowei（チェン・グオウェイ）','Rivet','男 / 60歳','兵器試験主任',5,'新型ランス砲の実戦試験を安全に完遂した。'],
-            ['Wang Xinyi（ワン・シンイー）','Cinder','女 / 38歳','基地防衛司令',7,'オリオン港の防衛線を二度再構築し、避難民区画を守った。']
+            ['Kim Seoyeon（キム・ソヨン）','Cinder','女 / 38歳','基地防衛司令',7,'オリオン港の防衛線を二度再構築し、避難民区画を守った。']
           ]
         },
         {
           id: 'kilrashi', code: 'KILRASHI EMPIRE', name: 'キルラシー帝国', color: '#ff7d86',
-          desc: '血統と誓約を重んじる軍事帝国。エースは勝敗だけでなく、名誉を持ち帰ったかで評価される。',
+          desc: '十の獣系統が血統と誓約で結ばれる軍事帝国。種ごとの身体特性を生かし、名誉ある帰還を重んじる。',
           people: [
-            ['ナル・ヴァルカーン','Crown Fang','雄 / 88歳','大牙王・帝国最高権力者',10,'五つの家門を血誓で束ね、帝国の戦争と停戦を最終裁定する。','leader'],
-            ['バラク・ナル・カクシ','Caxki','雄 / 36歳','巡航狩人',10,'連邦の艦隊を沈めることだけを目的に飛び、三つの空母戦で生還した。'],
-            ['カジャ・ナル・ラギティカ','血塗られた爪','雌 / 29歳','決闘士・編隊長',10,'撃墜した敵の名をすべて記憶し、戦場で一対一の勝負を強いる。'],
-            ['ダカス・デスストローク','Deathstroke','雄 / 44歳','帰投線の執行者',9,'戦線の穴から現れ、帰還する船だけを狙う戦術を完成させた。'],
-            ['ラウ・ナル・セイラク','Ash Crown','雌 / 33歳','灰冠近衛隊長',9,'宗家の旗艦を救うため、単独で三個中隊を足止めした。'],
-            ['ヴァルク・ナル・オル','Ironmane','雄 / 27歳','突撃隊パイロット',8,'一度の急襲で六隻の護衛機を引き剥がした。'],
-            ['シェラ・ナル・ヴァーク','Rite','雌 / 25歳','儀礼通信士',6,'敵の降伏文を翻訳し、停戦線の誤解を解いた。'],
-            ['トゥルガ・ナル・フェン','Bitter Sun','雄 / 38歳','重戦闘機隊長',8,'高重力域での旋回戦術を帝国標準にした。'],
-            ['ネヤ・ナル・カリ','Soft Claw','雌 / 22歳','偵察飛行士',5,'敵の補給基地を発見したが、民間区画を避けて帰投した。'],
-            ['ラガス・ナル・ドゥル','Oathkeeper','雄 / 56歳','宗家付き教官',7,'四世代のパイロットに古い決闘規約を教えた。'],
-            ['ミル・ナル・サク','Fangless','雌 / 31歳','交渉護衛官',6,'救難船団を護衛し、連邦艦との誤戦闘を防いだ。'],
-            ['クァラ・ナル・リィ','Red Kite','雌 / 24歳','軽戦闘機パイロット',6,'峡谷状の小惑星帯で追跡機を振り切った。'],
-            ['ドゥラ・ナル・ヘシュ','Stonehowl','雄 / 40歳','装甲艦砲手',7,'損傷艦の砲塔を手動で再起動し、撤退を援護した。'],
-            ['キラ・ナル・モア','First Blood','雌 / 21歳','新鋭飛行士',4,'初陣で撃墜せず、負傷した敵を見逃したことで議論を呼んだ。'],
-            ['オルカ・ナル・ゼット','Crownless','雄 / 34歳','艦隊斥候',7,'帝国艦隊が知らない民間航路を地図に記録した。'],
-            ['サル・ナル・イェン','Quiet Fang','雌 / 45歳','医療僧',3,'戦場で種族を問わず救命する誓約を守っている。'],
-            ['ヴェク・ナル・トゥー','Red Ledger','雄 / 30歳','戦果記録官',4,'エースの戦果を検証し、誇張された報告を退けた。'],
-            ['イシュ・ナル・パル','Comet Paw','雌 / 28歳','迎撃飛行士',6,'門の閉鎖まで残り九分の航路を守った。'],
-            ['ガル・ナル・キシュ','Old Roar','雄 / 62歳','艦隊長老',5,'戦争を始めた世代として、若い将兵の暴走を抑える。'],
-            ['メル・ナル・アシャ','Veil Listener','雌 / 37歳','ヴェイル聴取官',4,'事故の九分間に共通する低周波信号を最初に記録した。'],
+            ['ナル・ヴァルカーン','Crown Fang','雄 / 88歳','大牙王・帝国最高権力者',10,'十系統の家門を血誓で束ね、帝国の戦争と停戦を最終裁定する。','leader','ライオン系／金色のたてがみ','lion-like humanoid, gold mane, regal feline features'],
+            ['バラク・ナル・カクシ','Caxki','雄 / 36歳','巡航狩人',10,'重力圏での耐久追跡を得意とし、三つの空母戦で生還した。','','ゴリラ系／大きな肩と腕','gorilla-like humanoid, powerful broad shoulders and arms'],
+            ['カジャ・ナル・ラギティカ','Blood Oath','雌 / 29歳','決闘士・編隊長',10,'撃墜した敵の名をすべて記憶し、戦場で一対一の誓約を守る。','','オオカミ系／銀灰の耳と尾','wolf-like humanoid, silver-gray ears and tail'],
+            ['ダカス・デスストローク','Deathstroke','雄 / 44歳','帰投線の執行者',9,'耐弾装甲を生かし、危険な帰投線を護衛する戦術を完成させた。','','ヒグマ系／重厚な体格','brown-bear-like humanoid, heavy powerful build'],
+            ['ラウ・ナル・セイラク','Ash Crown','雌 / 33歳','灰冠近衛隊長',9,'宗家の旗艦を救うため、陽動と潜入で三個中隊を足止めした。','','キツネ系／赤褐色の耳と尾','red-fox-like humanoid, russet ears and tail'],
+            ['ヴァルク・ナル・オル','Ironmane','雄 / 27歳','突撃隊パイロット',8,'強靭な突進力で護衛機を引き剥がし、退路を開いた。','','イノシシ系／短い牙と剛毛','wild-boar-like humanoid, short tusks and bristled hair'],
+            ['シェラ・ナル・ヴァーク','Rite','雌 / 25歳','儀礼通信士',6,'敵の降伏文を翻訳し、停戦線の誤解を解いた。','','シカ系／枝角と細身の体格','deer-like humanoid, elegant antlers and slender build'],
+            ['トゥルガ・ナル・フェン','Bitter Sun','雄 / 38歳','重戦闘機隊長',8,'高重力域での旋回戦術を帝国標準にした。','','ハイエナ系／斑点の毛並み','spotted-hyena-like humanoid, patterned fur and alert posture'],
+            ['ネヤ・ナル・カリ','Soft Claw','雌 / 22歳','偵察飛行士',5,'夜間の静音飛行で補給基地を発見し、民間区画を避けて帰投した。','','フクロウ系／大きな金色の目','owl-like humanoid, large gold eyes and feathered accents'],
+            ['ラガス・ナル・ドゥル','Oathkeeper','雄 / 56歳','宗家付き教官',7,'四世代のパイロットに古い決闘規約を教えた。','','ワニ系／鱗のある顎と腕','crocodile-like humanoid, scaled jaw and forearms'],
           ]
         },
         {
           id: 'serecion', code: 'SERECION DRIFT', name: 'セレシオン遊牧圏', color: '#7fe3b0',
-          desc: '光合成ガス生命による移動都市群。中立を守るためなら、救難船団も武装する。',
+          desc: '光・霧・電磁気など異なる相を持つエネルギー生命の移動都市群。中立を守るためなら、救難船団も武装する。',
           people: [
-            ['オル・セレ・マザー','First Horizon','群体 / 143季','古唱母・遊牧圏最高権力者',10,'全船団の季節航路と武装中立を裁定し、遊牧圏の記憶を一つに束ねる。','leader'],
-            ['アウル・セレ','Day Chorus','群体 / 29季','船団指揮者',10,'静穏海の避難航路を十年間維持し、両陣営の艦を通過させた。'],
-            ['ネメ・リューム','Blue Breath','群体 / 41季','嵐航法士',9,'電磁嵐の中で失われた船団を再接続し、全船を帰還させた。'],
-            ['オル・カデン','First Light','群体 / 33季','護衛歌隊長',9,'武装中立の規約を破らずに攻撃艦を退けた。'],
-            ['シア・ヴェル','Noon Bell','群体 / 57季','長老・航路裁定者',10,'六者通行協定の原文を暗唱し、停戦の根拠を示す。'],
-            ['ミラ・ソーン','Mist Choir','群体 / 24季','観測者',7,'敵味方を問わず救難信号を拾い上げた。'],
-            ['エイ・ロウム','Green Current','群体 / 18季','気嚢船操舵手',6,'乱流域で大型居住船を反転させた。'],
-            ['サラ・アクス','Soft Static','群体 / 31季','通信翻訳者',5,'キルラシーの誓約文を初めて正確に翻訳した。'],
-            ['フュー・ミン','Cloudstep','群体 / 21季','小艇パイロット',6,'機雷の間を縫って孤立した医療艇へ物資を届けた。'],
-            ['リオ・エン','Warm Front','群体 / 36季','嵐防衛官',8,'救難船団を覆う防電場を設計した。'],
-            ['クオン・ルー','Silver Rain','群体 / 44季','航路監査官',4,'通行料を不正に取る仲介役を追放した。'],
-            ['ユナ・セル','Dawn Thread','群体 / 27季','気象予報士',5,'ヴェイル開口時の危険な風向きを予告した。'],
-            ['ハル・メイ','Lantern','群体 / 19季','救難艇乗員',4,'暗闇の中で五隻の脱出ポッドを識別した。'],
-            ['オウ・リュク','Echo Salt','群体 / 62季','記憶保管官',3,'事故以前の航路記録を口述保存している。'],
-            ['セナ・クゥ','Rain Fox','群体 / 23季','小型護衛機操縦士',7,'敵機の射線を嵐へ誘導し、戦闘を終わらせた。'],
-            ['トワ・ノア','Green Bell','群体 / 47季','医療合唱隊',2,'敵兵も救うという遊牧圏の原則を守る。'],
-            ['カイ・ロス','High Mist','群体 / 39季','高空船船長',6,'補給船団を予定より四日早く目的地へ運んだ。'],
-            ['ミウ・タル','Falling Star','群体 / 20季','新米観測者',3,'初任務で未知の機械信号の偽装を見抜いた。'],
-            ['ヴァ・オル','Blue Orchard','群体 / 75季','植物圏管理者',2,'長距離船団の食料循環を再建した。'],
-            ['ルン・エス','No Wind','群体 / 51季','規約執行者',5,'停戦線内への武器搬入を自勢力の船でも止めた。'],
+            ['オル・セレ・マザー','First Horizon','群体 / 143季','古唱母・遊牧圏最高権力者',10,'全船団の季節航路と武装中立を裁定し、遊牧圏の記憶を一つに束ねる。','leader','極光プラズマ相／虹色の光輪','humanoid aurora-plasma being, iridescent halo and luminous skin'],
+            ['アウル・セレ','Day Chorus','群体 / 29季','船団指揮者',10,'静穏海の避難航路を十年間維持し、両陣営の艦を通過させた。','','生物発光ガス相／青緑の脈動','humanoid bioluminescent gas being, teal pulsating glow'],
+            ['ネメ・リューム','Blue Breath','群体 / 41季','嵐航法士',9,'電磁嵐の中で失われた船団を再接続し、全船を帰還させた。','','液体霧相／半透明の水滴肌','humanoid liquid-mist being, translucent droplets and blue haze'],
+            ['オル・カデン','First Light','群体 / 33季','護衛歌隊長',9,'武装中立の規約を破らずに攻撃艦を退けた。','','イオン嵐相／紫電の髪状放電','humanoid ion-storm being, violet electrical filaments'],
+            ['シア・ヴェル','Noon Bell','群体 / 57季','長老・航路裁定者',10,'六者通行協定の原文を暗唱し、停戦の根拠を示す。','','太陽糸相／金色の発光繊維','humanoid solar-filament being, golden radiant strands'],
+            ['ミラ・ソーン','Mist Choir','群体 / 24季','観測者',7,'敵味方を問わず救難信号を拾い上げた。','','結晶光相／多面体の肩飾り','humanoid crystal-light being, faceted luminous shoulder details'],
+            ['エイ・ロウム','Green Current','群体 / 18季','気嚢船操舵手',6,'乱流域で大型居住船を反転させた。','','蒸気雲相／緑の雲状髪','humanoid vapor-cloud being, green cloudlike hair'],
+            ['サラ・アクス','Soft Static','群体 / 31季','通信翻訳者',5,'キルラシーの誓約文を初めて正確に翻訳した。','','磁場相／浮遊する金属片','humanoid magnetic-field being, floating metallic fragments'],
+            ['フュー・ミン','Cloudstep','群体 / 21季','小艇パイロット',6,'機雷の間を縫って孤立した医療艇へ物資を届けた。','','ゼリー光相／柔らかな光膜','humanoid gelatinous-light being, soft luminous membrane'],
+            ['リオ・エン','Warm Front','群体 / 36季','嵐防衛官',8,'救難船団を覆う防電場を設計した。','','電弧相／青白い稲妻紋','humanoid electric-arc being, pale blue lightning patterns'],
           ]
         },
         {
-          id: 'ordo', code: 'ORDO CRUSTAL MIND', name: 'オルド地殻知性体', color: '#d9b977',
-          desc: '惑星内部の結晶ネットワークに宿る長命の知性。個体ではなく地層が記憶を持つ。',
+          id: 'ordo', code: 'ORDO CONCORD', name: 'オルド異星合議圏', color: '#d9b977',
+          desc: '異なる惑星生態を持つ十種の宇宙人が、地層記憶を通じて合議する長命の共同体。',
           people: [
-            ['祖層・アーク','Root Stratum','結晶核 / 1200年','祖層核・地殻知性体最高権力者',10,'惑星全地層の記憶と採掘境界を裁定し、オルドの意思を最終決定する。','leader'],
-            ['バサルト・ゼロ','Deep Measure','結晶核 / 184年','地殻防衛核',10,'採掘艦隊を一昼夜だけ停止させ、双方を領域外へ退かせた。'],
-            ['クォーツ・アイン','Clear Fault','結晶核 / 91年','重力戦術核',9,'局地重力を変え、装甲艦の進路を非破壊で逸らした。'],
-            ['アンバー・セブン','Old Heat','結晶核 / 220年','記憶地層の代表',9,'百年前の採掘権を証明する地層記録を提示した。'],
-            ['グラファイト・イレブン','Black Seam','結晶核 / 143年','封鎖司令核',10,'深層採掘帯の封鎖を一個体の損失もなく完成させた。'],
-            ['フリント・三','Spark Bed','結晶核 / 54年','探査核',7,'未採掘のヴェイル関連鉱脈を発見した。'],
-            ['マイカ・十','Thin Layer','結晶核 / 38年','外交振動核',5,'人類の短い時間感覚を理解する翻訳層を作った。'],
-            ['スレート・二','Grey Weight','結晶核 / 68年','装甲艇核',8,'敵艦の砲撃を受けながら採掘員を護衛した。'],
-            ['オパール・十六','Many Color','結晶核 / 29年','光通信核',6,'複数勢力の通信を同時に中継した。'],
-            ['鉄鉱・四','Red Rust','結晶核 / 312年','古参鉱床核',6,'採掘戦争以前の地図を地表に投影した。'],
-            ['パイライト・八','False Gold','結晶核 / 47年','契約監査核',4,'偽造された採掘契約を振動パターンで特定した。'],
-            ['氷晶・六','Cold Press','結晶核 / 35年','冷却帯管理核',4,'熱暴走した採掘炉を凍結して被害を止めた。'],
-            ['ガーネット・十二','Hard Red','結晶核 / 73年','近接防衛核',7,'巣脈群の中継器を破壊せず押し返した。'],
-            ['頁岩・五','Folded Page','結晶核 / 42年','地層記録官',3,'事故の九分間を地磁気の変化として保存した。'],
-            ['硫黄・九','Yellow Trace','結晶核 / 26年','熱源探査核',5,'ヴェイル門の再起動に必要な熱量を測定した。'],
-            ['玄武岩・二十','Night Stone','結晶核 / 112年','鉱山護衛核',6,'民間採掘船に護衛契約を付与した。'],
-            ['白雲母・十三','Soft Plane','結晶核 / 31年','地表連絡核',2,'はじめて連邦港へ直接の振動通信を送った。'],
-            ['石英・十五','Window','結晶核 / 18年','若年観測核',3,'最初に未知の機械信号を音として記録した。'],
-            ['磁鉄・七','North Hold','結晶核 / 206年','磁場戦術核',8,'艦隊の照準磁場を乱し、戦闘を終わらせた。'],
-            ['炭素・十四','Warm Coal','結晶核 / 59年','炉心技師核',4,'損傷した輸送船の炉を再点火した。'],
+            ['祖層・アーク','Root Stratum','岩盤種 / 1200年','合議王・最高権力者',10,'十種の地層記憶と採掘境界を裁定し、オルドの意思を最終決定する。','leader','珪素結晶種／玄武岩の皮膚','silicon-crystal alien, matte basalt skin and subtle mineral texture, no luminescence'],
+            ['バサルト・ゼロ','Deep Measure','甲殻種 / 184年','地殻防衛官',10,'採掘艦隊を一昼夜だけ停止させ、双方を領域外へ退かせた。','','甲殻種／青い装甲殻','crustacean-like alien, blue segmented carapace'],
+            ['クォーツ・アイン','Clear Fault','水棲種 / 91年','重力戦術官',9,'局地重力を変え、装甲艦の進路を非破壊で逸らした。','','水棲二足種／えらと鰭','aquatic biped alien, gills and translucent fins'],
+            ['アンバー・セブン','Old Heat','菌糸共生種 / 220年','記憶代表',9,'百年前の採掘権を証明する地層記録を提示した。','','菌糸共生種／琥珀色の胞子冠','fungal symbiote alien, amber spore crown'],
+            ['グラファイト・イレブン','Black Seam','翼膜種 / 143年','封鎖司令官',10,'深層採掘帯の封鎖を一個体の損失もなく完成させた。','','翼膜種／折り畳み翼','membrane-winged alien, folded wings and dark plumage'],
+            ['フリント・三','Spark Bed','重力低身長種 / 54年','探査官',7,'未採掘のヴェイル関連鉱脈を発見した。','','低身長重力種／密度の高い骨格','short dense-gravity alien, compact powerful frame'],
+            ['マイカ・十','Thin Layer','鱗皮種 / 38年','外交翻訳官',5,'人類の短い時間感覚を理解する翻訳層を作った。','','鱗皮種／虹色の鱗','scaled alien, pearlescent but non-luminous scales'],
+            ['スレート・二','Grey Weight','砂漠皮膜種 / 68年','装甲艇士官',8,'敵艦の砲撃を受けながら採掘員を護衛した。','','砂漠皮膜種／岩砂の外皮','desert-skin alien, sandstone outer skin'],
+            ['オパール・十六','Many Color','半透明海洋種 / 29年','通信官',6,'複数勢力の通信を同時に中継した。','','半透明海洋種／真珠色の半透明皮膚','translucent oceanic alien, pearlescent semi-transparent skin without glow'],
+            ['鉄鉱・四','Red Rust','角質遊牧種 / 312年','古参地図官',6,'採掘戦争以前の地図を地表に投影した。','','角質遊牧種／黒い角と革質肌','horned nomad alien, black horns and leathery skin'],
           ]
         },
         {
           id: 'neurowm', code: 'NEUROWM SWARM', name: 'ニューロウム群体', color: '#c9a6ff',
-          desc: '無数の個体が巣脈で判断を共有する生体ネットワーク。個人名は接続位置と役割を示す。',
+          desc: '機体形状も知覚方式も異なる十の人工知性が、通信網を介して判断を共有する機械共同体。',
           people: [
-            ['N-00・クラウン','Crown Synapse','巣脈核 / 90年','原初核・群体最高権力者',10,'全巣脈の判断を統合し、ニューロウムの繁殖・戦争・接続を最終承認する。','leader'],
-            ['N-01・オリジン','First Synapse','巣脈核 / 12年','巣脈戦術体',10,'複数宙域の機雷を一つの判断で同期させた。'],
-            ['N-02・ハイヴァ','Glass Mandible','巣脈核 / 9年','飽和攻撃体',9,'小型機群だけで重装甲艦を撤退させた。'],
-            ['N-03・メモリア','Borrowed Sky','記憶体 / 18年','異種通信体',9,'五勢力の通信プロトコルを巣脈へ接続した。'],
-            ['N-04・ヴェクサ','Red Pulse','戦闘体 / 7年','中継器防衛体',10,'巣脈群の中継器を三波の攻撃から守った。'],
-            ['N-05・スウォームレット','Many Feet','戦闘体 / 3年','近接群体',7,'敵機の視界を埋め、味方の離脱時間を作った。'],
-            ['N-06・コアドロップ','Falling Kernel','運搬体 / 5年','巣脈建設体',5,'戦場の資材を回収して新しい中継器を建設した。'],
-            ['N-07・サイレンス','No Echo','妨害体 / 11年','通信妨害体',8,'五分間だけ戦域全体のロックを無効化した。'],
-            ['N-08・ミミック','Human Shape','擬態体 / 4年','偽装偵察体',6,'敵の救難信号を模倣し、通行パターンを調べた。'],
-            ['N-09・グラフト','Borrower','修復体 / 6年','自己修復体',6,'撃破された機体の部品を再利用して復帰した。'],
-            ['N-10・リレー','Blue Node','中継体 / 13年','長距離中継体',5,'巣脈と遠方の群れを安定接続した。'],
-            ['N-11・スパイン','Hard Signal','装甲体 / 8年','重装甲護衛体',8,'砲撃を受けながら中継器の前に留まった。'],
-            ['N-12・グロウス','Warm Nest','育成体 / 2年','群体育成官',2,'失われた群れを再生する新しい巣を作った。'],
-            ['N-13・スキャン','Open Eye','観測体 / 5年','偵察個体',4,'ヴェイル開口の周期を巣脈へ報告した。'],
-            ['N-14・バロウ','Underline','掘削体 / 15年','地中侵入体',7,'オルド領の地下に潜り、門制御核へ接近した。'],
-            ['N-15・フレア','Bright Error','攪乱体 / 3年','囮群体',4,'敵ミサイルを自分へ引きつけ、主群を救った。'],
-            ['N-16・カスケード','Downstream','流動体 / 10年','退路設計体',6,'退却する群れの順序を最適化した。'],
-            ['N-17・シェル','Quiet Armor','外殻体 / 21年','古参防衛体',6,'長期封鎖の初期から巣脈を守っている。'],
-            ['N-18・ウィスパー','Low Frequency','聴取体 / 8年','信号採取体',3,'事故の九分間に残る低周波を採取した。'],
-            ['N-19・シード','First Seed','建設体 / 1年','新設中継体',2,'初めて単独で中継器を起動した。'],
+            ['N-00・クラウン','Crown Synapse','男性型 / 90年','原初核・群体最高権力者',10,'全ネットワークの判断を統合し、ニューロウムの接続と進路を最終承認する。','leader','男性型統治アンドロイド／白磁の外装','male-presenting sovereign android, porcelain-white outer shell and clearly masculine face'],
+            ['N-01・オリジン','First Synapse','女性型 / 12年','戦域救護アンドロイド',10,'複数宙域の救難信号を同期し、最短救護航路を示した。','','女性型医療アンドロイド／透明な診断パネル','female-presenting medical android, transparent diagnostic panels and clearly feminine face, no glow'],
+            ['N-02・ハイヴァ','Glass Mandible','男性型 / 9年','地表偵察ロボット',9,'複雑な峡谷を横断し、危険な地形を先行観測した。','','男性型偵察ロボット／流線形の脚部','male-presenting humanoid reconnaissance robot, articulated legs and masculine face'],
+            ['N-03・メモリア','Borrowed Sky','女性型 / 18年','異種通信アンドロイド',9,'五勢力の通信プロトコルを共通記録層へ接続した。','','女性型投影アンドロイド／半透明の輪郭','female-presenting projected android, semi-transparent silhouette and feminine face, no glow'],
+            ['N-04・ヴェクサ','Red Pulse','男性型 / 7年','中継器防衛ロボット',10,'中継器を三波の攻撃から守り、避難路を維持した。','','男性型重作業ロボット／油圧アーム','male-presenting industrial humanoid robot, hydraulic arms and masculine face'],
+            ['N-05・スウォームレット','Many Feet','女性型 / 3年','精密整備群体',7,'微小機群で損傷した機体の配線を修復し、離脱時間を作った。','','女性型マイクロドローン群／複眼センサー','female-presenting humanoid micro-drone collective, compound-eye sensors and feminine face'],
+            ['N-06・コアドロップ','Falling Kernel','男性型 / 5年','高速配送アンドロイド',5,'戦場の資材を回収して新しい中継器を建設した。','','男性型配送アンドロイド／細身の流線ボディ','male-presenting courier android, streamlined body and clearly masculine face'],
+            ['N-07・サイレンス','No Echo','女性型 / 11年','通信遮断ロボット',8,'水没施設の通信遮断を復旧し、避難信号を通した。','','女性型水陸両用ロボット／防水外殻','female-presenting amphibious maintenance android, waterproof shell and clearly feminine face'],
+            ['N-08・ミミック','Human Shape','男性型 / 4年','古式偵察アンドロイド',6,'旧式機巧の外観を使い、通行パターンを安全に調べた。','','男性型レトロ機巧アンドロイド／真鍮の関節','male-presenting vintage clockwork android, brass joints and clearly masculine face'],
+            ['N-09・グラフト','Borrower','女性型 / 6年','自己修復ロボット',6,'損傷した機体の部品を再利用して復帰した。','','女性型ソフトロボット／半透明の合成皮膜','female-presenting soft robotic humanoid, translucent synthetic skin and feminine face'],
           ]
         },
       ];
 
       const factionLabels = { confed: '人類', kilrashi: 'キルラシー（獣人）', serecion: 'セレシオン（エネルギー、不定体系）', ordo: 'オルド（宇宙人）', neurowm: 'ニューロウム（アンドロイド、ロボット系）' };
-      const humanEthnicities = ['日本人', '白人', '黒人', 'アラブ人', '中華アジア系'];
+      const humanEthnicities = ['日本人', '白人', '黒人', 'アラブ人', 'タイ人', 'インドネシア人', '中国人', '韓国人'];
       const speciesCategories = { confed: '人類', kilrashi: '獣人', serecion: 'エネルギー、不定体系', ordo: '宇宙人', neurowm: 'アンドロイド、ロボット系' };
       const relationshipPairs = [
-        ['confed-0', 'confed-1', '姉弟。高橋 真理子（タカハシ マリコ）は佐藤 恒一（サトウ コウイチ）の実姉であり、互いの帰還を最優先する。'],
+        ['confed-0', 'confed-1', '姉弟。朝倉 澪（アサクラ ミオ）は神谷 隼人（カミヤ ハヤト）の実姉であり、互いの帰還を最優先する。'],
         ['confed-2', 'confed-4', '恋人。山本 恒一（ヤマモト コウイチ）とクレア・ベネット（Claire Bennett）は航路解析と救難の記録を共有する。'],
         ['confed-5', 'confed-7', '兄妹。イーサン・カーターはソフィー・ローランの訓練担当で、ソフィーは兄の判断を最も信頼する。'],
         ['kilrashi-1', 'kilrashi-2', '兄妹。バラクとカジャは同じ家門の血誓を継ぐ。'],
@@ -363,7 +323,7 @@
         ['ordo-7', 'ordo-8', '姉妹核。スレートとオパールは装甲と通信の相互バックアップである。'],
         ['neurowm-1', 'neurowm-2', '同じ原初巣脈から生まれた兄弟個体。オリジンとハイヴァは判断を同期する。'],
         ['neurowm-5', 'neurowm-6', '結合伴侶。スウォームレットとコアドロップは近接群と建設群を一対で運用する。'],
-        ['confed-16', 'confed-17', '姉弟。リン・メイとチャン・ウェイは基地通信網を守る家族として、互いの判断を補完する。']
+        ['confed-16', 'confed-17', '親友。プロイ・スリスックとブディ・サントソは訓練課程から互いの判断を補完してきた。']
       ];
       const relationshipMap = {};
       relationshipPairs.forEach(([left, right, description]) => {
@@ -377,14 +337,15 @@
       }
 
       function portraitData(factionId, index) {
-        const nonHuman = ['kilrashi', 'serecion', 'ordo', 'neurowm'].includes(factionId);
-        const sourceIndex = nonHuman ? (index === 0 ? 20 : index - 1) : index;
-        const file = `${factionId}-${String(sourceIndex + 1).padStart(2, '0')}.png`;
-        if (factionId === 'confed' && index === 0) return { portrait: `${sheetRoot}individual_split_test/${file}`, hobby: `${sheetRoot}hobby_split_test/${file}` };
-        const refreshed = factionId === 'confed' || sourceIndex === 20;
-        const humanoidSample = nonHuman && sourceIndex === 0;
-        const version = humanoidSample ? 'v5' : factionId === 'confed' ? 'v4' : refreshed ? 'v3' : 'v2';
-        return { portrait: `${sheetRoot}individual_${version}/${file}`, hobby: `${sheetRoot}hobby_v5/${file}` };
+        const file = `${factionId}-${String(index + 1).padStart(2, '0')}.png`;
+        if (factionId === 'kilrashi') return { portrait: `${sheetRoot}individual_split_v11/${file}`, hobby: `${sheetRoot}hobby_split_v11/${file}` };
+        const needsV9 = ['kilrashi', 'ordo', 'neurowm'].includes(factionId);
+        if (needsV9) return { portrait: `${sheetRoot}individual_split_v9/${file}`, hobby: `${sheetRoot}hobby_split_v9/${file}` };
+        const needsV8 = (factionId === 'confed' && (index < 2 || index >= 16)) || ['kilrashi', 'neurowm'].includes(factionId);
+        if (needsV8) return { portrait: `${sheetRoot}individual_split_v8/${file}`, hobby: `${sheetRoot}hobby_split_v8/${file}` };
+        const needsV7 = (factionId === 'confed' && index < 2) || ['kilrashi', 'serecion', 'ordo', 'neurowm'].includes(factionId);
+        if (needsV7) return { portrait: `${sheetRoot}individual_split_v7/${file}`, hobby: `${sheetRoot}hobby_split_v7/${file}` };
+        return { portrait: `${sheetRoot}individual_split_v6/${file}`, hobby: `${sheetRoot}hobby_split_v6/${file}` };
       }
 
       function rankFor(factionId, index, person) {
@@ -463,10 +424,53 @@
         ]
       };
 
+      const hobbyImageCues = {
+        'ピアノ演奏': 'live grand-piano performance in the final round of an interstellar piano competition, seated at the keyboard on a formal concert stage',
+        '水泳': 'final heat of an interstellar swimming championship, cutting through a bright competition pool with spectators and timing displays',
+        '立体芸術': 'live final-round sculpture competition, shaping a large futuristic sculpture at an illuminated exhibition plinth while judges observe',
+        '写真撮影': 'live final presentation at a prestigious astrophotography competition, operating a camera beside a displayed starfield image as judges review the work',
+        '動物調教': 'final round of a rescue-animal handling competition, confidently guiding a trained companion animal through an elegant arena course',
+        '乗馬': 'final round of an interplanetary equestrian championship, riding a horse through a formal show-jumping arena',
+        '剣術': 'championship final of traditional fencing, performing a precise non-lethal kata with a ceremonial practice blade before judges',
+        'バスケットボール': 'championship game in a space-station basketball arena, making a decisive play before a cheering crowd',
+        'ボクシング': 'title-bout final in a regulated boxing ring, poised in a non-violent athletic stance with referee and audience visible',
+        'ダンス': 'live final-round dance performance at a major orbital dance festival, executing expressive choreography under stage lights',
+        '園芸': 'final judging at a prestigious botanical exhibition, presenting a rare cultivated plant arrangement in a bright glass conservatory',
+        '料理': 'live cooking final at a fleet culinary championship, plating an elegant signature dish before judges',
+        '紅茶研究': 'tea-tasting championship final, presenting a refined tea service to expert judges in a luminous salon',
+        '小説執筆': 'live literary-award final, giving a confident author reading from the stage before jurors and an audience',
+        '天体観測': 'astronomy discovery-award final, presenting a newly discovered celestial object through an advanced observatory display',
+        '鉱物標本': 'science-exhibition final, presenting a meticulously curated mineral specimen collection to judges',
+        'ボードゲーム': 'strategic board-game championship final, making a decisive move across a futuristic tournament table',
+        '魚の飼育': 'luminous-fish exhibition final, presenting a beautiful aquarium specimen to a panel of judges',
+        '裁縫': 'fashion-design competition final, presenting a tailored couture garment on a bright runway',
+        '木工細工': 'craftsmanship competition final, unveiling an intricately made wooden instrument or furniture piece before judges',
+        '匂い跡狩り': 'final round of a ceremonial scent-trail hunt, tracking an elegant marked course through a moonlit arena',
+        '牙紋彫刻': 'imperial carving competition final, engraving an ornate fang-pattern relief at a ceremonial gallery',
+        '群れ駆け': 'final heat of a pack-running obstacle race, sprinting through a formal arena with allied runners',
+        '咆哮合唱': 'imperial chorus final, performing a disciplined low-frequency choral composition on a grand stage',
+        '月影決闘舞': 'ceremonial dance final, performing an elegant claw-free duel dance under silver stage lights',
+        '光脈編み': 'light-weaving festival final, shaping luminous body-patterns into an intricate living artwork before judges',
+        '共鳴歌': 'convoy choral final, performing a precisely tuned resonance song with a formal audience',
+        '浮遊流競技': 'final of a floating-current race, navigating a graceful aerial course through a bright arena',
+        '記憶露培養': 'memory-dew cultivation exhibition final, presenting luminous cultivated memory droplets to judges',
+        '嵐紋描画': 'storm-pattern art festival final, creating a radiant electromagnetic pattern as a live performance',
+        '地層記憶彫り': 'geological memory-carving final, engraving a crystalline memory panel for an expert jury',
+        '共振盤楽': 'crystalline music festival final, performing a resonance instrument on a polished concert platform',
+        '重力積層競技': 'gravity-layering championship final, balancing mineral forms into a precise towering structure',
+        '熱脈育成': 'rare-crystal cultivation final, presenting a carefully grown thermal-vein crystal specimen to judges',
+        '鉱脈迷路': 'subterranean maze championship final, navigating a glowing mineral labyrinth under competition observation',
+        '感覚ログ編曲': 'sensory-log composition final, conducting a visual soundscape performance for a hive arts jury',
+        '精密筐体造形': 'precision chassis-design final, unveiling an elegant miniature robotic structure to judges',
+        '同期反応競技': 'synchronization championship final, performing a precise coordinated response routine in a high-tech arena',
+        '光学迷路解析': 'optical-maze analysis final, solving an illuminated three-dimensional maze before a competition jury',
+        '記憶バックアップ譜': 'memory-archive music final, presenting a luminous encoded musical score to an archive jury'
+      };
+
       function identityFor(meta, faction, index) {
         const ageMatch = meta.match(/(\d+)歳/);
-        const gender = faction.id === 'confed' ? meta.split('/')[0].trim() : meta.includes('女') || meta.includes('雌') ? '女性型／雌性' : meta.includes('男') || meta.includes('雄') ? '男性型／雄性' : '性別を持たない個体表現';
-        const ethnicity = faction.id === 'confed' ? humanEthnicities[Math.floor(index / 4)] : null;
+        const gender = faction.id === 'confed' ? meta.split('/')[0].trim() : meta.includes('女性') || meta.includes('雌') ? '女性型' : meta.includes('男性') || meta.includes('雄') ? '男性型' : '性別を持たない個体表現';
+        const ethnicity = faction.id === 'confed' ? index < 16 ? humanEthnicities[Math.floor(index / 4)] : humanEthnicities[index - 12] : null;
         return { gender, age: ageMatch ? `${ageMatch[1]}歳` : meta.split('/').slice(1).join('/').trim(), ethnicity, category: speciesCategories[faction.id] };
       }
 
@@ -476,8 +480,11 @@
         const relationship = relationshipMap[`${faction.id}-${index}`] || '現時点で名鑑内に設定された家族・恋愛関係はない。';
         const ageNumber = Number(identity.age.match(/\d+/)?.[0] || 0);
         const birth = ageNumber ? `統合暦${2312 - ageNumber}年前後に生まれた${identity.ethnicity ? `、${identity.ethnicity}の文化圏に属する` : ''}。幼少期は${faction.id === 'confed' ? '前進基地と民間航路のあいだ' : '所属共同体の生活圏'}で過ごし、早い時期から自分の判断が他者の生存に影響する環境に置かれた。` : `${identity.age}という時間単位で成長を記録される${identity.category}の個体であり、誕生時から${faction.name}の記憶と役割に接続されている。`;
+        const trait = person?.[7] || '';
+        const traitCue = person?.[8] || '';
         const hobbySet = speciesHobbies[faction.id] || hobbies;
         const hobby = hobbySet[index % hobbySet.length];
+        const hobbyImageCue = hobbyImageCues[hobby[0]] || 'live final-round public competition appropriate to the stated hobby';
         const angle = personaAngles[index % personaAngles.length];
         const family = faction.id === 'confed' ? '家族は血縁だけでなく、同じ船団・基地で暮らした仲間まで含む。家族には本人の危険な職務を心配する者と、本人の判断を信頼して送り出す者がいる。' : faction.id === 'kilrashi' ? '家門と誓約でつながる親族がいる。功績は家族の名誉を高める一方、敗北や誓約違反は本人だけでなく家門全体へ返る。' : faction.id === 'serecion' ? '家族は同じ船団の記憶を共有する群体であり、季節ごとに構成が変わる。離れていても歌と記録で互いの状態を確認する。' : faction.id === 'ordo' ? '家族に相当するのは同じ地層から分岐した結晶核と、長く記憶を交換してきた層である。個体の死は断絶ではなく記録の再配置として扱われる。' : '家族は固定した血縁ではなく、同じ巣脈へ接続された個体群である。接続が変わるたび、本人の役割と親密さも変化する。';
         const personality = `${angle} ${factionPersonaContext[faction.id]} 人前では${index % 2 ? '短く要点だけを話す' : '相手の反応を確かめながら話す'}が、信頼した相手には自分の恐れや迷いも隠さない。失敗を消去して完璧に見せるより、記録に残して次の人が判断材料にできる状態を選ぶ。`;
@@ -485,7 +492,7 @@
         const battle = `${record} 戦闘では戦闘レベル${level}「${combatLevels[level - 1][0]}」に相当する操縦・戦術・危機判断を示す。ただし、階級「${rankFor(faction.id, index, person)}」は人事制度上の権限であり、戦闘能力とは別に付与されている。本人は戦績を勲章の数ではなく、帰還者、維持された航路、救われた記録の数で評価する。`;
         const motive = `今の目的は、${faction.name}が守るべき原則を現場で証明し、次の世代が同じ犠牲を払わずに済む判断材料を残すことだ。対立相手にも事情があると考えるため、勝利後の処遇や記録の残し方まで任務に含めている。`;
         const hobbyText = `${hobby[0]}。${hobby[1]}`;
-        return { identity, birth, history, battle, hobby: hobbyText, hobbyName: hobby[0], hobbyDescription: hobby[1], family, relationship, personality, motive, fullText: [birth, history, battle, `趣味は${hobbyText}`, family, `登場人物との関係：${relationship}`, personality, motive].join(' ') };
+        return { identity, birth, history, battle, hobby: hobbyText, hobbyName: hobby[0], hobbyDescription: hobby[1], hobbyImageCue, trait, traitCue, family, relationship, personality, motive, fullText: [birth, history, battle, trait ? `個体属性は${trait}` : '', `趣味は${hobbyText}`, family, `登場人物との関係：${relationship}`, personality, motive].filter(Boolean).join(' ') };
       }
 
       function personaFor(person, faction, index) {
@@ -495,10 +502,22 @@
       function portraitPrompt(person, faction, index) {
         const [name, callsign, meta, role] = person;
         const profile = profileFor(person, faction, index);
-        const genderCue = profile.identity.gender === '男' ? 'MALE MAN. He must be unmistakably an adult male, masculine face, masculine bone structure, masculine shoulders and body proportions. Do not depict a woman, female, feminine adult, dress, skirt, or feminine styling.' : profile.identity.gender === '女' ? 'FEMALE WOMAN. She must be unmistakably an adult female, feminine face and body proportions. Do not depict a man, male, masculine adult, beard, or masculine styling.' : `gender presentation: ${profile.identity.gender}`;
-        const identityCue = profile.identity.ethnicity ? `human ethnicity/background: ${profile.identity.ethnicity}` : `species category: ${profile.identity.category}`;
-        const humanoidCue = ['kilrashi', 'serecion', 'ordo', 'neurowm'].includes(faction.id) ? 'Make this non-human clearly humanoid and relatable: human-like head, eyes, nose, mouth, hands, torso, and upright proportions, with restrained species-specific details only. No monster anatomy, no giant creature, no tentacles, no amorphous blob, no skull face. Original design with the grounded emotional presence of a humanoid alien officer, not a direct copy of any existing franchise character.' : '';
-        return `Create one wide 2-panel character reference image for a sci-fi game dossier, aspect ratio 3:2, split into two equal vertical panels by a clean subtle divider, with no text. Use the SAME character in both panels and keep the identity exactly consistent. Character name: ${name}. Faction: ${faction.name}. Role: ${role}. MANDATORY IDENTITY — do not omit or alter: exact age/time age ${profile.identity.age}; ${genderCue}; exact ${identityCue}. If human, depict precisely that age, ethnicity, and gender, not older, not middle-aged, not elderly. If non-human, preserve the stated species, age unit, and gender presentation while keeping a relatable humanoid appearance. ${humanoidCue} Across both panels the character must be fashionable, stylish, distinctive, beautiful, and visually striking: elegant clothing, individual design details, flattering silhouette, refined grooming, and a memorable face. LEFT PANEL: the character in a sophisticated custom combat uniform, head-and-shoulders framing, face clearly visible, calm capable expression, restrained military sci-fi background. RIGHT PANEL: the same character is LIVE IN THE OFFICIAL FINAL ROUND of the person's hobby competition, actively performing or competing before judges, officials, and an audience; this is the actual judged main event, never practice, rehearsal, lesson, preparation, or a casual hobby scene. Use a venue and action appropriate to ${profile.hobby}. Dress the character in an elegant, stylish, individualized competition outfit appropriate to that hobby, with premium materials and polished stage or match presence; no plain T-shirt, no generic tracksuit, no sloppy casual wear, no military uniform, no combat armor, no weapon. Use bright event lighting, visible competition stakes, and an ambitious winner's expression. Ignore any dossier wording about daily practice and depict only the final public performance or match. Both panels must show the same face, age, gender, hair, skin tone, species traits, and distinctive features. Photorealistic cinematic sci-fi concept art, no labels, no logos, no borders, no duplicate people, no unrelated collage. Character dossier: ${profile.fullText}`;
+        const genderCue = ['男', '男性型'].includes(profile.identity.gender) ? 'MALE PRESENTATION. Must be unmistakably male-presenting: masculine face, bone structure, shoulders and body proportions. Do not depict a woman, female, feminine adult, dress, skirt, or feminine styling.' : ['女', '女性型'].includes(profile.identity.gender) ? 'FEMALE PRESENTATION. Must be unmistakably female-presenting: feminine face and body proportions. Do not depict a man, male, masculine adult, beard, or masculine styling.' : `gender presentation: ${profile.identity.gender}`;
+        const beastfolkSubtleCues = [
+          'human officer with a subtle warm-gold hair tone and one tiny lion-lineage ear accent',
+          'human officer with broad shoulders and a faint gorilla-lineage hair texture only',
+          'human officer with silver-gray hair and two small wolf-lineage ear accents only',
+          'human officer with a heavy athletic build and a faint bear-lineage skin pattern only',
+          'human officer with russet hair and one tiny fox-lineage ear accent only',
+          'human officer with dark bristled hair and a faint boar-lineage temple marking only',
+          'human officer with graceful posture and a subtle deer-lineage hair ornament, not antlers',
+          'human officer with a small spotted birthmark and a faint hyena-lineage hair texture only',
+          'human officer with warm gold-brown eyes and a subtle owl-lineage hair pattern only',
+          'human officer with a reserved jawline and a faint crocodile-lineage forearm pattern only'
+        ];
+        const identityCue = profile.identity.ethnicity ? `human ethnicity/background: ${profile.identity.ethnicity}` : faction.id === 'kilrashi' ? `species category: beastfolk; exact individual trait: ${beastfolkSubtleCues[index]}` : `species category: ${profile.identity.category}; exact individual trait: ${profile.traitCue}`;
+        const humanoidCue = faction.id === 'kilrashi' ? 'The character is visually a human, not an animal person: 99% human face and body. REQUIRE a normal human forehead, human nose bridge and nostrils, human lips, human jaw, human skin, human ears/hairline, human hands, and human proportions. Absolutely no animal head, muzzle, snout, animal nose, fur-covered face, full fur, paws, claws, fangs, beak, scales, animal eyes, or monster anatomy. The only allowed beastfolk sign is ONE discreet hereditary accent: small pointed ears OR a subtle hair texture OR a faint skin pattern OR a tiny hidden tail. They must instantly read as a stylish attractive human officer with a very minor animal lineage detail.' : ['ordo', 'neurowm'].includes(faction.id) ? 'This faction must NEVER emit light. Use matte, physical materials only: no luminous skin, glowing veins, glowing eyes, neon circuitry, LED accents, holographic aura, radiant seams, bioluminescence, or self-illumination. All visible light must come only from ordinary environmental lighting. Make this non-human clearly humanoid and relatable: human-like head, eyes, nose, mouth, hands, torso, and upright proportions, with restrained species-specific details only. No monster anatomy, giant creature, tentacles, amorphous blob, or skull face.' : faction.id === 'serecion' ? 'This faction alone is permitted to have a controlled biological or energy-based luminosity. Make the non-human clearly humanoid and relatable: human-like head, eyes, nose, mouth, hands, torso, and upright proportions, with restrained species-specific details only. No monster anatomy, giant creature, tentacles, amorphous blob, or skull face.' : '';
+        return `Create one wide 2-panel character reference image for a sci-fi game dossier, aspect ratio 3:2, split into two equal vertical panels by a clean subtle divider, with no text. Use the SAME character in both panels and keep the identity exactly consistent. Character name: ${name}. Faction: ${faction.name}. Role: ${role}. MANDATORY IDENTITY — do not omit or alter: exact age/time age ${profile.identity.age}; ${genderCue}; exact ${identityCue}. If human, depict precisely that age, ethnicity, and gender, not older, not middle-aged, not elderly. If non-human, preserve the stated species, age unit, and gender presentation while keeping a relatable humanoid appearance. ${humanoidCue} Across both panels the character must be fashionable, stylish, distinctive, beautiful, and visually striking: elegant clothing, individual design details, flattering silhouette, refined grooming, and a memorable face. LEFT PANEL: the character in a sophisticated custom combat uniform, head-and-shoulders framing, face clearly visible, calm capable expression, restrained military sci-fi background. RIGHT PANEL MUST DEPICT THIS EXACT LIVE FINAL-ROUND HOBBY SCENE: ${profile.hobbyImageCue}. This is the actual judged public main event, never practice, rehearsal, lesson, preparation, public speaking, or a casual hobby scene. The character must visibly perform the stated hobby, with judges, officials, and an audience. Dress the character in an elegant, stylish, individualized competition outfit appropriate to this exact hobby, with premium materials and polished stage or match presence; no plain T-shirt, no generic tracksuit, no sloppy casual wear, no military uniform, no combat armor, no weapon. Use bright event lighting, visible competition stakes, and an ambitious winner's expression. Both panels must show the same face, age, gender, hair, skin tone, species traits, and distinctive features. Photorealistic cinematic sci-fi concept art, no labels, no logos, no borders, no duplicate people, no unrelated collage. Character dossier: ${profile.fullText}`;
       }
 
       function makePerson(person, faction, index) {
@@ -509,11 +528,12 @@
         const image = portraitData(faction.id, index);
         const levelInfo = combatLevels[level - 1];
         const rank = rankFor(faction.id, index, person);
+        const profile = profileFor(person, faction, index);
         const cells = Array.from({ length: 10 }, (_, i) => `<i class="${i < level ? 'on' : ''}"></i>`).join('');
         return `<article class="person ${isAce ? 'ace' : ''}" tabindex="0" role="button" data-person-id="${faction.id}-${index}" data-ace="${isAce}" data-young="${age > 0 && age <= 36}" data-high="${level >= 8}">
           <div class="portrait"><img src="${image.portrait}" alt="${escapeHtml(name)}の肖像" loading="eager"><span class="portrait-id">${faction.code} / ${String(index + 1).padStart(2, '0')}</span></div>
           <div class="person-body"><div class="person-top"><div><h3>${escapeHtml(name)}</h3><div class="callsign">${escapeHtml(callsign)}</div></div><div>${isAce ? '<span class="ace-label">ACE</span>' : ''}</div></div>
-            <div class="meta"><span>${escapeHtml(meta)}</span><span>${escapeHtml(role)}</span></div><div class="meta"><span class="rank"><small class="field-label">階級</small>${escapeHtml(rank)}</span><span><small class="field-label">分類</small>${escapeHtml(speciesCategories[faction.id])}</span></div><div class="card-summary">${escapeHtml(record)}</div>
+            <div class="meta"><span>${escapeHtml(meta)}</span><span>${escapeHtml(role)}</span></div><div class="meta"><span class="rank"><small class="field-label">階級</small>${escapeHtml(rank)}</span><span><small class="field-label">分類</small>${escapeHtml(speciesCategories[faction.id])}</span>${profile.trait ? `<span><small class="field-label">個体属性</small>${escapeHtml(profile.trait)}</span>` : ''}</div><div class="card-summary">${escapeHtml(record)}</div>
             <div class="level"><span><small class="field-label">戦闘レベル</small><span class="level-name">${escapeHtml(levelInfo[0])}</span></span><div class="level-bar">${cells}</div><strong>${level}/10</strong></div>
           </div>
         </article>`;
@@ -566,7 +586,7 @@
         dialogTitle.textContent = name;
         dialogFaction.textContent = `${faction.code} / ${faction.name}`;
         dialogCallsign.textContent = callsign;
-        dialogGrid.innerHTML = [['所属', faction.name], ['年齢', profile.identity.age], ['性別・形態', profile.identity.gender], ['文化・種族分類', profile.identity.ethnicity || profile.identity.category], ['役割', role], ['階級', rank], ['戦闘レベル', `Lv.${level} ${combatLevels[level - 1][0]}`]].map(([label, value]) => `<div class="dialog-stat"><span class="field-label">${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></div>`).join('');
+        dialogGrid.innerHTML = [['所属', faction.name], ['年齢', profile.identity.age], ['性別・形態', profile.identity.gender], ['文化・種族分類', profile.identity.ethnicity || profile.identity.category], ...(profile.trait ? [['個体属性', profile.trait]] : []), ['役割', role], ['階級', rank], ['戦闘レベル', `Lv.${level} ${combatLevels[level - 1][0]}`]].map(([label, value]) => `<div class="dialog-stat"><span class="field-label">${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></div>`).join('');
         dialogPortrait.src = images.portrait;
         dialogHobby.src = images.hobby;
         dialogPortrait.alt = `${name}の肖像`;
