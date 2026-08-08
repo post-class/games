@@ -328,16 +328,32 @@
         },
       ];
 
-      // 既存の日本人4名を除外し、今回追加した20名を人類名鑑の先頭へ配置する。
-      factions[0].people = [...factions[0].people.slice(20), ...factions[0].people.slice(4, 20)];
+      // 人類は、指定された4枚の人物候補シートだけから再構成する。
+      const japaneseHumanCandidates = factions[0].people.slice(20);
+      factions[0].people = [
+        ...japaneseHumanCandidates,
+        ['Oliver Grant（オリヴァー・グラント）','Crown','男 / 32歳','航宙艦長',8,'辺境宙域の救難艦隊を率い、民間船団を無傷で帰投させた。'],
+        ['Matteo Vieri（マッテオ・ヴィエリ）','Lynx','男 / 29歳','戦術飛行士',7,'不利な編隊戦で敵の補給線を見抜き、撤退路を確保した。'],
+        ['Kwame Adeyemi（クワメ・アデイェミ）','Bastion','男 / 35歳','陸戦隊指揮官',8,'前進基地の防衛線を組み直し、避難時間を生み出した。'],
+        ['Malik Njoroge（マリク・ンジョロゲ）','Sirocco','男 / 27歳','長距離偵察官',6,'観測不能域を越えて敵艦隊の接近を最初に報告した。'],
+        ['Rami Haddad（ラミ・ハッダード）','Dune','男 / 31歳','交渉護衛士官',7,'停戦監視団を護衛し、武力衝突を避けて交渉を成立させた。'],
+        ['Zayd Al-Masri（ザイド・アルマスリ）','Cedar','男 / 28歳','暗号解析官',6,'敵の偽装通信を解読し、味方の誤射を未然に防いだ。'],
+        ['Arun Prasert（アルン・プラサート）','Kite','男 / 26歳','軽戦闘機パイロット',6,'港湾防衛で追撃編隊を巧みに分断し、補給路を守った。'],
+        ['Joon Park（ジュン・パク）','Northwind','男 / 30歳','機動戦術士官',7,'閉鎖宙域の迂回作戦を立案し、艦隊を安全に誘導した。'],
+        ['Elena Ward（エレナ・ウォード）','Swan','女 / 34歳','航法主任',7,'重力嵐の中で避難船団を一隻も失わずに導いた。'],
+        ['Sofia Bellini（ソフィア・ベリーニ）','Vela','女 / 29歳','救難艇長',6,'長距離救難で孤立した乗員を連続して救出した。'],
+        ['Nia Okoye（ニア・オコエ）','Onyx','女 / 31歳','空母戦術官',8,'航空団の配置を再設計し、艦隊の被害を最小限にした。'],
+        ['Amara Tesfaye（アマラ・テスファイ）','Dawn','女 / 26歳','電子戦士官',7,'敵の通信網を無力化し、救難部隊の進入路を開いた。'],
+        ['Layla Mansour（レイラ・マンスール）','Saffron','女 / 30歳','情報連絡士官',6,'複数勢力の記録を照合し、偽情報作戦を暴いた。'],
+        ['Mariam Khalil（マリアム・ハリル）','Oasis','女 / 28歳','医療艇パイロット',5,'戦闘宙域に入り負傷者を搬送し続けた。'],
+        ['Suda Kittisak（スダ・キティサック）','Lotus','女 / 25歳','補給戦術官',6,'不足物資の輸送計画を組み替え、前線の稼働を維持した。'],
+        ['Minseo Kang（ミンソ・カン）','Aegis','女 / 27歳','基地防衛官',7,'防衛ドローン網を再構築し、民間区画を守り抜いた。']
+      ];
 
       const factionLabels = { confed: '人類', kilrashi: 'キルラシー（獣人）', serecion: 'セレシオン（エネルギー、不定体系）', ordo: 'オルド（宇宙人）', neurowm: 'ニューロウム（アンドロイド、ロボット系）' };
       const humanEthnicities = ['日本人', '白人', '黒人', 'アラブ人', 'タイ人', 'インドネシア人', '中国人', '韓国人'];
       const speciesCategories = { confed: '人類', kilrashi: '獣人', serecion: 'エネルギー、不定体系', ordo: '宇宙人', neurowm: 'アンドロイド、ロボット系' };
       const relationshipPairs = [
-        ['confed-0', 'confed-1', '姉弟。朝倉 澪（アサクラ ミオ）は神谷 隼人（カミヤ ハヤト）の実姉であり、互いの帰還を最優先する。'],
-        ['confed-2', 'confed-4', '恋人。山本 恒一（ヤマモト コウイチ）とクレア・ベネット（Claire Bennett）は航路解析と救難の記録を共有する。'],
-        ['confed-5', 'confed-7', '兄妹。イーサン・カーターはソフィー・ローランの訓練担当で、ソフィーは兄の判断を最も信頼する。'],
         ['kilrashi-1', 'kilrashi-2', '兄妹。カクシとラギティカは同じ家門の血誓を継ぐ。'],
         ['kilrashi-5', 'kilrashi-6', '恋人。オルとヴァークは突撃と儀礼通信を一組の誓約として担う。'],
         ['serecion-1', 'serecion-2', '同一船団から分岐した伴侶群。アウルとネメは互いの記憶を補完する。'],
@@ -346,7 +362,7 @@
         ['ordo-7', 'ordo-8', '姉妹核。スレートとオパールは装甲と通信の相互バックアップである。'],
         ['neurowm-1', 'neurowm-2', '同じ原初巣脈から生まれた兄弟個体。オリジンとハイヴァは判断を同期する。'],
         ['neurowm-5', 'neurowm-6', '結合伴侶。スウォームレットとコアドロップは近接群と建設群を一対で運用する。'],
-        ['confed-16', 'confed-17', '親友。プロイ・スリスックとブディ・サントソは訓練課程から互いの判断を補完してきた。']
+        ['confed-0', 'confed-10', '同期の友人。相沢 紗良と橘 蒼真は訓練課程から互いの判断を補完してきた。']
       ];
       const relationshipMap = {};
       relationshipPairs.forEach(([left, right, description]) => {
@@ -369,15 +385,14 @@
           const image = `${sheetRoot}nonhuman_candidate_portraits/${candidate}`;
           return { portrait: image, hobby: image };
         }
-        if (factionId === 'confed' && index >= 20 && index < 30) {
-          const candidate = `female-${String(index - 20).padStart(2, '0')}.png`;
-          return { portrait: `${sheetRoot}human_candidate_portraits/${candidate}`, hobby: `${sheetRoot}human_candidate_portraits/${candidate}` };
+        if (factionId === 'confed') {
+          const source = index < 10 ? `jp-female-${String(index).padStart(2, '0')}.png`
+            : index < 20 ? `jp-male-${String(index - 10).padStart(2, '0')}.png`
+            : index < 28 ? `other-male-${String(index - 20).padStart(2, '0')}.png`
+            : `other-female-${String(index - 28).padStart(2, '0')}.png`;
+          const image = `${sheetRoot}human_reset_portraits/${source}`;
+          return { portrait: image, hobby: image };
         }
-        if (factionId === 'confed' && index >= 30) {
-          const candidate = `male-${String(index - 30).padStart(2, '0')}.png`;
-          return { portrait: `${sheetRoot}human_candidate_portraits/${candidate}`, hobby: `${sheetRoot}human_candidate_portraits/${candidate}` };
-        }
-        if (factionId === 'confed' && index < 2) return { portrait: `${sheetRoot}individual_split_v13/${file}`, hobby: `${sheetRoot}hobby_split_v13/${file}` };
         const needsV12 = (factionId === 'confed' && index < 2) || (factionId === 'kilrashi' && [1, 3, 5, 7, 9].includes(index));
         if (needsV12) return { portrait: `${sheetRoot}individual_split_v12/${file}`, hobby: `${sheetRoot}hobby_split_v12/${file}` };
         if (factionId === 'kilrashi') return { portrait: `${sheetRoot}individual_split_v11/${file}`, hobby: `${sheetRoot}hobby_split_v11/${file}` };
@@ -512,10 +527,8 @@
       function identityFor(meta, faction, index) {
         const ageMatch = meta.match(/(\d+)歳/);
         const gender = faction.id === 'confed' ? meta.split('/')[0].trim() : meta.includes('女性') || meta.includes('雌') ? '女性型' : meta.includes('男性') || meta.includes('雄') ? '男性型' : '性別を持たない個体表現';
-        const ethnicity = faction.id === 'confed' ? index < 20 ? '日本人' : (() => {
-          const originalIndex = index - 16;
-          return originalIndex < 16 ? humanEthnicities[Math.floor(originalIndex / 4)] : humanEthnicities[originalIndex - 12];
-        })() : null;
+        const humanEthnicity = ['日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','日本人','白人','白人','黒人','黒人','アラブ人','アラブ人','アジア系','アジア系','白人','白人','黒人','黒人','アラブ人','アラブ人','アジア系','アジア系'];
+        const ethnicity = faction.id === 'confed' ? humanEthnicity[index] : null;
         return { gender, age: ageMatch ? `${ageMatch[1]}歳` : meta.split('/').slice(1).join('/').trim(), ethnicity, category: speciesCategories[faction.id] };
       }
 
