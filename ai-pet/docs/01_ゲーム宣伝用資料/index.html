@@ -200,22 +200,6 @@
     padding: 6px 6px 0;
   }
 
-  /* 空の吹き出しに実際のセリフを重ねる */
-  .bubble-text {
-    position: absolute;
-    left: 35.5%; top: 12%;
-    width: 27%; height: 24%;
-    margin: 0;
-    display: grid;
-    place-items: center;
-    text-align: center;
-    font-size: clamp(6px, 2.05cqw, 15px);
-    font-weight: 700;
-    line-height: 1.5;
-    color: var(--ink);
-    white-space: nowrap;   /* 吹き出しの外にはみ出さないよう改行位置は固定 */
-  }
-
   .shot-body h3 {
     margin: 0 0 10px;
     font-size: clamp(1.15rem, 2.6vw, 1.5rem);
@@ -370,7 +354,7 @@
     </p>
 
     <figure class="hero-frame">
-      <img src="images/hero.png" alt="動物たちが暮らす島の全景と、中央に立つ白いふわふわのAIペット">
+      <img src="images/hero.png" alt="家や風車が並ぶ島の全景と、AIペットを連れて歩くプレイヤー">
     </figure>
 
     <ul class="tags">
@@ -433,8 +417,8 @@
 
     <div class="shot">
       <figure class="shot-img reveal">
-        <img src="images/screen-ecosystem.png" alt="昼は釣りや畑仕事をし、夜は巣で眠る動物たち">
-        <figcaption>※画面イメージ</figcaption>
+        <img src="images/screen-ecosystem.png" alt="夜の島。動物たちが丸まって眠り、焚き火とランタンが灯っている">
+        <figcaption>実際の画面</figcaption>
       </figure>
       <div class="shot-body">
         <h3>昼は働き、夜はちゃんと寝る</h3>
@@ -463,11 +447,8 @@
 
     <div class="shot reverse">
       <figure class="shot-img reveal">
-        <div class="frame">
-          <img src="images/screen-talk.png" alt="プレイヤーの前で吹き出しを出して話しかけるAIペット">
-          <p class="bubble-text">きのう話してた<br>岬のむこうの木の実、<br>さがしてきたよ！</p>
-        </div>
-        <figcaption>※画面イメージ（セリフはLLMが生成します）</figcaption>
+        <img src="images/screen-talk.png" alt="ペットが吹き出しでプレイヤーに話しかけている実際の画面">
+        <figcaption>実際の画面（セリフはLLMがその場で生成したものです）</figcaption>
       </figure>
       <div class="shot-body">
         <h3>台本なしの、ひとりごと</h3>
@@ -515,8 +496,8 @@
 
     <div class="shot">
       <figure class="shot-img reveal">
-        <img src="images/screen-multiplayer.png" alt="広場に集まる複数のプレイヤーとそれぞれのAIペット">
-        <figcaption>※画面イメージ</figcaption>
+        <img src="images/screen-multiplayer.png" alt="円形の広場に集まった3人のプレイヤーとそれぞれのAIペット">
+        <figcaption>実際の画面</figcaption>
       </figure>
       <div class="shot-body">
         <h3>ペット同士が、勝手に仲良くなる</h3>
@@ -644,8 +625,8 @@
 <footer>
   <div class="wrap">
     <p>
-      『ぽこもふ島』企画紹介資料（開発前のコンセプト版）<br>
-      掲載している画面イメージはすべて開発前のイメージであり、生成AIで作成したものです。実際の画面とは異なります。<br>
+      『ぽこもふ島』企画紹介資料<br>
+      掲載している画面は、実際に動作しているゲームのスクリーンショットです（キャラクターと背景の素材は生成AIで制作しています）。<br>
       本資料は個人開発の企画資料であり、既存の商業タイトルとは一切関係ありません。
     </p>
   </div>
