@@ -13,12 +13,14 @@ UV_CACHE_DIR="$PWD/.uv_cache" uv run --with httpx --with python-dotenv --with op
   --prompt "<共通スタイル句> + <個別の指示>" \
   --output-dir "$PWD/ai-pet/.tmp/asset-gen/<一意な名前>" \
   --background transparent --output-format png --quality medium \
-  --env-file /Users/ryosato/projects/private/english-learn/.env
+  --env-file .env          # リポジトリルート（games/）から実行する場合。ai-pet/ からなら ../.env
 ```
 
 前提（記録済みの制約）:
 
-- このリポジトリの `.env` に `AZURE_OPENAI_US_*` は**無い**。`english-learn/.env` を渡す
+- **使う `.env` はリポジトリ直下の `games/.env`**（`AZURE_OPENAI_US_*` が3つ入っている。2026-08-08に追加）。
+  ⚠️ `ai-pet/.env` は存在しないので、`ai-pet/` から実行するときは **`--env-file ../.env`** を渡す
+  （2026-08-08 に疎通確認済み）
 - `gpt-image-1-mini` は `--input-fidelity high` を受け付けない
 - **並列実行するときは `--output-dir` を1回ごとに分ける**（出力名がタイムスタンプなので衝突する）
 - 1枚 medium/1024x1024 で約 $0.011、所要1〜2分
@@ -417,4 +419,5 @@ and absolutely no cast shadow or ellipse on the ground beneath it.
    **必ず画素を測ってからしきい値を決める**こと
 3. スキルのスクリプトに PEP 723 の依存宣言が無いので
    `uv run --with httpx --with pyyaml --with python-dotenv --with openai` が必要
-4. `--env-file` は `english-learn/.env`（games の `.env` は LLM 用で画像モデルのデプロイが無く 404）
+4. `--env-file`: リポジトリ直下の `games/.env` を渡す（`ai-pet/` からなら `../.env`）。
+   `AZURE_OPENAI_ENDPOINT`（`US` なし）はペットのLLM用で画像モデルが無いため、渡すと404になる

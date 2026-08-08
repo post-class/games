@@ -51,19 +51,35 @@ export function preferredTerrains(species: string): readonly Terrain[] {
  * 種ごとの好適地形から、置けるタイルを1つ探す。
  * 好適地形が見つからない島では歩けるタイルへ緩める（配置に失敗して個体数が減るより良い）。
  */
-export function findSpawnTile(world: IslandWorld, species: string, maxTries = SPAWN.findTileMaxTries): Vec2 | null {
-  const preferred = pickTile(world, candidatesFor(world, species), maxTries);
+export function findSpawnTile(
+  world: IslandWorld,
+  species: string,
+  maxTries: number = SPAWN.findTileMaxTries,
+  spacing: number = SPAWN.minSpacing,
+): Vec2 | null {
+  const preferred = pickTile(world, candidatesFor(world, species), maxTries, spacing);
   if (preferred) return preferred;
-  return pickTile(world, candidatesFor(world, ANY_KEY), maxTries);
+  return pickTile(world, candidatesFor(world, ANY_KEY), maxTries, spacing);
 }
 
-/** 島に動物を初期配置する。worldgenは資源までしか作らないのでここで散布する */
+/**
+ * 島に動物を初期配置する。worldgenは資源までしか作らないのでここで散布する。
+ *
+ * 間隔（D-7）: `SPAWN.minSpacing` から始めて、置けなければ `spacingRelaxSteps` の順に緩める。
+ * ⚠️ **必ず count 体置き切る。** 置けずに減ると開始時の個体数が変わってバランスが崩れる
+ * （`INITIAL_CRITTERS` = 70 は島の収容力に対して釣り合いを取った値）。
+ * 緩和の最後は間隔0なので、歩けるタイルが1枚でもあれば失敗しない。
+ */
 export function spawnInitialCritters(world: IslandWorld, count = INITIAL_CRITTERS): Actor[] {
   const out: Actor[] = [];
   for (let i = 0; i < count; i++) {
     // 種を順番に回して、どの種も必ず島にいる状態にする
     const species = CRITTER_SPECIES[i % CRITTER_SPECIES.length] as string;
-    const pos = findSpawnTile(world, species);
+    let pos: Vec2 | null = null;
+    for (const relax of SPAWN.spacingRelaxSteps) {
+      pos = findSpawnTile(world, species, SPAWN.findTileMaxTries, SPAWN.minSpacing * relax);
+      if (pos) break;
+    }
     if (!pos) continue;
     const actor = createCritterActor(world, { species, pos });
     // 寿命は個体ごとに違うので、生成後にその寿命を基準として年齢を散らす
@@ -103,21 +119,22 @@ function candidatesFor(world: IslandWorld, key: string): number[] {
   return list;
 }
 
-function pickTile(world: IslandWorld, list: readonly number[], maxTries: number): Vec2 | null {
+function pickTile(world: IslandWorld, list: readonly number[], maxTries: number, spacing: number): Vec2 | null {
   if (list.length === 0) return null;
   for (let i = 0; i < maxTries; i++) {
     const idx = list[world.rng.int(0, list.length - 1)] as number;
     const pos: Vec2 = { x: (idx % MAP_W) + 0.5, y: Math.floor(idx / MAP_W) + 0.5 };
     if (!world.canStandAt(pos)) continue;
-    if (isCrowded(world, pos)) continue;
+    if (isCrowded(world, pos, spacing)) continue;
     return pos;
   }
   return null;
 }
 
-/** 既にいる個体と重ならないか（起動時にしか呼ばないので素朴な線形探索でよい） */
-function isCrowded(world: IslandWorld, pos: Vec2): boolean {
-  const min2 = SPAWN.minSpacing * SPAWN.minSpacing;
+/** 既にいる個体と spacing タイル以上離れているか（起動時にしか呼ばないので素朴な線形探索でよい） */
+function isCrowded(world: IslandWorld, pos: Vec2, spacing: number): boolean {
+  if (spacing <= 0) return false;
+  const min2 = spacing * spacing;
   for (const a of world.actors.values()) {
     if (distanceSq(a.pos, pos) < min2) return true;
   }

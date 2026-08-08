@@ -200,6 +200,13 @@ export interface ResourceNode {
  * `nest` は**動物が自分で作る巣**（C-3）。持ち物としては `Actor.nest` が正で、
  * 設置物はその「画面に出すための影」にすぎない。
  * プレイヤーは置けないので `PlaceMsg` 側には足さないこと。
+ *
+ * `campfire`〜`bush` は**島の生成時に worldgen が散らす小オブジェクト**（C-4）。
+ * 宣伝資料 `hero.png` の「茂み・岩・切り株が散っている地面」と
+ * `screen-ecosystem.png` の「夜の焚き火」を担当する風景で、これもプレイヤーは置けない
+ * （`PlaceMsg` 側には足さないこと）。
+ * 焚き火は種別名が `campfire` であることが大事で、`render/lights.ts` が
+ * この名前で夜の光（半径4.6・揺れる）を付ける。
  */
 export type PlaceableType =
   | 'bench'
@@ -215,7 +222,11 @@ export type PlaceableType =
   | 'fountain'
   | 'fence_h'
   | 'fence_v'
-  | 'nest';
+  | 'nest'
+  | 'campfire'
+  | 'rock'
+  | 'stump'
+  | 'bush';
 
 export interface Placeable {
   id: EntityId;

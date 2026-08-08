@@ -736,6 +736,175 @@ function carveVillagePaths(world: IslandWorld, village: Village): void {
   for (const f of fields) carvePath(world, cx, cy, f.x, f.y);
 }
 
+// ---------- 小オブジェクト（C-4 焚き火・岩・切り株・茂み） ----------
+
+/**
+ * 島に散らす数。
+ *
+ * 宣伝資料 `hero.png` は「地面のどこを見ても茂みか岩か切り株がある」密度だが、
+ * ここは 128×128 タイルの島なので、同じ密度にすると設置物が数千件になる
+ * （スナップショットと chunk の帯域、`placeablesNear` の全走査が効いてくる）。
+ * 「画面（約40×24タイル）に数個は入る」を狙って次の数にした。合計55件で、
+ * 村の設置物（10件強）と合わせても `placeables` は70件に収まる。
+ */
+const BUSH_COUNT = 30;
+const ROCK_COUNT = 12;
+const STUMP_COUNT = 12;
+
+/**
+ * 小オブジェクト同士・村の設置物との最小間隔（タイル）。
+ *
+ * 2（プレイヤーの `PLACE_MIN_GAP_TILES`）だと2つが隣り合って「1つの塊」に見えたので3にした。
+ */
+const DECOR_MIN_GAP = 3;
+
+/** spawn のまわりはプレイヤーが最初にベンチを置く場所なので空けておく（タイル） */
+const DECOR_SPAWN_CLEARANCE = 4;
+
+/**
+ * 置ける地形。
+ *
+ * **`dirt` を1つも含めていないのが大事。** 小オブジェクトは小道（`carveVillagePaths` が
+ * `dirt` で塗る）と畑の土のあとに置くので、`dirt` を除けば
+ * 「道の真ん中に茂みが生える」「畑を岩が塞ぐ」が構造的に起きない。
+ */
+const BUSH_TERRAIN: readonly Terrain[] = ['grass', 'forest'];
+const STUMP_TERRAIN: readonly Terrain[] = ['forest', 'grass'];
+/** 岩は砂浜と草地。森の中の岩は木に隠れて見えない */
+const ROCK_TERRAIN: readonly Terrain[] = ['grass', 'sand'];
+/** 焚き火は広場（石畳）か、広場からあふれた草地 */
+const CAMPFIRE_TERRAIN: readonly Terrain[] = ['plaza', 'grass'];
+
+/** 焚き火を置く広場中心からの距離（タイル）。広場の半径は6なので縁のあたりに座る */
+const CAMPFIRE_DIST_MIN = 4;
+const CAMPFIRE_DIST_MAX = 7;
+
+/** その1タイルに小オブジェクトを置けるか（歩ける・資源なし・他の設置物から離れている） */
+function canDecorAt(world: IslandWorld, x: number, y: number, allowed: readonly Terrain[]): boolean {
+  if (!inBounds(x, y)) return false;
+  if (x < 1 || y < 1 || x >= MAP_W - 1 || y >= MAP_H - 1) return false;
+  if (!allowed.includes(world.terrainAt(x, y))) return false;
+  if (!world.isWalkableTile(x, y)) return false;
+  if ((world.resourceAt[tileIndex(x, y)] as number) !== 0) return false;
+  const center = { x: x + 0.5, y: y + 0.5 };
+  if (Math.hypot(center.x - world.spawn.x, center.y - world.spawn.y) < DECOR_SPAWN_CLEARANCE) return false;
+  if (world.placeablesNear(center, DECOR_MIN_GAP).length > 0) return false;
+  return true;
+}
+
+/** 候補タイルを index の昇順で集める（列挙順が決定論なら rng.shuffle も決定論になる） */
+function decorCandidates(world: IslandWorld, allowed: readonly Terrain[]): number[] {
+  const out: number[] = [];
+  for (let y = 1; y < MAP_H - 1; y++) {
+    for (let x = 1; x < MAP_W - 1; x++) {
+      if (!allowed.includes(world.terrainAt(x, y))) continue;
+      if (!world.isWalkableTile(x, y)) continue;
+      if ((world.resourceAt[tileIndex(x, y)] as number) !== 0) continue;
+      out.push(tileIndex(x, y));
+    }
+  }
+  return out;
+}
+
+/**
+ * 歩ける小オブジェクト（茂み・切り株）を1つ置く。
+ *
+ * ⚠️ **歩行不可にしない。** 見た目だけの飾りを歩行不可にすると、
+ * 数十個ぶんの「到達不能な陸」の危険を毎回背負うことになる（AI_CODING.md §8）。
+ * 茂みと切り株は動物が上を通っても違和感が無いので、歩けるままにするのが安全。
+ */
+function addWalkableDecor(world: IslandWorld, type: PlaceableType, x: number, y: number): void {
+  world.addPlaceable({
+    id: world.allocId(),
+    type,
+    // 1タイルなのでタイル中心。村の設置物と同じ基準にする
+    pos: { x: x + 0.5, y: y + 0.5 },
+    ownerId: ISLAND_OWNER,
+    attract: PLACE_ATTRACT[type],
+  });
+}
+
+/**
+ * 1種類ぶん散らす。戻り値は実際に置けた数。
+ *
+ * `solid` が true のものは `tryBuild` を通すので、
+ * **1件ごとに到達性を再検査**して島を分断したら取り消される（AI_CODING.md §8）。
+ */
+function scatterDecor(
+  world: IslandWorld,
+  rng: Rng,
+  type: PlaceableType,
+  count: number,
+  allowed: readonly Terrain[],
+  solid: boolean,
+): number {
+  const candidates = decorCandidates(world, allowed);
+  if (candidates.length === 0) return 0;
+  rng.shuffle(candidates);
+
+  let placed = 0;
+  for (const i of candidates) {
+    if (placed >= count) break;
+    const x = i % MAP_W;
+    const y = Math.floor(i / MAP_W);
+    // 間隔と spawn まわりの判定は「置いた後の状態」に依存するので、都度やり直す
+    if (!canDecorAt(world, x, y, allowed)) continue;
+    if (solid) {
+      if (!tryBuild(world, type, x, y, 1, 1, allowed)) continue;
+    } else {
+      addWalkableDecor(world, type, x, y);
+    }
+    placed++;
+  }
+  return placed;
+}
+
+/**
+ * 焚き火を広場の近くに1つだけ置く（C-4）。
+ *
+ * 種別名を `campfire` にしておくと `render/lights.ts` が夜だけ光を付ける（半径4.6・揺れる）。
+ * 歩行不可にしてよいのは、広場が半径6の開けた円で、
+ * 1タイル塞いでも迂回路が必ずあるため（それでも `tryBuild` が到達性を検査する）。
+ */
+function placeCampfire(world: IslandWorld, rng: Rng, cx: number, cy: number): boolean {
+  const candidates: number[] = [];
+  for (let dy = -CAMPFIRE_DIST_MAX; dy <= CAMPFIRE_DIST_MAX; dy++) {
+    for (let dx = -CAMPFIRE_DIST_MAX; dx <= CAMPFIRE_DIST_MAX; dx++) {
+      const d = Math.hypot(dx, dy);
+      if (d < CAMPFIRE_DIST_MIN || d > CAMPFIRE_DIST_MAX) continue;
+      const x = cx + dx;
+      const y = cy + dy;
+      if (!canDecorAt(world, x, y, CAMPFIRE_TERRAIN)) continue;
+      candidates.push(tileIndex(x, y));
+    }
+  }
+  if (candidates.length === 0) return false;
+  // 広場の縁を優先したいので距離順（同距離は index 順）に並べ、上位から抽選する。
+  // 1点だけ決め打ちにすると seed によって「毎回同じ方角」になって単調に見える
+  candidates.sort((a, b) => {
+    const da = Math.hypot((a % MAP_W) - cx, Math.floor(a / MAP_W) - cy);
+    const db = Math.hypot((b % MAP_W) - cx, Math.floor(b / MAP_W) - cy);
+    return db - da || a - b;
+  });
+  const near = candidates.slice(0, 8);
+  const i = near[rng.int(0, near.length - 1)] as number;
+  return tryBuild(world, 'campfire', i % MAP_W, Math.floor(i / MAP_W), 1, 1, CAMPFIRE_TERRAIN) !== null;
+}
+
+/**
+ * 小オブジェクトを島に散らす（C-4）。
+ *
+ * 順番: 焚き火（場所が決まっているので先） → 茂み → 切り株 → 岩。
+ * 茂みを先にするのは、いちばん数が多く「島全体に疎に散る」役目を持っているため
+ * （岩を先に置くと岩のまわり3タイルに茂みが入らず、岩だけが目立つ島になった）。
+ */
+function scatterSmallObjects(world: IslandWorld, rng: Rng, cx: number, cy: number): void {
+  placeCampfire(world, rng, cx, cy);
+  scatterDecor(world, rng, 'bush', BUSH_COUNT, BUSH_TERRAIN, false);
+  scatterDecor(world, rng, 'stump', STUMP_COUNT, STUMP_TERRAIN, false);
+  scatterDecor(world, rng, 'rock', ROCK_COUNT, ROCK_TERRAIN, true);
+}
+
 // ---------- 資源 ----------
 
 function isWaterAdjacent(world: IslandWorld, x: number, y: number): boolean {
@@ -891,9 +1060,13 @@ export function generateIsland(seed: string): IslandWorld {
  *   1. 集落（歩行不可なので、資源より先に置いて資源が建物の下に来ないようにする）
  *   2. 資源（`reachable` は建物を除いた集合で計算する）
  *   3. 小道（資源の乗ったタイルを避けて塗るので、資源より後）
+ *   4. 小オブジェクト（C-4）。**いちばん最後**。
+ *      小道が `dirt` を塗り終わってから置くことで、置ける地形から `dirt` を外すだけで
+ *      「道や畑の上に茂みが生える」を防げる（`BUSH_TERRAIN` などを見ること）
  */
 function finishIsland(world: IslandWorld, rng: Rng): void {
   const village = placeVillage(world, rng);
   placeResources(world, rng, reachableFromSpawn(world));
   carveVillagePaths(world, village);
+  scatterSmallObjects(world, rng, village.cx, village.cy);
 }

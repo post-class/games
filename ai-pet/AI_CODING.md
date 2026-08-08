@@ -141,11 +141,24 @@
 
 `tools/gen-assets.md` に実行方法の台帳がある。**先にそれを読むこと。** 要点:
 
-- **このリポジトリの `.env` に `AZURE_OPENAI_US_*` は無い。**
-  `--env-file /Users/ryosato/projects/private/english-learn/.env` を渡す。
-  games の `.env` を渡すと `DeploymentNotFound`（あちらは LLM 用のエンドポイントで画像モデルが無い）
-- スキルのスクリプトに PEP 723 の依存宣言が無いので、`uv run` に**依存を明示**する:
-  `uv run --with httpx --with pyyaml --with python-dotenv --with openai python <script>`
+- **使う `.env` はリポジトリ直下の `games/.env`。** 画像用の `AZURE_OPENAI_US_*` が3つ揃っている
+  （スキルの既定の env 名もこれ）。**`ai-pet/.env` は存在しない**ので、
+  `ai-pet/` から実行するときは **`--env-file ../.env`** を必ず渡す
+  （既定の `.env` は cwd 基準で解決されるため、渡さないと見つからない）。
+  2026-08-08 に疎通確認済み（`--env-file ../.env` で `status: ok`）
+- ⚠️ `AZURE_OPENAI_ENDPOINT`（`US` が付かないほう）は**ペットのLLM用**で画像モデルのデプロイが無い。
+  そちらを見せると `DeploymentNotFound (404)` になる
+- スキルのスクリプトに PEP 723 の依存宣言が無いので、`uv run` に**依存を明示**する。
+  `ai-pet/` から実行する定型はこれ:
+  ```bash
+  UV_CACHE_DIR="$PWD/.uv_cache" uv run --with httpx --with pyyaml --with python-dotenv --with openai python \
+    /Users/ryosato/.claude/skills/img-gen-gpt/scripts/generate_image.py \
+    --operation generate --prompt "<プロンプト>" \
+    --output-dir "$PWD/.tmp/asset-<名前>/<一意な名前>" \
+    --env-file ../.env \
+    --model gpt-image-1-mini --quality medium --size 1024x1024 \
+    --background transparent --output-format png
+  ```
 - **並列実行するときは `--output-dir` を1回ごとに分ける**（出力名がタイムスタンプなので衝突する）
 - 1枚 medium/1024x1024 で約 $0.011、所要1〜2分
 - `gpt-image-1-mini` は `--input-fidelity high` を受け付けない
@@ -186,6 +199,11 @@
   （切り出し → 48px/32pxへ縮小 → 足元揃え → `_w` は `_e` の反転生成）
 - 採用プロンプト・再試行回数・スタイル句は `tools/gen-assets.md` に追記する
 - **手直しはまず Pillow の後処理で解決を試す**（M8では接地影の除去と彩度調整を追加生成なしで解決した）
+- **焼き込まれた地面の除去は `tools/strip-ground.py`**（フラッドフィル方式）。
+  ⚠️ **色だけで判定してはいけない。** 「下半分の緑を消す」実装にしたら**茂みの葉が消えた**
+  （地面 h=0.135/s=0.37 と葉 h=0.207/s=0.59 は色相も彩度も近い）。
+  いまは「画像の縁から塗り広げ、`--ink` の輪郭線に当たったら止まる」ので、
+  輪郭で囲まれた本体は構造的に消えない。**処理後は必ず並べて目で見る**
 - `render/assets.ts` は本番（`/assets/game/`）を優先し、無い分だけプレースホルダに落ちる。
   **1枚ずつ受け止めるので1枚欠けても全部落ちない**
 - 新しいアセット名を足したら `tools/placeholder.ts` にも足す（欠けたまま気づかないのを避ける）

@@ -541,10 +541,23 @@ interface ObjectSpec {
   /** 48px枠に対する胴体の幅・高さの割合 */
   bodyW: number;
   bodyH: number;
+  /** 天面に散らす実の色（B-5 の実つきの木）。省略すると実を描かない */
+  berry?: string;
+  /** 幹から伸びる枯れ枝（B-5 の枯れ木）を描くか */
+  branches?: boolean;
 }
 
 const OBJECTS: readonly ObjectSpec[] = [
   { key: 'berry_tree', body: '#a8825c', top: '#bfe06a', topShape: 'disc', bodyW: 0.16, bodyH: 0.34 },
+  // 木の実の木の4状態（B-5）。**一目で違いが分かること**が仮素材の役目なので、
+  // 実の有無だけでなく幹の太さ・葉の色まで変えている
+  // （以前は在庫0を alpha 0.65 で暗くしていただけで、実が無いのか枯れたのか読めなかった）
+  { key: 'berry_tree_full', body: '#a8825c', top: '#bfe06a', topShape: 'disc', bodyW: 0.16, bodyH: 0.34, berry: '#ff8a7a' },
+  { key: 'berry_tree_empty', body: '#a8825c', top: '#a9d97e', topShape: 'disc', bodyW: 0.16, bodyH: 0.34 },
+  // 若木は幹が細く背が低い。表示側の SCALE も小さい（objects.ts の berry_tree_young）
+  { key: 'berry_tree_young', body: '#b9906a', top: '#cbe783', topShape: 'disc', bodyW: 0.1, bodyH: 0.2 },
+  // 枯れ木は葉が無い。天面を描かず枯れ枝だけにする
+  { key: 'berry_tree_dead', body: '#8a6f52', top: '#8a6f52', topShape: 'none', bodyW: 0.12, bodyH: 0.46, branches: true },
   { key: 'field', body: '#a8825c', top: '#bfe06a', topShape: 'none', bodyW: 0.78, bodyH: 0.3 },
   { key: 'bench', body: '#c39a6b', top: '#a8825c', topShape: 'none', bodyW: 0.7, bodyH: 0.26 },
   { key: 'flowerbed', body: '#c39a6b', top: '#ffb9a3', topShape: 'disc', bodyW: 0.6, bodyH: 0.22 },
@@ -567,6 +580,12 @@ const OBJECTS: readonly ObjectSpec[] = [
   // 動物が作る巣（C-3）。枯草を丸く積んだ低い寝床なので、
   // 平たい胴体（幅0.62 / 高さ0.16）＋草色の天面 disc で「窪み」に見せる
   { key: 'nest', body: '#c39a6b', top: '#a8825c', topShape: 'disc', bodyW: 0.62, bodyH: 0.16 },
+  // 島に散らす小オブジェクト（C-4）。
+  // 焚き火は「平たい薪＋オレンジの炎」なので roof の三角をそのまま炎に使う
+  { key: 'campfire', body: '#8a6f52', top: '#ff8a4a', topShape: 'roof', bodyW: 0.5, bodyH: 0.12 },
+  { key: 'rock', body: '#b9b3a6', top: '#cfc9bd', topShape: 'disc', bodyW: 0.46, bodyH: 0.16 },
+  { key: 'stump', body: '#a8825c', top: '#c39a6b', topShape: 'disc', bodyW: 0.36, bodyH: 0.18 },
+  { key: 'bush', body: '#a8c25a', top: '#bfe06a', topShape: 'disc', bodyW: 0.44, bodyH: 0.18 },
 ];
 
 function drawObject(spec: ObjectSpec): Canvas {
@@ -586,8 +605,21 @@ function drawObject(spec: ObjectSpec): Canvas {
 
   if (spec.topShape === 'disc') {
     const r = CHAR_PX * 0.2;
-    c.disc(CHAR_PX / 2, y0 - r * 0.35, r + 1, INK, 1);
-    c.disc(CHAR_PX / 2, y0 - r * 0.35, r, top, 1);
+    const ty = y0 - r * 0.35;
+    c.disc(CHAR_PX / 2, ty, r + 1, INK, 1);
+    c.disc(CHAR_PX / 2, ty, r, top, 1);
+    // 実（B-5 の実つきの木）。位置は固定なので何度生成しても同じ絵になる
+    if (spec.berry) {
+      const berry = hex(spec.berry);
+      for (const [dx, dy] of [
+        [-0.45, -0.2],
+        [0.42, -0.35],
+        [0.05, 0.4],
+      ] as const) {
+        c.disc(CHAR_PX / 2 + r * dx, ty + r * dy, 2.4, INK, 1);
+        c.disc(CHAR_PX / 2 + r * dx, ty + r * dy, 1.6, berry, 1);
+      }
+    }
   } else if (spec.topShape === 'roof') {
     const rw = bw * 1.5;
     c.triangle(
@@ -608,6 +640,20 @@ function drawObject(spec: ObjectSpec): Canvas {
       top,
       1,
     );
+  }
+
+  // 枯れ枝（B-5 の枯れ木）。葉が無いぶん、幹から左右に伸びる枝でシルエットを作る
+  if (spec.branches) {
+    const bodyTop = y0;
+    for (const [sx, dy] of [
+      [-1, 0.2],
+      [1, 0.36],
+      [-1, 0.56],
+    ] as const) {
+      const y = Math.round(bodyTop + bh * dy);
+      const len = Math.round(CHAR_PX * 0.16);
+      c.rect(sx < 0 ? CHAR_PX / 2 - len : CHAR_PX / 2, y, len, 2, body, 1);
+    }
   }
 
   // 足場（scaffold）だけは「まだ出来ていない」と分かるよう横木を渡す

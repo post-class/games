@@ -14,6 +14,7 @@
  * 制約: Math.random() 禁止 / parameter property 禁止 / enum 禁止 / 相対importは .ts 込み
  */
 import {
+  CRITTER_WEIGHTS,
   MAP_H,
   MAP_W,
   NEEDS,
@@ -43,181 +44,10 @@ import { distance, type IslandWorld } from './world.ts';
 // ---------------------------------------------------------------------------
 
 /**
- * critter.ts 固有のバランス値。
- * TODO(M3 バランス調整): ここは最終的に shared/constants.ts の `CRITTER` へ移す。
- *   いまは constants.ts を別の作業者が編集中なので、衝突を避けてこのファイルに置いている。
- *
- * base の値は「その行動が最も切迫したときのスコアの上限」の目安。
- *   flee 220  … 生命の危機。ほぼ何にでも勝つ
- *   eat/sleep 100 … 生活の主軸。この2つが日中/夜で入れ替わるのが「昼は働き夜は寝る」の核
- *   drink 78 / socialize 72 / nest 62 … 主軸の隙間に入る行動
- *   rainShelter 62 … 平常時のeat(数点)には勝ち、切迫した空腹(50点前後)には負ける強さ。
- *                    「雨でも腹が減れば出ていく」ようにしたいのでこの位置
- *   wander 14 … 何もないときの基礎値。他が0に近いときだけ勝つ
+ * 行動選択の重みは `shared/constants.ts` の `CRITTER_WEIGHTS` に移した（D-7）。
+ * ここでは短い別名を置くだけ（本文の `W.` / `WEIGHTS.` を書き換えずに済ませる）。
  */
-const WEIGHTS = {
-  base: {
-    eat: 100,
-    /** 78だと水飲みが交流を押しのけて群れができなかったので下げた */
-    drink: 62,
-    sleep: 100,
-    /** 交流は「群れが生まれる」ための行動。水飲みより優先されるべき */
-    socialize: 84,
-    flee: 220,
-    nest: 62,
-    wander: 14,
-    goto: 58,
-    /** 雨のときだけ出る「森へ避難」候補（kindは goto） */
-    rainShelter: 62,
-  },
-  /** 距離の減衰スケール（このタイル数離れるとスコアが半分になる） */
-  distScale: {
-    /** 食料は遠くても行く価値がある */
-    eat: 20,
-    drink: 16,
-    /** 寝床は近いところで済ませたい */
-    sleep: 10,
-    socialize: 12,
-    nest: 14,
-    goto: 18,
-    shelter: 20,
-  },
-  /** 現在の行動への継続ボーナス（docs 04章 §4 の +15） */
-  hysteresis: 15,
-
-  /** 探索半径。curiosity で ±20%、霧の日は狭くなる */
-  searchRadiusBase: 22,
-  fogSearchScale: 0.6,
-  /** 空腹が切迫すると食料の探索半径がこの倍率ぶん広がる（1.5 → 最大2.5倍） */
-  hungerSearchSpan: 1.5,
-  /** 交流相手・脅威を探す半径（全アクター走査を1回で済ませるため共通化する） */
-  nearRadius: 14,
-
-  /** traits の効き方。いずれも base + trait * span 倍 */
-  trait: {
-    gluttonyBase: 0.6,
-    gluttonySpan: 0.8,
-    /** energy が高い個体は夜更かしする（= sleep が上がりにくい） */
-    sleepEnergyBase: 1.3,
-    sleepEnergySpan: -0.6,
-    sociabilityBase: 0.5,
-    sociabilitySpan: 1.0,
-    cautionBase: 0.4,
-    cautionSpan: 1.0,
-    curiosityBase: 0.6,
-    curiositySpan: 0.8,
-  },
-
-  /** 時間帯 */
-  time: {
-    sleepNight: 1.6,
-    sleepEvening: 1.0,
-    sleepDay: 0.45,
-    /**
-     * 夜だけ加える下駄。
-     * 掛け算だけだと「眠気がまだ低い夜」に eat/wander が勝ってしまい、
-     * 「夜間睡眠率6割」の不変条件を満たせない。夜に限って sleep に床を作る。
-     */
-    sleepNightFloor: 26,
-    eatDay: 1.15,
-    eatNight: 0.6,
-    socialDay: 1.15,
-    socialNight: 0.35,
-    wanderNight: 0.4,
-  },
-
-  /** 天気 */
-  weather: {
-    /** 雨の屋外行動は -30%（docs 04章 §2） */
-    rainOutdoor: 0.7,
-    /** 霧は見通しが悪いだけなので減衰は軽い */
-    fogOutdoor: 0.9,
-    /** 水を飲むのは雨でも苦にならない */
-    rainDrink: 0.85,
-    /** 雨は巣づくり・木の下が有利 */
-    rainNest: 1.3,
-    /** 夜は避難より睡眠を優先させる */
-    rainShelterNight: 0.6,
-    /** 空腹が切迫すると避難の魅力がこの割合まで下がる（雨でも食べに出る） */
-    rainShelterHungerRelief: 0.85,
-  },
-
-  /** 季節。冬は巣ごもり、春は巣づくり（繁殖準備）、夏は水場 */
-  season: {
-    nest: { spring: 1.4, summer: 0.9, autumn: 1.0, winter: 1.6 },
-    thirst: { spring: 1.0, summer: 1.4, autumn: 1.0, winter: 0.8 },
-  },
-
-  /** 荒廃度100のタイルはスコアがこの割合だけ下がる（荒れた場所を避ける） */
-  decayAversion: 0.4,
-
-  /** 設置物の attract の基準値。attract/attractRef 倍（上限 attractMax） */
-  attractRef: 5,
-  attractMax: 2.5,
-
-  /** 脅威 */
-  threat: {
-    /** プレイヤーはこの距離まで近づくと怖い */
-    playerRadius: 7,
-    /**
-     * 大型個体（いのしし）はこの距離。
-     * 5だと100体の島で逃走が常時発生し（評価の8%）夜も眠れなかったため 3.5 に下げた。
-     */
-    bigRadius: 3.5,
-    /** 寝ている個体が起きて逃げ出す距離 */
-    wakeRadius: 1.8,
-    /** 逃げる距離 */
-    fleeDistance: 6,
-  },
-
-  /** 行動の所要tick。250ms/tick */
-  duration: {
-    eat: 12,
-    /** 8tickだと水飲みが毎秒切り替わって行動ログが埋まったので伸ばした */
-    drink: 24,
-    /** 1.5島時間ぶん眠る。夜（15分=3600tick）で2〜3回に分かれる */
-    sleep: Math.round(TICKS_PER_ISLAND_HOUR * 1.5),
-    /** 交流は好感度が育つのに時間が要る（1回20tickだと友達ができなかった） */
-    socialize: 60,
-    nest: 40,
-    wander: 24,
-    goto: 16,
-    flee: 12,
-    other: 8,
-  },
-
-  /** 目的地に「着いた」とみなす距離 */
-  actRange: 1.2,
-  /** 1tickに発行する経路探索リクエストの上限（nav は1tick8件処理） */
-  navRequestsPerTick: 6,
-  /** 経路が引けなかったときの再要求間隔 */
-  navRetryTicks: 8,
-  /** これだけ移動しても着かない目的地は諦める（到達不能な島の向こう側など） */
-  travelTimeoutTicks: 320,
-  /** 1回の採食で取る量 */
-  eatPortion: 1.5,
-  /** 1回の水飲みで取る量 */
-  drinkPortion: 1,
-  /** 森タイル探索の結果をキャッシュするtick数（毎回リング探索すると重い） */
-  shelterCacheTicks: 80,
-  /** 森タイルを探す最大半径 */
-  shelterMaxRadius: 12,
-  /** 徘徊の目標距離 */
-  wanderRadius: 8,
-  wanderMinRadius: 3,
-  /** 徘徊先を選び直す間隔（ヒステリシスを壊さないよう目標を固定する） */
-  wanderBlockTicks: 24,
-  /**
-   * 巣の設置物を掃除・補充する間隔（C-3）。
-   * 死んだ個体の巣を消さないと設置物が無限に増える。
-   * 毎tick走らせても O(設置物数) だが、見た目の反映は数秒遅れて構わないので10秒に1回にした。
-   */
-  nestSyncTicks: 40,
-  /** 巣タイルが他個体の巣で埋まっていたときに、代わりの空きタイルを探す半径 */
-  nestSpreadRadius: 3,
-  /** time slicing の分割数 */
-  sliceMod: 8,
-} as const;
+const WEIGHTS = CRITTER_WEIGHTS;
 
 /** 木の下に集まる先とみなす地形 */
 const SHELTER_TERRAINS: readonly Terrain[] = ['forest'];
@@ -326,6 +156,30 @@ function hash01(a: number, b: number): number {
   h = Math.imul(h ^ (b + 0x165667b1), 0xc2b2ae35);
   h ^= h >>> 15;
   return (h >>> 0) / 0x1_0000_0000;
+}
+
+/**
+ * 密集の割引（D-7）。目的地の周りに既にいる数でスコアを下げる。
+ *
+ * `near`（`actorsNear` の結果）を数え直すだけなので**世界の再走査をしない**
+ * （`actorsNear` は全アクターの線形走査なので、候補ごとに呼ぶと tick 時間が候補数倍になる）。
+ *
+ * ⚠️ `free` 体までは割り引かない。つがい・小群は「群れ」であって団子ではない。
+ * ⚠️ `floor` で下限を作る。0まで下げると密集地から全員が離れて交流が途切れ、繁殖が止まる。
+ */
+export function crowdFactor(near: readonly Actor[], pos: Vec2, exceptId?: EntityId): number {
+  const c = WEIGHTS.crowd;
+  const r2 = c.radius * c.radius;
+  let n = 0;
+  for (const a of near) {
+    if (a.id === exceptId) continue;
+    const dx = a.pos.x - pos.x;
+    const dy = a.pos.y - pos.y;
+    if (dx * dx + dy * dy <= r2) n++;
+  }
+  const over = n - c.free;
+  if (over <= 0) return 1;
+  return Math.max(c.floor, 1 - over * c.penaltyPerActor);
 }
 
 /** 荒れたタイルは避ける */
@@ -624,7 +478,7 @@ export function scoreCandidates(world: IslandWorld, actor: Actor, ctx: CritterCo
     const score = W.base.flee * caution * proximity * (1 + u(needs.safety) * 0.5);
     out.push({
       kind: 'flee',
-      targetTile: fleeTileFrom(actor.pos, other.pos),
+      targetTile: fleeTileFrom(world, actor.pos, other.pos),
       score,
       why: `flee from ${other.id} d=${d.toFixed(1)} caution=${caution.toFixed(2)}`,
     });
@@ -655,14 +509,26 @@ export function scoreCandidates(world: IslandWorld, actor: Actor, ctx: CritterCo
   }
 
   // ---- drink: 渇き値は持たないので空腹の副次。夏は効きが強い ----
+  //
+  // ⚠️ **団子の最大の原因はここだった**（D-7。実測で団子になっている個体の約2/3が `drink`、砂浜の水際）。
+  // 水場は島に20か所しかなく「実質枯れない」ので取り合いにならず、
+  // 暇な個体まで水際に集まって立ち続けていた。効いたのは `drinkIdleNeed` を下げること。
+  // 「空いている水場を選び直す」「目的地の手前に散らして立つ」も試したが**どちらも効果0だった**
+  // （それぞれ clump 0.87 / 19.52。後者は逆に悪化した）ので入れていない。
   const water = world.findNearestResource(actor.pos, WATER_TYPES, radius);
   if (water && deps.isAvailable(water)) {
     const d = distance(actor.pos, water.pos);
-    // 空腹0でも少しは水を飲みに行く（+0.15）
-    const need = u(needs.hunger) * 0.5 + 0.15;
+    // 空腹0でも少しは水を飲みに行く
+    const need = u(needs.hunger) * 0.5 + W.drinkIdleNeed;
     const wMul = weather === 'rain' ? W.weather.rainDrink : outdoor;
-    const score = W.base.drink * need * falloff(d, W.distScale.drink) * W.season.thirst[season] * wMul;
-    out.push({ kind: 'drink', targetEntity: water.id, score, why: `drink need=${need.toFixed(2)} d=${d.toFixed(1)}` });
+    const crowd = crowdFactor(near, water.pos);
+    const score = W.base.drink * need * falloff(d, W.distScale.drink) * W.season.thirst[season] * wMul * crowd;
+    out.push({
+      kind: 'drink',
+      targetEntity: water.id,
+      score,
+      why: `drink need=${need.toFixed(2)} d=${d.toFixed(1)} crowd=${crowd.toFixed(2)}`,
+    });
   }
 
   // ---- sleep: 眠気 × 夜であること。雨なら木の下、巣があれば巣で ----
@@ -683,6 +549,10 @@ export function scoreCandidates(world: IslandWorld, actor: Actor, ctx: CritterCo
 
   // ---- socialize: 社交欲 × 起きている相手の近さ ----
   {
+    // 相手はいちばん近い起きている個体（near は距離順）。
+    // ⚠️ 「近い数体の中からまわりが空いている相手を選ぶ」も試したが**団子が増えた**
+    //    （実測 clump 8.98 → 13.20）。遠くの1体を目指して移動する個体が増え、
+    //    移動の途中で別の群れを横切って合流してしまう。近所の相手を選ぶほうが散る。
     let partner: Actor | null = null;
     for (const other of near) {
       if (other.kind === 'player') continue;
@@ -691,18 +561,24 @@ export function scoreCandidates(world: IslandWorld, actor: Actor, ctx: CritterCo
       break;
     }
     if (partner) {
+      // ⚠️ 相手自身も数に入れる（除外すると実測で団子が増えた: clump 8.98 → 14.69）。
+      // 「相手＋まわり」で混雑を測るのが、群れの大きさの感覚に合う
+      const partnerCrowd = crowdFactor(near, partner.pos);
       const d = distance(actor.pos, partner.pos);
       const need = u(needs.social);
       const soc = W.trait.sociabilityBase + traits.sociability * W.trait.sociabilitySpan;
       const timeMul = isNight ? W.time.socialNight : tod === 'day' || tod === 'morning' ? W.time.socialDay : 1;
       // 広場は社交の場（ベンチの加点は goto 側で効く）
       const placeMul = world.terrainAt(Math.floor(actor.pos.x), Math.floor(actor.pos.y)) === 'plaza' ? 1.25 : 1;
-      const score = W.base.socialize * need * falloff(d, W.distScale.socialize) * soc * timeMul * outdoor * placeMul;
+      // 相手のまわりが既に混んでいたら割り引く（3体目以降が同じ塊へ吸い寄せられるのを止める）
+      const crowd = partnerCrowd;
+      const score =
+        W.base.socialize * need * falloff(d, W.distScale.socialize) * soc * timeMul * outdoor * placeMul * crowd;
       out.push({
         kind: 'socialize',
         targetEntity: partner.id,
         score,
-        why: `socialize need=${need.toFixed(2)} d=${d.toFixed(1)} soc=${soc.toFixed(2)}`,
+        why: `socialize need=${need.toFixed(2)} d=${d.toFixed(1)} soc=${soc.toFixed(2)} crowd=${crowd.toFixed(2)}`,
       });
     }
   }
@@ -716,12 +592,16 @@ export function scoreCandidates(world: IslandWorld, actor: Actor, ctx: CritterCo
     const rainMul = weather === 'rain' ? W.weather.rainNest : 1;
     const target = shelter ?? tileCenter(Math.floor(actor.pos.x), Math.floor(actor.pos.y));
     const distMul = falloff(distance(actor.pos, target), W.distScale.nest);
-    const score = W.base.nest * need * caution * seasonMul * rainMul * distMul * decayFactor(world, target);
+    // 既に何体も居るタイルへ巣を作りに行かない（`nestTileFor` が設置物はずらすが、
+    // 動物本体は目的地タイルに集まるので団子になる）
+    const crowd = crowdFactor(near, target);
+    const score =
+      W.base.nest * need * caution * seasonMul * rainMul * distMul * decayFactor(world, target) * crowd;
     out.push({
       kind: 'nest',
       targetTile: target,
       score,
-      why: `nest need=${need.toFixed(2)} season=${season} rain=${rainMul}`,
+      why: `nest need=${need.toFixed(2)} season=${season} rain=${rainMul} crowd=${crowd.toFixed(2)}`,
     });
   }
 
@@ -734,7 +614,9 @@ export function scoreCandidates(world: IslandWorld, actor: Actor, ctx: CritterCo
       const attract = Math.min(W.attractMax, p.attract / W.attractRef);
       const cur = W.trait.curiosityBase + traits.curiosity * W.trait.curiositySpan;
       const timeMul = isNight ? 0.5 : 1;
-      const score = W.base.goto * attract * falloff(d, W.distScale.goto) * cur * outdoor * timeMul;
+      // 同じベンチに全員が集まるのを抑える（設置物は動かないので放っておくと必ず溜まる）
+      const score =
+        W.base.goto * attract * falloff(d, W.distScale.goto) * cur * outdoor * timeMul * crowdFactor(near, p.pos);
       if (!bestP || score > bestP.score) bestP = { id: p.id, pos: p.pos, score };
     }
     if (bestP) {
@@ -754,12 +636,14 @@ export function scoreCandidates(world: IslandWorld, actor: Actor, ctx: CritterCo
       // 避難は距離0で満点(=61)を取り続けるのに対し、eat は距離減衰で30点前後しか出ないため、
       // この係数が無いと長雨のあいだ木の下で餓死してしまう（実測で発見）。
       const hungerMul = 1 - W.weather.rainShelterHungerRelief * u(needs.hunger);
-      const score = W.base.rainShelter * falloff(d, W.distScale.shelter) * nightMul * hungerMul;
+      // 混んでいる木の下より空いている木の下へ（`shelterTileOf` の起点ずらしと合わせて散らす）
+      const crowd = crowdFactor(near, shelter);
+      const score = W.base.rainShelter * falloff(d, W.distScale.shelter) * nightMul * hungerMul * crowd;
       out.push({
         kind: 'goto',
         targetTile: shelter,
         score,
-        why: `rain shelter d=${d.toFixed(1)} hungerMul=${hungerMul.toFixed(2)}`,
+        why: `rain shelter d=${d.toFixed(1)} hungerMul=${hungerMul.toFixed(2)} crowd=${crowd.toFixed(2)}`,
       });
     }
   }
@@ -776,8 +660,20 @@ export function scoreCandidates(world: IslandWorld, actor: Actor, ctx: CritterCo
   return out;
 }
 
-/** 脅威から離れる方向のタイル */
-function fleeTileFrom(pos: Vec2, threat: Vec2): Vec2 {
+/** 逃走先を探す向き（真後ろ→斜め→横→前）と距離の縮め方 */
+const FLEE_ANGLES: readonly number[] = [0, Math.PI / 4, -Math.PI / 4, Math.PI / 2, -Math.PI / 2, (Math.PI * 3) / 4, -((Math.PI * 3) / 4), Math.PI];
+const FLEE_DISTANCE_SCALES: readonly number[] = [1, 0.6, 0.35];
+
+/**
+ * 脅威から離れる方向のタイル。
+ *
+ * ⚠️ 素直に「真後ろへ fleeDistance タイル」だと**海に向かって逃げる**ことがある。
+ * 岬や砂浜の袋小路にいる個体は経路が引けず、
+ * 「逃走 → 経路なし → travelTimeout で諦める → また逃走」を延々くり返して**その場から動かなくなる**
+ * （invariants の「長時間動かない個体がいない」がこれを捕まえた）。
+ * 歩けるタイルが見つかるまで向きを回し、それでも駄目なら距離を縮める。
+ */
+function fleeTileFrom(world: IslandWorld, pos: Vec2, threat: Vec2): Vec2 {
   let dx = pos.x - threat.x;
   let dy = pos.y - threat.y;
   const len = Math.hypot(dx, dy);
@@ -788,11 +684,20 @@ function fleeTileFrom(pos: Vec2, threat: Vec2): Vec2 {
     dx /= len;
     dy /= len;
   }
+  const base = Math.atan2(dy, dx);
   const d = WEIGHTS.threat.fleeDistance;
-  return {
-    x: Math.min(MAP_W - 1.5, Math.max(1.5, pos.x + dx * d)),
-    y: Math.min(MAP_H - 1.5, Math.max(1.5, pos.y + dy * d)),
-  };
+  let fallback: Vec2 | null = null;
+  for (const scale of FLEE_DISTANCE_SCALES) {
+    for (const a of FLEE_ANGLES) {
+      const ang = base + a;
+      const x = Math.min(MAP_W - 1.5, Math.max(1.5, pos.x + Math.cos(ang) * d * scale));
+      const y = Math.min(MAP_H - 1.5, Math.max(1.5, pos.y + Math.sin(ang) * d * scale));
+      if (world.isWalkableTile(Math.floor(x), Math.floor(y))) return { x, y };
+      if (!fallback) fallback = { x, y };
+    }
+  }
+  // 陸が1タイルも見つからない（起きえないが型のため）。真後ろを返す
+  return fallback ?? tileCenter(Math.floor(pos.x), Math.floor(pos.y));
 }
 
 /**
@@ -1121,5 +1026,5 @@ export class CritterAI {
   }
 }
 
-/** テストとデバッグから重みを覗けるようにする（変更不可） */
-export const CRITTER_WEIGHTS = WEIGHTS;
+/** テストとデバッグから重みを覗けるようにする（実体は constants.ts。再exportだけ残す） */
+export { CRITTER_WEIGHTS };

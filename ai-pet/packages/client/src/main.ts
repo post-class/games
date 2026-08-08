@@ -6,6 +6,7 @@
  * （サーバ側は別作業者の担当なので、描画だけを単体検証できるようにしてある）。
  */
 import type { ClockWire, ServerMsg, Vec2 } from '@ai-pet/shared';
+import { Rectangle } from 'pixi.js';
 import { CHUNK, CHUNKS_X, CHUNKS_Y, TERRAINS } from '@ai-pet/shared';
 import { GameSocket, type ConnState } from './net/socket.ts';
 import { createStage } from './render/stage.ts';
@@ -19,6 +20,7 @@ import { ConstructionLayer } from './render/constructions.ts';
 import { NightSky, SeasonTint, TimeTint } from './render/effects.ts';
 import { LightLayer } from './render/lights.ts';
 import { WeatherLayer } from './render/weather.ts';
+import { WaveLayer } from './render/waves.ts';
 import { Minimap } from './render/minimap.ts';
 import { WorldState, interpolatedPos } from './state/world.ts';
 import { InputController } from './input.ts';
@@ -28,6 +30,8 @@ import { PetPanel } from './ui/petPanel.ts';
 import { PetGauge } from './ui/petGauge.ts';
 import { TouchPad, isTouchDevice } from './ui/touchPad.ts';
 import { ActionButtons, pickPetTarget, pickResourceTarget } from './ui/actionButtons.ts';
+import { BuildPanel } from './ui/buildPanel.ts';
+import { SnapshotButton } from './ui/snapshot.ts';
 import { Tutorial } from './ui/tutorial.ts';
 import { GameAudio, attachAudioToggle } from './ui/audio.ts';
 
@@ -65,6 +69,8 @@ const seasonTint = new SeasonTint(stage.layers);
 const tint = new TimeTint(stage.layers);
 const nightSky = new NightSky(stage.layers);
 const lights = new LightLayer(stage.layers, camera);
+// 海岸線の白波（B-4）。decal レイヤ（ground の上・shadow の下）に描く
+const waves = new WaveLayer(stage.layers, camera);
 const weather = new WeatherLayer(stage.layers);
 const minimap = new Minimap();
 const bubbles = new BubbleLayer();
@@ -563,6 +569,52 @@ const actionButtons = new ActionButtons({
   },
 });
 
+// ---------- 共同建設の貢献パネル（G-1） ----------
+
+/**
+ * 近くの工事に「手伝う」を出す。
+ * HUDのチップ（`hud-build`）は島全体の1件を出すだけなので、
+ * 「いま自分が何をすればいいか」はこちらが担当する。
+ */
+const buildPanel = new BuildPanel({
+  selfPos: () => selfPos(performance.now()),
+  constructions: () => constructions,
+  send: (msg) => socket?.send(msg),
+  onUsed: () => {
+    // 案内の段階に「建設」は無いので、設置と同じ `place` を進める
+    tutorial.did('place');
+    audio.play('place');
+  },
+});
+
+// ---------- 記念撮影（G-3） ----------
+
+/**
+ * いまの画面を1枚のPNGにして保存する。
+ * HUDはDOMなので写らない（宣伝資料の画面イメージにも操作UIは写っていない）。
+ */
+const snapshot = new SnapshotButton({
+  capture: async () => {
+    const r = stage.app.renderer;
+    // ⚠️ `frame` を渡さないと stage 全体（128×128タイル＝4096px超）が対象になって詰まる。
+    // ⚠️ `clearColor` を渡さないと島の外の背景色が抜けて透過PNGになる（createStage の background と同じ値）
+    const canvas = r.extract.canvas({
+      target: stage.app.stage,
+      frame: new Rectangle(0, 0, r.width, r.height),
+      resolution: r.resolution,
+      clearColor: '#cfe3a0',
+    });
+    return canvas as unknown as HTMLCanvasElement;
+  },
+  caption: () => ({
+    islandDay: clock?.islandDay ?? 0,
+    season: clock?.season ?? 'spring',
+    timeOfDay: clock?.timeOfDay ?? 'day',
+    petName,
+  }),
+  onSaved: (fileName) => chat.notice(`しゃしんを ほぞんしました（${fileName}）`),
+});
+
 // ---------- メインループ ----------
 
 let lastFrameAt = performance.now();
@@ -584,6 +636,8 @@ stage.app.ticker.add(() => {
   stage.layers.worldRoot.position.set(camera.containerX, camera.containerY);
   stage.layers.worldRoot.scale.set(camera.zoom);
 
+  // 波は地面の装飾なのでキャラより先に更新する（カメラを worldRoot へ流し込んだ後）
+  waves.update(world, dtSec);
   objectLayer.sync(world);
   constructionLayer.update();
   actorLayer.sync(world, now, dtSec);
@@ -596,6 +650,7 @@ stage.app.ticker.add(() => {
   weather.update(stage.app.renderer.width, stage.app.renderer.height, dtSec);
   tutorial.update(now);
   actionButtons.update();
+  buildPanel.update();
   minimap.update(world);
 
   // 吹き出しはDOMなので、ワールド座標を画面座標に変換して位置だけ動かす

@@ -60,6 +60,18 @@ export const PLACE_ATTRACT: Record<PlaceableType, number> = {
   // 動物が自分で作る巣（C-3）。プレイヤーは置けないので値は使われない。
   // 0 なのは「巣に他の動物が群がる」と寝床の取り合いになるため
   nest: 0,
+  // 島の生成時に散らす小オブジェクト（C-4）。プレイヤーは置けないので値は使われないが、
+  // `worldgen.ts` がここを参照して attract を決めている。
+  //
+  // ⚠️ **すべて 0。焚き火も 0 にしている。**
+  // 「夜に焚き火のまわりへ集まる」演出は魅力的だが、attract は餌の有無を見ないので
+  // **餌の無い場所へ通い続けて餓死する**（M3の長期シミュレーションで踏んだ罠）。
+  // 焚き火は1島に1つで広場の近く＝資源の少ない場所なので、いちばん危ない配置になる。
+  // 夜の演出は `lights.ts` の光と「夜は巣で寝る」既存の挙動で足りると判断した。
+  campfire: 0,
+  rock: 0,
+  stump: 0,
+  bush: 0,
 };
 
 /** プレイヤーから設置できる距離（タイル） */
@@ -127,6 +139,10 @@ const PLACEABLE_LABEL: Record<PlaceableType, string> = {
   fence_h: '柵',
   fence_v: '柵',
   nest: '巣',
+  campfire: '焚き火',
+  rock: '岩',
+  stump: '切り株',
+  bush: '茂み',
 };
 
 const CONSTRUCTION_LABEL: Record<ConstructionType, string> = {

@@ -7,6 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  CRITTER_WEIGHTS as SHARED_CRITTER_WEIGHTS,
   MAX_CRITTERS,
   RESOURCE,
   Rng,
@@ -27,6 +28,7 @@ import {
   CRITTER_WEIGHTS,
   CritterAI,
   chooseAction,
+  crowdFactor,
   falloff,
   forgetCritter,
   scoreCandidates,
@@ -402,6 +404,125 @@ describe('scoreCandidates 脅威', () => {
     const boar = addCritter(w2, c(20, 20), { caution: 0.8 }, 'boar');
     addCritter(w2, c(22, 20), {}, 'boar');
     expect(byKind(scoreCandidates(w2, boar, ctxAt(clock, DAY_TICK)), 'flee')).toBeUndefined();
+  });
+});
+
+// ---------- 重みの置き場所（D-7） ----------
+
+describe('CRITTER_WEIGHTS', () => {
+  it('shared/constants.ts の CRITTER_WEIGHTS をそのまま参照している', () => {
+    // critter.ts の中に重みを持たない（定数は constants.ts に集約する方針）
+    expect(CRITTER_WEIGHTS).toBe(SHARED_CRITTER_WEIGHTS);
+  });
+});
+
+// ---------- 密集の緩和（D-7） ----------
+
+describe('crowdFactor（密集の割引）', () => {
+  const W = CRITTER_WEIGHTS.crowd;
+
+  it('少人数（free体まで）は割り引かない', () => {
+    const w = newWorld();
+    const list: Actor[] = [];
+    for (let i = 0; i < W.free; i++) list.push(addCritter(w, c(20, 20)));
+    expect(crowdFactor(list, c(20, 20))).toBe(1);
+  });
+
+  it('free を超えると1体ごとに下がり、floor で止まる', () => {
+    const w = newWorld();
+    const list: Actor[] = [];
+    for (let i = 0; i < W.free + 1; i++) list.push(addCritter(w, c(20, 20)));
+    const one = crowdFactor(list, c(20, 20));
+    expect(one).toBeCloseTo(1 - W.penaltyPerActor, 6);
+
+    for (let i = 0; i < 20; i++) list.push(addCritter(w, c(20, 20)));
+    expect(crowdFactor(list, c(20, 20))).toBe(W.floor);
+  });
+
+  it('半径の外にいる個体は数えない', () => {
+    const w = newWorld();
+    const far: Actor[] = [];
+    for (let i = 0; i < 10; i++) far.push(addCritter(w, c(30 + i, 30)));
+    expect(crowdFactor(far, c(20, 20))).toBe(1);
+  });
+});
+
+describe('密集していると候補のスコアが下がる（D-7）', () => {
+  it('相手のまわりが混んでいると socialize のスコアが下がる（が0にはならない）', () => {
+    const mk = (extra: number): number => {
+      const w = newWorld();
+      const a = addCritter(w, c(20, 20));
+      a.needs.social = 80;
+      const partner = addCritter(w, c(22, 20));
+      partner.needs.social = 80;
+      // 相手のまわりに extra 体（同じタイル）を足す
+      for (let i = 0; i < extra; i++) addCritter(w, c(22, 20));
+      return byKind(scoreCandidates(w, a, ctxAt(newClock(), DAY_TICK)), 'socialize')?.score ?? 0;
+    };
+    const alone = mk(0);
+    const crowded = mk(8);
+    expect(alone).toBeGreaterThan(0);
+    expect(crowded).toBeLessThan(alone);
+    // 群れと繁殖を殺さないための床（floor 未満には落ちない）
+    expect(crowded).toBeGreaterThanOrEqual(alone * CRITTER_WEIGHTS.crowd.floor - 1e-9);
+  });
+
+  it('混んでいる水場は drink のスコアが下がる', () => {
+    const mk = (extra: number): number => {
+      const w = newWorld();
+      const a = addCritter(w, c(20, 20));
+      a.needs.hunger = 60;
+      addResource(w, 'water', c(24, 20), 20);
+      for (let i = 0; i < extra; i++) addCritter(w, c(24, 20));
+      return byKind(scoreCandidates(w, a, ctxAt(newClock(), DAY_TICK)), 'drink')?.score ?? 0;
+    };
+    expect(mk(8)).toBeLessThan(mk(0));
+  });
+
+  it('混んでいるベンチは goto のスコアが下がる', () => {
+    const mk = (extra: number): number => {
+      const w = newWorld();
+      const a = addCritter(w, c(20, 20));
+      w.addPlaceable({ id: w.allocId(), type: 'bench', pos: c(24, 20), ownerId: 'p1', attract: 12 });
+      for (let i = 0; i < extra; i++) addCritter(w, c(24, 20));
+      return byKind(scoreCandidates(w, a, ctxAt(newClock(), DAY_TICK)), 'goto')?.score ?? 0;
+    };
+    expect(mk(8)).toBeLessThan(mk(0));
+  });
+
+  it('空腹0の個体は水場へ行きたがらない（drinkIdleNeed）', () => {
+    const w = newWorld();
+    const a = addCritter(w, c(20, 20)); // needs は全部0
+    addResource(w, 'water', c(21, 20), 20);
+    const drink = byKind(scoreCandidates(w, a, ctxAt(newClock(), DAY_TICK)), 'drink');
+    expect(drink).toBeDefined();
+    // 水場が隣（距離1）でも徘徊に勝たない = 暇な個体が水際に溜まらない
+    const wander = byKind(scoreCandidates(w, a, ctxAt(newClock(), DAY_TICK)), 'wander');
+    expect((drink as Candidate).score).toBeLessThan((wander as Candidate).score);
+  });
+
+  it('空腹なら水は飲みに行く（drinkIdleNeed を下げても渇きは効く）', () => {
+    const w = newWorld();
+    const a = addCritter(w, c(20, 20));
+    a.needs.hunger = 95;
+    addResource(w, 'water', c(21, 20), 20);
+    const drink = byKind(scoreCandidates(w, a, ctxAt(newClock(), DAY_TICK)), 'drink') as Candidate;
+    const wander = byKind(scoreCandidates(w, a, ctxAt(newClock(), DAY_TICK)), 'wander') as Candidate;
+    expect(drink.score).toBeGreaterThan(wander.score);
+  });
+});
+
+describe('逃走先は歩けるタイル（D-7）', () => {
+  it('海に向かって逃げない（袋小路でも陸を選ぶ）', () => {
+    const w = newWorld();
+    // 東側をすべて水にして、東へ逃げられない状況を作る
+    fill(w, 22, 0, 40, 40, 'water');
+    const a = addCritter(w, c(21, 20), { caution: 0.9 });
+    createPlayerActor(w, { name: 'p', pos: c(19, 20) }); // 西から迫る = 素直に逃げると東（海）
+    const flee = byKind(scoreCandidates(w, a, ctxAt(newClock(), DAY_TICK)), 'flee') as Candidate;
+    expect(flee).toBeDefined();
+    const t = flee.targetTile as Vec2;
+    expect(w.isWalkableTile(Math.floor(t.x), Math.floor(t.y))).toBe(true);
   });
 });
 

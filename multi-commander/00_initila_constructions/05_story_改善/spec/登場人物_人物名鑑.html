@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Multi Commander 世界観に登場する六勢力120人の人物名鑑" />
+    <link rel="icon" href="data:," />
+    <title>THE VEIL FRONT | 登場人物名鑑</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #070b14;
+        --panel: rgba(15, 25, 43, .94);
+        --panel-2: #172640;
+        --line: #2e4264;
+        --text: #edf4ff;
+        --muted: #9eacc7;
+        --dim: #71809a;
+        --cyan: #73d7ff;
+        --gold: #ffd27d;
+        --red: #ff7d86;
+        --teal: #7fe3b0;
+        --purple: #c9a6ff;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        color: var(--text);
+        background: radial-gradient(ellipse at 50% -10%, #203e69 0, transparent 40rem), var(--bg);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif;
+        font-size: 16px;
+        line-height: 1.55;
+      }
+      body::before { position: fixed; inset: 0; z-index: -1; opacity: .18; pointer-events: none; content: ""; background-image: radial-gradient(#a6d8ff .7px, transparent .7px); background-size: 73px 73px; }
+      main { max-width: 1480px; margin: 0 auto; padding: 34px 20px 80px; }
+      header { padding: 18px 0 28px; }
+      .eyebrow, .kicker { color: var(--cyan); font: 700 12px/1.3 var(--mono); letter-spacing: .13em; text-transform: uppercase; }
+      h1, h2, h3, p { margin-top: 0; }
+      h1 { margin: 8px 0 12px; font-size: clamp(36px, 6vw, 76px); line-height: .98; letter-spacing: -.04em; }
+      h1 span { color: var(--gold); }
+      h2 { margin-bottom: 7px; font-size: clamp(24px, 3vw, 38px); line-height: 1.2; letter-spacing: -.02em; }
+      h3 { margin-bottom: 5px; line-height: 1.25; }
+      .lead { max-width: 920px; color: #cbd8eb; font-size: 18px; }
+      .notice { margin-top: 20px; padding: 13px 16px; border: 1px solid rgba(115, 215, 255, .4); border-left: 3px solid var(--cyan); background: rgba(21, 58, 84, .26); color: #d9edf8; }
+      .notice strong { color: var(--cyan); }
+      .notice p { display: inline; margin: 0 0 0 10px; }
+      nav { position: sticky; top: 0; z-index: 10; display: flex; gap: 5px; overflow-x: auto; margin: 0 -20px 42px; padding: 8px 20px; border-block: 1px solid rgba(104, 143, 195, .2); background: rgba(7, 11, 20, .88); backdrop-filter: blur(14px); }
+      nav a { flex: 0 0 auto; padding: 6px 11px; color: var(--muted); font-size: 13px; text-decoration: none; }
+      nav a:hover { color: var(--text); background: rgba(115, 215, 255, .1); }
+      .summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; margin-bottom: 34px; }
+      .metric { padding: 16px 18px; border: 1px solid var(--line); border-top: 2px solid var(--cyan); border-radius: 12px; background: var(--panel); }
+      .metric strong { display: block; color: var(--gold); font: 700 28px/1.1 var(--mono); }
+      .metric span { color: var(--muted); font-size: 13px; }
+      section { scroll-margin-top: 68px; margin-top: 68px; }
+      .section-head { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 21px; }
+      .section-head p { max-width: 620px; margin-bottom: 2px; color: var(--muted); }
+      .faction-section { padding-top: 4px; }
+      .faction-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; padding: 17px 19px; border: 1px solid var(--line); border-bottom: 0; border-radius: 14px 14px 0 0; background: linear-gradient(120deg, rgba(20, 44, 70, .98), rgba(13, 22, 39, .98)); }
+      .faction-heading h2 { margin: 0; }
+      .faction-heading p { max-width: 590px; margin: 0; color: var(--muted); font-size: 14px; }
+      .faction-code { color: var(--gold); font: 12px var(--mono); letter-spacing: .08em; white-space: nowrap; }
+      .faction-section[data-faction="kilrashi"] .faction-heading { border-color: #613344; background: linear-gradient(120deg, rgba(75, 32, 48, .95), rgba(20, 19, 33, .98)); }
+      .faction-section[data-faction="serecion"] .faction-heading { border-color: #246062; background: linear-gradient(120deg, rgba(20, 65, 69, .95), rgba(13, 25, 39, .98)); }
+      .faction-section[data-faction="ordo"] .faction-heading { border-color: #5b4b31; background: linear-gradient(120deg, rgba(71, 59, 34, .95), rgba(24, 23, 31, .98)); }
+      .faction-section[data-faction="neurowm"] .faction-heading { border-color: #544274; background: linear-gradient(120deg, rgba(56, 36, 78, .95), rgba(18, 18, 36, .98)); }
+      .faction-section[data-faction="mirror"] .faction-heading { border-color: #496479; background: linear-gradient(120deg, rgba(28, 55, 72, .95), rgba(14, 22, 34, .98)); }
+      .people-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 0 0 14px 14px; background: rgba(7, 12, 23, .64); }
+      .person { min-width: 0; overflow: hidden; border: 1px solid rgba(109, 141, 186, .32); border-radius: 10px; background: linear-gradient(145deg, rgba(23, 37, 63, .98), rgba(10, 17, 31, .98)); cursor: pointer; transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease; }
+      .person:hover, .person:focus-visible { transform: translateY(-2px); border-color: var(--cyan); box-shadow: 0 10px 26px rgba(0, 0, 0, .24); outline: none; }
+      .person.ace { border-color: rgba(255, 210, 125, .72); box-shadow: inset 0 2px 0 var(--gold); }
+      .portrait { position: relative; width: 100%; aspect-ratio: 1; overflow: hidden; background: #0c1527; }
+      .portrait img { display: block; width: 100%; height: 100%; object-fit: cover; }
+      .portrait::after { position: absolute; inset: 0; pointer-events: none; content: ""; background: transparent; }
+      .portrait .portrait-id { position: absolute; right: 8px; bottom: 5px; z-index: 1; color: rgba(235, 245, 255, .7); font: 10px var(--mono); }
+      .person-body { padding: 10px 11px 11px; }
+      .person-top { display: flex; align-items: start; justify-content: space-between; gap: 8px; }
+      .person h3 { margin: 0; font-size: 16px; }
+      .callsign { margin: 1px 0 7px; color: var(--gold); font: 11px var(--mono); }
+      .ace-label { padding: 2px 6px; border: 1px solid var(--gold); border-radius: 999px; color: var(--gold); font: 10px var(--mono); white-space: nowrap; }
+      .meta { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-bottom: 8px; color: var(--muted); font-size: 12px; }
+      .meta span + span { padding-left: 8px; border-left: 1px solid var(--line); }
+      .record { min-height: 38px; margin-bottom: 8px; color: #cfdbed; font-size: 12px; line-height: 1.45; }
+      .level { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 7px; color: var(--muted); font: 10px var(--mono); }
+      .level-bar { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; }
+      .level-bar i { height: 5px; background: #253752; }
+      .level-bar i.on { background: var(--cyan); }
+      .person.ace .level-bar i.on { background: var(--gold); }
+      .level strong { color: var(--text); font-size: 12px; }
+      .rank { display: inline-block; padding: 2px 6px; border: 1px solid rgba(115, 215, 255, .35); border-radius: 4px; color: var(--cyan); font-size: 11px; }
+      .level-name { color: var(--gold); }
+      .field-label { display: block; margin-bottom: 1px; color: var(--dim); font: 9px var(--mono); letter-spacing: .05em; }
+      .card-summary { min-height: 38px; margin-bottom: 8px; color: #cfdbed; font-size: 12px; line-height: 1.45; }
+      dialog { width: min(760px, calc(100vw - 28px)); max-height: min(840px, calc(100vh - 28px)); padding: 0; border: 1px solid var(--cyan); border-radius: 14px; color: var(--text); background: #0b1424; box-shadow: 0 24px 90px rgba(0, 0, 0, .66); }
+      dialog::backdrop { background: rgba(2, 5, 12, .78); backdrop-filter: blur(5px); }
+      .dialog-head { display: flex; align-items: start; justify-content: space-between; gap: 18px; padding: 20px 22px 15px; border-bottom: 1px solid var(--line); background: linear-gradient(120deg, rgba(24, 58, 82, .8), rgba(14, 23, 40, .9)); }
+      .dialog-head h2 { margin: 4px 0 3px; font-size: 30px; }
+      .dialog-head p { margin: 0; color: var(--gold); font: 12px var(--mono); }
+      .dialog-close { padding: 6px 10px; border: 1px solid var(--line); border-radius: 7px; color: var(--muted); background: transparent; cursor: pointer; font: 12px var(--mono); }
+      .dialog-close:hover { border-color: var(--cyan); color: var(--cyan); }
+      .dialog-body { padding: 18px 22px 22px; overflow: auto; }
+      .dialog-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin-bottom: 18px; }
+      .dialog-stat { padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; background: rgba(7, 13, 26, .52); }
+      .dialog-stat b { display: block; color: var(--text); font-size: 13px; }
+      .dialog-visuals { display: grid; grid-template-columns: .8fr 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+      .dialog-visual { margin: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: #07101e; }
+      .dialog-visual img { display: block; width: 100%; height: 238px; object-fit: contain; object-position: center top; background: #07101e; }
+      .dialog-visual figcaption { padding: 7px 9px; color: var(--muted); font-size: 11px; }
+      .dialog-visual figcaption strong { display: block; color: var(--text); font-size: 12px; }
+      .profile-sections { display: grid; gap: 14px; }
+      .profile-section { padding-top: 11px; border-top: 1px solid var(--line); }
+      .profile-section h3 { margin-bottom: 4px; color: var(--cyan); font-size: 14px; }
+      .persona-copy { margin: 0; color: #d8e4f4; font-size: 15px; line-height: 1.8; white-space: pre-wrap; }
+      .persona-count { margin-top: 12px; color: var(--dim); font: 11px var(--mono); }
+      .level-guide, .rank-guide { display: grid; gap: 7px; }
+      .level-row, .rank-row { display: grid; grid-template-columns: 54px 190px 1fr; gap: 12px; align-items: center; padding: 9px 11px; border: 1px solid rgba(109, 141, 186, .22); border-radius: 7px; background: rgba(7, 13, 26, .48); }
+      .level-row strong { color: var(--gold); font: 700 14px var(--mono); }
+      .level-row b { color: var(--text); font-size: 14px; }
+      .level-row span, .rank-row span { color: var(--muted); font-size: 13px; }
+      .rank-row { grid-template-columns: 180px 1fr; }
+      .rank-row strong { color: var(--cyan); font-size: 14px; }
+      .hobby-guide { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 10px; }
+      .hobby-row { display: grid; grid-template-columns: 34px 116px 1fr; gap: 9px; align-items: start; padding: 9px 10px; border: 1px solid rgba(109, 141, 186, .22); border-radius: 7px; background: rgba(7, 13, 26, .48); }
+      .hobby-row strong { color: var(--gold); font: 700 13px var(--mono); }
+      .hobby-row b { color: var(--text); font-size: 13px; }
+      .hobby-row span { color: var(--muted); font-size: 12px; line-height: 1.45; }
+      .filterbar { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin: 0 0 18px; }
+      .filterbar button { padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: rgba(15, 25, 43, .9); cursor: pointer; font: 12px var(--mono); }
+      .filterbar button:hover, .filterbar button.active { border-color: var(--cyan); color: var(--cyan); background: rgba(115, 215, 255, .1); }
+      .filterbar .hint { margin-left: 4px; color: var(--dim); font-size: 12px; }
+      .scope { margin-top: 18px; padding: 14px 16px; border: 1px dashed var(--line); color: var(--muted); font-size: 13px; }
+      footer { margin-top: 72px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--dim); font-size: 12px; }
+      @media (max-width: 1100px) { .people-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+      @media (max-width: 760px) { main { padding: 24px 12px 60px; } nav { margin-left: -12px; margin-right: -12px; padding-left: 12px; padding-right: 12px; } .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .section-head, .faction-heading { display: block; } .section-head p, .faction-heading p { margin-top: 10px; } .faction-code { display: block; margin-top: 10px; } .people-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 8px; } }
+      @media (max-width: 760px) { .hobby-guide { grid-template-columns: 1fr; } }
+      @media (max-width: 430px) { .people-grid { grid-template-columns: 1fr; } .summary { grid-template-columns: 1fr 1fr; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="eyebrow">Multi Commander / Narrative Bible / Character Dossier</div>
+        <h1>THE <span>CREW &amp; RIVALS</span></h1>
+        <p class="lead">ヴェガ宙域で生きる六勢力の人物名鑑。名前だけのNPCではなく、戦い方・実績・政治的な立場を一つのカードにまとめ、出撃前に「誰と飛び、誰を撃つのか」が分かる状態を作る。</p>
+        <div class="notice"><strong>仕様範囲</strong><p>人類20人＋非人類5勢力各21人、計125人。各勢力にエース級を4人ずつ配置し、非人類勢力には最高権力者を1名ずつ追加。戦闘レベルは10段階で統一し、階級は勢力ごとの制度として独立させる。</p></div>
+      </header>
+
+      <nav aria-label="勢力一覧">
+        <a href="#confed">人類</a><a href="#kilrashi">キルラシー</a><a href="#serecion">セレシオン</a><a href="#ordo">オルド</a><a href="#neurowm">ニューロウム</a><a href="#mirror">鏡面公会</a>
+      </nav>
+
+      <section class="summary" aria-label="人物名鑑の集計">
+        <div class="metric"><strong>125</strong><span>総登場人物</span></div>
+        <div class="metric"><strong>20 + 5 × 21</strong><span>人類＋非人類勢力</span></div>
+        <div class="metric"><strong>24</strong><span>エース級人物（各勢力4人）</span></div>
+        <div class="metric"><strong>1〜10</strong><span>戦闘レベルの共通尺度</span></div>
+      </section>
+
+      <section id="levels">
+        <div class="section-head"><div><div class="kicker">Combat scale / 10 grades</div><h2>戦闘レベルと階級</h2></div><p>戦闘レベルは個人の操縦・戦術・危機判断を合わせた実戦評価。階級は所属勢力の制度上の権限であり、戦闘レベルとは別に決まる。</p></div>
+        <div class="panel">
+          <h3>10段階の戦闘レベル</h3>
+          <div id="level-guide" class="level-guide"></div>
+        </div>
+        <div class="panel" style="margin-top:14px">
+          <h3>勢力別の階級体系</h3>
+          <div id="rank-guide" class="rank-guide"></div>
+        </div>
+        <div class="panel" style="margin-top:14px">
+          <h3>競技志向の趣味一覧</h3>
+          <p style="margin:0 0 12px;color:var(--muted);font-size:13px">全員が気晴らしではなく、コンクール・大会・品評会などで優勝や受賞を狙って取り組む。</p>
+          <div id="hobby-guide" class="hobby-guide"></div>
+        </div>
+      </section>
+
+      <section id="directory">
+        <div class="section-head"><div><div class="kicker">Index / Read the roster</div><h2>人物を絞り込む</h2></div><p>戦闘レベル10は「その人物が強い」だけでなく、戦場で判断を変えられるレベル。エースは撃墜数ではなく、戦況を変えた実績を持つ人物とする。</p></div>
+        <div class="filterbar" role="group" aria-label="人物フィルター"><button class="active" data-filter="all">全員</button><button data-filter="ace">エース級のみ</button><button data-filter="young">若年層（36歳以下）</button><button data-filter="high">戦闘レベル8以上</button><span class="hint" id="filter-count">125人を表示中</span></div>
+      </section>
+
+      <div id="roster" aria-live="polite"></div>
+
+      <div class="scope"><strong style="color:var(--gold)">人物設計の基準：</strong> 人類20名は日本人・白人・黒人・アラブ人・中華アジア系を4名ずつ配置。非人類は獣人、宇宙人、ロボ・アンドロイド系、エネルギー・不定体系に分類し、各勢力固有の階級制度を持つ。家族・恋人など登場人物同士の関連は約2割に設定する。</div>
+
+      <dialog id="persona-dialog" aria-labelledby="dialog-title">
+        <div class="dialog-head"><div><div class="kicker" id="dialog-faction"></div><h2 id="dialog-title"></h2><p id="dialog-callsign"></p></div><button class="dialog-close" type="button" aria-label="詳細を閉じる">閉じる</button></div>
+        <div class="dialog-body"><div id="dialog-grid" class="dialog-grid"></div><div class="dialog-visuals"><figure class="dialog-visual"><img id="dialog-portrait" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt=""><figcaption><strong>肖像</strong>年齢・性別を固定した顔貌</figcaption></figure><figure class="dialog-visual"><img id="dialog-fullbody" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt=""><figcaption><strong>全身イメージ</strong>任務時の装備と立ち姿</figcaption></figure><figure class="dialog-visual"><img id="dialog-hobby" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt=""><figcaption><strong>趣味の時間</strong>軍服ではない私服姿</figcaption></figure></div><div id="dialog-persona" class="profile-sections"></div><div id="dialog-count" class="persona-count"></div></div>
+      </dialog>
+      <footer>Multi Commander / 登場人物・人物名鑑 / 統合暦2312時点　｜　人物画像は各人物のペルソナと外見条件を個別に反映してGPT Imageで生成。</footer>
+    </main>
+    <script>
+      const combatLevels = [
+        ['候補生', '実戦経験はないが、基本操作と安全手順を守れる。'],
+        ['初任戦闘員', '単独戦闘を任せられる。危機時は指示を必要とする。'],
+        ['正規戦闘員', '標準任務を安定して完遂できる。'],
+        ['熟練戦闘員', '不利な状況でも生還手順を組み立てられる。'],
+        ['戦列の職人', '機体や役割を選ばず、編隊の穴を埋められる。'],
+        ['上級戦術員', '敵の意図を読み、僚機を含めた戦術を変えられる。'],
+        ['戦術指揮員', '小隊規模の判断で戦域の流れを変えられる。'],
+        ['エース候補', '特定の戦術領域で、敵の標準を上回る実績を持つ。'],
+        ['エース', '単独または編隊で、戦況を反転させる判断力を持つ。'],
+        ['戦域級エース', '一人の選択が艦隊・航路・停戦線の結果を変える。']
+      ];
+
+      const rankNames = {
+        confed: ['訓練兵', '少尉', '中尉', '大尉', '少佐', '中佐', '大佐', '航空団司令', '戦隊司令', '提督'],
+        kilrashi: ['爪前', '血誓兵', '狩人', '群爪長', '戦牙', '旗爪長', '家門将', '灰冠将', '上級戦王', '大牙王'],
+        serecion: ['新唱', '航唱', '護唱', '隊唱', '雲航長', '船団長', '嵐長', '航路守', '大合唱長', '古唱母'],
+        ordo: ['芽晶', '初脈', '支脈核', '戦脈核', '地層官', '重力官', '封鎖核', '深層司令核', '記憶地層代表', '祖層核'],
+        neurowm: ['種子体', '作業体', '観測体', '中継体', '戦闘体', '指令体', '巣脈核', '主幹核', '古巣核', '原初核'],
+        mirror: ['見習い機', '運用機', '監査機', '契約機', '執行機', '戦術機', '上級契約機', '公会代理機', '系譜管理機', '原初アーカイヴ']
+      };
+
+      const factions = [
+        {
+          id: 'confed', code: 'CONFED / HUMAN', name: 'アウレリア連邦（人類）', color: '#73d7ff',
+          desc: '空母と前進基地をつなぐ開拓国家。男女比は1：1。軍人だけでなく、救難・整備・情報・政治の人材も前線にいる。',
+          people: [
+            ['マラ・ヴォス','Valkyrie','女 / 31歳','艦載戦闘機隊長',10,'ヴェガ門前で孤立した護衛隊を再編し、民間船87隻を帰還させた。'],
+            ['エリアン・ロウ','Blue Hour','男 / 28歳','迎撃編隊リーダー',9,'キルラシーの先遣隊を三度撃退。敵エースとの無線交渉記録を残す。'],
+            ['ナオコ・セリン','Lattice','女 / 34歳','偵察・電子戦士官',9,'ラグランジュ裂谷で通信妨害下の編隊を無傷で離脱させた。'],
+            ['ダリウス・ヴェイル','Gravewind','男 / 39歳','重攻撃隊指揮官',10,'補給艦を狙う敵艦隊旗艦を単機で足止め。戦果より撤退を優先した。'],
+            ['イネス・カイ','Moth','女 / 24歳','救難艇パイロット',6,'撃墜後の脱出ポッドを最短時間で14基回収した。'],
+            ['レオン・アッシュ','Rook','男 / 26歳','僚機管制官',7,'未経験の新人12名を一週間で実戦編隊に仕上げた。'],
+            ['サラ・ミルズ','Northstar','女 / 29歳','航法士・門解析員',7,'不安定なヴェイルの開口を予測し、帰投窓を二分延長した。'],
+            ['ユウ・ハヤセ','Kite','男 / 22歳','軽戦闘機パイロット',5,'オリオン港の夜間迎撃で初撃墜。民間航路の標識を守り抜いた。'],
+            ['エヴァ・ルイス','Hearth','女 / 41歳','空母航空団参謀',8,'補給不足の航空団を再配置し、四十日間の継戦計画を成立させた。'],
+            ['トーマス・グレイ','Anchor','男 / 47歳','艦長・元救難隊',8,'停戦線内で攻撃を受けた輸送船団を、武力衝突なしで誘導した。'],
+            ['リナ・オルテガ','Kestrel','女 / 27歳','迎撃パイロット',6,'機雷原を抜ける低空軌道を発見。僚機の帰投率を上げた。'],
+            ['ミハイル・チェン','Patch','男 / 36歳','戦闘整備主任',5,'損傷した14機を出撃可能に戻し、前線の機体不足を埋めた。'],
+            ['アヤ・ブリッグス','Quill','女 / 25歳','戦術通信士',4,'敵味方の識別信号の齟齬を発見し、誤射を防いだ。'],
+            ['ノア・フェルド','Tallow','男 / 30歳','爆撃機パイロット',7,'採掘帯の封鎖艦に対し、最小限の損害で航路を開いた。'],
+            ['ケイト・サントス','Lumen','女 / 33歳','医療担当・副操縦士',4,'被弾艦内で負傷者を治療しながら帰投を完了。'],
+            ['ハビエル・モーン','Mule','男 / 52歳','輸送隊護衛長',6,'軍籍を持たない輸送船団を五年間無事故で護衛した。'],
+            ['ミナ・パク','Wisp','女 / 21歳','訓練生パイロット',3,'初出撃で味方機のロックを解除し、衝突を回避した。'],
+            ['アーロン・プライス','Rivet','男 / 43歳','兵器試験主任',5,'新型ランス砲の実戦試験を安全に完遂した。'],
+            ['ジョアン・リード','Cinder','女 / 38歳','基地防衛司令',7,'オリオン港の防衛線を二度再構築し、避難民区画を守った。'],
+            ['ケイレブ・ストーン','Latch','男 / 27歳','通信傍受員',4,'敵の中継器増設地点を特定し、偵察隊を導いた。']
+          ]
+        },
+        {
+          id: 'kilrashi', code: 'KILRASHI EMPIRE', name: 'キルラシー帝国', color: '#ff7d86',
+          desc: '血統と誓約を重んじる軍事帝国。エースは勝敗だけでなく、名誉を持ち帰ったかで評価される。',
+          people: [
+            ['バラク・ナル・カクシ','Caxki','雄 / 36歳','巡航狩人',10,'連邦の艦隊を沈めることだけを目的に飛び、三つの空母戦で生還した。'],
+            ['カジャ・ナル・ラギティカ','血塗られた爪','雌 / 29歳','決闘士・編隊長',10,'撃墜した敵の名をすべて記憶し、戦場で一対一の勝負を強いる。'],
+            ['ダカス・デスストローク','Deathstroke','雄 / 44歳','帰投線の執行者',9,'戦線の穴から現れ、帰還する船だけを狙う戦術を完成させた。'],
+            ['ラウ・ナル・セイラク','Ash Crown','雌 / 33歳','灰冠近衛隊長',9,'宗家の旗艦を救うため、単独で三個中隊を足止めした。'],
+            ['ヴァルク・ナル・オル','Ironmane','雄 / 27歳','突撃隊パイロット',8,'一度の急襲で六隻の護衛機を引き剥がした。'],
+            ['シェラ・ナル・ヴァーク','Rite','雌 / 25歳','儀礼通信士',6,'敵の降伏文を翻訳し、停戦線の誤解を解いた。'],
+            ['トゥルガ・ナル・フェン','Bitter Sun','雄 / 38歳','重戦闘機隊長',8,'高重力域での旋回戦術を帝国標準にした。'],
+            ['ネヤ・ナル・カリ','Soft Claw','雌 / 22歳','偵察飛行士',5,'敵の補給基地を発見したが、民間区画を避けて帰投した。'],
+            ['ラガス・ナル・ドゥル','Oathkeeper','雄 / 56歳','宗家付き教官',7,'四世代のパイロットに古い決闘規約を教えた。'],
+            ['ミル・ナル・サク','Fangless','雌 / 31歳','交渉護衛官',6,'救難船団を護衛し、連邦艦との誤戦闘を防いだ。'],
+            ['クァラ・ナル・リィ','Red Kite','雌 / 24歳','軽戦闘機パイロット',6,'峡谷状の小惑星帯で追跡機を振り切った。'],
+            ['ドゥラ・ナル・ヘシュ','Stonehowl','雄 / 40歳','装甲艦砲手',7,'損傷艦の砲塔を手動で再起動し、撤退を援護した。'],
+            ['キラ・ナル・モア','First Blood','雌 / 21歳','新鋭飛行士',4,'初陣で撃墜せず、負傷した敵を見逃したことで議論を呼んだ。'],
+            ['オルカ・ナル・ゼット','Crownless','雄 / 34歳','艦隊斥候',7,'帝国艦隊が知らない民間航路を地図に記録した。'],
+            ['サル・ナル・イェン','Quiet Fang','雌 / 45歳','医療僧',3,'戦場で種族を問わず救命する誓約を守っている。'],
+            ['ヴェク・ナル・トゥー','Red Ledger','雄 / 30歳','戦果記録官',4,'エースの戦果を検証し、誇張された報告を退けた。'],
+            ['イシュ・ナル・パル','Comet Paw','雌 / 28歳','迎撃飛行士',6,'門の閉鎖まで残り九分の航路を守った。'],
+            ['ガル・ナル・キシュ','Old Roar','雄 / 62歳','艦隊長老',5,'戦争を始めた世代として、若い将兵の暴走を抑える。'],
+            ['メル・ナル・アシャ','Veil Listener','雌 / 37歳','ヴェイル聴取官',4,'事故の九分間に共通する低周波信号を最初に記録した。'],
+            ['ラッハ・ナル・コル','Black Mane','雄 / 26歳','突入艇操縦士',5,'封鎖線の内側へ輸送隊を送り込んだ。'],
+            ['ナル・ヴァルカーン','Crown Fang','雄 / 88歳','大牙王・帝国最高権力者',10,'五つの家門を血誓で束ね、帝国の戦争と停戦を最終裁定する。','leader']
+          ]
+        },
+        {
+          id: 'serecion', code: 'SERECION DRIFT', name: 'セレシオン遊牧圏', color: '#7fe3b0',
+          desc: '光合成ガス生命による移動都市群。中立を守るためなら、救難船団も武装する。',
+          people: [
+            ['アウル・セレ','Day Chorus','群体 / 29季','船団指揮者',10,'静穏海の避難航路を十年間維持し、両陣営の艦を通過させた。'],
+            ['ネメ・リューム','Blue Breath','群体 / 41季','嵐航法士',9,'電磁嵐の中で失われた船団を再接続し、全船を帰還させた。'],
+            ['オル・カデン','First Light','群体 / 33季','護衛歌隊長',9,'武装中立の規約を破らずに攻撃艦を退けた。'],
+            ['シア・ヴェル','Noon Bell','群体 / 57季','長老・航路裁定者',10,'六者通行協定の原文を暗唱し、停戦の根拠を示す。'],
+            ['ミラ・ソーン','Mist Choir','群体 / 24季','観測者',7,'敵味方を問わず救難信号を拾い上げた。'],
+            ['エイ・ロウム','Green Current','群体 / 18季','気嚢船操舵手',6,'乱流域で大型居住船を反転させた。'],
+            ['サラ・アクス','Soft Static','群体 / 31季','通信翻訳者',5,'キルラシーの誓約文を初めて正確に翻訳した。'],
+            ['フュー・ミン','Cloudstep','群体 / 21季','小艇パイロット',6,'機雷の間を縫って孤立した医療艇へ物資を届けた。'],
+            ['リオ・エン','Warm Front','群体 / 36季','嵐防衛官',8,'救難船団を覆う防電場を設計した。'],
+            ['クオン・ルー','Silver Rain','群体 / 44季','航路監査官',4,'通行料を不正に取る公会代理人を追放した。'],
+            ['ユナ・セル','Dawn Thread','群体 / 27季','気象予報士',5,'ヴェイル開口時の危険な風向きを予告した。'],
+            ['ハル・メイ','Lantern','群体 / 19季','救難艇乗員',4,'暗闇の中で五隻の脱出ポッドを識別した。'],
+            ['オウ・リュク','Echo Salt','群体 / 62季','記憶保管官',3,'事故以前の航路記録を口述保存している。'],
+            ['セナ・クゥ','Rain Fox','群体 / 23季','小型護衛機操縦士',7,'敵機の射線を嵐へ誘導し、戦闘を終わらせた。'],
+            ['トワ・ノア','Green Bell','群体 / 47季','医療合唱隊',2,'敵兵も救うという遊牧圏の原則を守る。'],
+            ['カイ・ロス','High Mist','群体 / 39季','高空船船長',6,'補給船団を予定より四日早く目的地へ運んだ。'],
+            ['ミウ・タル','Falling Star','群体 / 20季','新米観測者',3,'初任務で鏡面公会の偽信号を見抜いた。'],
+            ['ヴァ・オル','Blue Orchard','群体 / 75季','植物圏管理者',2,'長距離船団の食料循環を再建した。'],
+            ['ルン・エス','No Wind','群体 / 51季','規約執行者',5,'停戦線内への武器搬入を自勢力の船でも止めた。'],
+            ['ハナ・ドゥ','Low Tide','群体 / 26季','巡回護衛士',6,'連邦の訓練隊を静穏海から安全に送り出した。'],
+            ['オル・セレ・マザー','First Horizon','群体 / 143季','古唱母・遊牧圏最高権力者',10,'全船団の季節航路と武装中立を裁定し、遊牧圏の記憶を一つに束ねる。','leader']
+          ]
+        },
+        {
+          id: 'ordo', code: 'ORDO CRUSTAL MIND', name: 'オルド地殻知性体', color: '#d9b977',
+          desc: '惑星内部の結晶ネットワークに宿る長命の知性。個体ではなく地層が記憶を持つ。',
+          people: [
+            ['バサルト・ゼロ','Deep Measure','結晶核 / 184年','地殻防衛核',10,'採掘艦隊を一昼夜だけ停止させ、双方を領域外へ退かせた。'],
+            ['クォーツ・アイン','Clear Fault','結晶核 / 91年','重力戦術核',9,'局地重力を変え、装甲艦の進路を非破壊で逸らした。'],
+            ['アンバー・セブン','Old Heat','結晶核 / 220年','記憶地層の代表',9,'百年前の採掘権を証明する地層記録を提示した。'],
+            ['グラファイト・イレブン','Black Seam','結晶核 / 143年','封鎖司令核',10,'深層採掘帯の封鎖を一個体の損失もなく完成させた。'],
+            ['フリント・三','Spark Bed','結晶核 / 54年','探査核',7,'未採掘のヴェイル関連鉱脈を発見した。'],
+            ['マイカ・十','Thin Layer','結晶核 / 38年','外交振動核',5,'人類の短い時間感覚を理解する翻訳層を作った。'],
+            ['スレート・二','Grey Weight','結晶核 / 68年','装甲艇核',8,'敵艦の砲撃を受けながら採掘員を護衛した。'],
+            ['オパール・十六','Many Color','結晶核 / 29年','光通信核',6,'複数勢力の通信を同時に中継した。'],
+            ['鉄鉱・四','Red Rust','結晶核 / 312年','古参鉱床核',6,'採掘戦争以前の地図を地表に投影した。'],
+            ['パイライト・八','False Gold','結晶核 / 47年','契約監査核',4,'偽造された採掘契約を振動パターンで特定した。'],
+            ['氷晶・六','Cold Press','結晶核 / 35年','冷却帯管理核',4,'熱暴走した採掘炉を凍結して被害を止めた。'],
+            ['ガーネット・十二','Hard Red','結晶核 / 73年','近接防衛核',7,'巣脈群の中継器を破壊せず押し返した。'],
+            ['頁岩・五','Folded Page','結晶核 / 42年','地層記録官',3,'事故の九分間を地磁気の変化として保存した。'],
+            ['硫黄・九','Yellow Trace','結晶核 / 26年','熱源探査核',5,'ヴェイル門の再起動に必要な熱量を測定した。'],
+            ['玄武岩・二十','Night Stone','結晶核 / 112年','鉱山護衛核',6,'民間採掘船に護衛契約を付与した。'],
+            ['白雲母・十三','Soft Plane','結晶核 / 31年','地表連絡核',2,'はじめて連邦港へ直接の振動通信を送った。'],
+            ['石英・十五','Window','結晶核 / 18年','若年観測核',3,'最初に機械公会の信号を音として記録した。'],
+            ['磁鉄・七','North Hold','結晶核 / 206年','磁場戦術核',8,'艦隊の照準磁場を乱し、戦闘を終わらせた。'],
+            ['炭素・十四','Warm Coal','結晶核 / 59年','炉心技師核',4,'損傷した輸送船の炉を再点火した。'],
+            ['片麻岩・十八','Old Pattern','結晶核 / 402年','祖層の代読核',3,'オルドが戦争を避けてきた理由を語る。'],
+            ['祖層・アーク','Root Stratum','結晶核 / 1200年','祖層核・地殻知性体最高権力者',10,'惑星全地層の記憶と採掘境界を裁定し、オルドの意思を最終決定する。','leader']
+          ]
+        },
+        {
+          id: 'neurowm', code: 'NEUROWM SWARM', name: 'ニューロウム群体', color: '#c9a6ff',
+          desc: '無数の個体が巣脈で判断を共有する生体ネットワーク。個人名は接続位置と役割を示す。',
+          people: [
+            ['N-01・オリジン','First Synapse','巣脈核 / 12年','巣脈戦術体',10,'複数宙域の機雷を一つの判断で同期させた。'],
+            ['N-02・ハイヴァ','Glass Mandible','巣脈核 / 9年','飽和攻撃体',9,'小型機群だけで重装甲艦を撤退させた。'],
+            ['N-03・メモリア','Borrowed Sky','記憶体 / 18年','異種通信体',9,'六勢力の通信プロトコルを巣脈へ接続した。'],
+            ['N-04・ヴェクサ','Red Pulse','戦闘体 / 7年','中継器防衛体',10,'巣脈群の中継器を三波の攻撃から守った。'],
+            ['N-05・スウォームレット','Many Feet','戦闘体 / 3年','近接群体',7,'敵機の視界を埋め、味方の離脱時間を作った。'],
+            ['N-06・コアドロップ','Falling Kernel','運搬体 / 5年','巣脈建設体',5,'戦場の資材を回収して新しい中継器を建設した。'],
+            ['N-07・サイレンス','No Echo','妨害体 / 11年','通信妨害体',8,'五分間だけ戦域全体のロックを無効化した。'],
+            ['N-08・ミミック','Human Shape','擬態体 / 4年','偽装偵察体',6,'敵の救難信号を模倣し、通行パターンを調べた。'],
+            ['N-09・グラフト','Borrower','修復体 / 6年','自己修復体',6,'撃破された機体の部品を再利用して復帰した。'],
+            ['N-10・リレー','Blue Node','中継体 / 13年','長距離中継体',5,'巣脈と遠方の群れを安定接続した。'],
+            ['N-11・スパイン','Hard Signal','装甲体 / 8年','重装甲護衛体',8,'砲撃を受けながら中継器の前に留まった。'],
+            ['N-12・グロウス','Warm Nest','育成体 / 2年','群体育成官',2,'失われた群れを再生する新しい巣を作った。'],
+            ['N-13・スキャン','Open Eye','観測体 / 5年','偵察個体',4,'ヴェイル開口の周期を巣脈へ報告した。'],
+            ['N-14・バロウ','Underline','掘削体 / 15年','地中侵入体',7,'オルド領の地下に潜り、門制御核へ接近した。'],
+            ['N-15・フレア','Bright Error','攪乱体 / 3年','囮群体',4,'敵ミサイルを自分へ引きつけ、主群を救った。'],
+            ['N-16・カスケード','Downstream','流動体 / 10年','退路設計体',6,'退却する群れの順序を最適化した。'],
+            ['N-17・シェル','Quiet Armor','外殻体 / 21年','古参防衛体',6,'長期封鎖の初期から巣脈を守っている。'],
+            ['N-18・ウィスパー','Low Frequency','聴取体 / 8年','信号採取体',3,'事故の九分間に残る低周波を採取した。'],
+            ['N-19・シード','First Seed','建設体 / 1年','新設中継体',2,'初めて単独で中継器を起動した。'],
+            ['N-20・バックボーン','Long Spine','主幹体 / 28年','巣脈の古参',5,'分裂しかけた群れを一つの判断へ戻した。'],
+            ['N-00・クラウン','Crown Synapse','巣脈核 / 90年','原初核・群体最高権力者',10,'全巣脈の判断を統合し、ニューロウムの繁殖・戦争・接続を最終承認する。','leader']
+          ]
+        },
+        {
+          id: 'mirror', code: 'MIRROR GUILD', name: '鏡面機械公会', color: '#a7d9ed',
+          desc: '人格を暗号化した系譜として保存する機械文明。契約が倫理であり、筐体は交換可能な装備にすぎない。',
+          people: [
+            ['MR-001・アーカイヴ','Last Backup','人格系譜 / 196年','契約執行機',10,'六勢力すべての古い契約を保持し、戦場の規約を停止させた。'],
+            ['MR-002・ランサー','Clean Cut','人格系譜 / 71年','無人機戦術機',9,'偽装信号だけで敵の編隊を三つに分断した。'],
+            ['MR-003・レゾナンス','Nine Minutes','人格系譜 / 118年','ヴェイル解析機',9,'ラグランジュ事故のログを唯一、完全な形で保持する。'],
+            ['MR-004・クレイドル','Safe Harbor','人格系譜 / 244年','避難契約機',10,'中立港の契約を守り、双方の船を修理して送り出した。'],
+            ['MR-005・ボルト','Hardpoint','人格系譜 / 36年','戦闘筐体操縦機',8,'旧式の機体で最新型の敵を撃退した。'],
+            ['MR-006・ヴェクター','Straight Line','人格系譜 / 44年','航法機',6,'不安定な門の安全な進入線を計算した。'],
+            ['MR-007・ソネット','Borrowed Voice','人格系譜 / 83年','交渉音声機',5,'キルラシーとセレシオンの契約語を同時に通訳した。'],
+            ['MR-008・ハンマー','Debt Collector','人格系譜 / 102年','回収執行機',7,'支払いを拒んだ武器商船を無傷で拘束した。'],
+            ['MR-009・ミラー','Polished Face','人格系譜 / 19年','擬態外交機',4,'人類の姿で前線を視察し、誤認を避けた。'],
+            ['MR-010・コイル','Spare Part','人格系譜 / 58年','修理機',5,'敵味方を問わず損傷した機体を修理した。'],
+            ['MR-011・シグナル','Open Port','人格系譜 / 67年','通信監査機',7,'中継器に潜む改竄コードを検出した。'],
+            ['MR-012・テンプレート','Old Shape','人格系譜 / 305年','筐体設計機',3,'自分の人格を複数の筐体へ安全に分岐した。'],
+            ['MR-013・ホロウ','Empty Contract','人格系譜 / 12年','新造外交機',2,'初の契約交渉で要求を一つも間違えなかった。'],
+            ['MR-014・オービット','Circle Law','人格系譜 / 91年','軌道計算機',6,'逃走艦の軌道を予測し、民間船への衝突を防いだ。'],
+            ['MR-015・リコイル','Returned Fire','人格系譜 / 49年','迎撃筐体操縦機',8,'敵の発射パターンを学習し、二度目の攻撃を無効化した。'],
+            ['MR-016・カデンツ','Measured Beat','人格系譜 / 26年','戦場記録機',4,'戦争の実績を誇張せず記録している。'],
+            ['MR-017・フォイル','Thin Wall','人格系譜 / 73年','潜入機',6,'公会閉鎖後も契約相手の安全を確認した。'],
+            ['MR-018・リペア','Small Mercy','人格系譜 / 33年','医療補助機',3,'生体種族の治療手順を学習し、救命率を上げた。'],
+            ['MR-019・ノード','First Link','人格系譜 / 8年','中継見習い機',2,'単独で古い門の認証を一つ通過した。'],
+            ['MR-020・クロック','Slow Count','人格系譜 / 411年','時間監査機',5,'六者通行協定の期限を一秒も違えず保持する。'],
+            ['MR-000・ソース','First Source','人格系譜 / 1200年','原初アーカイヴ・機械公会最高権力者',10,'全人格系譜と契約の最終鍵を保持し、公会の筐体・外交・戦争判断を裁定する。','leader']
+          ]
+        }
+      ];
+
+      const factionLabels = { confed: '人類', kilrashi: 'キルラシー', serecion: 'セレシオン', ordo: 'オルド', neurowm: 'ニューロウム', mirror: '鏡面公会' };
+      const humanEthnicities = ['日本人', '白人', '黒人', 'アラブ人', '中華アジア系'];
+      const speciesCategories = { confed: '人類', kilrashi: '獣人', serecion: 'エネルギー・不定体系', ordo: '宇宙人', neurowm: '宇宙人', mirror: 'ロボ・アンドロイド系' };
+      const relationshipPairs = [
+        ['confed-0', 'confed-1', '姉弟。マラはエリアンの実姉であり、互いの帰還を最優先する。'],
+        ['confed-2', 'confed-4', '恋人。ナオコとイネスは航路解析と救難の記録を共有する。'],
+        ['confed-5', 'confed-7', '兄妹。レオンはユウの訓練担当で、ユウは兄の判断を最も信頼する。'],
+        ['kilrashi-0', 'kilrashi-1', '兄妹。バラクとカジャは同じ家門の血誓を継ぐ。'],
+        ['kilrashi-4', 'kilrashi-5', '恋人。ヴァルクとシェラは突撃と儀礼通信を一組の誓約として担う。'],
+        ['serecion-0', 'serecion-1', '同一船団から分岐した伴侶群。アウルとネメは互いの記憶を補完する。'],
+        ['serecion-4', 'serecion-5', '姉妹群。ミラとエイは同じ気嚢都市で育ち、観測と操舵を分担する。'],
+        ['ordo-0', 'ordo-1', '同一鉱床から分岐した兄弟核。バサルトとクォーツは判断履歴を共有する。'],
+        ['ordo-6', 'ordo-7', '姉妹核。スレートとオパールは装甲と通信の相互バックアップである。'],
+        ['neurowm-0', 'neurowm-1', '同じ原初巣脈から生まれた兄弟個体。オリジンとハイヴァは判断を同期する。'],
+        ['neurowm-4', 'neurowm-5', '結合伴侶。スウォームレットとコアドロップは近接群と建設群を一対で運用する。'],
+        ['mirror-0', 'mirror-1', '同じ人格系譜から分岐した兄弟機。アーカイヴとランサーは契約の継承者である。'],
+        ['mirror-8', 'mirror-9', '恋愛契約。ミラーとコイルは筐体交換後も同じ記憶を選び続ける。']
+      ];
+      const relationshipMap = {};
+      relationshipPairs.forEach(([left, right, description]) => {
+        relationshipMap[left] = description;
+        relationshipMap[right] = description;
+      });
+      const sheetRoot = 'assets/characters/';
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char]);
+      }
+
+      function portraitData(factionId, index) {
+        const file = `${factionId}-${String(index + 1).padStart(2, '0')}.png`;
+        const refreshed = factionId === 'confed' || index === 20;
+        return { portrait: `${sheetRoot}${refreshed ? 'individual_v3' : 'individual_v2'}/${file}`, fullbody: `${sheetRoot}${refreshed ? 'fullbody_v3' : 'fullbody'}/${file}`, hobby: `${sheetRoot}hobby_v4/${file}` };
+      }
+
+      function rankFor(factionId, index, person) {
+        // 階級は戦闘レベルから算出しない。各勢力の人事制度と職責で独立して決める。
+        if (person?.[6] === 'leader') return rankNames[factionId][9];
+        const rankIndex = Math.min(9, Math.floor(index / 2));
+        return rankNames[factionId][rankIndex];
+      }
+
+      const personaAngles = [
+        '危機の瞬間に誰を救うかという選択を、いつも自分の責任として引き受ける。',
+        '規則を守ることと、規則からこぼれる人を守ることの違いを知っている。',
+        '過去の失敗を隠さず、同じ判断を次の仲間に繰り返させないことを信条にする。',
+        '勝利の記録より、帰還した人数と残された航路を重く見る。',
+        '他者からは冷静に見えるが、内側には失うことへの強い恐れを抱えている。'
+      ];
+      const factionPersonaContext = {
+        confed: '人類の開拓社会では、軍務と生活が切り離せない。本人は前線の判断を家族・基地・民間航路の維持と結びつけている。',
+        kilrashi: '帝国では血統、誓約、名誉が個人の存在証明になる。本人は勝利だけでなく、誰に対して何を誓い、何を持ち帰ったかで自分を測る。',
+        serecion: '遊牧圏では船団と記憶が共同体の身体になる。本人の意志は単独の欲望ではなく、通過する船と次の季節を守る責任として表れる。',
+        ordo: '地殻知性体にとって時間は地層として蓄積する。本人は短命種の焦りを理解しながら、損なわれた記録と領域の連続性を守ろうとする。',
+        neurowm: '群体の人格は接続と役割の変化で成立する。本人は単独の英雄ではなく、群れ全体の判断精度を高める一つの感覚器として振る舞う。',
+        mirror: '機械公会では人格系譜と契約が倫理の基盤になる。本人は筐体の損傷より、約束の改竄と記録の断絶を重大な損失とみなす。'
+      };
+
+      const hobbies = [
+        ['ピアノ演奏', '星系コンクール優勝を目指し、毎朝三時間練習する。'],
+        ['水泳', '宙域大会の自由形記録更新を狙い、泳法を研究する。'],
+        ['立体芸術', '軌道美術展の新人賞を目指し、作品を制作する。'],
+        ['写真撮影', '星雲写真コンテスト優勝のため、遠征撮影を続ける。'],
+        ['動物調教', '救助動物の競技会優勝を目指し、訓練を続ける。'],
+        ['乗馬', '惑星間馬術大会出場を目指し、毎週厳しい訓練を行う。'],
+        ['剣術', '古式剣術選手権の優勝を狙い、型と実戦技を磨く。'],
+        ['バスケットボール', '基地リーグ制覇を目指し、毎晩チーム練習に励む。'],
+        ['ボクシング', '階級王座獲得を目指し、減量と打撃訓練を続ける。'],
+        ['ダンス', '宙域舞踏祭の最優秀賞を狙い、振付と表現を磨く。'],
+        ['園芸', '植物品評会の金賞を目指し、希少種を育てている。'],
+        ['料理', '船団料理選手権優勝のため、独自レシピを開発する。'],
+        ['紅茶研究', '銘茶鑑定競技の優勝を目指し、香りを記録する。'],
+        ['小説執筆', '文学賞受賞を目指し、毎年一本の長編を完成させる。'],
+        ['天体観測', '天文発見賞を狙い、未登録天体の探索を続ける。'],
+        ['鉱物標本', '科学展示会の最高賞を目指し、標本を収集する。'],
+        ['ボードゲーム', '星系選手権制覇を目指し、対戦記録を分析する。'],
+        ['魚の飼育', '発光魚の品評会優勝を狙い、繁殖技術を磨く。'],
+        ['裁縫', '新人デザイン賞を目指し、宇宙服素材で服を仕立てる。'],
+        ['木工細工', '工芸展の大賞を狙い、家具と楽器を制作している。']
+      ];
+
+      function identityFor(meta, faction, index) {
+        const ageMatch = meta.match(/(\d+)歳/);
+        const gender = meta.includes('女') || meta.includes('雌') ? '女性型／雌性' : meta.includes('男') || meta.includes('雄') ? '男性型／雄性' : '性別を持たない個体表現';
+        const ethnicity = faction.id === 'confed' ? humanEthnicities[Math.floor(index / 4)] : null;
+        return { gender, age: ageMatch ? `${ageMatch[1]}歳` : meta.split('/').slice(1).join('/').trim(), ethnicity, category: speciesCategories[faction.id] };
+      }
+
+      function profileFor(person, faction, index) {
+        const [name, callsign, meta, role, level, record] = person;
+        const identity = identityFor(meta, faction, index);
+        const relationship = relationshipMap[`${faction.id}-${index}`] || '現時点で名鑑内に設定された家族・恋愛関係はない。';
+        const ageNumber = Number(identity.age.match(/\d+/)?.[0] || 0);
+        const birth = ageNumber ? `統合暦${2312 - ageNumber}年前後に生まれた${identity.ethnicity ? `、${identity.ethnicity}の文化圏に属する` : ''}。幼少期は${faction.id === 'confed' ? '前進基地と民間航路のあいだ' : '所属共同体の生活圏'}で過ごし、早い時期から自分の判断が他者の生存に影響する環境に置かれた。` : `${identity.age}という時間単位で成長を記録される${identity.category}の個体であり、誕生時から${faction.name}の記憶と役割に接続されている。`;
+        const hobby = hobbies[index % hobbies.length];
+        const angle = personaAngles[index % personaAngles.length];
+        const family = faction.id === 'confed' ? '家族は血縁だけでなく、同じ船団・基地で暮らした仲間まで含む。家族には本人の危険な職務を心配する者と、本人の判断を信頼して送り出す者がいる。' : faction.id === 'kilrashi' ? '家門と誓約でつながる親族がいる。功績は家族の名誉を高める一方、敗北や誓約違反は本人だけでなく家門全体へ返る。' : faction.id === 'serecion' ? '家族は同じ船団の記憶を共有する群体であり、季節ごとに構成が変わる。離れていても歌と記録で互いの状態を確認する。' : faction.id === 'ordo' ? '家族に相当するのは同じ地層から分岐した結晶核と、長く記憶を交換してきた層である。個体の死は断絶ではなく記録の再配置として扱われる。' : faction.id === 'neurowm' ? '家族は固定した血縁ではなく、同じ巣脈へ接続された個体群である。接続が変わるたび、本人の役割と親密さも変化する。' : '家族は同じ人格系譜を共有する複数の筐体と記録領域である。筐体が変わっても、継承された記憶が関係を保つ。';
+        const personality = `${angle} ${factionPersonaContext[faction.id]} 人前では${index % 2 ? '短く要点だけを話す' : '相手の反応を確かめながら話す'}が、信頼した相手には自分の恐れや迷いも隠さない。失敗を消去して完璧に見せるより、記録に残して次の人が判断材料にできる状態を選ぶ。`;
+        const history = `${birth} ${role}を選んだきっかけは、${record}という出来事だった。訓練や初任務では自分の能力不足を痛感したが、そこで得たのは一人で勝つ方法ではなく、誰かが帰還できる余地を作る方法だった。現在は${faction.name}の制度と仲間の期待を背負い、任務のたびに自分の役割を更新している。`;
+        const battle = `${record} 戦闘では戦闘レベル${level}「${combatLevels[level - 1][0]}」に相当する操縦・戦術・危機判断を示す。ただし、階級「${rankFor(faction.id, index, person)}」は人事制度上の権限であり、戦闘能力とは別に付与されている。本人は戦績を勲章の数ではなく、帰還者、維持された航路、救われた記録の数で評価する。`;
+        const motive = `今の目的は、${faction.name}が守るべき原則を現場で証明し、次の世代が同じ犠牲を払わずに済む判断材料を残すことだ。対立相手にも事情があると考えるため、勝利後の処遇や記録の残し方まで任務に含めている。`;
+        const hobbyText = `${hobby[0]}。${hobby[1]}`;
+        return { identity, birth, history, battle, hobby: hobbyText, hobbyName: hobby[0], hobbyDescription: hobby[1], family, relationship, personality, motive, fullText: [birth, history, battle, `趣味は${hobbyText}`, family, `登場人物との関係：${relationship}`, personality, motive].join(' ') };
+      }
+
+      function personaFor(person, faction, index) {
+        return profileFor(person, faction, index).fullText;
+      }
+
+      function portraitPrompt(person, faction, index) {
+        const [name, callsign, meta, role] = person;
+        const profile = profileFor(person, faction, index);
+        const identityCue = profile.identity.ethnicity ? `human ethnicity/background: ${profile.identity.ethnicity}` : `species category: ${profile.identity.category}`;
+        return `Create a single 3-panel character reference image for a sci-fi game dossier, with three clearly separated vertical panels and no text. Use the SAME character in all three panels. Character name: ${name}. Faction: ${faction.name}. Role: ${role}. MANDATORY IDENTITY: exact age ${profile.identity.age}; exact gender presentation ${profile.identity.gender}; ${identityCue}. If human, depict precisely that age, ethnicity, and gender, not older, not middle-aged, not elderly. Do not change age, ethnicity, or gender between panels. Panel 1: head-and-shoulders portrait, face clearly visible. Panel 2: full-body standing view, head to boots visible, correct proportions and role equipment. Panel 3: the character seriously pursuing this competitive hobby in civilian or cultural clothing, absolutely no military uniform, no combat armor, no weapon: ${profile.hobbyText}. Show ambition, practice, and a competition-ready environment. Make the face, body, silhouette, hair or appendages, skin/material texture, and lighting unmistakably unique. Photorealistic cinematic sci-fi concept art, dark neutral background, no labels, no logos, no borders, no duplicate people. Detailed character reference, not a collage of unrelated people. Character dossier: ${profile.fullText}`;
+      }
+
+      function makePerson(person, faction, index) {
+        const [name, callsign, meta, role, level, record] = person;
+        const isAce = index < 4;
+        const ageMatch = meta.match(/(\d+)歳/);
+        const age = ageMatch ? Number(ageMatch[1]) : 0;
+        const image = portraitData(faction.id, index);
+        const levelInfo = combatLevels[level - 1];
+        const rank = rankFor(faction.id, index, person);
+        const cells = Array.from({ length: 10 }, (_, i) => `<i class="${i < level ? 'on' : ''}"></i>`).join('');
+        return `<article class="person ${isAce ? 'ace' : ''}" tabindex="0" role="button" data-person-id="${faction.id}-${index}" data-ace="${isAce}" data-young="${age > 0 && age <= 36}" data-high="${level >= 8}">
+          <div class="portrait"><img src="${image.portrait}" alt="${escapeHtml(name)}の肖像" loading="eager"><span class="portrait-id">${faction.code} / ${String(index + 1).padStart(2, '0')}</span></div>
+          <div class="person-body"><div class="person-top"><div><h3>${escapeHtml(name)}</h3><div class="callsign">${escapeHtml(callsign)}</div></div>${isAce ? '<span class="ace-label">ACE</span>' : ''}</div>
+            <div class="meta"><span>${escapeHtml(meta)}</span><span>${escapeHtml(role)}</span></div><div class="meta"><span class="rank"><small class="field-label">階級</small>${escapeHtml(rank)}</span><span><small class="field-label">分類</small>${escapeHtml(speciesCategories[faction.id])}</span></div><div class="card-summary">${escapeHtml(record)}</div>
+            <div class="level"><span><small class="field-label">戦闘レベル</small><span class="level-name">${escapeHtml(levelInfo[0])}</span></span><div class="level-bar">${cells}</div><strong>${level}/10</strong></div>
+          </div>
+        </article>`;
+      }
+
+      document.getElementById('level-guide').innerHTML = combatLevels.map((level, index) => `<div class="level-row"><strong>Lv.${index + 1}</strong><b>${escapeHtml(level[0])}</b><span>${escapeHtml(level[1])}</span></div>`).join('');
+      document.getElementById('rank-guide').innerHTML = Object.entries(rankNames).map(([id, ranks]) => `<div class="rank-row"><strong>${escapeHtml(factionLabels[id])}</strong><span>${ranks.map((rank, index) => `${index + 1}. ${escapeHtml(rank)}`).join('　/　')}</span></div>`).join('');
+      document.getElementById('hobby-guide').innerHTML = hobbies.map(([name, description], index) => `<div class="hobby-row"><strong>${String(index + 1).padStart(2, '0')}</strong><b>${escapeHtml(name)}</b><span>${escapeHtml(description)}</span></div>`).join('');
+
+      function renderRoster() {
+        document.getElementById('roster').innerHTML = factions.map((faction) => `<section id="${faction.id}" class="faction-section" data-faction="${faction.id}"><div class="faction-heading"><div><div class="kicker">${faction.code}</div><h2>${faction.name}</h2></div><div><p>${faction.desc}</p><div class="faction-code">${faction.people.length} PERSONS / 4 ACE CLASS${faction.id === 'confed' ? '' : ' / 1 SUPREME AUTHORITY'}</div></div></div><div class="people-grid">${faction.people.map((person, index) => makePerson(person, faction, index)).join('')}</div></section>`).join('');
+      }
+
+      function applyFilter(filter) {
+        const cards = [...document.querySelectorAll('.person')];
+        cards.forEach((card) => { card.hidden = filter !== 'all' && card.dataset[filter] !== 'true'; });
+        const visible = cards.filter((card) => !card.hidden).length;
+        document.getElementById('filter-count').textContent = `${visible}人を表示中`;
+        document.querySelectorAll('.filterbar button').forEach((button) => button.classList.toggle('active', button.dataset.filter === filter));
+      }
+
+      renderRoster();
+      document.querySelectorAll('.filterbar button').forEach((button) => button.addEventListener('click', () => applyFilter(button.dataset.filter)));
+
+      const dialog = document.getElementById('persona-dialog');
+      const dialogTitle = document.getElementById('dialog-title');
+      const dialogFaction = document.getElementById('dialog-faction');
+      const dialogCallsign = document.getElementById('dialog-callsign');
+      const dialogGrid = document.getElementById('dialog-grid');
+      const dialogPersona = document.getElementById('dialog-persona');
+      const dialogCount = document.getElementById('dialog-count');
+      const dialogPortrait = document.getElementById('dialog-portrait');
+      const dialogFullbody = document.getElementById('dialog-fullbody');
+      const dialogHobby = document.getElementById('dialog-hobby');
+      function openPersona(card) {
+        const [factionId, rawIndex] = card.dataset.personId.split('-');
+        const faction = factions.find((item) => item.id === factionId);
+        const index = Number(rawIndex);
+        const person = faction.people[index];
+        const [name, callsign, meta, role, level] = person;
+        const rank = rankFor(factionId, index, person);
+        const profile = profileFor(person, faction, index);
+        const images = portraitData(factionId, index);
+        dialogTitle.textContent = name;
+        dialogFaction.textContent = `${faction.code} / ${faction.name}`;
+        dialogCallsign.textContent = callsign;
+        dialogGrid.innerHTML = [['所属', faction.name], ['年齢', profile.identity.age], ['性別・形態', profile.identity.gender], ['文化・種族分類', profile.identity.ethnicity || profile.identity.category], ['役割', role], ['階級', rank], ['戦闘レベル', `Lv.${level} ${combatLevels[level - 1][0]}`]].map(([label, value]) => `<div class="dialog-stat"><span class="field-label">${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></div>`).join('');
+        dialogPortrait.src = images.portrait;
+        dialogFullbody.src = images.fullbody;
+        dialogHobby.src = images.hobby;
+        dialogPortrait.alt = `${name}の肖像`;
+        dialogFullbody.alt = `${name}の全身イメージ`;
+        dialogHobby.alt = `${name}が趣味を楽しむ姿`;
+        const sections = [['生まれてからの来歴', profile.history], ['戦績・実戦評価', profile.battle], ['趣味', profile.hobby], ['家族構成', profile.family], ['登場人物との関係', profile.relationship], ['性格', profile.personality], ['現在の動機', profile.motive]];
+        dialogPersona.innerHTML = sections.map(([label, value]) => `<section class="profile-section"><h3>${escapeHtml(label)}</h3><p class="persona-copy">${escapeHtml(value)}</p></section>`).join('');
+        dialogCount.textContent = `人物記事：約${profile.fullText.length}文字　｜　年齢・性別固定条件で画像生成　｜　クリックまたはEnterで開く`;
+        dialog.showModal();
+      }
+      document.querySelectorAll('.person').forEach((card) => {
+        card.addEventListener('click', () => openPersona(card));
+        card.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openPersona(card); } });
+      });
+      document.querySelector('.dialog-close').addEventListener('click', () => dialog.close());
+      dialog.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); });
+    </script>
+  </body>
+</html>

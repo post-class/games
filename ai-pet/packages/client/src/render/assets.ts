@@ -45,7 +45,22 @@ const OBJECT_TYPES = [
   'fountain',
   'fence_h',
   'fence_v',
+  // 島に散らす小オブジェクト（C-4）。worldgen が生成時に置く
+  'campfire',
+  'rock',
+  'stump',
+  'bush',
 ] as const;
+
+/**
+ * 木の実の木の状態差分（B-5）。**必須ではない**。
+ * 1枚も無ければ従来どおり `obj_berry_tree.png` だけで描く。
+ */
+const BERRY_TREE_STATES = ['full', 'empty', 'young', 'dead'] as const;
+
+export function berryTreeStateNames(): string[] {
+  return BERRY_TREE_STATES.map((s) => `obj_berry_tree_${s}.png`);
+}
 
 export interface LoadedTextures {
   terrain: TerrainTextures;
@@ -133,7 +148,13 @@ export async function loadTextures(): Promise<LoadedTextures> {
   for (const o of OBJECT_TYPES) names.push(`obj_${o}.png`);
 
   // 任意アセットは「無いのが普通」なので missing に数えない（デバッグ表示が無意味に膨らむ）
-  const optionalNames = [...terrainVariantNames(), ...edgeTileNames(), ...decalNames(), ...sleepNames()];
+  const optionalNames = [
+    ...terrainVariantNames(),
+    ...edgeTileNames(),
+    ...decalNames(),
+    ...sleepNames(),
+    ...berryTreeStateNames(),
+  ];
 
   // 並列に読む（1枚ずつ待つと数十枚で目に見えて遅い）
   const results = await Promise.all(
@@ -213,6 +234,17 @@ export async function loadTextures(): Promise<LoadedTextures> {
   for (const o of OBJECT_TYPES) {
     const tex = loaded.get(`obj_${o}.png`);
     if (tex) objEntries.push([`obj_${o}`, tex]);
+  }
+
+  // 木の実の木の状態差分（B-5）。**基本の1枚と出所が同じものだけ採用する**。
+  // 本番の obj_berry_tree.png が仕上がっているのにプレースホルダの状態差分を採ると
+  // 「森の木が全部プレースホルダに化ける」ので、タイルバリエーションと同じ判定にした。
+  // 採用しなかった状態は `ObjectTextureSet.resolve` が基本の1枚に落としてくれる。
+  for (const file of berryTreeStateNames()) {
+    const tex = loaded.get(file);
+    if (tex && fromGame.has(file) === fromGame.has('obj_berry_tree.png')) {
+      objEntries.push([file.replace('.png', ''), tex]);
+    }
   }
 
   if (missing > 0) console.log(`[assets] プレースホルダで代用: ${missing}枚`);

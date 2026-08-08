@@ -172,7 +172,7 @@ export class ObjectLayer {
       // 水場と釣り場は地形で表現しているので描かない（点が散らばって見えてうるさい）
       if (r.type === 'water' || r.type === 'fishing_spot') continue;
       seen.add(r.id);
-      this.place(r.id, `obj_${r.type}`, r, rect, r.amount <= 0 ? 0.65 : 1);
+      this.place(r.id, this.resourceKey(r), r, rect, 1);
     }
 
     for (const p of world.placeables.values()) {
@@ -186,6 +186,18 @@ export class ObjectLayer {
       entry.sprite.destroy();
       this.sprites.delete(id);
     }
+  }
+
+  /**
+   * 資源のテクスチャ名。
+   *
+   * 木の実の木だけ状態差分（B-5）を持つ。**状態の絵が無ければ基本の1枚に落ちる**ので、
+   * アセットが1枚も生成されていなくても従来どおり描ける。
+   */
+  private resourceKey(r: ResourceView): string {
+    if (r.type !== 'berry_tree') return `obj_${r.type}`;
+    const state = berryTreeState(r.amount, r.max, r.x, r.y);
+    return this.textures.resolve(`obj_berry_tree_${state}`, 'obj_berry_tree');
   }
 
   private place(

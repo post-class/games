@@ -243,6 +243,11 @@ export class WaveLayer {
   private camera: Camera;
   private t = 0;
   private reduced = prefersReducedMotion();
+  private mobile = isMobile();
+  /**
+   * スマホは「本数を1/3」の方針（AI_CODING.md §6）。3つを掛けて達成している:
+   * 上限を1/3・1辺の折れを3→2・線の種類を3本→2本（引いた波を省く。いちばん薄いので抜いても分からない）
+   */
   private maxTiles = isMobile() ? Math.round(MAX_COAST_TILES / 3) : MAX_COAST_TILES;
   private segments = isMobile() ? 2 : WAVE_SEGMENTS;
   /** 使い回すバッファ（毎フレームの配列生成を避ける） */
@@ -281,8 +286,10 @@ export class WaveLayer {
     const t = this.t;
     this.pass(n, (u) => shallowOffset(u));
     this.g.stroke({ width: SHALLOW_WIDTH, color: SHALLOW_COLOR, alpha: SHALLOW_ALPHA, cap: 'round' });
-    this.pass(n, (u) => foamOffset(u, t, Math.PI) + BACK_EXTRA_INSET);
-    this.g.stroke({ width: BACK_WIDTH, color: BACK_COLOR, alpha: BACK_ALPHA, cap: 'round' });
+    if (!this.mobile) {
+      this.pass(n, (u) => foamOffset(u, t, Math.PI) + BACK_EXTRA_INSET);
+      this.g.stroke({ width: BACK_WIDTH, color: BACK_COLOR, alpha: BACK_ALPHA, cap: 'round' });
+    }
     this.pass(n, (u) => foamOffset(u, t));
     this.g.stroke({ width: CREST_WIDTH, color: CREST_COLOR, alpha: CREST_ALPHA, cap: 'round' });
   }

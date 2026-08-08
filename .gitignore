@@ -156,6 +156,7 @@ dist/
 
 node_modules/
 dist/
+.venv/
 .vite/
 *.local
 .tmp/

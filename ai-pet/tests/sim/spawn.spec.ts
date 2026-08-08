@@ -51,6 +51,41 @@ describe('spawnInitialCritters', () => {
     }
   });
 
+  it('どのseedでも最小間隔（数タイル）を満たす（D-7）', () => {
+    // 0.8 では「同じタイルを禁止する」だけで、隣タイル（距離1.0）に並べられてしまい
+    // 開始直後の島が団子に見えた。3.5タイル空けると動物の絵（1.5タイル）が2体ぶん離れる。
+    expect(SPAWN.minSpacing).toBeGreaterThanOrEqual(3);
+    for (const seed of ['spacing-a', 'spacing-b', 'spacing-c']) {
+      const w = generateIsland(seed);
+      const list = spawnInitialCritters(w);
+      expect(list.length).toBe(INITIAL_CRITTERS);
+      let min = Infinity;
+      for (let i = 0; i < list.length; i++) {
+        for (let j = i + 1; j < list.length; j++) {
+          const a = list[i] as Actor;
+          const b = list[j] as Actor;
+          min = Math.min(min, Math.hypot(a.pos.x - b.pos.x, a.pos.y - b.pos.y));
+        }
+      }
+      expect(min, `${seed} の最小間隔 ${min.toFixed(2)}`).toBeGreaterThanOrEqual(SPAWN.minSpacing - 1e-9);
+    }
+  });
+
+  it('間隔を空けられなくなっても指定した数だけ必ず置く（D-7）', () => {
+    // ⚠️ 置けずに減ると「開始時の個体数」が変わってバランスが崩れる。
+    // 島に入り切らない数を要求しても、間隔を緩めて必ず置き切ること。
+    const w = generateIsland('spawn-crowded');
+    const count = 600; // 3.5タイル間隔では絶対に入らない数
+    const list = spawnInitialCritters(w, count);
+    expect(list.length).toBe(count);
+    expect(w.countActors('critter')).toBe(count);
+    for (const a of list) expect(w.canStandAt(a.pos)).toBe(true);
+  });
+
+  it('緩和の最後は間隔なし（必ず置けることの担保）', () => {
+    expect(SPAWN.spacingRelaxSteps[SPAWN.spacingRelaxSteps.length - 1]).toBe(0);
+  });
+
   it('個体同士が重なっていない', () => {
     const w = generateIsland('spawn-d');
     const critters = spawnInitialCritters(w);

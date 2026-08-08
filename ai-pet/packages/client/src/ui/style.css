@@ -807,3 +807,172 @@ body.has-pad .act-btn svg { width: 30px; height: 30px; }
 
 /* 選択中は宣伝資料のカード選択と同じ見た目に合わせる */
 .egg-avatar.on { background: var(--grass); box-shadow: 0 0 0 3px var(--purple) inset; }
+
+/* ---------- 共同建設の貢献パネル（G-1） ---------- */
+/*
+ * 置き場所: 画面の上寄り中央。右下は設置ボタン（touchPad）と丸ボタン（actionButtons）、
+ * 左下はチャット欄で埋まっているので、390px でも空いているのはここだけ。
+ * 案内バナー（.tut）は z-index 40 なので、そちらを上に通す。
+ */
+.buildpanel {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 96px;
+  z-index: 22;
+  pointer-events: none;
+}
+
+.buildpanel.hidden { display: none; }
+
+.buildpanel-box {
+  display: grid;
+  gap: 6px;
+  width: min(320px, calc(100vw - 32px));
+  background: var(--cream);
+  border: 4px solid var(--ink);
+  border-radius: 20px;
+  padding: 10px 14px 11px;
+  box-shadow: 0 4px 0 rgba(74, 59, 42, 0.18);
+}
+
+.buildpanel-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.buildpanel-icon { width: 18px; height: 18px; flex: 0 0 auto; color: var(--ink); }
+.buildpanel-pct { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+.buildpanel-track {
+  height: 11px;
+  background: rgba(74, 59, 42, 0.16);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.buildpanel-fill {
+  height: 100%;
+  background: var(--peach);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+/* 半分を越えたら緑にする（constructions.ts の進捗バーと同じ規則） */
+.buildpanel-fill.half { background: var(--grass-deep); }
+
+.buildpanel-foot { display: flex; align-items: center; gap: 8px; }
+.buildpanel-mine { font-size: 0.74rem; color: var(--ink-soft); }
+
+/* ⚠️ `.hud` と同じく親が pointer-events: none なので、ボタンだけ auto に戻す */
+.buildpanel-go {
+  margin-left: auto;
+  pointer-events: auto;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.84rem;
+  color: #fff;
+  background: var(--purple);
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  padding: 5px 16px;
+  cursor: pointer;
+  box-shadow: 0 3px 0 rgba(74, 59, 42, 0.2);
+}
+
+.buildpanel-go:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(74, 59, 42, 0.2); }
+
+/* 押せないときは「押せない」と見て分かるようにする（押してから通知が出るのを避ける） */
+.buildpanel-go:disabled {
+  cursor: default;
+  opacity: 0.45;
+  filter: grayscale(1);
+  box-shadow: none;
+}
+
+.buildpanel-hint { margin: 0; font-size: 0.74rem; color: var(--ink-soft); }
+
+@media (max-width: 640px) {
+  .buildpanel { top: 138px; }
+  .buildpanel-box { padding: 8px 11px 9px; }
+}
+
+/* ---------- 記念撮影（G-3） ---------- */
+/*
+ * 置き場所の判断（390×844 と 1280×720 の両方で既存UIと交わらない場所を探した結果）:
+ * - 右下は設置ボタン（`.pad-buttons`）と丸ボタン（`.actions`）で埋まっている
+ * - 左下はチャット欄（`.chat` は左10px・幅は狭い画面でほぼ全幅）
+ * - 上中央は共同建設パネル（`.buildpanel` top:96/138px）と案内バナー（`.tut` top:58px）
+ * - 左上はHUDのチップとペットのゲージ（`.petgauge`）
+ * 残るのは**左の中ほど**。ただし `top: 50%` だけだと 844px の縦長でチャットログが
+ * 伸びたときに近づくので、**上からの距離で上限を掛けて**チャット欄から離す。
+ */
+.snapshot {
+  position: fixed;
+  left: max(10px, env(safe-area-inset-left));
+  top: min(50%, 320px);
+  transform: translateY(-50%);
+  /* `.petpanel`(25) と同じ帯。案内バナー(40)やタマゴ選択(60)より下に通す */
+  z-index: 26;
+  /* 隙間はcanvasへ抜けさせる（ボタン側だけ auto にする） */
+  pointer-events: none;
+}
+
+.snapshot.hidden { display: none; }
+
+.snap-btn {
+  width: 54px;
+  height: 54px;
+  padding: 0;
+  border: 4px solid var(--ink);
+  border-radius: 50%;
+  background: var(--cream);
+  box-shadow: var(--shadow);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  /* ⚠️ `.hud` は pointer-events: none なので、親がどこでも押せるよう明示する（AI_CODING §7） */
+  pointer-events: auto;
+}
+
+.snap-btn svg { width: 30px; height: 30px; display: block; }
+
+.snap-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(74, 59, 42, 0.2); }
+
+/* 撮影中（extract と toBlob で数フレームかかる）は押せないと分かるようにする */
+.snap-btn:disabled { opacity: 0.5; cursor: default; box-shadow: none; }
+.snap-btn:disabled:active { transform: none; }
+
+@media (max-width: 640px) {
+  .snap-btn { width: 48px; height: 48px; border-width: 3px; }
+  .snap-btn svg { width: 26px; height: 26px; }
+}
+
+/*
+ * 撮れた合図の一瞬の閃光。
+ * ダウンロードはブラウザのUIに出るだけで画面上は無反応に見えるため、手応えを足している。
+ * どのUIより上に出すが、触れないようにする（クリックを吸わない）。
+ */
+.snap-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  background: #fff;
+  opacity: 0;
+  animation: snap-flash 0.42s ease-out;
+}
+
+@keyframes snap-flash {
+  0% { opacity: 0.85; }
+  100% { opacity: 0; }
+}
+
+/* 動きを嫌う設定では光らせない（JS側は保険のタイマーで要素を消す） */
+@media (prefers-reduced-motion: reduce) {
+  .snap-flash { display: none; animation: none; }
+}
