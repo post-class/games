@@ -25,6 +25,7 @@ import { InputController } from './input.ts';
 import { BubbleLayer, ChatUi } from './ui/chat.ts';
 import { showEggSelect } from './ui/eggSelect.ts';
 import { PetPanel } from './ui/petPanel.ts';
+import { PetGauge } from './ui/petGauge.ts';
 import { TouchPad, isTouchDevice } from './ui/touchPad.ts';
 import { Tutorial } from './ui/tutorial.ts';
 import { GameAudio, attachAudioToggle } from './ui/audio.ts';
@@ -67,8 +68,12 @@ const weather = new WeatherLayer(stage.layers);
 const minimap = new Minimap();
 const bubbles = new BubbleLayer();
 const petPanel = new PetPanel();
+// ペットのゲージパネル（E-1）。宣伝資料の左上のパネルに相当する
+const petGauge = new PetGauge();
 
 let clock: ClockWire | null = null;
+/** 自分の playerId。設置物の撤去（G-5）で「自分のものか」を見るのに使う */
+let myPlayerId: string | null = null;
 /** 自分のペット（表示名は吹き出しとチャットに使う） */
 let petName = 'ペット';
 
@@ -158,8 +163,10 @@ function renderConstructions(items: import('@ai-pet/shared').ConstructionWire[])
 function renderPet(affection: number, reason?: string): void {
   const el = document.getElementById('hud-pet');
   if (!el) return;
-  const hearts = '♥'.repeat(Math.max(1, Math.round(affection / 20))).padEnd(5, '·');
-  el.textContent = `${petName} ${hearts}${reason ? ` / ${reason}` : ''}`;
+  // なつき度はゲージパネル（E-1）が担当するので、チップは名前とセリフだけに絞る
+  // （以前は「モフィ ♥♥… / セリフ」を1つのチップに詰めていて、390px で折返しからはみ出していた）
+  petGauge.update({ name: petName, affection });
+  el.textContent = reason ? `${petName} / ${reason}` : petName;
   el.classList.remove('hidden');
 }
 
@@ -285,8 +292,25 @@ const input = new InputController(host, camera, {
   },
   onZoom: (dir) => camera.stepZoom(dir),
   onPick: (worldPos) => {
-    // 対象の優先順は「自分のペット → 資源 → 建設中のもの」。
-    // 触れるものが無ければクリック移動（onMoveTo）だけが働く
+    // 対象の優先順は「自分の設置物（撤去）→ 自分のペット → 資源 → 建設中のもの」。
+    // 触れるものが無ければクリック移動（onMoveTo）だけが働く。
+    //
+    // 撤去を最優先にしたのは、置いたばかりのベンチを消したいときに
+    // 「資源を採る」が先に反応すると取り消せなくなるため。
+    // 判定は 1タイル以内だけに絞る（離れた設置物が意図せず消えないように）。
+    // 所有者と距離の最終判定はサーバがやる（`removeByPlayer`）。
+    if (myPlayerId !== null) {
+      let target: { id: number; d: number } | null = null;
+      for (const p of world.placeables.values()) {
+        if (p.ownerId !== myPlayerId) continue;
+        const d = Math.hypot(p.x - worldPos.x, p.y - worldPos.y);
+        if (d < 1 && (target === null || d < target.d)) target = { id: p.id, d };
+      }
+      if (target) {
+        socket?.send({ t: 'remove', id: target.id });
+        return;
+      }
+    }
     const petId = world.petId;
     if (petId !== null) {
       const view = world.actors.get(petId);
@@ -333,6 +357,7 @@ function onMessage(msg: ServerMsg): void {
     case 'welcome':
       clock = msg.clock;
       renderClock();
+      myPlayerId = msg.playerId;
       world.selfId = msg.entityId;
       world.applyDelta({ tick: msg.clock.tick, add: [msg.you] }, now);
       actorLayer.setSelf({ x: msg.you.x, y: msg.you.y });
@@ -384,6 +409,12 @@ function onMessage(msg: ServerMsg): void {
       minimap.invalidate();
       break;
     }
+    case 'chunkDecay':
+      // 荒廃度（G-6）。地形より後に届く約束なので、未受信チャンクなら TileMap 側が黙って捨てる
+      // （次の chunkReq の応答で地形と一緒に届く）
+      tilemap.setChunkDecay(msg.cx, msg.cy, msg.decay);
+      break;
+
     case 'constructions':
       renderConstructions(msg.items);
       break;

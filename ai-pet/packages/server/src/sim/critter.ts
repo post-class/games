@@ -24,6 +24,7 @@ import {
   type ActiveAction,
   type EntityId,
   type Needs,
+  type Nest,
   type ResourceNode,
   type ResourceType,
   type Season,
@@ -32,6 +33,7 @@ import {
   type Vec2,
   type Weather,
 } from '@ai-pet/shared';
+import { ISLAND_OWNER } from './build.ts';
 import type { WorldClock } from './clock.ts';
 import type { NavService } from './nav.ts';
 import { distance, type IslandWorld } from './world.ts';
@@ -205,6 +207,14 @@ const WEIGHTS = {
   wanderMinRadius: 3,
   /** 徘徊先を選び直す間隔（ヒステリシスを壊さないよう目標を固定する） */
   wanderBlockTicks: 24,
+  /**
+   * 巣の設置物を掃除・補充する間隔（C-3）。
+   * 死んだ個体の巣を消さないと設置物が無限に増える。
+   * 毎tick走らせても O(設置物数) だが、見た目の反映は数秒遅れて構わないので10秒に1回にした。
+   */
+  nestSyncTicks: 40,
+  /** 巣タイルが他個体の巣で埋まっていたときに、代わりの空きタイルを探す半径 */
+  nestSpreadRadius: 3,
   /** time slicing の分割数 */
   sliceMod: 8,
 } as const;
@@ -377,7 +387,11 @@ export function findNearestTerrainTile(
 }
 
 // ---------------------------------------------------------------------------
-// 個体ごとの作業メモ（Actor 型を変えられないのでモジュール側に持つ）
+// 個体ごとの作業メモ（1tick内で使い捨てて良いものだけをモジュール側に持つ）
+//
+// ⚠️ 巣（nest）はここに置いていたが、再起動で全個体の寝床が失われるため
+//    `Actor.nest` へ移した（C-3。M3申し送り4 / M5申し送り6）。
+//    「消えても次の評価で作り直せるもの」だけを WeakMap に残す方針。
 // ---------------------------------------------------------------------------
 
 interface CritterMemo {
@@ -390,8 +404,6 @@ interface CritterMemo {
   /** 森タイルのキャッシュ */
   shelter?: Vec2 | null;
   shelterTick?: number;
-  /** 直近に作った巣のタイル（次に眠るときの寝床になる） */
-  nest?: Vec2;
 }
 
 const memos = new WeakMap<Actor, CritterMemo>();
@@ -416,9 +428,141 @@ function shelterTileOf(world: IslandWorld, actor: Actor, tick: number): Vec2 | n
   return m.shelter;
 }
 
-/** テスト・アクター退場時に呼ぶ（WeakMapなので必須ではないが明示できるように） */
+/**
+ * テスト・アクター退場時に呼ぶ（WeakMapなので必須ではないが明示できるように）。
+ * 巣の設置物の掃除はここではしない（world を持っていないため）。
+ * `syncNestPlaceables()` が持ち主のいない巣をまとめて片づける。
+ */
 export function forgetCritter(actor: Actor): void {
   memos.delete(actor);
+}
+
+// ---------------------------------------------------------------------------
+// 巣（C-3）
+// ---------------------------------------------------------------------------
+
+/**
+ * 巣の設置物の attract は **0**。
+ * 人工物と同じ理由で、餌の無い場所に群れが通い続けて餓死する
+ * （M3の長期シミュレーションで踏んだ罠）。巣は「作った本人の寝床」であって
+ * 他個体を引き寄せる場所ではない。
+ */
+const NEST_ATTRACT = 0;
+
+/** 巣の設置物の持ち主。プレイヤー扱いにすると `BuildSystem.remove()` で撤去されてしまう */
+const NEST_OWNER = ISLAND_OWNER;
+
+/** 巣として使えるタイルか（歩けること。設置物は歩行判定を変えないので陸の連結性には影響しない） */
+function isNestableTile(world: IslandWorld, x: number, y: number): boolean {
+  return world.isWalkableTile(x, y);
+}
+
+/** いま巣の設置物が乗っているタイル（`tileKey` の集合）。1回作って使い回す */
+function occupiedNestTiles(world: IslandWorld, exceptPlaceableId: EntityId): Set<number> {
+  const out = new Set<number>();
+  for (const p of world.placeables.values()) {
+    if (p.type !== 'nest' || p.id === exceptPlaceableId) continue;
+    out.add(Math.floor(p.pos.y) * MAP_W + Math.floor(p.pos.x));
+  }
+  return out;
+}
+
+/**
+ * 巣を置くタイルを決める。
+ *
+ * 素直に「行動の目的地タイル」へ置くと、同じ森タイルを寝床に選んだ個体ぶん
+ * 巣が重なって1枚の絵に見えてしまう（`shelterTileOf` は最近傍を返すので実際に重なる）。
+ * 空いているタイルへリング探索でずらす。rng は使わず走査順だけで決めるので決定論。
+ */
+function nestTileFor(world: IslandWorld, want: Vec2, exceptPlaceableId: EntityId): Vec2 {
+  const occupied = occupiedNestTiles(world, exceptPlaceableId);
+  const cx = Math.floor(want.x);
+  const cy = Math.floor(want.y);
+  for (let r = 0; r <= WEIGHTS.nestSpreadRadius; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const x = cx + dx;
+        const y = cy + dy;
+        if (!isNestableTile(world, x, y)) continue;
+        if (occupied.has(y * MAP_W + x)) continue;
+        return tileCenter(x, y);
+      }
+    }
+  }
+  // 周り3タイルが全部巣で埋まっている密集地。重なりを許して元の場所に作る
+  return tileCenter(cx, cy);
+}
+
+/**
+ * 巣に対応する設置物が無ければ作る。作ったら true。
+ * 復元直後（設置物だけ欠けたセーブ）や、設置物が先に消えた場合の自己修復にも使う。
+ */
+function ensureNestPlaceable(world: IslandWorld, actor: Actor): boolean {
+  const nest = actor.nest;
+  if (!nest) return false;
+  if (nest.placeableId > 0 && world.placeables.has(nest.placeableId)) return false;
+  const p = world.addPlaceable({
+    id: world.allocId(),
+    type: 'nest',
+    pos: { x: nest.pos.x, y: nest.pos.y },
+    ownerId: NEST_OWNER,
+    attract: NEST_ATTRACT,
+  });
+  nest.placeableId = p.id;
+  return true;
+}
+
+/**
+ * 巣を作る（作り直す）。前の巣の設置物は捨てる。
+ * 同じタイルに作り直したときは設置物を作り直さない（IDが増え続けるのを避ける）。
+ */
+export function setNest(world: IslandWorld, actor: Actor, want: Vec2, tick: number): Nest {
+  const prev = actor.nest;
+  const pos = nestTileFor(world, want, prev?.placeableId ?? 0);
+  if (prev && Math.floor(prev.pos.x) === Math.floor(pos.x) && Math.floor(prev.pos.y) === Math.floor(pos.y)) {
+    ensureNestPlaceable(world, actor);
+    return prev;
+  }
+  if (prev && prev.placeableId > 0) world.placeables.delete(prev.placeableId);
+  const nest: Nest = { pos, placeableId: 0, createdAtTick: tick };
+  actor.nest = nest;
+  ensureNestPlaceable(world, actor);
+  return nest;
+}
+
+/** 巣を捨てる（設置物も消す）。テストと、巣を持ったまま退場させたい場合に使う */
+export function abandonNest(world: IslandWorld, actor: Actor): void {
+  const nest = actor.nest;
+  if (!nest) return;
+  if (nest.placeableId > 0) world.placeables.delete(nest.placeableId);
+  delete actor.nest;
+}
+
+/**
+ * 巣の設置物を世界の状態に合わせる。
+ *
+ * - 持ち主が居なくなった巣の設置物を消す（**これが無いと死んだ個体の巣が無限に溜まる**）
+ * - `Actor.nest` はあるのに設置物が無いものを作る（再起動直後・古いセーブの補完）
+ *
+ * 結果として `nest` の設置物は「巣を持つ生きた動物の数」と常に一致する。
+ */
+export function syncNestPlaceables(world: IslandWorld): { added: number; removed: number } {
+  let added = 0;
+  let removed = 0;
+  const live = new Set<EntityId>();
+  for (const a of world.actors.values()) {
+    // 巣を作るのは動物だけ。ペット・プレイヤーが nest を持っていたら無効として扱う
+    if (a.kind !== 'critter' || !a.nest) continue;
+    if (ensureNestPlaceable(world, a)) added++;
+    live.add(a.nest.placeableId);
+  }
+  for (const [id, p] of [...world.placeables]) {
+    if (p.type !== 'nest' || live.has(id)) continue;
+    world.placeables.delete(id);
+    removed++;
+  }
+  return { added, removed };
 }
 
 // ---------------------------------------------------------------------------
@@ -656,8 +800,8 @@ function fleeTileFrom(pos: Vec2, threat: Vec2): Vec2 {
  * 巣を持っていれば毎晩そこへ帰るので「就寝 → 起床」のサイクルが場所として見える。
  */
 function bedTileFor(world: IslandWorld, actor: Actor, ctx: CritterContext, weather: Weather): Vec2 | null {
-  const m = memoOf(actor);
-  if (m.nest) return m.nest;
+  const nest = actor.nest;
+  if (nest) return nest.pos;
   if (weather === 'rain') {
     const shelter = shelterTileOf(world, actor, ctx.tick);
     if (shelter) return shelter;
@@ -763,6 +907,8 @@ export class CritterAI {
   private evaluated = 0;
   private switched = 0;
   private byAction: Record<string, number> = {};
+  private nestAdded = 0;
+  private nestRemoved = 0;
 
   // 注意: Node の type-stripping で動かすため parameter property は使えない
   constructor(world: IslandWorld, nav: NavService, clock: WorldClock) {
@@ -775,6 +921,14 @@ export class CritterAI {
   update(tick: number): void {
     const ctx: CritterContext = { tick, clock: this.clock, isNight: this.clock.isNight(tick) };
     const slice = tick % WEIGHTS.sliceMod;
+
+    // 死んだ個体の巣の設置物を片づける（無限に増えるのを防ぐ）。
+    // 退場処理（relation.ts）は world を巣に結び付けていないので、ここで定期的に均す
+    if (tick % WEIGHTS.nestSyncTicks === 0) {
+      const r = syncNestPlaceables(this.world);
+      this.nestAdded += r.added;
+      this.nestRemoved += r.removed;
+    }
 
     for (const actor of this.world.actors.values()) {
       if (actor.kind !== 'critter') continue;
@@ -931,9 +1085,9 @@ export class CritterAI {
         break;
       }
       case 'nest': {
-        // 巣ができた。次からここで眠る
-        const m = memoOf(actor);
-        if (action.targetTile) m.nest = { x: action.targetTile.x, y: action.targetTile.y };
+        // 巣ができた。次からここで眠る。
+        // `Actor.nest` に持たせるのでスナップショットに乗り、再起動しても同じ場所に残る（C-3）
+        if (action.targetTile) setNest(world, actor, action.targetTile, tick);
         deps.relieveNeed(actor, 'safety', 40);
         deps.relieveNeed(actor, 'sleep', 5);
         break;
@@ -950,8 +1104,20 @@ export class CritterAI {
   }
 
   /** メトリクス用 */
-  stats(): { evaluated: number; switched: number; byAction: Record<string, number> } {
-    return { evaluated: this.evaluated, switched: this.switched, byAction: { ...this.byAction } };
+  stats(): {
+    evaluated: number;
+    switched: number;
+    byAction: Record<string, number>;
+    nestAdded: number;
+    nestRemoved: number;
+  } {
+    return {
+      evaluated: this.evaluated,
+      switched: this.switched,
+      byAction: { ...this.byAction },
+      nestAdded: this.nestAdded,
+      nestRemoved: this.nestRemoved,
+    };
   }
 }
 

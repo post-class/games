@@ -698,9 +698,9 @@ export class HudView {
       if (e.kind === 'rock') color = '#9a8f7d';
       else if (e.kind === 'mine') color = '#ff8a5a';
       else if (e.kind === 'missile') color = '#ffffff';
-      else if (e.ship?.ace) color = '#ffd75e';
+      else if (e.ship?.ace && isHostile(player.faction, e.faction)) color = '#ffd75e';
       else if (isHostile(player.faction, e.faction)) color = '#ff4d4d';
-      else if (e.faction === player.faction) color = '#5fd8ff';
+      else if (e.faction === player.faction) color = '#68e5ff';
       else color = '#ffd166';
       blip.setAttribute('fill', color);
       blip.setAttribute(

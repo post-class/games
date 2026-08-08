@@ -612,3 +612,70 @@ body.minimap-open .hud { padding-right: 190px; }
 @media (max-width: 640px) {
   body.minimap-open .hud { padding-right: 136px; }
 }
+
+/* ---------- ペットのゲージパネル（E-1） ---------- */
+/*
+ * 宣伝資料 images/screen-talk.png の左上のパネル。
+ * `.hud` の折返しflexの中に「自分だけの1行」として入れる（flex-basis: 100%）。
+ * top/left の絶対配置にすると、390px でチップが2段に折返したときに必ず重なる
+ * （E-5 でミニマップが同じ踏み方をした）。
+ */
+.petgauge {
+  flex-basis: 100%;
+  display: flex;
+  pointer-events: none;
+}
+.petgauge.hidden { display: none; }
+
+.petgauge-box {
+  display: grid;
+  gap: 5px;
+  background: var(--cream);
+  border: 3px solid var(--ink);
+  border-radius: 16px;
+  padding: 7px 12px;
+  box-shadow: 0 3px 0 rgba(74, 59, 42, 0.18);
+}
+
+.petgauge-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink);
+}
+
+.petgauge-icon { width: 17px; height: 17px; flex: 0 0 auto; }
+
+/* バーの下地。幅は狭い画面でも収まる範囲にする */
+.petgauge-track {
+  width: min(132px, 34vw);
+  height: 9px;
+  background: rgba(74, 59, 42, 0.16);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.petgauge-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.35s ease;
+}
+.petgauge-fill.high { background: var(--mint); }
+.petgauge-fill.mid { background: var(--peach); }
+/* 低いときだけ目を引く色にする（気づいてもらうため） */
+.petgauge-fill.low { background: #ef8f7a; }
+
+/* 値が未受信のとき。0（空っぽ）と見分けが付くよう縞にする */
+.petgauge-row.unknown .petgauge-fill {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(74, 59, 42, 0.14) 0 5px,
+    rgba(74, 59, 42, 0.05) 5px 10px
+  );
+}
+
+@media (max-width: 640px) {
+  .petgauge-track { width: min(108px, 40vw); }
+  .petgauge-box { padding: 5px 9px; }
+}

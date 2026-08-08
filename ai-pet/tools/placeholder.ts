@@ -513,6 +513,9 @@ const OBJECTS: readonly ObjectSpec[] = [
   // 柵は1タイル=1枚。横向きは板が横に長く、縦向きは杭が縦に並ぶ
   { key: 'fence_h', body: '#c39a6b', top: '#a8825c', topShape: 'none', bodyW: 0.94, bodyH: 0.2 },
   { key: 'fence_v', body: '#c39a6b', top: '#a8825c', topShape: 'none', bodyW: 0.2, bodyH: 0.6 },
+  // 動物が作る巣（C-3）。枯草を丸く積んだ低い寝床なので、
+  // 平たい胴体（幅0.62 / 高さ0.16）＋草色の天面 disc で「窪み」に見せる
+  { key: 'nest', body: '#c39a6b', top: '#a8825c', topShape: 'disc', bodyW: 0.62, bodyH: 0.16 },
 ];
 
 function drawObject(spec: ObjectSpec): Canvas {

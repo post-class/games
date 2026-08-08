@@ -80,12 +80,12 @@ export class NavMap {
           kind:
             e.id === player.id
               ? 'player'
-              : capital
-                ? 'capital'
-                : isHostile(player.faction, e.faction)
+              : isHostile(player.faction, e.faction)
                   ? 'enemy'
                   : e.faction === player.faction
                     ? 'friend'
+                    : capital
+                      ? 'capital'
                     : 'neutral',
         });
       }

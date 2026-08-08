@@ -86,6 +86,11 @@ export const RATE_LIMITS = {
   interact: { perSec: 4 },
   say: { perSec: 0.5, perHour: 60 },
   place: { perSec: 1, perHour: 30 },
+  /**
+   * 撤去（G-5）。成功のたびに周辺のクライアントへ snapshot を配り直すので、
+   * 連打されると1回の操作が人数ぶんの送信に膨らむ。設置と同じ 1/秒 に抑える。
+   */
+  remove: { perSec: 1 },
   chunkReq: { perSec: 8 },
 } as const;
 
@@ -182,9 +187,27 @@ export const RESOURCE = {
   wateredIslandHours: 6,
   /** 水やり中の回復倍率 */
   wateredRegenMultiplier: 2,
-  /** 荒廃度の増加/減衰 */
-  decayPerHarvest: 8,
-  decayRecoverPerIslandHour: 3,
+  /**
+   * 荒廃度の増加/減衰（G-4）。
+   *
+   * 8 / 3 では**荒れが画面に出なかった**（M3申し送り2「最大0.7%では見えない」）。
+   * 原因はバランスの向きで、木1本が生む収穫は 0.15/島時間 しかないので
+   * 増加の上限が 8×0.15 = 1.2/島時間 しかなく、減衰 3/島時間 に必ず負けて0へ戻っていた
+   * （実った実をまとめて採った瞬間だけ茶色くなり、数島時間で消える）。
+   *
+   * 20 / 2 にした根拠:
+   * - プレイヤーの収穫が効く。畑（fieldMax=10）を採り切ると 20×5 = 100 で真っ茶色になり、
+   *   減衰 2/島時間 なので白に戻るまで約2島日かかる
+   *   （宣伝資料「荒らした畑は戻るのに時間がかかる」がこれで初めて画面に出る）
+   * - 動物だけでも通われている木の実の木・釣り場・畑が p90 で 33〜49 まで上がる（実測）。
+   *   30 に上げても平均はむしろ下がった。`WEIGHTS.decayAversion` で動物が荒れた場所を避け、
+   *   `decayRegenPenalty` で実りも落ちるため、強くすると散らばって薄まる（負のフィードバック）
+   *
+   * 上げすぎると `decayRegenPenalty` 経由で食料が減って餓死が連鎖する。
+   * この値で `npm run sim:long 21` を回し、個体数 70→120（14島日で頭打ち）・死亡0件を確認している。
+   */
+  decayPerHarvest: 20,
+  decayRecoverPerIslandHour: 2,
   maxDecay: 100,
 
   /** 資源の回復は毎tickではなく、このtick数ごとにまとめて行う（走査回数を減らす） */

@@ -574,6 +574,13 @@ export class App {
       seed: 707,
       returnNode: this.save.node,
     });
+    const tutorialSpawns = base.spawns.map((group) => ({
+      ...group,
+      // ターゲット操作の案内が出る前に敵を配置し、T/R/Y をすぐ試せるようにする。
+      atNav: undefined,
+      delay: 0,
+      offset: group.offset ?? [0, 0, -1800],
+    }));
     return {
       ...base,
       id: `tutorial-${mode}`,
@@ -589,6 +596,7 @@ export class App {
         { missileId: 'dumbfire', count: 3 },
         { missileId: 'heat-seeker', count: 3 },
       ],
+      spawns: tutorialSpawns,
       debriefWin: ['訓練を終了した。'],
       debriefLoss: ['訓練を中断した。'],
       // 操作確認を終えるまで空域を維持する。終了はポーズ画面から行う。

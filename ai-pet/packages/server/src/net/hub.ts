@@ -31,7 +31,7 @@ import { actorToWire, createPlayerActor } from '../sim/actors.ts';
 import { clearAxisInput, forgetActor, setAxisInput } from '../sim/movement.ts';
 import type { IslandSim } from '../sim/island.ts';
 import type { Repo } from '../db/repo.ts';
-import { SyncService, type ViewRect } from './sync.ts';
+import { DECAY_SEND_INTERVAL_TICKS, SyncService, type ViewRect } from './sync.ts';
 import { petCatalog, petToWire, type PetManager } from './petHandlers.ts';
 import type { ReflectionService } from '../pet/reflection.ts';
 import type { GossipReporter } from '../pet/gossipReport.ts';
@@ -81,6 +81,16 @@ function placeMessage(reason: string): string {
     unknown_type: 'それは置けません',
   };
   return map[reason] ?? '置けませんでした';
+}
+
+/** 撤去できなかった理由を1文にする */
+function removeMessage(reason: string): string {
+  const map: Record<string, string> = {
+    not_found: 'それはもうありません',
+    not_owner: '自分が置いたものだけ片づけられます',
+    out_of_range: '近くまで行って片づけてください',
+  };
+  return map[reason] ?? '片づけられませんでした';
 }
 
 /** 建設に手伝えなかった理由を1文にする */
@@ -528,6 +538,10 @@ export class ConnectionHub {
       case 'chunkReq': {
         for (const [cx, cy] of msg.chunks) {
           this.send(client, this.sync.chunkMessage(cx, cy));
+          // 焼いた直後のチャンクは荒廃度を持っていないので、続けて送る（G-6）。
+          // 荒れていない（全部0の）チャンクでは null が返り、1バイトも増えない
+          const decay = this.sync.chunkDecayMessage(client.playerId, cx, cy);
+          if (decay) this.send(client, decay);
         }
         break;
       }
@@ -638,6 +652,28 @@ export class ConnectionHub {
         break;
       }
 
+      case 'remove': {
+        if (!actor) return;
+        const res = this.sim.build.removeByPlayer({
+          playerId: client.playerId,
+          placeableId: msg.id,
+          // 座標はサーバ権威の値（クライアントの申告は信用しない）
+          playerPos: actor.pos,
+        });
+        if (res.ok) {
+          this.send(client, {
+            t: 'notice',
+            text: `${placeableLabel(res.placeable.type)}を片づけた`,
+            importance: 3,
+          });
+          // 設置物は snapshot に載るので、周辺のクライアントへ配り直して他人の画面からも消す
+          this.resendSnapshotNear(res.placeable.pos);
+        } else {
+          this.send(client, { t: 'warn', code: res.reason, message: removeMessage(res.reason) });
+        }
+        break;
+      }
+
       case 'contribute': {
         if (!actor) return;
         const res = this.sim.build.contribute({
@@ -680,6 +716,22 @@ export class ConnectionHub {
       if (actor) this.sync.updateView(client.playerId, viewRectAround(actor.pos));
       const msg = this.sync.deltaMessage(client.playerId, tick, clock);
       if (msg) this.send(client, msg);
+    }
+
+    // 荒廃度は別経路・低頻度（G-6）。delta に混ぜると毎tick 256要素を触ることになる
+    if (tick % DECAY_SEND_INTERVAL_TICKS === 0) this.broadcastDecay();
+  }
+
+  /**
+   * 荒廃度を配る（G-6）。変化のあったチャンクだけ届く（無変化なら1バイトも出ない）。
+   *
+   * 入島直後のぶんは `chunkReq` の応答に相乗りさせているので、ここは「時間で荒れていく／戻っていく」
+   * ぶんだけを受け持つ。
+   */
+  broadcastDecay(): void {
+    for (const client of this.clients.values()) {
+      if (!client.joined) continue;
+      for (const msg of this.sync.decayMessages(client.playerId)) this.send(client, msg);
     }
   }
 

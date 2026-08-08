@@ -57,6 +57,9 @@ export const PLACE_ATTRACT: Record<PlaceableType, number> = {
   fountain: 0,
   fence_h: 0,
   fence_v: 0,
+  // 動物が自分で作る巣（C-3）。プレイヤーは置けないので値は使われない。
+  // 0 なのは「巣に他の動物が群がる」と寝床の取り合いになるため
+  nest: 0,
 };
 
 /** プレイヤーから設置できる距離（タイル） */
@@ -123,6 +126,7 @@ const PLACEABLE_LABEL: Record<PlaceableType, string> = {
   fountain: '噴水',
   fence_h: '柵',
   fence_v: '柵',
+  nest: '巣',
 };
 
 const CONSTRUCTION_LABEL: Record<ConstructionType, string> = {
@@ -142,6 +146,10 @@ export type PlaceRejectReason =
   | 'unknown_type';
 
 export type PlaceResult = { ok: true; placeable: Placeable } | { ok: false; reason: PlaceRejectReason };
+
+export type RemoveRejectReason = 'not_found' | 'not_owner' | 'out_of_range';
+
+export type RemoveResult = { ok: true; placeable: Placeable } | { ok: false; reason: RemoveRejectReason };
 
 export type ContributeRejectReason = 'not_found' | 'too_far' | 'already_done' | 'rate';
 
@@ -511,10 +519,31 @@ export class BuildSystem {
     return { ok: true, placeable };
   }
 
-  /** 設置物を撤去する（自分が置いたものだけ） */
-  remove(opts: { playerId: PlayerId; placeableId: EntityId }): boolean {
+  /**
+   * 設置物を撤去する（G-5）。理由つきで返す。
+   *
+   * 撤去できるのは**自分が置いたものだけ**。他人の設置物を消せると
+   * 「置いたものが残っていく島」が成立しないし、島が置いた家・風車・柵・噴水・井戸・天文台
+   * （ownerId = `ISLAND_OWNER`）は風景なので誰も撤去できない。
+   * `playerPos` を渡すと設置と同じ距離（PLACE_RANGE_TILES）の中だけに限る
+   * （遠くのものを一覧から消せると「その場で片づける」体験にならない）。
+   */
+  removeByPlayer(opts: { playerId: PlayerId; placeableId: EntityId; playerPos?: Vec2 }): RemoveResult {
     const p = this.world.placeables.get(opts.placeableId);
-    if (!p || p.ownerId !== opts.playerId) return false;
+    if (!p) {
+      this.reject('not_found');
+      return { ok: false, reason: 'not_found' };
+    }
+    // 島の所有物を先に弾く（playerId が偶然一致することはないが、意図を残すため明示する）
+    if (p.ownerId === ISLAND_OWNER || p.ownerId !== opts.playerId) {
+      this.reject('not_owner');
+      return { ok: false, reason: 'not_owner' };
+    }
+    if (opts.playerPos && distance(opts.playerPos, p.pos) > PLACE_RANGE_TILES) {
+      this.reject('out_of_range');
+      return { ok: false, reason: 'out_of_range' };
+    }
+
     this.world.placeables.delete(p.id);
     this.removed++;
     this.deps.emitEvent({
@@ -523,7 +552,12 @@ export class BuildSystem {
       pos: p.pos,
       importance: 3,
     });
-    return true;
+    return { ok: true, placeable: p };
+  }
+
+  /** 撤去できたかだけを返す薄い版（距離を見ない。既存の呼び出しとテスト向け） */
+  remove(opts: { playerId: PlayerId; placeableId: EntityId }): boolean {
+    return this.removeByPlayer(opts).ok;
   }
 
   // ---------- 共同建設 ----------

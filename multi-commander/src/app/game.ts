@@ -624,13 +624,19 @@ export class Game {
           this.toggleAutopilot();
           break;
         case 'targetNext':
-          if (player) targetNext(this.world, player);
+          if (player && !targetNext(this.world, player)) {
+            bus.emit('announce', { text: 'ターゲット可能な敵影なし', kind: 'info', durationMs: 1200 });
+          }
           break;
         case 'targetNearest':
-          if (player) targetNearest(this.world, player);
+          if (player && !targetNearest(this.world, player)) {
+            bus.emit('announce', { text: 'ターゲット可能な敵影なし', kind: 'info', durationMs: 1200 });
+          }
           break;
         case 'targetFront':
-          if (player) targetFront(this.world, player);
+          if (player && !targetFront(this.world, player)) {
+            bus.emit('announce', { text: '正面にターゲット可能な敵影なし', kind: 'info', durationMs: 1200 });
+          }
           break;
         case 'nextSecondary':
           this.tutorial.noteAction(a);

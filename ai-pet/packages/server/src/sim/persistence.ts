@@ -7,6 +7,8 @@
  */
 import { SNAPSHOT_INTERVAL_TICKS, type Actor, type Placeable, type ResourceNode } from '@ai-pet/shared';
 import type { Repo, SnapshotData } from '../db/repo.ts';
+import { sanitizeActorNest } from './actors.ts';
+import { syncNestPlaceables } from './critter.ts';
 import type { IslandSim } from './island.ts';
 
 /** DBに島の行があればそのseedを返す（env より DB を優先する。seedが変わると地形が変わってしまうため） */
@@ -58,7 +60,13 @@ export function restoreIsland(sim: IslandSim, repo: Repo): RestoreResult {
 
     // 動物とペットを戻す（プレイヤーは接続時に作る）
     for (const [id, a] of [...world.actors]) if (a.kind === 'critter' || a.kind === 'pet') world.actors.delete(id);
-    for (const c of snap.critters) world.addActor(c);
+    for (const c of snap.critters) world.addActor(sanitizeActorNest(c));
+
+    // 巣（C-3）の設置物を実態に合わせる。
+    // 設置物と Actor.nest は別々に保存されるので、片方だけ欠けたセーブがあり得る
+    // （C-3より前のDB＝巣の設置物が1つも無い、が典型）。
+    // ここで均しておかないと「夜まで待たないと巣が画面に出ない」ことになる。
+    syncNestPlaceables(world);
 
     // island.tick と snapshot.tick は最大30秒ズレる。スナップショット側を採用する
     sim.tick = snap.tick;

@@ -150,6 +150,33 @@
 - 1枚 medium/1024x1024 で約 $0.011、所要1〜2分
 - `gpt-image-1-mini` は `--input-fidelity high` を受け付けない
 
+### ⚠️ 1024px で生成したものは 32px タイルにすると模様が消える
+
+タイル（32×32）を 1024px で生成して縮小すると、**細かい模様は平均化されて単色になる**。
+実測（`--quality medium / 1024x1024` → 32px）:
+
+| 生成した内容 | 32pxでの結果 |
+|---|---|
+| 「小さな丸石の石畳」 | ○ 石畳として読める（石が1辺に20個ほど＝ぎりぎり） |
+| 「苔のある森の地面」 | ○ 緑の斑として読める |
+| 「細く短い草のストローク」 | **× ほぼ単色**（既存の `tile_grass.png` より情報量が減った） |
+| 「非常に細かい粒の土」 | **× 完全に単色** |
+
+対策:
+
+- **模様の要素を「1辺に3〜6個」の粗さで指定する**（"a few large ..." / "only 4 or 5 ..."）。
+  「fine」「very small」「subtle」は 32px では消える
+- 生成したら**必ず 32px に落として8倍拡大で確認**してから採用する:
+  ```bash
+  UV_CACHE_DIR="$PWD/.uv_cache" uv run --with pillow python - <<'PY'
+  from PIL import Image
+  im = Image.open('<生成物>').convert('RGBA').resize((32,32), Image.LANCZOS)
+  im.resize((256,256), Image.NEAREST).save('.tmp/check.png')
+  PY
+  ```
+- 既存アセットより情報量が減るなら**採用しない**（絵が退化する）
+- キャラクター（48px）と大きい設置物（家・風車）はこの問題が出にくい（形が大きいため）
+
 ### 命名と後処理
 
 - 命名: `tile_<terrain>.png` / `<kind>_<species>_<dir>.png` / `obj_<type>.png` / `decal_<name>.png` /

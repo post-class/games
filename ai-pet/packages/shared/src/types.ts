@@ -118,6 +118,27 @@ export interface PetIntent {
   expiresAtTick: number;
 }
 
+/**
+ * 動物が作った巣（C-3）。
+ *
+ * もともと `critter.ts` の WeakMap に置いていたため、サーバを再起動すると
+ * 「毎晩ここへ帰る」寝床が全個体ぶん失われていた（M3申し送り4 / M5申し送り6）。
+ * `Actor` のフィールドにしてスナップショット（`critters_json`）へ含めることで、
+ * 再起動をまたいで同じ場所に巣が残る。
+ */
+export interface Nest {
+  /** 巣タイルの中心座標 */
+  pos: Vec2;
+  /**
+   * 画面に出すための `nest` 設置物のID。
+   * 0 は「まだ設置物が無い」（巣の場所だけ持っている古いセーブや、
+   * 設置物が先に消えた場合）。次の同期で作り直される。
+   */
+  placeableId: EntityId;
+  /** 作られたtick。デバッグと「いつからの寝床か」の表示用 */
+  createdAtTick: number;
+}
+
 export interface Actor {
   id: EntityId;
   kind: ActorKind;
@@ -137,6 +158,13 @@ export interface Actor {
 
   action: ActiveAction | null;
   path: Vec2[] | null;
+
+  /**
+   * 動物のみ。作った巣（C-3）。
+   * 持ち主が消えたら `syncNestPlaceables()` が対応する設置物も消すので、
+   * 設置物は生きている動物の数（最大 MAX_CRITTERS）を超えない。
+   */
+  nest?: Nest;
 
   // ペットのみ
   ownerId?: PlayerId;
@@ -168,6 +196,10 @@ export interface ResourceNode {
  * これもプレイヤーは置けないので `PlaceMsg` 側には足さない。
  * 柵は向きで絵が変わるため、1種別＋回転ではなく `fence_h` / `fence_v` の2種別にしている
  * （`objects.ts` は `obj_<type>.png` をそのまま引くだけで回転を持たないため）。
+ *
+ * `nest` は**動物が自分で作る巣**（C-3）。持ち物としては `Actor.nest` が正で、
+ * 設置物はその「画面に出すための影」にすぎない。
+ * プレイヤーは置けないので `PlaceMsg` 側には足さないこと。
  */
 export type PlaceableType =
   | 'bench'
@@ -182,7 +214,8 @@ export type PlaceableType =
   | 'windmill'
   | 'fountain'
   | 'fence_h'
-  | 'fence_v';
+  | 'fence_v'
+  | 'nest';
 
 export interface Placeable {
   id: EntityId;

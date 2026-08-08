@@ -201,6 +201,38 @@ export function createPetActor(
   return world.addActor(actor);
 }
 
+/**
+ * スナップショットから復元した Actor の巣（C-3）を検算する。
+ *
+ * `critters_json` は `JSON.parse` しただけの値なので、
+ * 古いセーブ（巣のフィールドが無い）・手で書き換えたDB・将来の形式変更で
+ * 壊れた `nest` が入り得る。壊れていたら**捨てる**（次の巣づくりで作り直される）。
+ * ここで弾かないと `bedTileFor()` が NaN の寝床を返し、経路探索が毎tick失敗し続ける。
+ *
+ * 引数の Actor をその場で直して返す（復元は起動時の1回なので複製しない）。
+ */
+export function sanitizeActorNest(a: Actor): Actor {
+  const nest = a.nest;
+  if (!nest) return a;
+  const okPos =
+    typeof nest.pos?.x === 'number' &&
+    typeof nest.pos?.y === 'number' &&
+    Number.isFinite(nest.pos.x) &&
+    Number.isFinite(nest.pos.y);
+  const okId = typeof nest.placeableId === 'number' && Number.isInteger(nest.placeableId) && nest.placeableId >= 0;
+  if (!okPos || !okId) {
+    delete a.nest;
+    return a;
+  }
+  // 巣を持てるのは動物だけ。ペットは家（オーナー）に帰る設計なので巣を持たせない
+  if (a.kind !== 'critter') {
+    delete a.nest;
+    return a;
+  }
+  if (typeof nest.createdAtTick !== 'number' || !Number.isFinite(nest.createdAtTick)) nest.createdAtTick = 0;
+  return a;
+}
+
 /** 0=critter 1=pet 2=player（protocol.ts の ActorWire.k） */
 function kindCode(kind: Actor['kind']): 0 | 1 | 2 {
   return kind === 'critter' ? 0 : kind === 'pet' ? 1 : 2;

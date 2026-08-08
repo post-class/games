@@ -33,6 +33,10 @@ export type MissionState = 'running' | 'win' | 'loss';
 
 /** 逃走した敵がこの距離まで離れたら「撃退した」として戦域から外す */
 const FLED_DISTANCE = 14000;
+/** 味方の大型艦に近づきすぎたと判断する中心間距離 */
+const FRIENDLY_LARGE_SHIP_WARNING_DISTANCE = 900;
+/** 一度離れたあと、再接近時にもう一度警告できるようにする距離 */
+const FRIENDLY_LARGE_SHIP_WARNING_RESET_DISTANCE = 1200;
 
 const _awayCheck = new Vector3();
 const _reconFwd = new Vector3();
@@ -97,6 +101,10 @@ export class MissionRunner {
   private tagIndex = new Map<string, number[]>();
   private capitalStage = 0;
   private capitalTorpedoFired = false;
+  /** 接近警告を最後に出した味方大型艦。離れるまで再通知しない */
+  private friendlyProximityWarningShipId?: number;
+  /** 帰投可能になったことを知らせたか */
+  private returnInstructionSent = false;
 
   constructor(
     readonly world: World,
@@ -142,6 +150,8 @@ export class MissionRunner {
     this.tagIndex.clear();
     this.capitalStage = 0;
     this.capitalTorpedoFired = false;
+    this.friendlyProximityWarningShipId = undefined;
+    this.returnInstructionSent = false;
 
     // Nav ポイント
     this.def.navs.forEach((n, i) => {
@@ -314,6 +324,7 @@ export class MissionRunner {
     this.flushRadio();
     this.tickSpawns(dt);
     this.removeRoutedEnemies();
+    this.updateFriendlyShipProximity();
 
     const arrived = checkNavArrival(this.world);
     if (arrived?.nav) {
@@ -332,6 +343,61 @@ export class MissionRunner {
 
     this.trackWingman();
     this.evaluateObjectives();
+    this.announceReturnInstruction();
+  }
+
+  /**
+   * 味方の輸送艦・戦艦への接近を監視する。
+   * 大型艦はパイロット名を持たないことがあるため、その場合は艦名を発信元にする。
+   */
+  private updateFriendlyShipProximity(): void {
+    const player = this.world.player;
+    if (!player || player.ship?.ejected) return;
+
+    let nearest: Entity | undefined;
+    let nearestDistance = Infinity;
+    for (const e of this.world.entities) {
+      if (!e.alive || e.kind !== 'ship' || !e.ship) continue;
+      if (e.id === player.id || e.faction !== player.faction) continue;
+      if (e.ship.def.role !== 'transport' && e.ship.def.role !== 'capital') continue;
+
+      const distance = player.pos.distanceTo(e.pos);
+      if (distance < nearestDistance) {
+        nearest = e;
+        nearestDistance = distance;
+      }
+    }
+
+    if (!nearest || nearestDistance > FRIENDLY_LARGE_SHIP_WARNING_RESET_DISTANCE) {
+      this.friendlyProximityWarningShipId = undefined;
+      return;
+    }
+    if (
+      nearestDistance > FRIENDLY_LARGE_SHIP_WARNING_DISTANCE ||
+      this.friendlyProximityWarningShipId === nearest.id
+    ) {
+      return;
+    }
+
+    const ship = nearest.ship;
+    if (!ship) return;
+    this.friendlyProximityWarningShipId = nearest.id;
+    bus.emit('radio', {
+      speaker: ship.pilot ?? nearest.label ?? ship.def.name,
+      text: '近づきすぎだ。距離を取れ。',
+      tone: 'friendly',
+    });
+  }
+
+  /** 戦闘目標が片付いたら、帰投操作を一度だけ管制から知らせる */
+  private announceReturnInstruction(): void {
+    if (this.returnInstructionSent || !this.canDisengage) return;
+    this.returnInstructionSent = true;
+    bus.emit('radio', {
+      speaker: '管制',
+      text: '戦闘目標を達成。帰還してください。Aキーでオートパイロットを作動させ、帰投せよ。',
+      tone: 'command',
+    });
   }
 
   /**

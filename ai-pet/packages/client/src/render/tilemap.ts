@@ -158,6 +158,19 @@ export function tileVariant(tx: number, ty: number, count: number): number {
   return hash2(tx, ty, 0x5b1) % count;
 }
 
+/**
+ * 荒廃度の tint を**掛けない**地形。
+ *
+ * `water` は資源として「飲まれる」たびに荒廃度が上がる（`resource.ts` の `decayAversion` が
+ * 「同じ水場に群がりすぎない」ために使っている正しい挙動）。
+ * だが荒廃度を可視化した途端、**湖面と海が茶色く濁って見えた**（実測で水場20タイルの
+ * 荒廃度 p50=99）。荒廃は「踏み荒らされた地面」の表現なので、水面には意味がない。
+ *
+ * シミュレーション側の挙動は変えず、**描画だけ除外する**のが副作用が少ない
+ * （`resource.ts` で addDecay をやめると動物が水場に群がる挙動が変わってしまう）。
+ */
+const NO_DECAY_TINT: ReadonlySet<Terrain> = new Set<Terrain>(['water']);
+
 /** 荒廃度が最大のときの色（枯れた土の茶） */
 const DECAY_COLOR = 0xa8926e;
 /**
@@ -358,7 +371,7 @@ export class TileMap {
       s.texture = this.tileTexture(terrain, entry.cx * CHUNK + (i % CHUNK), entry.cy * CHUNK + Math.floor(i / CHUNK));
       s.width = TILE_PX;
       s.height = TILE_PX;
-      s.tint = decay ? decayTint(decay[i] as number) : 0xffffff;
+      s.tint = decay && !NO_DECAY_TINT.has(terrain) ? decayTint(decay[i] as number) : 0xffffff;
     }
     this.renderer.render({ container: this.bakeRoot, target: entry.rt, clear: true });
     // 遷移タイルは境界ごとに1パス重ねる（clear:false）。
@@ -419,7 +432,7 @@ export class TileMap {
       s.texture = tex;
       s.width = TILE_PX;
       s.height = TILE_PX;
-      s.tint = decay ? decayTint(decay[i] as number) : 0xffffff;
+      s.tint = decay && !NO_DECAY_TINT.has(terrain) ? decayTint(decay[i] as number) : 0xffffff;
       any = true;
     }
     if (any) this.renderer.render({ container: this.bakeRoot, target: entry.rt, clear: false });

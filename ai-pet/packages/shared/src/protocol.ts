@@ -3,7 +3,7 @@
  * 受信側は必ず parse してから使う。クライアント発の値を信用しない。
  */
 import { z } from 'zod';
-import { MAP_H, MAP_W } from './constants.ts';
+import { CHUNK, MAP_H, MAP_W } from './constants.ts';
 
 export const PROTOCOL_VERSION = 1;
 
@@ -59,6 +59,16 @@ export const PlaceMsg = z.object({
   pos: zTilePos,
 });
 
+/**
+ * 設置物の撤去（G-5）。
+ * 撤去できるのは自分が置いたものだけで、判定はサーバ（`BuildSystem.removeByPlayer`）が持つ。
+ * ここでは「どれを」だけ受け取る（座標はサーバ権威の値を使うため送らせない）。
+ */
+export const RemoveMsg = z.object({
+  t: z.literal('remove'),
+  id: z.number().int(),
+});
+
 export const ContributeMsg = z.object({
   t: z.literal('contribute'),
   constructionId: z.number().int(),
@@ -91,6 +101,7 @@ export const ClientMsg = z.discriminatedUnion('t', [
   InteractMsg,
   SayMsg,
   PlaceMsg,
+  RemoveMsg,
   ContributeMsg,
   CreatePetMsg,
   PingMsg,
@@ -232,6 +243,14 @@ export type ServerMsg =
       clock?: ClockWire;
     }
   /**
+   * 荒廃度（G-6）。チャンク1つぶんを行優先の CHUNK*CHUNK 配列で送る。
+   *
+   * 地形と違って RLE にしていないのは、クライアントの `TileMap.setChunkDecay()` が
+   * 「長さ256の生配列」を前提に完成しているため（受信側を触らずに繋ぐのを優先した）。
+   * そのぶん帯域は送信側で絞る: **興味範囲内で内容が変わったチャンクだけ・1島時間に1回**。
+   */
+  | { t: 'chunkDecay'; cx: number; cy: number; decay: number[] }
+  /**
    * 地形が変わったことの通知（橋の完成など）。
    * クライアントは該当チャンクを捨てて再要求する（焼き直しが必要なため）。
    */
@@ -248,6 +267,20 @@ export type ServerMsg =
   | { t: 'pong'; ts: number; tick: number };
 
 export type ServerMsgType = ServerMsg['t'];
+
+/**
+ * `chunkDecay` の形をスキーマとして書き留めたもの。
+ *
+ * サーバ発のメッセージは実行時に parse しない方針なので**通信経路では使わない**が、
+ * 「長さ256・0..100の整数」という約束をテストで固定するために持つ
+ * （クライアントの `setChunkDecay()` は長さが違うと例外を投げるので、崩れると画面が止まる）。
+ */
+export const ChunkDecayWireSchema = z.object({
+  t: z.literal('chunkDecay'),
+  cx: z.number().int().min(0),
+  cy: z.number().int().min(0),
+  decay: z.array(z.number().int().min(0).max(100)).length(CHUNK * CHUNK),
+});
 
 // ==================== ヘルパ ====================
 

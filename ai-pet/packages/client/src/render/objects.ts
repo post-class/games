@@ -66,6 +66,10 @@ export const OBJECT_SCALE: Record<string, number> = {
   fountain: 1.5,
   fence_h: 1.0,
   fence_v: 1.0,
+  // 動物が作る巣（C-3）。1タイルに収まる小さな寝床で、
+  // 上に丸まった動物（48px）が乗る前提なので動物より小さくする。
+  // 1.0 だと動物がすっぽり隠れて「巣で寝ている」に見えない
+  nest: 0.9,
 };
 
 export class ObjectLayer {
