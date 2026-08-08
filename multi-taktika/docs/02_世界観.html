@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Taktika 世界観 — 環海（かんかい）と八国</title>
+<style>
+  :root {
+    --bg: #14100c;
+    --bg2: #1d1811;
+    --panel: #26200f;
+    --line: #4a3a1e;
+    --gold: #e0b34a;
+    --gold-dim: #a88530;
+    --text: #e8ded0;
+    --text-dim: #a89b89;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    padding: 0 20px 80px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+    font-size: 16px;
+    line-height: 1.8;
+  }
+
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+    image-rendering: auto;
+    border: 2px solid var(--line);
+    border-radius: 2px;
+    background: #000;
+  }
+
+  a { color: var(--gold); }
+
+  /* ---------- header (最低限) ---------- */
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 16px;
+    padding: 14px 0;
+    border-bottom: 2px solid var(--line);
+    margin-bottom: 28px;
+  }
+  header .logo {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    color: var(--gold);
+  }
+  header .tag { font-size: 14px; color: var(--text-dim); }
+  header .meta { margin-left: auto; font-size: 13px; color: var(--text-dim); }
+
+  /* ---------- section ---------- */
+  section { margin: 0 0 56px; }
+
+  h2 {
+    font-size: 22px;
+    margin: 0 0 6px;
+    color: var(--gold);
+    border-left: 5px solid var(--gold-dim);
+    padding-left: 12px;
+    line-height: 1.4;
+  }
+  h2 .en {
+    display: block;
+    font-size: 12px;
+    letter-spacing: .18em;
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+  h3 { font-size: 17px; margin: 0 0 6px; color: var(--gold); }
+  p { margin: 0 0 14px; }
+  section > p { max-width: 90ch; }
+  .lead { font-size: 18px; }
+  .dim { color: var(--text-dim); font-size: 14px; }
+  .ruby { font-size: .82em; color: var(--text-dim); }
+
+  /* ---------- hero ---------- */
+  .hero { margin-bottom: 56px; }
+  .hero-copy {
+    font-size: clamp(24px, 4vw, 46px);
+    font-weight: 700;
+    line-height: 1.35;
+    letter-spacing: .02em;
+    margin: 0 0 12px;
+    color: #fff;
+  }
+  .hero-copy em { font-style: normal; color: var(--gold); }
+  .hero-sub { max-width: 70ch; }
+  .hero-figure { margin: 24px 0 0; }
+  figure { margin: 0; }
+  figcaption { font-size: 13px; color: var(--text-dim); margin-top: 8px; }
+
+  /* ---------- 引用（伝承の断片） ---------- */
+  .quote {
+    border-left: 3px solid var(--gold-dim);
+    background: var(--bg2);
+    padding: 14px 20px;
+    margin: 0 0 18px;
+    max-width: 70ch;
+    font-family: "Hiragino Mincho ProN", "Yu Mincho", serif;
+    font-size: 17px;
+    line-height: 2;
+    color: #f0e7d8;
+  }
+  .quote .src {
+    display: block;
+    margin-top: 8px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  /* ---------- grid / split ---------- */
+  .grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--gold-dim);
+    border-radius: 3px;
+    padding: 16px 18px;
+  }
+  .card p:last-child { margin-bottom: 0; }
+  .card .num { font-size: 12px; letter-spacing: .2em; color: var(--gold-dim); }
+
+  .split {
+    display: grid;
+    gap: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    align-items: start;
+    margin-top: 18px;
+  }
+
+  /* ---------- table ---------- */
+  .table-wrap { overflow-x: auto; margin-top: 18px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+    min-width: 560px;
+  }
+  caption {
+    text-align: left;
+    font-size: 13px;
+    color: var(--text-dim);
+    padding-bottom: 6px;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  thead th { background: var(--panel); color: var(--gold); white-space: nowrap; }
+  tbody th { background: rgba(255,255,255,.02); white-space: nowrap; }
+  tbody tr:nth-child(even) td { background: rgba(255,255,255,.015); }
+
+  ul.plain { margin: 0 0 14px; padding-left: 1.3em; max-width: 90ch; }
+  ul.plain li { margin-bottom: 8px; }
+
+  .note {
+    border: 1px dashed var(--line);
+    border-radius: 3px;
+    padding: 12px 16px;
+    font-size: 14px;
+    color: var(--text-dim);
+    background: var(--bg2);
+    max-width: 90ch;
+  }
+
+  footer {
+    border-top: 2px solid var(--line);
+    padding-top: 16px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">MULTI-TAKTIKA</span>
+  <span class="tag">世界観設定資料</span>
+  <span class="meta"><a href="01_ゲーム宣伝.html">← ゲーム紹介</a> / 2026-08</span>
+</header>
+
+<!-- ================= HERO ================= -->
+<div class="hero">
+  <p class="hero-copy">一つの海を、<br><em>八つの文明</em>が囲んでいる。</p>
+  <p class="lead hero-sub">
+    東に稲田、南に列柱の港、西に密林の神殿、北に氷の崖。
+    本来なら互いを知らずに終わったはずの八つの文明が、同じ内海の岸辺で同時代に生きている ――
+    <strong>この世界の嘘は、それひとつだけ</strong>です。あとはすべて、人が土地に合わせて生きた結果として組み立てています。
+  </p>
+  <figure class="hero-figure">
+    <img src="assets/img/world-map.png"
+         alt="羊皮紙に描かれた世界地図。中央に大きな内海があり、その中心の小島に黒い石柱が立つ。海のまわりを稲田・運河都市・密林の神殿・砂漠のオアシス・草原の天幕などが囲む">
+    <figcaption>▲ 環海（かんかい）全図。中央の島に立つのが「碑」。八つの文明はすべてこの海に面しています。</figcaption>
+  </figure>
+</div>
+
+<!-- ================= 舞台 ================= -->
+<section>
+  <h2>舞台 ― 環海<span class="en">THE RING SEA</span></h2>
+  <p>
+    大陸のただ中に、一つの巨大な内海がある。名を <strong>環海</strong><span class="ruby">（かんかい）</span>。
+    外洋とはつながっておらず、潮の満ち引きもほとんどない。荒れる日が少ないため、
+    <strong>この世界では海路のほうが陸路より速く、安全です。</strong>
+  </p>
+  <p>
+    山脈と砂漠と密林に隔てられた八つの土地は、陸を行けば片道で一年かかる。
+    ところが海を渡れば十日で着く。だから八国は、陸で背を向け合ったまま、海の上でだけ隣人になりました。
+    交易も、使節も、そして戦も、すべて岸から始まります。
+  </p>
+  <div class="quote">
+    山を越えて隣に行こうとした者は、まだ誰も帰ってきていない。<br>
+    だから我らは、隣を「向こう岸」と呼ぶ。
+    <span class="src">― 穂群の野の言い伝え</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <caption>環海の八岸（各文明の本国）</caption>
+      <thead>
+        <tr><th>方位</th><th>土地の名</th><th>文明</th><th>風土</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>東</th><td>穂群の野<span class="ruby">（ほむらのの）</span></td><td>ヤマト</td><td>川が幾筋も走る沖積平野。水が豊かで、米がよく実る。</td></tr>
+        <tr><th>南東</th><td>水閘<span class="ruby">（すいこう）</span></td><td>唐</td><td>運河で結ばれた城壁都市の群れ。人口が多く、職人が多い。</td></tr>
+        <tr><th>南</th><td>白石海岸<span class="ruby">（しろいしかいがん）</span></td><td>ローマ</td><td>石灰岩の半島と天然の良港。畑は貧しく、海と石で食う。</td></tr>
+        <tr><th>南西</th><td>塩街道<span class="ruby">（しおかいどう）</span></td><td>マリ</td><td>疎林のサバンナ。岩塩と砂金の産地で、隊商が絶えない。</td></tr>
+        <tr><th>西</th><td>翠壁<span class="ruby">（すいへき）</span></td><td>アステカ</td><td>湿った密林の台地。石材と労働力は潤沢、鉄が出ない。</td></tr>
+        <tr><th>北西</th><td>泉都<span class="ruby">（せんと）</span></td><td>ペルシア</td><td>砂漠に点在するオアシス。地下水路で水を引き、庭を作る。</td></tr>
+        <tr><th>北</th><td>北崖<span class="ruby">（きたがけ）</span></td><td>ヴァイキング</td><td>切り立ったフィヨルドと針葉樹林。耕地が絶望的に狭い。</td></tr>
+        <tr><th>北東</th><td>風原<span class="ruby">（かざはら）</span></td><td>モンゴル</td><td>果てのない草原。城を持たず、群れとともに動く。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================= 碑 ================= -->
+<section>
+  <h2>海の中心にあるもの ― 碑<span class="en">THE MONOLITH</span></h2>
+  <div class="split">
+    <figure>
+      <img src="assets/img/monolith.png"
+           alt="夜明けの内海に立つ巨大な石柱。表面に渦巻き文が刻まれ、根元には折れた石柱の輪と階段があり、小舟が近づいている">
+      <figcaption>▲ 碑<span class="ruby">（いしぶみ）</span>。誰が、いつ、何のために立てたのか、八国のどの記録にもありません。</figcaption>
+    </figure>
+    <div>
+      <p>
+        環海のちょうど中央に小さな島があり、そこに高さ数十丈の石柱が一本だけ立っています。
+        八国はこれを <strong>碑</strong><span class="ruby">（いしぶみ）</span> と呼びます。
+      </p>
+      <p>
+        表面はびっしりと渦巻きと溝で埋まっています。文字のようで、しかしどの国の文字でもない。
+        ただ、<strong>何百年もかけて少しずつ「読める」ようになってきた</strong>という点だけは、八国すべてが認めています。
+      </p>
+      <p>
+        碑の下段からは暦が読めました。中段からは重さと長さの規則、そして鉱石から金属を取り出す手順が読めました。
+        上段はまだ半分も読めていません。
+      </p>
+      <h3>この設定が担っていること</h3>
+      <p class="note">
+        「技術がなぜ進歩するのか」をゲーム内の出来事として説明するための装置です。
+        本作の <strong>時代進化＝碑の解読が一段進んだこと</strong> と定義しています。
+        八国が同じ時代に同じ水準の技術を持っている理由にもなり、勝敗と関係なく世界が前に進む理由にもなります。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 四つの世 ================= -->
+<section>
+  <h2>四つの世 ― 環海の年代記<span class="en">THE FOUR AGES</span></h2>
+  <p>
+    碑がどこまで読めているかで、世は四つに分けられます。ゲーム中の 1 試合は、この四つを 30 分で駆け抜ける縮図です。
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>世</th><th>碑から読めたもの</th><th>八国の暮らし</th><th>戦のかたち</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th>黎明の世</th>
+          <td>何も読めない。渦は模様だと思われている。</td>
+          <td>八国は互いの存在を知らない。海は「渡れないもの」。</td>
+          <td>獣と、隣の谷の一族との小競り合いだけ。</td>
+        </tr>
+        <tr>
+          <th>青銅の世</th>
+          <td>暦。星と季節の巡り。</td>
+          <td>種を撒く日が決まり、余剰が出る。船が海に出て、八国が初めて出会う。</td>
+          <td>交易の権利をめぐる衝突。戦線はまだ一つ。</td>
+        </tr>
+        <tr>
+          <th>鉄器の世</th>
+          <td>度量衡と、鉱石から鉄を取る手順。</td>
+          <td>領地が測られ、諸侯に分けられる。分権的な軍制が固まる。</td>
+          <td><strong>戦線が複数に割れはじめる。</strong>ここから「令」が要る。</td>
+        </tr>
+        <tr>
+          <th>帝国の世</th>
+          <td>上段の「火の条」。硝石と火薬。</td>
+          <td>城が石から星形の要塞へ。八国すべてが碑の島に艦を並べる。</td>
+          <td>総力戦。決着は攻城戦でつく。</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="quote">
+    青銅の世に、我らは隣人を得た。<br>
+    鉄器の世に、我らは境界を得た。<br>
+    そして帝国の世に、我らは境界の引き直し方を得た。
+    <span class="src">― 水閘の年代記</span>
+  </div>
+</section>
+
+<!-- ================= 八国 ================= -->
+<section>
+  <h2>八国 ― 風土と気質<span class="en">EIGHT PEOPLES</span></h2>
+  <p>
+    八国の性格は、思想からではなく <strong>土地から</strong> 決めています。
+    水が余る土地は人を増やし、耕地がない土地は船を出し、鉄が出ない土地は石と人数で戦う。
+    ゲーム上の固有ボーナスは、すべてこの理屈の帰結です。
+  </p>
+
+  <figure>
+    <img src="assets/img/homelands-a.png"
+         alt="4分割の風景画。左から、鳥居と塔のある稲田の平野、列柱の建物と石畳の港、瓦屋根と石橋の運河都市、フィヨルドの崖に建つ芝屋根の家と長船">
+    <figcaption>▲ 東の四国。左から 穂群の野（ヤマト）／白石海岸（ローマ）／水閘（唐）／北崖（ヴァイキング）。</figcaption>
+  </figure>
+
+  <figure style="margin-top:24px">
+    <img src="assets/img/homelands-b.png"
+         alt="4分割の風景画。左から、日干し煉瓦の塔と隊商のサバンナ都市、密林の階段ピラミッド、青いドームと水路の砂漠のオアシス都市、天幕と馬の群れの草原">
+    <figcaption>▲ 西の四国。左から 塩街道（マリ）／翠壁（アステカ）／泉都（ペルシア）／風原（モンゴル）。</figcaption>
+  </figure>
+
+  <div class="table-wrap">
+    <table>
+      <caption>土地が決めた気質と、それがゲームでどう出るか</caption>
+      <thead>
+        <tr><th>文明</th><th>土地の事情</th><th>そこから出た気質</th><th>ゲーム上の現れ</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th>ヤマト</th>
+          <td>水が豊富で米が余る。ただし平野が狭く、逃げ場がない。</td>
+          <td>土地を捨てられないので、守り抜く作法が発達した。</td>
+          <td>農地の食料収集が速い／固有令「陣立て」</td>
+        </tr>
+        <tr>
+          <th>ローマ</th>
+          <td>畑が貧しく、石と港だけがある。</td>
+          <td>他所から運んでくる技術＝道と船と規格を極めた。</td>
+          <td>街道の建設コスト半減／固有令「方陣」</td>
+        </tr>
+        <tr>
+          <th>唐</th>
+          <td>人口が多く、職人が多い。土地は肥えている。</td>
+          <td>人を数えて割り振る官僚制。記録を残すことに執着する。</td>
+          <td>技術研究が安い／固有令「火計」</td>
+        </tr>
+        <tr>
+          <th>ヴァイキング</th>
+          <td>耕地がほぼない。冬が長い。木材は無限にある。</td>
+          <td>足りないものは海の向こうから取ってくる、と割り切った。</td>
+          <td>船と伐採が強化／固有令「上陸」</td>
+        </tr>
+        <tr>
+          <th>マリ</th>
+          <td>岩塩と砂金が採れるが、水が遠い。</td>
+          <td>戦うより買う。金で人を動かすことを覚えた。</td>
+          <td>金の採掘量が多い／固有令「交易」</td>
+        </tr>
+        <tr>
+          <th>アステカ</th>
+          <td>石材と人手は潤沢。鉄がまったく出ない。</td>
+          <td>刃を石で作り、数と勇気で埋める戦い方になった。</td>
+          <td>村人の建設が速い／固有令「奉納」</td>
+        </tr>
+        <tr>
+          <th>ペルシア</th>
+          <td>水は地下にしかない。掘り当てた者が富む。</td>
+          <td>大きな投資で大きく返す。初手から重く出る。</td>
+          <td>開始資源が多い／固有令「圧壊」</td>
+        </tr>
+        <tr>
+          <th>モンゴル</th>
+          <td>草はどこにでもあり、城を建てる石がない。</td>
+          <td>守るべき場所を持たない。留まらないことが強さになった。</td>
+          <td>騎兵の生産が速い／固有令「遊撃」</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================= 軍制と令 ================= -->
+<section>
+  <h2>軍制と「令」 ― なぜ戦線が同時に走るのか<span class="en">THE ART OF ORDERS</span></h2>
+  <p class="lead">
+    本作の中核システム「戦域指令」は、遊びやすさのための仕掛けである以前に、
+    <strong>この世界の軍隊がそういう作りになっているから</strong> そうなっています。
+  </p>
+
+  <div class="split">
+    <figure>
+      <img src="assets/img/command-hill.png"
+           alt="丘の上の本陣。赤い天幕の下に総大将が立ち、軍旗と大太鼓、手旗を上げる伝令役、三方向へ駆け去る三騎の伝令。眼下の谷では三つの戦闘が同時に起きている">
+      <figcaption>▲ 本陣。総大将に見えているのは、煙と旗と、駆け戻ってくる伝令だけです。</figcaption>
+    </figure>
+    <div>
+      <h3>八国はどこも、単一の常備軍を持たない</h3>
+      <p>
+        鉄器の世に領地が測られて以来、土地は諸侯 ―― 氏族、都市、部族 ―― に分けられました。
+        兵はそれぞれの旗のもとに集まり、それぞれの判断で動きます。総大将が持っているのは指揮権ではなく、
+        <strong>方針を配る権利</strong> だけです。
+      </p>
+      <h3>命令は、旗鼓と伝令で届く</h3>
+      <p>
+        本陣は丘の上から動きません。命令は <strong>旗鼓</strong><span class="ruby">（きこ）</span> ――
+        色旗と大太鼓の組み合わせ ―― で近くの戦線に、遠い戦線には騎馬の伝令で届きます。
+        届くまでに時間がかかり、細部は必ず伝わりません。
+      </p>
+      <h3>だから渡せるのは「令」ひとつ</h3>
+      <p>
+        戦線ごとに渡せるのは、短くて誤解のない方針が一つだけ。押せ、守れ、囲め、奪え、築け、退け。
+        これが <strong>令</strong><span class="ruby">（れい／Taktika）</span> です。
+        ゲーム中の作戦カードは、この令をそのまま置き換えたものです。
+      </p>
+      <p class="note">
+        つまりプレイヤーが「全部の部隊を直接操作できない」のは制限ではなく、
+        この世界の総大将が置かれている状況そのものです。
+        タイトルの Multi-Taktika は「複数の令を同時に運用すること」を指します。
+      </p>
+    </div>
+  </div>
+
+  <div class="quote">
+    良い将は、兵の一人一人がどこにいるかを知らぬ。<br>
+    どの旗に何を渡したかだけを覚えている。
+    <span class="src">― 白石海岸の兵書</span>
+  </div>
+</section>
+
+<!-- ================= 戦の作法 ================= -->
+<section>
+  <h2>戦の作法 ― 破ってはならない五つ<span class="en">THE FIVE OBSERVANCES</span></h2>
+  <p>
+    八国は互いを敵とみなしていますが、いくつかの掟だけは共有しています。
+    誰かが定めたのではなく、破った国が例外なく次の代で滅びかけたという経験の集積です。
+  </p>
+  <div class="grid">
+    <div class="card">
+      <p class="num">一</p>
+      <h3>碑の島では戦わない</h3>
+      <p>八国の艦が同じ島に並んでも、そこでは刃を抜かない。読み進められなくなれば、全員が損をするからです。</p>
+    </div>
+    <div class="card">
+      <p class="num">二</p>
+      <h3>井戸を埋めない</h3>
+      <p>水を殺せばその土地は数十年使えません。奪った土地を使えなくする戦い方は、愚か者の戦い方とされます。</p>
+    </div>
+    <div class="card">
+      <p class="num">三</p>
+      <h3>種籾を焼かない</h3>
+      <p>収穫は焼いてよい。しかし翌年の種は残す。次の年を殺すと、飢えるのは結局こちらでもあるからです。</p>
+    </div>
+    <div class="card">
+      <p class="num">四</p>
+      <h3>休戦の季を守る</h3>
+      <p>収穫期の四十日は兵を出しません。この間に使節が行き交い、多くの戦がここで終わります。</p>
+    </div>
+    <div class="card">
+      <p class="num">五</p>
+      <h3>降った城の民は通す</h3>
+      <p>旗を巻いた城の非戦闘員には道を空けます。抵抗を無意味にするための実利的な取り決めです。</p>
+    </div>
+    <div class="card" style="border-top-color:#c0562f">
+      <p class="num">破ったとき</p>
+      <h3>令が効かなくなる</h3>
+      <p>
+        掟破りは神罰ではなく、諸侯の離反として返ってきます。
+        <strong>渡した令に従わない旗が出てくる</strong> ―― この世界で最も恐ろしい罰です。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 戦のあと ================= -->
+<section>
+  <h2>戦のあと ― この世界に「滅亡」はない<span class="en">AFTER THE WAR</span></h2>
+  <div class="split">
+    <figure>
+      <img src="assets/img/rebuilding.png"
+           alt="夕暮れの村の再建。焼け跡の基礎の上に新しい木組みが立ち上がり、牛車が材木を運び、井戸に人が集まる。広場には赤と青の旗が並んで立てられ、石碑が新しく据えられている">
+      <figcaption>▲ 服属の翌年。広場に立つ二本の旗と、新しく据えられた石は「この土地は誰の令で動くか」の記録です。</figcaption>
+    </figure>
+    <div>
+      <p class="lead">負けた国は、消えません。<strong>旗を巻いて、勝者に令を差し出します。</strong></p>
+      <p>
+        これを <strong>服属</strong><span class="ruby">（ふくぞく）</span> といいます。
+        土地も民も王家もそのまま残り、ただ戦のときに誰の令で動くかだけが変わる。
+        八国の数が数百年ずっと八つのままなのは、この作法があるからです。
+      </p>
+      <p>
+        そして服属は永久ではありません。次の代、次の世で、旗を戻した国はいくつもあります。
+        <strong>だからこの世界の物語は、負けたところで終わりません。</strong>
+      </p>
+      <p class="note">
+        ゲーム側との対応：キャンペーンでミッションに失敗してもゲームオーバーにはならず、
+        服属した状態から始まる「立場の悪いルート」へ分岐します。そこで勝てば旗を戻して本線に復帰できます。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 用語 ================= -->
+<section>
+  <h2>用語<span class="en">GLOSSARY</span></h2>
+  <div class="table-wrap">
+    <table>
+      <tbody>
+        <tr><th>環海<span class="ruby">（かんかい）</span></th><td>大陸中央の巨大な内海。八国はすべてこの海に面する。外洋とはつながっていない。</td></tr>
+        <tr><th>碑<span class="ruby">（いしぶみ）</span></th><td>環海中央の島に立つ石柱。解読が進むごとに世が改まる。作者不明。</td></tr>
+        <tr><th>八国<span class="ruby">（はっこく）</span></th><td>環海を囲む八つの文明の総称。数は数百年変わっていない。</td></tr>
+        <tr><th>令<span class="ruby">（れい）</span></th><td>総大将が一つの戦線に渡す方針。短く、誤解のない一語で表される。ゲーム上の作戦カード。</td></tr>
+        <tr><th>旗鼓<span class="ruby">（きこ）</span></th><td>色旗と大太鼓による命令伝達。届く範囲が限られるため、遠方には伝令を出す。</td></tr>
+        <tr><th>戦域<span class="ruby">（せんいき）</span></th><td>一つの令で動く戦場の単位。同時に最大六つまで立つ。</td></tr>
+        <tr><th>休戦の季<span class="ruby">（きゅうせんのき）</span></th><td>収穫期の四十日。兵を出さない。多くの和議がこの間に成立する。</td></tr>
+        <tr><th>服属<span class="ruby">（ふくぞく）</span></th><td>敗者が旗を巻き、勝者の令に従うこと。滅亡ではなく、解除もありうる。</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="dim" style="margin-top:14px">
+    ※ 掲載している画像はすべて世界観を伝えるためのイメージで、実装中の画面ではありません。
+  </p>
+</section>
+
+<footer>
+  Multi-Taktika ― 世界観設定資料。<a href="01_ゲーム宣伝.html">ゲーム紹介資料</a>もあわせてご覧ください。
+</footer>
+
+</body>
+</html>

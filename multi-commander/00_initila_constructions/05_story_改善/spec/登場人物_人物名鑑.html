@@ -146,7 +146,7 @@
         <div class="eyebrow">Multi Commander / Narrative Bible / Character Dossier</div>
         <h1>THE <span>CREW &amp; RIVALS</span></h1>
         <p class="lead">ヴェガ宙域で生きる五勢力の人物名鑑。名前だけのNPCではなく、戦い方・実績・政治的な立場を一つのカードにまとめ、出撃前に「誰と飛び、誰を撃つのか」が分かる状態を作る。</p>
-        <div class="notice"><strong>仕様範囲</strong><p>人類40人＋非人類4勢力各10人、計80人。主人公は固定キャラクターにせず、人類から選択する。各人類系統は20代男女・50〜60代男性・30〜40代女性を各1名ずつ配置し、非人類勢力は最高権力者を左上に配置する。</p></div>
+        <div class="notice"><strong>仕様範囲</strong><p>人類36人＋非人類4勢力各10人、計76人。主人公は固定キャラクターにせず、人類から選択する。各人類系統は20代男女・50〜60代男性・30〜40代女性を各1名ずつ配置し、非人類勢力は最高権力者を左上に配置する。</p></div>
       </header>
 
       <nav aria-label="勢力一覧">
@@ -154,9 +154,9 @@
       </nav>
 
       <section class="summary" aria-label="人物名鑑の集計">
-        <div class="metric"><strong>80</strong><span>総登場人物</span></div>
-        <div class="metric"><strong>40 + 4 × 10</strong><span>人類＋非人類4勢力</span></div>
-        <div class="metric"><strong>40</strong><span>主人公候補（人類から選択）</span></div>
+        <div class="metric"><strong>76</strong><span>総登場人物</span></div>
+        <div class="metric"><strong>36 + 4 × 10</strong><span>人類＋非人類4勢力</span></div>
+        <div class="metric"><strong>36</strong><span>主人公候補（人類から選択）</span></div>
         <div class="metric"><strong>1〜10</strong><span>戦闘レベルの共通尺度</span></div>
       </section>
 
@@ -327,6 +327,9 @@
           ]
         },
       ];
+
+      // 既存の日本人4名を除外し、今回追加した20名を人類名鑑の先頭へ配置する。
+      factions[0].people = [...factions[0].people.slice(20), ...factions[0].people.slice(4, 20)];
 
       const factionLabels = { confed: '人類', kilrashi: 'キルラシー（獣人）', serecion: 'セレシオン（エネルギー、不定体系）', ordo: 'オルド（宇宙人）', neurowm: 'ニューロウム（アンドロイド、ロボット系）' };
       const humanEthnicities = ['日本人', '白人', '黒人', 'アラブ人', 'タイ人', 'インドネシア人', '中国人', '韓国人'];
@@ -509,7 +512,10 @@
       function identityFor(meta, faction, index) {
         const ageMatch = meta.match(/(\d+)歳/);
         const gender = faction.id === 'confed' ? meta.split('/')[0].trim() : meta.includes('女性') || meta.includes('雌') ? '女性型' : meta.includes('男性') || meta.includes('雄') ? '男性型' : '性別を持たない個体表現';
-        const ethnicity = faction.id === 'confed' ? index >= 20 ? '日本人' : index < 16 ? humanEthnicities[Math.floor(index / 4)] : humanEthnicities[index - 12] : null;
+        const ethnicity = faction.id === 'confed' ? index < 20 ? '日本人' : (() => {
+          const originalIndex = index - 16;
+          return originalIndex < 16 ? humanEthnicities[Math.floor(originalIndex / 4)] : humanEthnicities[originalIndex - 12];
+        })() : null;
         return { gender, age: ageMatch ? `${ageMatch[1]}歳` : meta.split('/').slice(1).join('/').trim(), ethnicity, category: speciesCategories[faction.id] };
       }
 
