@@ -17,12 +17,18 @@ import { CHAR_PX, TILE_PX } from '@ai-pet/shared';
 import type { Layers } from './stage.ts';
 import type { Camera } from './camera.ts';
 import { interpolatedPos, type WorldState } from '../state/world.ts';
-import { ANCHOR_Y, SPECIES_SCALE } from './sprites.ts';
+import { SPECIES_SCALE, crowdOffset } from './sprites.ts';
 import { OBJECT_SCALE } from './objects.ts';
 
-/** 影の色（`--ink` #4a3b2a）と濃さ。スタイルガイド §5 の値 */
+/**
+ * 影の色（`--ink` #4a3b2a）と濃さ。
+ *
+ * スタイルガイドの初期値は 0.18 だったが、**実機ではほぼ見えなかった**
+ * （明るい草地の上で14px程度の楕円だと輝度差が1割ほどしか出ない）。
+ * 赤で描いて位置が正しいことを確認したうえで 0.26 まで上げている。
+ */
 export const SHADOW_COLOR = 0x4a3b2a;
-export const SHADOW_ALPHA = 0.18;
+export const SHADOW_ALPHA = 0.26;
 /** 影の幅 = 対象の幅 × これ */
 export const SHADOW_WIDTH_RATIO = 0.6;
 /** 影の高さ = 影の幅 × これ */
@@ -31,6 +37,17 @@ export const SHADOW_ASPECT = 0.38;
 export const SHADOW_SLEEP_FLATTEN = 0.6;
 /** 画面外判定のマージン（タイル） */
 const CULL_MARGIN = 2;
+
+/**
+ * 建物の影を細める係数。
+ *
+ * 影の幅は既定で「対象の表示幅 × 0.6」だが、家や風車は表示幅が 2.2〜2.8タイルあるので
+ * そのまま掛けると**建物の下に巨大な楕円が広がって沼のように見える**。
+ * 建物は壁が地面に接しているので、キャラのように「丸い胴体の下の影」ではなく
+ * 足元をわずかに締める程度でよい。
+ */
+const BUILDING_SHADOW_SHRINK = 0.55;
+const BUILDING_TYPES = new Set(['house_a', 'house_b', 'house_c', 'windmill', 'observatory', 'scaffold']);
 
 /** 1つぶんの影。テストしやすいように描画と分けている */
 export interface ShadowEllipse {
@@ -82,17 +99,30 @@ export class ShadowLayer {
       this.add(r.x, r.y + 0.5, TILE_PX * (OBJECT_SCALE[r.type] ?? 1), 1, rect);
     }
     for (const p of world.placeables.values()) {
-      this.add(p.x, p.y + 0.5, TILE_PX * (OBJECT_SCALE[p.type] ?? 1), 1, rect);
+      const shrink = BUILDING_TYPES.has(p.type) ? BUILDING_SHADOW_SHRINK : 1;
+      this.add(p.x, p.y + 0.5, TILE_PX * (OBJECT_SCALE[p.type] ?? 1) * shrink, 1, rect);
     }
 
     // アクター（プレイヤー・ペット・動物）
+    // ⚠️ `sprites.ts` が団子をほぐすために描画位置をずらす（D-7）ので、
+    // **同じずらしを影にも掛けないと足元から影が外れる**。数え方も同じにする
+    const crowd = new Map<number, number>();
+    const crowdIndex = new Map<number, number>();
+    for (const view of world.actors.values()) {
+      const key = (Math.round(view.y) << 8) | (Math.round(view.x) & 0xff);
+      const n = crowd.get(key) ?? 0;
+      crowdIndex.set(view.id, n);
+      crowd.set(key, n + 1);
+    }
     for (const view of world.actors.values()) {
       const isSelf = world.selfId !== null && view.id === world.selfId;
       const pos = isSelf && selfPos ? selfPos : interpolatedPos(view, nowMs);
       const scale = SPECIES_SCALE[view.species ?? ''] ?? 1;
       const flatten = view.anim === 'sleep' ? SHADOW_SLEEP_FLATTEN : 1;
+      const key = (Math.round(view.y) << 8) | (Math.round(view.x) & 0xff);
+      const off = isSelf ? { dx: 0, dy: 0 } : crowdOffset(crowdIndex.get(view.id) ?? 0, crowd.get(key) ?? 1);
       // アンカーが足元（ANCHOR_Y）なので、影の中心はアクターの座標そのもの
-      this.add(pos.x, pos.y, CHAR_PX * scale, flatten, rect);
+      this.add(pos.x + off.dx, pos.y + off.dy, CHAR_PX * scale, flatten, rect);
     }
 
     if (this.drawnCount > 0) {

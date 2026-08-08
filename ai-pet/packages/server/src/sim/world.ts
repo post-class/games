@@ -70,6 +70,15 @@ export class IslandWorld {
   readonly decay: Uint8Array;
   /** タイルに紐づく資源ID（0 = なし） */
   readonly resourceAt: Int32Array;
+  /**
+   * 建物などで塞がれたタイル（1 = 歩行不可）。地形とは独立に持つ（C-1）。
+   *
+   * 家・風車・柵・噴水を「歩行不可の設置物」にするために足した。
+   * 地形（`water`）で塞ぐと海として描かれてしまい、
+   * 新しい地形を足すと遷移タイルが16枚必要になるので、地形の外側にビットで持つ。
+   * seed から毎回作り直せるので**スナップショットには保存しない**（地形と同じ扱い）。
+   */
+  readonly solid: Uint8Array;
 
   readonly actors = new Map<EntityId, Actor>();
   readonly resources = new Map<EntityId, ResourceNode>();
@@ -85,6 +94,7 @@ export class IslandWorld {
     this.terrain = new Uint8Array(MAP_W * MAP_H);
     this.decay = new Uint8Array(MAP_W * MAP_H);
     this.resourceAt = new Int32Array(MAP_W * MAP_H);
+    this.solid = new Uint8Array(MAP_W * MAP_H);
   }
 
   // ---------- ID ----------
@@ -112,9 +122,21 @@ export class IslandWorld {
     this.terrain[tileIndex(x, y)] = terrainIndex(t);
   }
 
+  /** 建物で塞がれているか（C-1。家・風車・柵・噴水の footprint） */
+  isSolid(x: number, y: number): boolean {
+    if (!inBounds(x, y)) return false;
+    return (this.solid[tileIndex(x, y)] as number) !== 0;
+  }
+
+  setSolid(x: number, y: number, blocked: boolean): void {
+    if (!inBounds(x, y)) return;
+    this.solid[tileIndex(x, y)] = blocked ? 1 : 0;
+  }
+
   /** タイル座標（整数）が歩けるか */
   isWalkableTile(x: number, y: number): boolean {
     if (!inBounds(x, y)) return false;
+    if ((this.solid[tileIndex(x, y)] as number) !== 0) return false;
     return !BLOCKED.has(this.terrainAt(x, y));
   }
 

@@ -5,7 +5,7 @@ import { bus } from '../core/events';
 import { clamp01, forwardOf, leadPoint, LOCAL_FORWARD, LOCAL_RIGHT } from '../core/math';
 import { isHostile } from '../content/factions';
 import { rng } from '../core/rng';
-import { gunDef, missileDef, missilePresentation } from '../content/weapons';
+import { gunDef, gunPresentation, missileDef, missilePresentation } from '../content/weapons';
 import type { Entity } from '../world/entity';
 import { spawnFlare, spawnMissile, spawnProjectile, type World } from '../world/world';
 import { gunOperational } from './subsystems';
@@ -13,7 +13,10 @@ import { gunOperational } from './subsystems';
 const _muzzle = new Vector3();
 const _dir = new Vector3();
 const _fwd = new Vector3();
+const _shotDir = new Vector3();
+const _spreadAxis = new Vector3();
 const _reticleQ = new Quaternion();
+const _shotQ = new Quaternion();
 
 /** ミサイルロックに必要な最大角度 (機首から) */
 const LOCK_CONE = Math.cos(0.35);
@@ -112,18 +115,30 @@ export function fireGuns(
       applyAimAssist(_muzzle, _dir, assistTarget, gun.speed * gunSpeedScale, assist!.strength);
     }
 
-    spawnProjectile(world, {
-      gunId: hp.gunId,
-      pos: _muzzle,
-      dir: _dir,
-      inheritVel: e.vel,
-      ownerId: e.id,
-      ownerFaction: e.faction,
-      fromPlayer: e.id === world.playerId,
-      damageScale,
-      speedScale: gunSpeedScale,
-      hitRadiusScale: gunHitRadiusScale,
-    });
+    const presentation = gunPresentation(gun);
+    const shotCount = Math.max(1, Math.floor(presentation.projectileCount ?? 1));
+    const spreadRad = Math.max(0, presentation.spreadRad ?? 0);
+    _spreadAxis.copy(LOCAL_RIGHT).applyQuaternion(e.quat).normalize();
+    for (let shot = 0; shot < shotCount; shot++) {
+      const offset = shotCount <= 1 ? 0 : (shot / (shotCount - 1) - 0.5) * 2;
+      _shotDir.copy(_dir);
+      if (spreadRad > 0 && offset !== 0) {
+        _shotQ.setFromAxisAngle(_spreadAxis, offset * spreadRad);
+        _shotDir.applyQuaternion(_shotQ).normalize();
+      }
+      spawnProjectile(world, {
+        gunId: hp.gunId,
+        pos: _muzzle,
+        dir: _shotDir,
+        inheritVel: e.vel,
+        ownerId: e.id,
+        ownerFaction: e.faction,
+        fromPlayer: e.id === world.playerId,
+        damageScale,
+        speedScale: gunSpeedScale,
+        hitRadiusScale: gunHitRadiusScale,
+      });
+    }
 
     bus.emit('weaponFired', {
       shooter: e,
@@ -134,6 +149,7 @@ export function fireGuns(
       isPlayer: e.id === world.playerId,
       profile: gun.presentation?.audioProfile,
       recoil: gun.presentation?.recoil,
+      shotCount,
     });
   }
   if (fired === 0 && denied && e.id === world.playerId && ship.weaponDeniedCooldown <= 0) {

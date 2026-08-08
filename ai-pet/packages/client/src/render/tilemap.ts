@@ -69,6 +69,72 @@ export interface TerrainTextures {
   variants: Record<Terrain, readonly Texture[]>;
   /** `edge_<from>_<to>_<mask>.png`。キーは edgeKey()。無ければ遷移を描かない */
   edges: ReadonlyMap<string, Texture>;
+  /** `decal_<name>.png`。キーは装飾名。無ければ装飾を描かない（B-3） */
+  decals: ReadonlyMap<string, Texture>;
+}
+
+// ==================== 装飾デカール（B-3） ====================
+
+/**
+ * 地面の装飾。
+ *
+ * 調査で一番効いていた乖離が「**画面の大半が無地の緑**」だった
+ * （`docs/03_宣伝用との乖離是正プラン/images/08_無地の平原.png`）。
+ * 宣伝資料は同じ面積に草の房・小花・小石が詰まっている。
+ *
+ * 実装方針:
+ * - **チャンクの焼成に1パス足すだけ**にする。専用レイヤにスプライトを並べると
+ *   128×128タイルぶんの装飾で数千スプライトになり、毎フレームのコストになる。
+ *   焼き込めば受信時の1回で済み、`ground` に入るので接地影より下に来る（順序も正しい）
+ * - 置くかどうか・どれを置くか・どこに寄せるかは**すべて座標のハッシュ**で決める（決定論）
+ * - 歩行判定には影響させない（見た目だけ。サーバは何も知らない）
+ */
+export interface DecalSet {
+  /** この地形に置く装飾の名前（`decal_<name>.png`） */
+  names: readonly string[];
+  /** 1タイルに装飾が乗る確率 0..1 */
+  density: number;
+}
+
+export const DECAL_SETS: Partial<Record<Terrain, DecalSet>> = {
+  // 草地はいちばん面積が広いので密に置く
+  grass: { names: ['grass_tuft', 'flower_white', 'flower_yellow', 'flower_pink', 'pebble'], density: 0.34 },
+  // 森は木の下なので落ち葉ときのこ
+  forest: { names: ['leaf', 'mushroom', 'grass_tuft'], density: 0.3 },
+  // 土は踏み固められた場所。小石だけ疎に
+  dirt: { names: ['pebble'], density: 0.1 },
+  // 砂浜は貝と小石を疎に
+  sand: { names: ['pebble', 'shell'], density: 0.12 },
+  // 広場は掃除されている場所なので置かない（水面も置かない）
+};
+
+/** 装飾の描画サイズ（タイルに対する割合）。1タイルに収まる大きさにする */
+const DECAL_PX = Math.round(TILE_PX * 0.5);
+
+/**
+ * このタイルに置く装飾を決める。置かないなら null。
+ *
+ * `offX/offY` はタイル内の寄せ（0..1）。中央に固定すると格子状に見えるのでずらす。
+ */
+export function decalAt(
+  terrain: Terrain,
+  tx: number,
+  ty: number,
+  sets: Partial<Record<Terrain, DecalSet>> = DECAL_SETS,
+): { name: string; offX: number; offY: number } | null {
+  const set = sets[terrain];
+  if (!set || set.names.length === 0 || set.density <= 0) return null;
+  const h = hash2(tx, ty, 0x9e3);
+  // 下位16bitで「置くか」、上位で「どれを・どこに」を決める（同じハッシュを使い回す）
+  if ((h & 0xffff) / 0x10000 >= set.density) return null;
+  const name = set.names[(h >>> 16) % set.names.length] as string;
+  const h2 = hash2(tx, ty, 0x1f7);
+  return {
+    name,
+    // 端に寄りすぎると隣のタイルと重なって見えるので 0.2〜0.8 に収める
+    offX: 0.2 + ((h2 & 0xff) / 0xff) * 0.6,
+    offY: 0.2 + (((h2 >>> 8) & 0xff) / 0xff) * 0.6,
+  };
 }
 
 /**
@@ -146,6 +212,13 @@ export class TileMap {
   /** 焼成用の使い回しコンテナ（毎回作るとGCが増える） */
   private readonly bakeRoot = new Container();
   private readonly bakeSprites: Sprite[] = [];
+  /**
+   * 装飾デカール用の焼成コンテナ（B-3）。
+   * タイルと違って大きさもタイル内の位置も1枚ごとに変わるので、
+   * `bakeSprites` を流用せず別に持つ（流用すると毎回 x/y/width を戻す必要がある）。
+   */
+  private readonly decalRoot = new Container();
+  private readonly decalSprites: Sprite[] = [];
   private readonly chunksX: number;
 
   constructor(renderer: Renderer, layers: Pick<Layers, 'ground'>, textures: TerrainTextures, chunksX = 8) {
@@ -162,6 +235,13 @@ export class TileMap {
       s.y = Math.floor(i / CHUNK) * TILE_PX;
       this.bakeSprites.push(s);
       this.bakeRoot.addChild(s);
+
+      const d = new Sprite();
+      d.anchor.set(0.5);
+      d.width = DECAL_PX;
+      d.height = DECAL_PX;
+      this.decalSprites.push(d);
+      this.decalRoot.addChild(d);
     }
   }
 
@@ -284,6 +364,40 @@ export class TileMap {
     // 遷移タイルは境界ごとに1パス重ねる（clear:false）。
     // 1タイルが複数の境界に当たる（草が砂と森の両方に接する）ことがあるので分ける。
     for (const pair of EDGE_PAIRS) this.bakeEdgePass(entry, pair);
+    // 装飾は最後に1パス（遷移の上に乗せる。縁の草が生えているように見せたい）
+    this.bakeDecalPass(entry);
+  }
+
+  /**
+   * 装飾デカールを1パス重ねる（B-3）。該当が無ければ render を呼ばない。
+   *
+   * 荒廃度の tint は掛けない。荒れた土に花が咲いているのはおかしいが、
+   * **荒れたら装飾を消す**のは荒廃度が変わるたびに焼き直す必要があって高い。
+   * 荒廃タイルは全体の1%未満なので、いまは見逃す判断にしている。
+   */
+  private bakeDecalPass(entry: ChunkEntry): void {
+    if (this.textures.decals.size === 0) return;
+    let any = false;
+    for (let i = 0; i < this.decalSprites.length; i++) {
+      const s = this.decalSprites[i] as Sprite;
+      s.visible = false;
+      const terrain = TERRAINS[entry.tiles[i] as number];
+      if (terrain === undefined) continue;
+      const lx = i % CHUNK;
+      const ly = Math.floor(i / CHUNK);
+      const pick = decalAt(terrain, entry.cx * CHUNK + lx, entry.cy * CHUNK + ly);
+      if (!pick) continue;
+      const tex = this.textures.decals.get(pick.name);
+      if (!tex) continue;
+      s.visible = true;
+      s.texture = tex;
+      s.width = DECAL_PX;
+      s.height = DECAL_PX;
+      s.x = (lx + pick.offX) * TILE_PX;
+      s.y = (ly + pick.offY) * TILE_PX;
+      any = true;
+    }
+    if (any) this.renderer.render({ container: this.decalRoot, target: entry.rt, clear: false });
   }
 
   /** 1境界ぶんの遷移タイルを上書き描画する。該当が無ければ render を呼ばない */
@@ -323,5 +437,6 @@ export class TileMap {
     }
     this.chunks.clear();
     this.bakeRoot.destroy({ children: true });
+    this.decalRoot.destroy({ children: true });
   }
 }

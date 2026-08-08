@@ -12,18 +12,46 @@
 import { Container, Graphics } from 'pixi.js';
 import type { Layers } from './stage.ts';
 
-/** 雨粒の最大数（PC）。スマホは1/3 */
-const RAIN_DROPS = 260;
+/**
+ * 雨粒の最大数（PC）。スマホは1/3。
+ *
+ * F-3: 260本では実機で「うっすら斜線が降っている」だけで、
+ * 宣伝資料の「雨の日は木の下に集まり」という情感が出ていなかったので 420 に増やした。
+ * 1枚の Graphics にまとめているので、本数を増やしても描画コールは1回のまま。
+ */
+const RAIN_DROPS = 420;
 /** 雨粒の落下速度（px/秒） */
 const RAIN_SPEED = 900;
 /** 霧の帯の枚数 */
 const FOG_BANDS = 5;
+
+/**
+ * 雨で地面が濡れて暗くなる量（F-3）。
+ * 画面全体に薄い青灰色を被せる。`effects.ts` の時間帯tintとは別に足す
+ * （夜の雨は「暗い」と「濡れている」が重なる）。
+ */
+const WET_TINT = 0x4a5a6e;
+const WET_ALPHA = 0.14;
+
+/** 水たまりの波紋の数と1つの寿命（秒） */
+const RIPPLES = 22;
+const RIPPLE_LIFE = 1.1;
+/** 波紋の最大半径（px） */
+const RIPPLE_MAX_R = 13;
 
 interface Drop {
   x: number;
   y: number;
   len: number;
   speed: number;
+}
+
+/** 地面で跳ねた雨の波紋。位置は決定論的、時間だけ進む */
+interface Ripple {
+  x: number;
+  y: number;
+  /** 0..RIPPLE_LIFE を巡る */
+  age: number;
 }
 
 function prefersReducedMotion(): boolean {
@@ -38,7 +66,10 @@ export class WeatherLayer {
   private root: Container;
   private rain: Graphics;
   private fog: Graphics;
+  /** 濡れた地面（画面全体の被せ）と波紋。雨粒より下に描く（F-3） */
+  private wet: Graphics;
   private drops: Drop[] = [];
+  private ripples: Ripple[] = [];
   private weather = 'clear';
   /** 表示の強さ 0..1（天気が変わったときになめらかに切り替える） */
   private strength = 0;
@@ -55,7 +86,9 @@ export class WeatherLayer {
     this.root.eventMode = 'none';
     this.rain = new Graphics();
     this.fog = new Graphics();
-    this.root.addChild(this.fog, this.rain);
+    this.wet = new Graphics();
+    // 濡れ→霧→雨粒 の順（雨粒がいちばん手前）
+    this.root.addChild(this.wet, this.fog, this.rain);
     layers.overlayRoot.addChild(this.root);
   }
 
@@ -81,6 +114,18 @@ export class WeatherLayer {
         speed: RAIN_SPEED * (0.8 + ((b >> 5) % 40) / 100),
       });
     }
+    // 波紋も画面サイズに合わせて作り直す。位置は決定論的、初期の age をずらして重ならないようにする
+    this.ripples = [];
+    const n = isMobile() ? Math.round(RIPPLES / 3) : RIPPLES;
+    for (let i = 0; i < n; i++) {
+      const a = (i * 2246822519) % 100000;
+      const b = (i * 3266489917) % 100000;
+      this.ripples.push({
+        x: (a / 100000) * w,
+        y: (b / 100000) * h,
+        age: (i / n) * RIPPLE_LIFE,
+      });
+    }
   }
 
   update(w: number, h: number, dtSec: number): void {
@@ -95,15 +140,48 @@ export class WeatherLayer {
     }
     this.root.visible = true;
 
+    this.drawWet(w, h, dtSec);
     this.drawRain(dtSec);
     this.drawFog(w, h);
+  }
+
+  /**
+   * 濡れた地面と水たまりの波紋（F-3）。
+   *
+   * 波紋は「雨粒が落ちた場所」と厳密に一致させていない。
+   * 粒は画面座標で降っていて地面のどこに落ちたか分からないうえ、
+   * 一致させても見ている人には区別がつかないため、位置は決定論的に散らして時間だけ進める。
+   */
+  private drawWet(w: number, h: number, dtSec: number): void {
+    this.wet.clear();
+    if (this.weather !== 'rain' || this.strength <= 0.02) return;
+
+    // 地面が濡れて暗くなる
+    this.wet.rect(0, 0, w, h).fill({ color: WET_TINT, alpha: WET_ALPHA * this.strength });
+
+    // 波紋。動きを止める設定のときは広がらせない（薄い点だけ残す）
+    for (const r of this.ripples) {
+      if (!this.reduced) {
+        r.age += dtSec;
+        if (r.age > RIPPLE_LIFE) r.age -= RIPPLE_LIFE;
+      }
+      const t = r.age / RIPPLE_LIFE;
+      const radius = RIPPLE_MAX_R * t;
+      // 広がるほど薄くなる
+      const alpha = 0.3 * (1 - t) * this.strength;
+      if (alpha <= 0.01 || radius < 0.5) continue;
+      // 縦を潰して「地面に広がる輪」に見せる（真円だと空中の泡に見える）
+      this.wet.ellipse(r.x, r.y, radius, radius * 0.45);
+      this.wet.stroke({ width: 1.2, color: 0xe8f6ff, alpha });
+    }
   }
 
   private drawRain(dtSec: number): void {
     this.rain.clear();
     if (this.weather !== 'rain' || this.strength <= 0.02) return;
 
-    const alpha = 0.35 * this.strength;
+    // F-3: 0.35 では斜線がうっすら見えるだけだったので 0.5 に上げた
+    const alpha = 0.5 * this.strength;
     // 斜めに降らせる（風の表現）。動きを止める設定のときは位置を更新しない
     const dy = this.reduced ? 0 : dtSec;
     for (const d of this.drops) {
@@ -117,7 +195,7 @@ export class WeatherLayer {
       }
       this.rain.moveTo(d.x, d.y).lineTo(d.x - d.len * 0.25, d.y + d.len);
     }
-    this.rain.stroke({ width: 1.4, color: 0xdff3ff, alpha });
+    this.rain.stroke({ width: 1.6, color: 0xdff3ff, alpha });
   }
 
   private drawFog(w: number, h: number): void {

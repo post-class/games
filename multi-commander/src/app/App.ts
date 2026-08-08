@@ -16,7 +16,7 @@ import { dynamicMissionDef, chooseDynamicMission, applyFrontlineOutcome, type Dy
 import { PERSONALITIES, pilotDef } from '../content/pilots';
 import { mournLine } from '../content/pilotDialogue';
 import { PLAYABLE_SHIPS, shipDef } from '../content/ships';
-import { missileDef } from '../content/weapons';
+import { GUNS, MISSILES, missileDef } from '../content/weapons';
 import type { Loadout, MissionDef } from '../mission/types';
 import {
   barracksHtml,
@@ -731,6 +731,27 @@ export class App {
         },
       },
     ];
+    const gunIds = Object.keys(GUNS);
+    items.push({
+      label: `主砲を変える (${sel.gunId ? GUNS[sel.gunId]?.name ?? sel.gunId : '機体標準'})`,
+      onSelect: () => {
+        const current = sel.gunId ? gunIds.indexOf(sel.gunId) : -1;
+        sel.gunId = gunIds[(current + 1) % gunIds.length];
+        this.showHangar();
+      },
+    });
+    const missileIds = Object.keys(MISSILES).filter((id) => availableMissiles(this.save.supplies, id) > 0);
+    items.push({
+      label: `副兵装セットを変える (${sel.missiles?.[0] ? missileDef(sel.missiles[0].missileId).shortName : '機体標準'})`,
+      disabled: missileIds.length === 0,
+      onSelect: () => {
+        if (missileIds.length === 0) return;
+        const current = sel.missiles?.[0] ? missileIds.indexOf(sel.missiles[0].missileId) : -1;
+        const missileId = missileIds[(current + 1) % missileIds.length];
+        sel.missiles = [{ missileId, count: Math.min(4, availableMissiles(this.save.supplies, missileId)) }];
+        this.showHangar();
+      },
+    });
     if (avail.length > 0) {
       items.push({
         label: `僚機を変える (${sel.wingmanId ? escapeHtml(pilotDef(sel.wingmanId).callsign) : '単独'})`,

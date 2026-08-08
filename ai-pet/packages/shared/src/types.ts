@@ -163,8 +163,26 @@ export interface ResourceNode {
  * 前半4種はプレイヤーが置けるもの（`PlaceMsg` の z.enum と一致させる）。
  * `well` / `observatory` は**共同建設の完成物**なので、プレイヤーからは置けない
  * （`PlaceMsg` 側には足さないこと）。
+ *
+ * `house_a`〜`fence_v` は**島の生成時に worldgen が置く「暮らしの痕跡」**（C-1 / C-2）。
+ * これもプレイヤーは置けないので `PlaceMsg` 側には足さない。
+ * 柵は向きで絵が変わるため、1種別＋回転ではなく `fence_h` / `fence_v` の2種別にしている
+ * （`objects.ts` は `obj_<type>.png` をそのまま引くだけで回転を持たないため）。
  */
-export type PlaceableType = 'bench' | 'flowerbed' | 'lantern' | 'signboard' | 'well' | 'observatory';
+export type PlaceableType =
+  | 'bench'
+  | 'flowerbed'
+  | 'lantern'
+  | 'signboard'
+  | 'well'
+  | 'observatory'
+  | 'house_a'
+  | 'house_b'
+  | 'house_c'
+  | 'windmill'
+  | 'fountain'
+  | 'fence_h'
+  | 'fence_v';
 
 export interface Placeable {
   id: EntityId;

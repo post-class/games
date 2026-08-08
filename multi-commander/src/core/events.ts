@@ -15,6 +15,8 @@ export interface GameEvents {
     /** 同一 ID の描画・音声を選ぶための軽量な分類情報 */
     profile?: string;
     recoil?: number;
+    /** パルスキャノンなど、1回の発射で生成された弾数 */
+    shotCount?: number;
   };
   /** シールドで受け止めた */
   shieldHit: {

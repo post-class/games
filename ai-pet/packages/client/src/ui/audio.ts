@@ -63,6 +63,13 @@ export class GameAudio {
   private on: boolean;
   /** 夜は環境音を少し下げる */
   private nightly = 1;
+  /**
+   * 雨音（F-3）。**音源ファイルは持たない**（既定のOFFでも読み込みコストを増やしたくない）。
+   * ホワイトノイズをローパスに通すと雨に聞こえるので、それを合成している。
+   */
+  private rainNoise: AudioBufferSourceNode | null = null;
+  private rainGain: GainNode | null = null;
+  private raining = false;
 
   constructor() {
     this.on = localStorage.getItem(ON_KEY) === '1';
@@ -79,8 +86,10 @@ export class GameAudio {
     if (this.on) {
       this.ensureContext();
       this.startPad();
+      this.updateRain();
     } else {
       this.stopPad();
+      this.stopRain();
     }
     return this.on;
   }
@@ -118,6 +127,77 @@ export class GameAudio {
     if (this.padGain && this.ctx) {
       this.padGain.gain.setTargetAtTime(0.045 * this.nightly, this.ctx.currentTime, 1.5);
     }
+    this.raining = weather === 'rain';
+    this.updateRain();
+  }
+
+  /**
+   * 雨音の音量を天気に合わせる（F-3）。
+   * ノードは一度作ったら止めずに音量だけ動かす（作り直すと切り替えでプツッと鳴る）。
+   */
+  private updateRain(): void {
+    if (!this.on) {
+      if (this.rainGain && this.ctx) this.rainGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.3);
+      return;
+    }
+    if (this.raining) this.startRain();
+    if (this.rainGain && this.ctx) {
+      // 環境音のパッド（0.045）より控えめに。うるさいと5分いられない
+      const target = this.raining ? 0.03 : 0;
+      this.rainGain.gain.setTargetAtTime(target, this.ctx.currentTime, 1.2);
+    }
+  }
+
+  /** ホワイトノイズをローパスに通して雨音を作る。すでにあれば何もしない */
+  private startRain(): void {
+    const ctx = this.ensureContext();
+    if (!ctx || !this.master || this.rainNoise) return;
+
+    // 2秒ぶんのノイズをループさせる（毎フレーム生成すると重い）。
+    // 決定論は要らないが、Math.random を避ける方針に合わせて線形合同で作る
+    const len = Math.floor(ctx.sampleRate * 2);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    let seed = 0x9e3779b9;
+    for (let i = 0; i < len; i++) {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      data[i] = (seed / 0x100000000) * 2 - 1;
+    }
+
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+
+    // 高音を削って「シャー」を「サー」にする
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 1100;
+    // 低音のゴロゴロも削る
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 240;
+
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+
+    src.connect(hp).connect(lp).connect(gain).connect(this.master);
+    src.start();
+    this.rainNoise = src;
+    this.rainGain = gain;
+  }
+
+  private stopRain(): void {
+    const ctx = this.ctx;
+    if (this.rainGain && ctx) this.rainGain.gain.setTargetAtTime(0, ctx.currentTime, 0.3);
+    if (this.rainNoise && ctx) {
+      try {
+        this.rainNoise.stop(ctx.currentTime + 1);
+      } catch {
+        // すでに止まっている場合は無視
+      }
+    }
+    this.rainNoise = null;
+    this.rainGain = null;
   }
 
   private ensureContext(): AudioContext | null {

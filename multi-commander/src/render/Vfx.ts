@@ -186,15 +186,16 @@ export class VfxManager {
   muzzleFlash(
     pos: Vector3,
     color: number,
-    shape: 'needle' | 'heavy' | 'ring' | 'scatter' = 'needle',
+    shape: 'needle' | 'heavy' | 'ring' | 'scatter' | 'burst' | 'lance' = 'needle',
     brightness = 0.8,
   ): void {
-    const size = shape === 'heavy' ? 8 : shape === 'ring' ? 6 : shape === 'scatter' ? 4 : 5;
+    const size =
+      shape === 'heavy' ? 8 : shape === 'ring' ? 6 : shape === 'scatter' || shape === 'burst' ? 4 : shape === 'lance' ? 3 : 5;
     this.pushSprite(this.glow, pos, {
       color,
-      size0: size,
-      size1: size * (shape === 'heavy' ? 1.9 : 2.1),
-      life: shape === 'heavy' ? 0.13 : 0.07,
+      size0: shape === 'lance' ? 2 : size,
+      size1: shape === 'lance' ? 16 : size * (shape === 'heavy' ? 1.9 : 2.1),
+      life: shape === 'heavy' ? 0.13 : shape === 'lance' ? 0.12 : 0.07,
       opacity: brightness,
     });
     if (shape === 'ring') {
@@ -205,8 +206,9 @@ export class VfxManager {
         life: 0.18,
         opacity: brightness * 0.75,
       });
-    } else if (shape === 'scatter') {
-      for (let i = 0; i < 3; i++) {
+    } else if (shape === 'scatter' || shape === 'burst') {
+      const count = shape === 'burst' ? 5 : 3;
+      for (let i = 0; i < count; i++) {
         this.pushSprite(this.spark, pos, {
           color,
           size0: 1.6,
@@ -216,6 +218,14 @@ export class VfxManager {
           vel: new Vector3(rng.signed(45), rng.signed(45), rng.signed(45)),
         });
       }
+    } else if (shape === 'lance') {
+      this.pushSprite(this.ring, pos, {
+        color,
+        size0: 1.4,
+        size1: 9,
+        life: 0.18,
+        opacity: brightness * 0.65,
+      });
     }
   }
 
@@ -226,7 +236,7 @@ export class VfxManager {
     weaponId?: string,
     normal?: Vector3,
   ): void {
-    const color = weaponId === 'neutron-gun' ? 0x9cecff : 0x66ccff;
+    const color = weaponId === 'neutron-gun' || weaponId === 'shield-breaker' ? 0x9cecff : 0x66ccff;
     this.pushSprite(this.spark, pos, {
       color,
       size0: 7 * scale,
@@ -248,7 +258,16 @@ export class VfxManager {
 
   /** 装甲/船体への被弾 */
   hitSpark(pos: Vector3, scale = 1, weaponId?: string, normal?: Vector3): void {
-    const color = weaponId === 'particle-cannon' ? 0xc78bff : weaponId === 'mass-driver' ? 0xffa24d : 0xffc26a;
+    const color =
+      weaponId === 'particle-cannon'
+        ? 0xc78bff
+        : weaponId === 'mass-driver'
+          ? 0xffa24d
+          : weaponId === 'armor-breacher'
+            ? 0xff9b4d
+            : weaponId === 'ion-lance'
+              ? 0xffe6a0
+              : 0xffc26a;
     this.pushSprite(this.glow, pos, {
       color,
       size0: 5 * scale,
@@ -265,7 +284,7 @@ export class VfxManager {
             .add(new Vector3(rng.signed(22), rng.signed(22), rng.signed(22)))
         : new Vector3(rng.signed(60), rng.signed(60), rng.signed(60));
       this.pushSprite(this.spark, pos, {
-        color: weaponId === 'particle-cannon' ? 0xe2c8ff : 0xffe0a0,
+        color: weaponId === 'particle-cannon' ? 0xe2c8ff : weaponId === 'armor-breacher' ? 0xffc080 : 0xffe0a0,
         size0: 2.5 * scale,
         size1: 0.5,
         life: rng.range(0.18, 0.4),
@@ -297,7 +316,11 @@ export class VfxManager {
   }
 
   /** 主砲の短い飛翔エフェクト。遠距離でも種類を読み取れる最小限の尾。 */
-  projectileTrail(pos: Vector3, color: number, mode: 'beam' | 'slug' | 'plasma' | 'particle'): void {
+  projectileTrail(
+    pos: Vector3,
+    color: number,
+    mode: 'beam' | 'slug' | 'plasma' | 'particle' | 'pulse' | 'lance',
+  ): void {
     if (mode === 'beam') {
       this.pushSprite(this.glow, pos, { color, size0: 1.8, size1: 0.2, life: 0.08, opacity: 0.28 });
     } else if (mode === 'slug') {
@@ -311,6 +334,11 @@ export class VfxManager {
       });
     } else if (mode === 'plasma') {
       this.pushSprite(this.spark, pos, { color, size0: 2.5, size1: 0.3, life: 0.16, opacity: 0.5 });
+    } else if (mode === 'pulse') {
+      this.pushSprite(this.spark, pos, { color, size0: 2.1, size1: 0.1, life: 0.14, opacity: 0.65 });
+      this.pushSprite(this.glow, pos, { color, size0: 1, size1: 4, life: 0.1, opacity: 0.32 });
+    } else if (mode === 'lance') {
+      this.pushSprite(this.glow, pos, { color, size0: 2.8, size1: 0.1, life: 0.1, opacity: 0.72 });
     } else {
       this.pushSprite(this.spark, pos, { color, size0: 1.7, size1: 0.1, life: 0.12, opacity: 0.55 });
     }
@@ -398,8 +426,11 @@ export class VfxManager {
     variant?: string,
   ): void {
     const torpedo = variant === 'torpedo';
+    const shieldBurst = variant === 'shield-burst';
+    const breachBurst = variant === 'breach-burst';
     const big = kind === 'ship' || torpedo;
     const s = Math.max(6, radius);
+    const accent = shieldBurst ? 0x65f4ff : breachBurst ? 0xff9b4d : torpedo ? 0xffeea0 : 0xffa055;
 
     // 芯の閃光
     this.pushSprite(this.glow, pos, {
@@ -414,8 +445,8 @@ export class VfxManager {
       size0: s * 0.25,
       size1: s * (big ? 1.15 : 0.85),
       life: big ? 0.6 : 0.35,
-      c0: torpedo ? 0xffeea0 : 0xffc266,
-      c1: torpedo ? 0x3e2200 : 0x4a0f00,
+      c0: shieldBurst ? 0xc8ffff : breachBurst ? 0xffc266 : torpedo ? 0xffeea0 : 0xffc266,
+      c1: shieldBurst ? 0x064e64 : breachBurst ? 0x4a1800 : torpedo ? 0x3e2200 : 0x4a0f00,
     });
     const stages: Array<[Texture, number, number, number]> = [
       [this.fireball1, 0.0, big ? 0.9 : 0.6, 1],
@@ -434,7 +465,7 @@ export class VfxManager {
     }
     // 衝撃波リング
     this.pushSprite(this.ring, pos, {
-      color: 0xffa055,
+      color: accent,
       size0: s * 0.4,
       size1: s * (big ? 3.4 : 2.2),
       life: big ? 0.5 : 0.32,

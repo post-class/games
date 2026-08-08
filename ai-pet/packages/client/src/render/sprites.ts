@@ -21,6 +21,32 @@ export const RECONCILE_DURATION = 0.2;
 export const RECONCILE_SNAP = 3;
 /** 画面外判定のマージン（タイル） */
 const CULL_MARGIN = 2;
+
+/**
+ * 同じ場所に何体から「重なっている」とみなすか（D-7）。
+ *
+ * 調査で、広場の北西に10体以上が重なって**茶色い塊**になっていた
+ * （`docs/03_宣伝用との乖離是正プラン/images/03_ズーム15_動物の団子.png`）。
+ * 群れること自体はシミュレーションの正しい挙動なので、**サーバの座標は変えず**、
+ * 描画だけ扇状にずらして「何体いるか読める」ようにする。
+ */
+const CROWD_THRESHOLD = 3;
+/** ずらす最大量（タイル）。大きくすると当たり判定と見た目がずれるので控えめに */
+const CROWD_SPREAD_TILES = 0.42;
+
+/**
+ * 重なり具合から描画のずらし量を出す。
+ *
+ * `index` はそのタイルにいる何体目か、`total` はそのタイルの総数。
+ * 1体目は動かさず（群れの中心を保つ）、2体目以降を円周上に並べる。
+ */
+export function crowdOffset(index: number, total: number): { dx: number; dy: number } {
+  if (total < CROWD_THRESHOLD || index === 0) return { dx: 0, dy: 0 };
+  // golden angle で散らすと、総数が増えても均等に広がる（同じ角度に溜まらない）
+  const angle = index * 2.39996;
+  const r = CROWD_SPREAD_TILES * Math.sqrt(index / total);
+  return { dx: Math.cos(angle) * r, dy: Math.sin(angle) * r * 0.6 };
+}
 /**
  * スプライトのアンカー（足元の影の中心。placeholderの絵と一致させる）。
  * 接地影（`shadows.ts`）が同じ位置に楕円を描くので export している。
@@ -138,6 +164,17 @@ export class ActorLayer {
     const rect = this.camera.visibleRect(CULL_MARGIN);
     this.drawn = 0;
 
+    // 同じタイルに何体いるかを先に数える（D-7 の扇状オフセット用）。
+    // キーはタイル座標。自分と自分のペットは数に入れる（群れに混ざるので同じ扱いでよい）
+    const crowd = new Map<number, number>();
+    const crowdIndex = new Map<EntityId, number>();
+    for (const view of state.actors.values()) {
+      const key = (Math.round(view.y) << 8) | (Math.round(view.x) & 0xff);
+      const n = crowd.get(key) ?? 0;
+      crowdIndex.set(view.id, n);
+      crowd.set(key, n + 1);
+    }
+
     // 消えたアクターのスプライトを片付ける
     for (const [id, entry] of this.entries) {
       if (!state.actors.has(id)) {
@@ -170,10 +207,16 @@ export class ActorLayer {
 
       // 歩行中の上下の跳ね（演出のみ。placeholderにコマがないため簡易表現）
       const bob = view.anim === 'walk' || (isSelf && this.selfMoving) ? Math.sin(nowMs / 90 + view.id) * 1.5 : 0;
-      sprite.x = pos.x * TILE_PX;
-      sprite.y = pos.y * TILE_PX + bob;
+      // 団子を扇状にほぐす（D-7）。自分は動かさない（操作している位置がずれると気持ち悪い）
+      const key = (Math.round(view.y) << 8) | (Math.round(view.x) & 0xff);
+      const off = isSelf
+        ? { dx: 0, dy: 0 }
+        : crowdOffset(crowdIndex.get(view.id) ?? 0, crowd.get(key) ?? 1);
+      sprite.x = (pos.x + off.dx) * TILE_PX;
+      sprite.y = (pos.y + off.dy) * TILE_PX + bob;
       sprite.alpha = view.anim === 'sleep' ? 0.75 : 1;
-      sprite.zIndex = Math.round(pos.y * 100);
+      // 深度はずらした後の y で決める（前後関係もほぐれた並びに合わせる）
+      sprite.zIndex = Math.round((pos.y + off.dy) * 100);
 
       const texKey = `${CharTextureSet.prefixOf(view.kind, view.species)}_${facing}`;
       if (entry.texKey !== texKey) {

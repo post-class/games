@@ -106,6 +106,8 @@ export interface ProjectileRuntime {
   fromPlayer: boolean;
   /** シールドにだけ適用する武器固有倍率 */
   shieldMultiplier: number;
+  /** アーマーに適用する武器固有倍率 */
+  armorMultiplier: number;
   /** 描画/音声が同じ武器プロファイルを参照するための生成時刻 */
   age: number;
   /** 発射時の難易度による実効命中半径倍率 */

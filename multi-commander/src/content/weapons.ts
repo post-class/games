@@ -1,8 +1,8 @@
 /** 武装のデータ定義。ここを増やせば武装が増える。 */
 
-export type GunFireMode = 'beam' | 'slug' | 'plasma' | 'particle';
-export type GunMuzzleShape = 'needle' | 'heavy' | 'ring' | 'scatter';
-export type WeaponAudioProfile = 'laser' | 'mass' | 'neutron' | 'particle';
+export type GunFireMode = 'beam' | 'slug' | 'plasma' | 'particle' | 'pulse' | 'lance';
+export type GunMuzzleShape = 'needle' | 'heavy' | 'ring' | 'scatter' | 'burst' | 'lance';
+export type WeaponAudioProfile = 'laser' | 'mass' | 'neutron' | 'particle' | 'pulse' | 'lance';
 
 export interface GunPresentation {
   fireMode: GunFireMode;
@@ -12,6 +12,10 @@ export interface GunPresentation {
   maxBrightness: number;
   /** 発射時の機体後退量 (world units)。 */
   recoil: number;
+  /** 1回のトリガーで生成する弾数。未指定は1。 */
+  projectileCount?: number;
+  /** 複数弾を生成する場合の最大散開角 (rad)。 */
+  spreadRad?: number;
   /** シールドに対する実効倍率。装甲/ハルへの基礎ダメージは変えない。 */
   shieldMultiplier: number;
   /** HUD に表示する短い用途説明。 */
@@ -55,6 +59,8 @@ export const GUNS: Record<string, GunDef> = {
       audioProfile: 'laser',
       maxBrightness: 0.72,
       recoil: 0.035,
+      projectileCount: 1,
+      spreadRad: 0,
       shieldMultiplier: 0.9,
       description: '高速・低消費。近距離の連続射撃向け',
       rangeLabel: '近距離',
@@ -76,6 +82,8 @@ export const GUNS: Record<string, GunDef> = {
       audioProfile: 'mass',
       maxBrightness: 0.62,
       recoil: 0.16,
+      projectileCount: 1,
+      spreadRad: 0,
       shieldMultiplier: 1,
       description: '重弾と強い反動。装甲目標を一発ずつ削る',
       rangeLabel: '中距離',
@@ -97,6 +105,8 @@ export const GUNS: Record<string, GunDef> = {
       audioProfile: 'neutron',
       maxBrightness: 0.58,
       recoil: 0.11,
+      projectileCount: 1,
+      spreadRad: 0,
       shieldMultiplier: 1.45,
       description: '遅く太い弾。シールドを優先して崩す',
       rangeLabel: '中距離',
@@ -118,8 +128,56 @@ export const GUNS: Record<string, GunDef> = {
       audioProfile: 'particle',
       maxBrightness: 0.66,
       recoil: 0.055,
+      projectileCount: 1,
+      spreadRad: 0,
       shieldMultiplier: 1.05,
       description: '高速連射と粒子の散開。回避中の追撃に強い',
+      rangeLabel: '遠距離',
+    },
+  },
+  'pulse-cannon': {
+    id: 'pulse-cannon',
+    name: 'パルスキャノン',
+    damage: 4,
+    speed: 1450,
+    energyCost: 10,
+    refire: 0.48,
+    life: 2,
+    color: 0xff66d6,
+    tracer: 0.82,
+    presentation: {
+      fireMode: 'pulse',
+      muzzleShape: 'burst',
+      audioProfile: 'pulse',
+      maxBrightness: 0.58,
+      recoil: 0.08,
+      projectileCount: 3,
+      spreadRad: 0.02,
+      shieldMultiplier: 1.1,
+      description: '3発を散開発射。近〜中距離で回避先を塞ぐ',
+      rangeLabel: '中距離',
+    },
+  },
+  'ion-lance': {
+    id: 'ion-lance',
+    name: 'イオンランス',
+    damage: 24,
+    speed: 2400,
+    energyCost: 16,
+    refire: 0.85,
+    life: 2.8,
+    color: 0xfff1a8,
+    tracer: 2.2,
+    presentation: {
+      fireMode: 'lance',
+      muzzleShape: 'lance',
+      audioProfile: 'lance',
+      maxBrightness: 0.5,
+      recoil: 0.14,
+      projectileCount: 1,
+      spreadRad: 0,
+      shieldMultiplier: 0.75,
+      description: '高速・高消費の精密弾。遠距離の装甲を狙い撃つ',
       rangeLabel: '遠距離',
     },
   },
@@ -127,7 +185,13 @@ export const GUNS: Record<string, GunDef> = {
 
 export type SeekerKind = 'none' | 'heat' | 'aspect';
 export type MissileTrailKind = 'smoke' | 'ion' | 'spark' | 'heavy-smoke';
-export type MissileDetonationKind = 'small-warhead' | 'heat-burst' | 'aspect-burst' | 'torpedo';
+export type MissileDetonationKind =
+  | 'small-warhead'
+  | 'heat-burst'
+  | 'aspect-burst'
+  | 'torpedo'
+  | 'shield-burst'
+  | 'breach-burst';
 export type MissileTargetRole = 'any' | 'fighter' | 'capital';
 
 export interface MissileDef {
@@ -154,7 +218,11 @@ export interface MissileDef {
   targetRole: MissileTargetRole;
   /** HUD とロック警告で使う短い用途説明 */
   description: string;
-  audioProfile: 'dumbfire' | 'heat' | 'aspect' | 'torpedo';
+  audioProfile: 'dumbfire' | 'heat' | 'aspect' | 'torpedo' | 'shield-breaker' | 'armor-breacher';
+  /** シールドに対する爆風倍率。未指定は1。 */
+  shieldMultiplier?: number;
+  /** アーマーに対する爆風倍率。未指定は1。 */
+  armorMultiplier?: number;
 }
 
 export const MISSILES: Record<string, MissileDef> = {
@@ -177,6 +245,8 @@ export const MISSILES: Record<string, MissileDef> = {
     targetRole: 'any',
     description: '即時発射・無誘導。読み合いで近距離を取る',
     audioProfile: 'dumbfire',
+    shieldMultiplier: 1,
+    armorMultiplier: 1,
   },
   'heat-seeker': {
     id: 'heat-seeker',
@@ -197,6 +267,8 @@ export const MISSILES: Record<string, MissileDef> = {
     targetRole: 'fighter',
     description: '熱源を追尾。フレアに弱いが短いロックで撃てる',
     audioProfile: 'heat',
+    shieldMultiplier: 1,
+    armorMultiplier: 1,
   },
   'image-rec': {
     id: 'image-rec',
@@ -217,6 +289,8 @@ export const MISSILES: Record<string, MissileDef> = {
     targetRole: 'any',
     description: '長めのロックと強い誘導。フレア耐性が高い',
     audioProfile: 'aspect',
+    shieldMultiplier: 1,
+    armorMultiplier: 1,
   },
   torpedo: {
     id: 'torpedo',
@@ -237,6 +311,52 @@ export const MISSILES: Record<string, MissileDef> = {
     targetRole: 'capital',
     description: '大型目標用。長いロックと低速を補う大爆発',
     audioProfile: 'torpedo',
+    shieldMultiplier: 1,
+    armorMultiplier: 1,
+  },
+  'shield-breaker': {
+    id: 'shield-breaker',
+    name: 'シールドブレイカー',
+    shortName: 'SB',
+    damage: 65,
+    blastRadius: 24,
+    speed: 580,
+    turnRate: 1.4,
+    life: 8,
+    seeker: 'aspect',
+    lockTime: 1.6,
+    flareSusceptibility: 0.65,
+    color: 0x65f4ff,
+    armTime: 0.3,
+    trail: 'ion',
+    detonation: 'shield-burst',
+    targetRole: 'any',
+    description: 'シールドに大きな倍率。短めのロックで防御線を崩す',
+    audioProfile: 'shield-breaker',
+    shieldMultiplier: 1.8,
+    armorMultiplier: 0.6,
+  },
+  'armor-breacher': {
+    id: 'armor-breacher',
+    name: 'アーマーブリーチャー',
+    shortName: 'AB',
+    damage: 140,
+    blastRadius: 16,
+    speed: 500,
+    turnRate: 1,
+    life: 10,
+    seeker: 'aspect',
+    lockTime: 2.8,
+    flareSusceptibility: 0.25,
+    color: 0xffb55c,
+    armTime: 0.42,
+    trail: 'heavy-smoke',
+    detonation: 'breach-burst',
+    targetRole: 'any',
+    description: '小さな爆風で装甲を集中破壊。確実なロックが必要',
+    audioProfile: 'armor-breacher',
+    shieldMultiplier: 0.5,
+    armorMultiplier: 1.8,
   },
 };
 
@@ -254,6 +374,8 @@ export function gunPresentation(gun: GunDef): GunPresentation {
     audioProfile: 'laser',
     maxBrightness: 0.7,
     recoil: 0,
+    projectileCount: 1,
+    spreadRad: 0,
     shieldMultiplier: 1,
     description: '標準主砲',
     rangeLabel: '中距離',
@@ -269,7 +391,14 @@ export function missileDef(id: string): MissileDef {
 /** 未設定の拡張項目を持つ既存定義でも安全に扱う。 */
 export function missilePresentation(missile: MissileDef): Pick<
   MissileDef,
-  'armTime' | 'trail' | 'detonation' | 'targetRole' | 'description' | 'audioProfile'
+  | 'armTime'
+  | 'trail'
+  | 'detonation'
+  | 'targetRole'
+  | 'description'
+  | 'audioProfile'
+  | 'shieldMultiplier'
+  | 'armorMultiplier'
 > {
   return {
     armTime: missile.armTime ?? 0.25,
@@ -278,5 +407,7 @@ export function missilePresentation(missile: MissileDef): Pick<
     targetRole: missile.targetRole ?? 'any',
     description: missile.description ?? '副兵装',
     audioProfile: missile.audioProfile ?? 'dumbfire',
+    shieldMultiplier: missile.shieldMultiplier ?? 1,
+    armorMultiplier: missile.armorMultiplier ?? 1,
   };
 }

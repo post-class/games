@@ -17,15 +17,17 @@ import {
   EDGE_PAIRS,
   EDGE_S,
   EDGE_W,
+  DECAL_SETS,
   TILE_VARIANTS,
   TileMap,
+  decalAt,
   decayTint,
   edgeKey,
   edgeMask,
   tileVariant,
   type TerrainTextures,
 } from '../../packages/client/src/render/tilemap.ts';
-import { edgeTileNames, terrainVariantNames } from '../../packages/client/src/render/assets.ts';
+import { decalNames, edgeTileNames, terrainVariantNames } from '../../packages/client/src/render/assets.ts';
 
 describe('B-1 タイルのバリエーション', () => {
   it('同じ座標なら常に同じ variant（Math.random を使っていない）', () => {
@@ -126,13 +128,25 @@ describe('B-2 遷移マスク', () => {
     expect(edgeMask(sampler({ n: undefined, e: 'sand' }), 'sand')).toBe(EDGE_E);
   });
 
-  it('境界は4つ、キーはアセット名と一致する', () => {
-    expect(EDGE_PAIRS.length).toBe(4);
+  it('キーはアセット名と一致し、from/to は実在する地形', () => {
     expect(edgeKey('sand', 'water', 5)).toBe('edge_sand_water_5');
     for (const p of EDGE_PAIRS) {
       expect(TERRAINS).toContain(p.from);
       expect(TERRAINS).toContain(p.to);
     }
+  });
+
+  it('同じ境界を二重に登録していない（重ね焼きが二度走ってしまう）', () => {
+    const keys = EDGE_PAIRS.map((p) => `${p.from}>${p.to}`);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it('B-6: 広場の外周と道（dirt）の境界が入っている', () => {
+    // 実機で一番階段が目立つのは dirt との境界だった。
+    // 当初の4境界（grass-sand / sand-water / grass-forest / plaza-grass）では効果が出ない
+    const keys = EDGE_PAIRS.map((p) => `${p.from}>${p.to}`);
+    expect(keys).toContain('grass>dirt');
+    expect(keys).toContain('plaza>dirt');
   });
 });
 
@@ -198,7 +212,8 @@ function makeTextures(): { textures: TerrainTextures; nameOf: Map<Texture, strin
       edges.set(key, tex);
     }
   }
-  return { textures: { base, variants, edges }, nameOf };
+  // 装飾（B-3）は既定で無しにする。装飾のテストは decalAt を直接見る
+  return { textures: { base, variants, edges, decals: new Map<string, Texture>() }, nameOf };
 }
 
 /** render() を記録するだけの偽レンダラ。GPUには触らない */
@@ -300,7 +315,12 @@ describe('チャンクの焼成', () => {
 
   it('バリエーションが無い地形は tile_<terrain>.png に落ちる', () => {
     const { textures } = makeTextures();
-    const bare: TerrainTextures = { base: textures.base, variants: {} as Record<Terrain, Texture[]>, edges: new Map() };
+    const bare: TerrainTextures = {
+      base: textures.base,
+      variants: {} as Record<Terrain, Texture[]>,
+      edges: new Map(),
+      decals: new Map(),
+    };
     for (const t of TERRAINS) (bare.variants as Record<Terrain, Texture[]>)[t] = [];
     const calls: BakeCall[] = [];
     const renderer = {
@@ -365,5 +385,78 @@ describe('プレースホルダのアセット名', () => {
     }
     // 従来の tile_<terrain>.png も残っている（後方互換）
     for (const t of TERRAINS) expect(files.has(`tile_${t}.png`)).toBe(true);
+  });
+});
+
+describe('B-3 装飾デカール', () => {
+  it('同じ座標なら常に同じ装飾（決定論）', () => {
+    for (const [x, y] of [
+      [0, 0],
+      [7, 23],
+      [127, 100],
+      [-3, -9],
+    ] as const) {
+      const first = decalAt('grass', x, y);
+      for (let i = 0; i < 20; i++) expect(decalAt('grass', x, y)).toEqual(first);
+    }
+  });
+
+  it('広場と水面には置かない（掃除された場所・水の上）', () => {
+    for (let y = 0; y < 40; y++) {
+      for (let x = 0; x < 40; x++) {
+        expect(decalAt('plaza', x, y)).toBeNull();
+        expect(decalAt('water', x, y)).toBeNull();
+      }
+    }
+  });
+
+  it('草地の装飾密度はおおよそ指定どおり（無地の面積を減らせる量）', () => {
+    let hit = 0;
+    const total = 128 * 128;
+    for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) if (decalAt('grass', x, y)) hit++;
+    const density = hit / total;
+    const want = (DECAL_SETS.grass as { density: number }).density;
+    expect(density).toBeGreaterThan(want * 0.85);
+    expect(density).toBeLessThan(want * 1.15);
+  });
+
+  it('置く装飾はその地形の候補に入っているものだけ', () => {
+    const allowed = new Set((DECAL_SETS.grass as { names: readonly string[] }).names);
+    for (let y = 0; y < 64; y++) {
+      for (let x = 0; x < 64; x++) {
+        const d = decalAt('grass', x, y);
+        if (d) expect(allowed.has(d.name)).toBe(true);
+      }
+    }
+  });
+
+  it('タイル内の寄せは 0.2〜0.8（隣のタイルにはみ出さない）', () => {
+    for (let y = 0; y < 64; y++) {
+      for (let x = 0; x < 64; x++) {
+        const d = decalAt('grass', x, y);
+        if (!d) continue;
+        expect(d.offX).toBeGreaterThanOrEqual(0.2);
+        expect(d.offX).toBeLessThanOrEqual(0.8);
+        expect(d.offY).toBeGreaterThanOrEqual(0.2);
+        expect(d.offY).toBeLessThanOrEqual(0.8);
+      }
+    }
+  });
+
+  it('候補が空・密度0なら置かない（アセット未生成でも落ちない）', () => {
+    expect(decalAt('grass', 1, 1, { grass: { names: [], density: 1 } })).toBeNull();
+    expect(decalAt('grass', 1, 1, { grass: { names: ['x'], density: 0 } })).toBeNull();
+    expect(decalAt('grass', 1, 1, {})).toBeNull();
+  });
+
+  it('必要なアセット名が placeholder に揃っている', () => {
+    const manifest = JSON.parse(
+      readFileSync(
+        fileURLToPath(new URL('../../packages/client/public/assets/placeholder/manifest.json', import.meta.url)),
+        'utf8',
+      ),
+    ) as { files: string[] };
+    const have = new Set(manifest.files);
+    for (const name of decalNames()) expect(have.has(name)).toBe(true);
   });
 });

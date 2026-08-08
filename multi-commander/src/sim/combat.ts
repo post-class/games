@@ -204,7 +204,10 @@ function detonate(world: World, e: Entity, at: Vector3 | undefined): void {
     const falloff = 1 - Math.max(0, d) / blastRadius;
     const dmg = def.damage * (0.35 + 0.65 * falloff);
     const scaled = scaleDamage(world, dmg, m.fromPlayer, s.id === world.playerId);
-    const res = applySplashDamage(s, scaled, center);
+    const res = applySplashDamage(s, scaled, center, {
+      shieldMultiplier: presentation.shieldMultiplier,
+      armorMultiplier: presentation.armorMultiplier,
+    });
     affectedCount += 1;
     emitHit(world, s, center, res, {
       weaponId: def.id,
@@ -355,7 +358,10 @@ export function resolveProjectileHits(world: World): void {
 
     pointOnSegment(p.prevPos, p.pos, bestT, _hit);
     const dmg = scaleDamage(world, pr.damage, pr.fromPlayer, bestShip.id === world.playerId);
-    const res = applyDamage(bestShip, dmg, _hit, { shieldMultiplier: pr.shieldMultiplier ?? 1 });
+    const res = applyDamage(bestShip, dmg, _hit, {
+      shieldMultiplier: pr.shieldMultiplier ?? 1,
+      armorMultiplier: pr.armorMultiplier ?? 1,
+    });
     emitHit(world, bestShip, _hit, res, {
       weaponId: pr.gun.id,
       damageType: 'gun',

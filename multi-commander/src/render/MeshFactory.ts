@@ -860,7 +860,7 @@ export function createShipMesh(def: ShipDef): Object3D {
   return obj;
 }
 
-/** 主砲の弾体。色だけでなく形状でも4種を識別できるようにする。 */
+/** 主砲の弾体。色だけでなく形状でも6種を識別できるようにする。 */
 export function createTracerMesh(color: number, lengthScale = 1, gun?: GunDef): Object3D {
   const group = new Group();
   const mode = gun?.presentation?.fireMode ?? 'beam';
@@ -891,6 +891,25 @@ export function createTracerMesh(color: number, lengthScale = 1, gun?: GunDef): 
       particle.position.set(x, y, 3.2 * lengthScale);
       group.add(particle);
     }
+  } else if (mode === 'pulse') {
+    const core = new Mesh(SPH, glow);
+    core.scale.set(1.8, 1.8, 4.8 * lengthScale);
+    group.add(core);
+    for (const [x, y] of [[-2.2, 0], [2.2, 0]] as const) {
+      const pulse = new Mesh(SPH, glow);
+      pulse.scale.setScalar(0.65);
+      pulse.position.set(x, y, 2.2 * lengthScale);
+      group.add(pulse);
+    }
+  } else if (mode === 'lance') {
+    const core = new Mesh(TUBE, glow);
+    core.scale.set(0.75, 0.75, 18 * lengthScale);
+    group.add(core);
+    const ring = new Mesh(RING, glow);
+    ring.scale.setScalar(1.5);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.z = 2.5 * lengthScale;
+    group.add(ring);
   } else {
     const mesh = new Mesh(TUBE, glow);
     mesh.scale.set(1.2, 1.2, 15 * lengthScale);
@@ -906,15 +925,17 @@ export function createMissileMesh(defOrColor: MissileDef | number): Object3D {
   const color = typeof defOrColor === 'number' ? defOrColor : defOrColor.color;
   const presentation = def ? missilePresentation(def) : undefined;
   const b = new PartBuilder();
+  const breach = presentation?.detonation === 'breach-burst';
+  const shield = presentation?.detonation === 'shield-burst';
   const k: Keys = {
     ...keysFor({
       kind: 'arrow',
-      hull: presentation?.detonation === 'torpedo' ? 0x9a8060 : 0xdddddd,
-      accent: presentation?.trail === 'spark' ? 0xbbeeff : 0x8a8f96,
+      hull: presentation?.detonation === 'torpedo' || breach ? 0x9a8060 : shield ? 0x6a9fa8 : 0xdddddd,
+      accent: shield ? 0x65f4ff : breach ? 0xffb55c : presentation?.trail === 'spark' ? 0xbbeeff : 0x8a8f96,
       engine: color,
     }),
   };
-  const heavy = presentation?.detonation === 'torpedo';
+  const heavy = presentation?.detonation === 'torpedo' || breach;
   b.add(TUBE, k.metal, { pos: [0, 0, 0], scale: heavy ? [2.1, 2.1, 9] : [1.4, 1.4, 6.4] });
   b.add(CONE, k.hull, { pos: [0, 0, heavy ? -6.0 : -4.0], scale: heavy ? [2.1, 2.1, 3.2] : [1.4, 1.4, 2.2] });
   b.add(RING, k.accent, { pos: [0, 0, 1.0], scale: 1.6 });

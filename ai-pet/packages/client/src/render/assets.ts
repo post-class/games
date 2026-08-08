@@ -16,7 +16,7 @@
 import { Assets, Texture } from 'pixi.js';
 import { TERRAINS, type Terrain } from '@ai-pet/shared';
 import { DIRS, charPrefixes } from '../state/species.ts';
-import { EDGE_MASK_MAX, EDGE_PAIRS, TILE_VARIANTS, edgeKey, type TerrainTextures } from './tilemap.ts';
+import { DECAL_SETS, EDGE_MASK_MAX, EDGE_PAIRS, TILE_VARIANTS, edgeKey, type TerrainTextures } from './tilemap.ts';
 import { CharTextureSet } from './sprites.ts';
 import { ObjectTextureSet } from './objects.ts';
 
@@ -36,6 +36,14 @@ const OBJECT_TYPES = [
   // 共同建設（G-1 / G-2）
   'observatory',
   'scaffold',
+  // 暮らしの痕跡（C-1 / C-2）。worldgen が島の生成時に置く
+  'house_a',
+  'house_b',
+  'house_c',
+  'windmill',
+  'fountain',
+  'fence_h',
+  'fence_v',
 ] as const;
 
 export interface LoadedTextures {
@@ -96,6 +104,19 @@ export function edgeTileNames(): string[] {
   return out;
 }
 
+/**
+ * 装飾デカールのアセット名（B-3）。**必須ではない**。
+ * 1枚も無ければ装飾を描かない（地面は従来どおり）。
+ * 名前は `DECAL_SETS` に登場するものの重複を除いたもの。
+ */
+export function decalNames(): string[] {
+  const set = new Set<string>();
+  for (const s of Object.values(DECAL_SETS)) {
+    for (const n of s?.names ?? []) set.add(n);
+  }
+  return [...set].sort().map((n) => `decal_${n}.png`);
+}
+
 export async function loadTextures(): Promise<LoadedTextures> {
   const names: string[] = [];
   for (const t of TERRAINS) names.push(`tile_${t}.png`);
@@ -103,7 +124,7 @@ export async function loadTextures(): Promise<LoadedTextures> {
   for (const o of OBJECT_TYPES) names.push(`obj_${o}.png`);
 
   // 任意アセットは「無いのが普通」なので missing に数えない（デバッグ表示が無意味に膨らむ）
-  const optionalNames = [...terrainVariantNames(), ...edgeTileNames()];
+  const optionalNames = [...terrainVariantNames(), ...edgeTileNames(), ...decalNames()];
 
   // 並列に読む（1枚ずつ待つと数十枚で目に見えて遅い）
   const results = await Promise.all(
@@ -153,7 +174,13 @@ export async function loadTextures(): Promise<LoadedTextures> {
       if (tex) edges.set(key, tex);
     }
   }
-  const terrain: TerrainTextures = { base, variants, edges };
+  // 装飾デカール（B-3）。出所は問わない（無地の地面より、多少浮いても装飾があるほうがよい）
+  const decals = new Map<string, Texture>();
+  for (const file of decalNames()) {
+    const tex = loaded.get(file);
+    if (tex) decals.set(file.replace(/^decal_|\.png$/g, ''), tex);
+  }
+  const terrain: TerrainTextures = { base, variants, edges, decals };
 
   const charEntries: [string, Texture][] = [];
   for (const p of charPrefixes()) {
@@ -170,7 +197,7 @@ export async function loadTextures(): Promise<LoadedTextures> {
   }
 
   if (missing > 0) console.log(`[assets] プレースホルダで代用: ${missing}枚`);
-  console.log(`[assets] バリエーション・遷移タイル: ${optional}/${optionalNames.length}枚`);
+  console.log(`[assets] バリエーション・遷移・装飾: ${optional}/${optionalNames.length}枚`);
 
   return {
     terrain,

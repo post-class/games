@@ -20,6 +20,8 @@ export interface DamageResult {
 export interface DamageOptions {
   /** 武器固有のシールド削り倍率。未指定は従来の 1 倍。 */
   shieldMultiplier?: number;
+  /** 武器固有のアーマー削り倍率。未指定は従来の 1 倍。 */
+  armorMultiplier?: number;
 }
 
 const _local = new Vector3();
@@ -83,10 +85,11 @@ export function applyDamage(
   if (remaining > 0) {
     const armor = ship.armor[armorFace];
     if (armor > 0) {
-      const absorbed = Math.min(armor, remaining);
+      const armorMultiplier = Math.max(0.1, options.armorMultiplier ?? 1);
+      const absorbed = Math.min(armor, remaining * armorMultiplier);
       ship.armor[armorFace] = armor - absorbed;
       // アーマーは半分の効率で吸収する (抜けた分がハルに通る)
-      remaining -= absorbed;
+      remaining -= absorbed / armorMultiplier;
       result.armorAbsorbed = absorbed;
     }
   }

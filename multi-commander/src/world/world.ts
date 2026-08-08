@@ -204,6 +204,7 @@ export function spawnProjectile(world: World, o: SpawnProjectileOptions): Entity
     ownerFaction: o.ownerFaction,
     fromPlayer: o.fromPlayer,
     shieldMultiplier: gunPresentation(gun).shieldMultiplier,
+    armorMultiplier: 1,
     age: 0,
     hitRadiusScale: o.hitRadiusScale ?? 1,
   };
@@ -265,6 +266,7 @@ export function spawnFlare(world: World, o: { pos: Vector3; vel: Vector3; factio
     ownerFaction: o.faction,
     fromPlayer: false,
     shieldMultiplier: 1,
+    armorMultiplier: 1,
     age: 0,
     hitRadiusScale: 1,
   };

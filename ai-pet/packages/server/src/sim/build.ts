@@ -35,11 +35,28 @@ import { distance, inBounds, tileIndex, type IslandWorld } from './world.ts';
  * スコアには `min(attractMax=2.5, attract/5)` 倍として効く。
  * ベンチは「置くと動物が集まる」のが M7 の完了条件なので基準より高くしている。
  */
-const PLACE_ATTRACT: Record<PlaceableType, number> = {
+export const PLACE_ATTRACT: Record<PlaceableType, number> = {
   bench: 6,
   flowerbed: 4,
   lantern: 3,
   signboard: 1,
+  // 共同建設の完成物。プレイヤーは置けないので、ここの値は使われない
+  // （`applyEffect` が attract を直接指定して addPlaceable する）。
+  // Record を全部埋めないと型が通らないので入れてある
+  well: 0,
+  observatory: 0,
+  // 島の生成時に worldgen が置く建物（C-1 / C-2）。プレイヤーは置けないので値は使われないが、
+  // `worldgen.ts` はここを参照して attract を決めている。
+  // すべて 0。人工物に動物が群がると、餌の無い村へ通い続けて餓死する
+  // （M3の長期シミュレーションで「ほぼ空の資源に通い続けて餓死する」を踏んでいる）。
+  // 島の生成物は「風景」であって、動物を集めるのはプレイヤーが置くベンチの役目にする。
+  house_a: 0,
+  house_b: 0,
+  house_c: 0,
+  windmill: 0,
+  fountain: 0,
+  fence_h: 0,
+  fence_v: 0,
 };
 
 /** プレイヤーから設置できる距離（タイル） */
@@ -82,8 +99,11 @@ const WELL_DIST_MAX = 10;
 const OBSERVATORY_MIN_DIST_FROM_CENTER = 20;
 /** 完成した天文台の attract（ベンチより強く、島の名所として振る舞う） */
 const OBSERVATORY_ATTRACT = 10;
-/** 島が所有する設置物の ownerId（プレイヤーは撤去できない） */
-const ISLAND_OWNER: PlayerId = '__island__';
+/**
+ * 島が所有する設置物の ownerId（プレイヤーは撤去できない）。
+ * worldgen が置く家・風車・柵・噴水（C-1 / C-2）でも使うので export している。
+ */
+export const ISLAND_OWNER: PlayerId = '__island__';
 
 const TILE_COUNT = MAP_W * MAP_H;
 
@@ -94,6 +114,15 @@ const PLACEABLE_LABEL: Record<PlaceableType, string> = {
   flowerbed: '花壇',
   lantern: 'ランタン',
   signboard: '看板',
+  well: '井戸',
+  observatory: '天文台',
+  house_a: '家',
+  house_b: '家',
+  house_c: '家',
+  windmill: '風車',
+  fountain: '噴水',
+  fence_h: '柵',
+  fence_v: '柵',
 };
 
 const CONSTRUCTION_LABEL: Record<ConstructionType, string> = {

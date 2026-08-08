@@ -379,3 +379,42 @@ player_a:
 - `tile_dirt` も S=0.687 と高いが今回の指示の対象外なので触っていない。次に気になったらここも 0.78 倍でよい。
 
 設置後のファイル数は 62枚（原寸50枚 + `_w` 反転12枚）で変化なし。
+
+---
+
+## 追加分: 暮らしの痕跡（docs/03 の C-1 / C-2 / 2026-08-08）
+
+7枚 / medium・1024x1024 / 合計 **$0.077**。
+
+共通スタイル句（`docs/03_宣伝用との乖離是正プラン/04_スタイルガイド.md` §7 の雛形）:
+
+```
+for a cozy 2D top-down slow-life browser game, hand-drawn storybook style,
+soft pastel palette (cream #fffdf3, grass #d9ee94, ink outline #4a3b2a),
+thick rounded dark-brown outlines, flat shading with one soft shadow tone,
+no gradient background, transparent background, centered, no text,
+and absolutely no cast shadow or ellipse on the ground beneath it.
+```
+
+建物用の追記: `slight three-quarter top-down view so both the roof top and the front wall are visible.`
+
+| 出力 | 個別の指示 |
+|---|---|
+| `obj_house_a` | `A single small cozy cottage with a LAVENDER PURPLE tiled roof, warm wooden walls, one round window and a small wooden door` |
+| `obj_house_b` | `... a SOFT PINK tiled roof, cream plaster walls, two square windows and a wooden door` |
+| `obj_house_c` | `... a MINT GREEN tiled roof, light wooden walls, a tiny chimney and a round door` |
+| `obj_windmill` | `A single tall storybook windmill tower with four pale wooden sail blades and a small door at its base, taller than wide` |
+| `obj_fountain` | `A single small round stone fountain with a low circular basin, pale mint water and a gentle central spout, viewed from slightly above` |
+| `obj_fence_h` | `A single short HORIZONTAL wooden fence segment: two thin horizontal rails on two short posts, drawn so it reaches the exact left and right edges of the image so identical copies connect seamlessly side by side` |
+| `obj_fence_v` | `A single short VERTICAL wooden fence segment: rails running from the very top edge to the very bottom edge` |
+
+### ⚠️ 判明したこと（次回の時間を節約するため）
+
+1. **「地面に影や楕円を描くな」と指示しても地面パッチが焼き込まれる。** 7枚すべてに入っていた。
+   → `tools/strip-ground.py` を新規作成して色相で除去した（M8の彩度分離と同じ発想）
+2. **地面の色は実測 rgb(221,209,104) / 色相 h≈0.147。**
+   「黄緑だから h>=0.16」と当たりを付けたら1枚もまともに消えなかった。
+   **必ず画素を測ってからしきい値を決める**こと
+3. スキルのスクリプトに PEP 723 の依存宣言が無いので
+   `uv run --with httpx --with pyyaml --with python-dotenv --with openai` が必要
+4. `--env-file` は `english-learn/.env`（games の `.env` は LLM 用で画像モデルのデプロイが無く 404）

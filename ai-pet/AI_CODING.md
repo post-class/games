@@ -137,7 +137,23 @@
 
 ## 9. アセット
 
-- 命名: `tile_<terrain>.png` / `<kind>_<species>_<dir>.png` / `obj_<type>.png`
+### ⚠️ 画像生成は `.env` と依存でつまずく（毎回ここで詰まる）
+
+`tools/gen-assets.md` に実行方法の台帳がある。**先にそれを読むこと。** 要点:
+
+- **このリポジトリの `.env` に `AZURE_OPENAI_US_*` は無い。**
+  `--env-file /Users/ryosato/projects/private/english-learn/.env` を渡す。
+  games の `.env` を渡すと `DeploymentNotFound`（あちらは LLM 用のエンドポイントで画像モデルが無い）
+- スキルのスクリプトに PEP 723 の依存宣言が無いので、`uv run` に**依存を明示**する:
+  `uv run --with httpx --with pyyaml --with python-dotenv --with openai python <script>`
+- **並列実行するときは `--output-dir` を1回ごとに分ける**（出力名がタイムスタンプなので衝突する）
+- 1枚 medium/1024x1024 で約 $0.011、所要1〜2分
+- `gpt-image-1-mini` は `--input-fidelity high` を受け付けない
+
+### 命名と後処理
+
+- 命名: `tile_<terrain>.png` / `<kind>_<species>_<dir>.png` / `obj_<type>.png` / `decal_<name>.png` /
+  `edge_<from>_<to>_<mask>.png`
   （拡張は `docs/03_宣伝用との乖離是正プラン/04_スタイルガイド.md` §8）
 - 生成は `img-gen-gpt` スキル → 後処理は `tools/install-assets.py`
   （切り出し → 48px/32pxへ縮小 → 足元揃え → `_w` は `_e` の反転生成）

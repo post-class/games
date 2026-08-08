@@ -280,3 +280,70 @@ export class NightSky {
     if (this.moon) this.moon.alpha = this.strength;
   }
 }
+
+// ==================== 季節の色調（F-4） ====================
+
+/**
+ * 季節ごとの色被せ。
+ *
+ * 宣伝資料は「実りの季節には食べものが増え、冬には巣にこもる」と謳っているが、
+ * 実装は春夏秋冬でタイルの色も木の絵も変わらず、**4季節のキャプチャが見分けられなかった**。
+ *
+ * 木のアセットを4季節ぶん用意するのが本来だが、それは枚数が4倍になる。
+ * まず色調だけで「別の季節に見える」ところまで持っていく（安く効く分）。
+ * `alpha` は控えめにしてある。ここを上げると時間帯の演出（F-1）と喧嘩する。
+ */
+export const SEASON_TINT: Record<string, TintStyle> = {
+  /** 春=やわらかい桃色（花の季節） */
+  spring: { color: 0xffd9e2, alpha: 0.1 },
+  /** 夏=濃い緑に寄せる（葉が茂る） */
+  summer: { color: 0x9fd86a, alpha: 0.12 },
+  /** 秋=黄橙（紅葉） */
+  autumn: { color: 0xffb45a, alpha: 0.16 },
+  /** 冬=白く冷たい（雪と枯れ） */
+  winter: { color: 0xdcecff, alpha: 0.2 },
+};
+
+export function seasonTintFor(season: string): TintStyle {
+  return SEASON_TINT[season] ?? { color: 0xffffff, alpha: 0 };
+}
+
+/**
+ * 季節の色被せ。`TimeTint` と同じ仕組みだが**別のレイヤ**にしている。
+ * 1枚にまとめると「夜の紺」と「秋の黄橙」を混ぜた色を作る必要があり、
+ * どちらかを変えるともう一方が崩れる。
+ */
+export class SeasonTint {
+  private readonly g: Graphics;
+  private w = 0;
+  private h = 0;
+  private current: TintStyle = { color: 0xffffff, alpha: 0 };
+  private goal: TintStyle = { color: 0xffffff, alpha: 0 };
+
+  constructor(layers: Pick<Layers, 'overlayRoot'>) {
+    this.g = new Graphics();
+    this.g.eventMode = 'none';
+    layers.overlayRoot.addChild(this.g);
+  }
+
+  setSeason(season: string): void {
+    this.goal = seasonTintFor(season);
+  }
+
+  update(w: number, h: number, dtSec: number): void {
+    // 季節の切り替わりは島日をまたぐので、時間帯よりさらにゆっくり寄せる
+    const k = Math.min(1, dtSec * 0.5);
+    this.current = {
+      color: this.goal.color,
+      alpha: this.current.alpha + (this.goal.alpha - this.current.alpha) * k,
+    };
+    if (w !== this.w || h !== this.h) {
+      this.w = w;
+      this.h = h;
+      this.g.clear();
+      this.g.rect(0, 0, w, h).fill(0xffffff);
+    }
+    this.g.tint = this.current.color;
+    this.g.alpha = this.current.alpha;
+  }
+}

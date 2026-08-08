@@ -12,11 +12,18 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import WebSocket from 'ws';
 import type { ServerMsg } from '@ai-pet/shared';
+import { generateIsland } from '../../packages/server/src/sim/worldgen.ts';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const PORT = 8791; // 開発用(8787)・E2E用(8788)と衝突しないポート
 const DB_PATH = '.tmp/restart-test-island.db';
 const SEED = 'restart-test-seed';
+/**
+ * 広場のspawn地点。マップ中心の固定値ではなく worldgen から取る。
+ * C-2 で噴水を広場の中心に据えるため spawn が中心から数タイルずれるようになり、
+ * 固定値だとseedごとに落ちるようになった。
+ */
+const SPAWN = generateIsland(SEED).spawn;
 
 let server: ChildProcess | null = null;
 
@@ -133,8 +140,8 @@ describe('サーバ再起動をまたいだ復帰', () => {
 
   test('移動 → 再起動 → 同じsecretで元の位置に戻る', async () => {
     const first = await session('secret-restart-A', { x: 55, y: 59 });
-    // 広場（64.5, 64.5）から実際に離れていること
-    expect(Math.hypot(first.pos.x - 64.5, first.pos.y - 64.5)).toBeGreaterThan(3);
+    // 広場のspawn地点から実際に離れていること
+    expect(Math.hypot(first.pos.x - SPAWN.x, first.pos.y - SPAWN.y)).toBeGreaterThan(3);
 
     await stopServer();
     await startServer();
@@ -159,7 +166,7 @@ describe('サーバ再起動をまたいだ復帰', () => {
 
   test('知らないsecretは新規プレイヤーとして広場から始まる', async () => {
     const s = await session('secret-unknown-XYZ');
-    expect(s.pos.x).toBeCloseTo(64.5, 1);
-    expect(s.pos.y).toBeCloseTo(64.5, 1);
+    expect(s.pos.x).toBeCloseTo(SPAWN.x, 1);
+    expect(s.pos.y).toBeCloseTo(SPAWN.y, 1);
   }, 30_000);
 });

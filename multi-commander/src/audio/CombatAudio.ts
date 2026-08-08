@@ -11,7 +11,7 @@ const _rel = new Vector3();
 const _right = new Vector3();
 const _camDir = new Vector3();
 
-export type CombatExplosionSize = 'small' | 'large' | 'torpedo';
+export type CombatExplosionSize = 'small' | 'large' | 'torpedo' | 'shield' | 'breach';
 
 /** 爆発イベントの既存情報だけで音の規模を選ぶ。新しい payload が無くても安全。 */
 export function explosionAudioSize(
@@ -22,6 +22,8 @@ export function explosionAudioSize(
   if (kind === 'small') return 'small';
   if (kind === 'ship') return 'large';
   if (detonation === 'torpedo') return 'torpedo';
+  if (detonation === 'shield-burst') return 'shield';
+  if (detonation === 'breach-burst') return 'breach';
   // 現行の対艦魚雷の blastRadius (70) にだけ合わせる。岩(最大84)や
   // 機雷(95)も kind=missile で通知されるため、単純な大小判定はしない。
   return Math.abs(radius - 70) <= 1 ? 'torpedo' : 'small';

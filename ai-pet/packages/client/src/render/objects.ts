@@ -56,6 +56,16 @@ export const OBJECT_SCALE: Record<string, number> = {
   // 共同建設の完成物と足場（G-1 / G-2）。島の名所なので大きく置く
   observatory: 2.4,
   scaffold: 2.2,
+  // 島の生成時に置く「暮らしの痕跡」（C-1 / C-2）。
+  // 家と風車は 2×2 タイルの footprint（歩行不可）に合わせて 2.2〜2.8 で置く。
+  // 柵は1タイル=1枚なので継ぎ目が出ないよう 1.0 のまま
+  house_a: 2.2,
+  house_b: 2.2,
+  house_c: 2.2,
+  windmill: 2.8,
+  fountain: 1.5,
+  fence_h: 1.0,
+  fence_v: 1.0,
 };
 
 export class ObjectLayer {

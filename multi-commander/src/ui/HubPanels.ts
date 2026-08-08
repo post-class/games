@@ -273,7 +273,9 @@ export function hangarHtml(
       );
     })
     .join('');
-  const gunNames = [...new Set(def.guns.map((g) => gunDef(g.gunId).name))].join(' / ');
+  const gunNames = sel.gunId
+    ? gunDef(sel.gunId).name
+    : [...new Set(def.guns.map((g) => gunDef(g.gunId).name))].join(' / ');
   const mission = shipDef(missionShipId);
 
   return (

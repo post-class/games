@@ -7,7 +7,14 @@ export interface SupplyState {
 
 export function newSupplies(): SupplyState {
   return {
-    missiles: { dumbfire: 24, 'heat-seeker': 18, 'image-rec': 8, torpedo: 6 },
+    missiles: {
+      dumbfire: 24,
+      'heat-seeker': 18,
+      'image-rec': 8,
+      torpedo: 6,
+      'shield-breaker': 8,
+      'armor-breacher': 4,
+    },
     flares: 72,
     spareParts: 12,
   };
@@ -20,8 +27,16 @@ export function normalizeSupplies(raw: unknown): SupplyState {
   if (r.missiles && typeof r.missiles === 'object') {
     for (const id of Object.keys(fallback.missiles)) {
       const v = r.missiles[id];
-      if (typeof v === 'number' && Number.isFinite(v)) fallback.missiles[id] = Math.max(0, Math.floor(v));
+      if (typeof v === 'number' && Number.isFinite(v)) {
+        fallback.missiles[id] = Math.max(0, Math.floor(v));
+      } else if (id === 'shield-breaker' || id === 'armor-breacher') {
+        // 既存セーブに新兵装を無償追加しない。新規ゲームだけ初期在庫を持つ。
+        fallback.missiles[id] = 0;
+      }
     }
+  } else {
+    fallback.missiles['shield-breaker'] = 0;
+    fallback.missiles['armor-breacher'] = 0;
   }
   if (typeof r.flares === 'number' && Number.isFinite(r.flares)) fallback.flares = Math.max(0, Math.floor(r.flares));
   if (typeof r.spareParts === 'number' && Number.isFinite(r.spareParts)) fallback.spareParts = Math.max(0, Math.floor(r.spareParts));

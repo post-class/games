@@ -73,7 +73,8 @@ describe('設置物が動物を引き寄せる', () => {
       playerPos: { x: spot.x + 0.5, y: spot.y + 0.5 },
       tick: 1,
     });
-    const bench = [...sim.world.placeables.values()][0];
+    // 島の生成時に噴水などが置かれている（C-1 / C-2）ので、種別で探す
+    const bench = [...sim.world.placeables.values()].find((p) => p.type === 'bench');
     expect(bench).toBeDefined();
     expect(bench?.attract, 'ベンチのattractは基準5を超えていること').toBeGreaterThan(5);
   });

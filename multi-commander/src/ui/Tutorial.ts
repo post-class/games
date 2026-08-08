@@ -80,12 +80,12 @@ const DETAILED_STEPS: Step[] = [
     done: (c) => c.world.player?.ship?.targetId !== undefined,
   },
   {
-    text: '<b>Space</b> または左クリックで主砲。偏差照準の黄色い点線へ敵を重ねて撃つ。',
+    text: '<b>Space</b> または左クリックで主砲。格納庫ではパルスキャノン（3発散開）やイオンランス（高速精密弾）も選べる。',
     done: (_c, self) => self.shotsFired > 3,
     minShow: 2,
   },
   {
-    text: '<b>X</b> で副兵装を切り替える。HUD の選択中ミサイル名と残弾を確認する。',
+    text: '<b>X</b> で副兵装を切り替える。HUD の選択中ミサイル名と残弾を確認する。シールドブレイカーはシールド、アーマーブリーチャーは装甲向けだ。',
     done: (_c, self) => self.used('nextSecondary'),
     minShow: 2,
   },

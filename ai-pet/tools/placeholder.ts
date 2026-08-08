@@ -467,6 +467,190 @@ function drawChar(spec: CharSpec, dir: Dir): Canvas {
 
 // ==================== 出力 ====================
 
+// ==================== 設置物・資源 ====================
+
+/**
+ * 設置物のプレースホルダ。
+ *
+ * 本番アセット（`/assets/game/obj_*.png`）は M8 で生成済みだが、
+ * **プレースホルダ側には obj_* が1枚も無かった**。そのため新しい種別を足すと
+ * `ObjectTextureSet` が `Texture.EMPTY` に落ち、**何も描かれないまま気づけない**。
+ * 「絵は雑でも必ず何か出る」状態にしておくために足した。
+ *
+ * 形は「胴体＋屋根/天面」の2要素だけで作る。細部は本番アセットの仕事。
+ */
+interface ObjectSpec {
+  key: string;
+  /** 胴体の色 */
+  body: string;
+  /** 上に載せるものの色（屋根・水面・葉など） */
+  top: string;
+  /** 上に載せるものの形 */
+  topShape: 'roof' | 'disc' | 'none';
+  /** 48px枠に対する胴体の幅・高さの割合 */
+  bodyW: number;
+  bodyH: number;
+}
+
+const OBJECTS: readonly ObjectSpec[] = [
+  { key: 'berry_tree', body: '#a8825c', top: '#bfe06a', topShape: 'disc', bodyW: 0.16, bodyH: 0.34 },
+  { key: 'field', body: '#a8825c', top: '#bfe06a', topShape: 'none', bodyW: 0.78, bodyH: 0.3 },
+  { key: 'bench', body: '#c39a6b', top: '#a8825c', topShape: 'none', bodyW: 0.7, bodyH: 0.26 },
+  { key: 'flowerbed', body: '#c39a6b', top: '#ffb9a3', topShape: 'disc', bodyW: 0.6, bodyH: 0.22 },
+  { key: 'lantern', body: '#a8825c', top: '#ffcf7a', topShape: 'disc', bodyW: 0.12, bodyH: 0.44 },
+  { key: 'signboard', body: '#a8825c', top: '#fffdf3', topShape: 'roof', bodyW: 0.12, bodyH: 0.4 },
+  { key: 'well', body: '#b9b3c9', top: '#9fd8ee', topShape: 'disc', bodyW: 0.52, bodyH: 0.34 },
+  { key: 'bridge', body: '#c39a6b', top: '#a8825c', topShape: 'none', bodyW: 0.94, bodyH: 0.24 },
+  // 共同建設（G-1 / G-2）
+  { key: 'observatory', body: '#cfc6dd', top: '#9fd8ee', topShape: 'roof', bodyW: 0.5, bodyH: 0.6 },
+  { key: 'scaffold', body: '#d8c49a', top: '#a8825c', topShape: 'none', bodyW: 0.66, bodyH: 0.52 },
+  // 暮らしの痕跡（C-1 / C-2）。屋根の色だけを変えて3軒を見分ける
+  { key: 'house_a', body: '#d8c49a', top: '#a892e0', topShape: 'roof', bodyW: 0.62, bodyH: 0.42 },
+  { key: 'house_b', body: '#d8c49a', top: '#ffb9a3', topShape: 'roof', bodyW: 0.62, bodyH: 0.42 },
+  { key: 'house_c', body: '#e8dcb8', top: '#a8e0b4', topShape: 'roof', bodyW: 0.62, bodyH: 0.42 },
+  { key: 'windmill', body: '#e8dcb8', top: '#c39a6b', topShape: 'roof', bodyW: 0.42, bodyH: 0.66 },
+  { key: 'fountain', body: '#b9b3c9', top: '#9fd8ee', topShape: 'disc', bodyW: 0.6, bodyH: 0.26 },
+  // 柵は1タイル=1枚。横向きは板が横に長く、縦向きは杭が縦に並ぶ
+  { key: 'fence_h', body: '#c39a6b', top: '#a8825c', topShape: 'none', bodyW: 0.94, bodyH: 0.2 },
+  { key: 'fence_v', body: '#c39a6b', top: '#a8825c', topShape: 'none', bodyW: 0.2, bodyH: 0.6 },
+];
+
+function drawObject(spec: ObjectSpec): Canvas {
+  const c = new Canvas(CHAR_PX, CHAR_PX);
+  const body = hex(spec.body);
+  const top = hex(spec.top);
+  // 足元は他のアセットと同じ y=43 に合わせる（install-assets.py の規則）
+  const baseY = 43;
+  const bw = CHAR_PX * spec.bodyW;
+  const bh = CHAR_PX * spec.bodyH;
+  const x0 = Math.round((CHAR_PX - bw) / 2);
+  const y0 = Math.round(baseY - bh);
+
+  // 輪郭（1px外側に濃い茶）→ 胴体
+  c.rect(x0 - 1, y0 - 1, Math.round(bw) + 2, Math.round(bh) + 2, INK, 1);
+  c.rect(x0, y0, Math.round(bw), Math.round(bh), body, 1);
+
+  if (spec.topShape === 'disc') {
+    const r = CHAR_PX * 0.2;
+    c.disc(CHAR_PX / 2, y0 - r * 0.35, r + 1, INK, 1);
+    c.disc(CHAR_PX / 2, y0 - r * 0.35, r, top, 1);
+  } else if (spec.topShape === 'roof') {
+    const rw = bw * 1.5;
+    c.triangle(
+      [
+        [CHAR_PX / 2, y0 - CHAR_PX * 0.2],
+        [CHAR_PX / 2 - rw / 2, y0 + 1],
+        [CHAR_PX / 2 + rw / 2, y0 + 1],
+      ],
+      INK,
+      1,
+    );
+    c.triangle(
+      [
+        [CHAR_PX / 2, y0 - CHAR_PX * 0.2 + 2],
+        [CHAR_PX / 2 - rw / 2 + 2, y0],
+        [CHAR_PX / 2 + rw / 2 - 2, y0],
+      ],
+      top,
+      1,
+    );
+  }
+
+  // 足場（scaffold）だけは「まだ出来ていない」と分かるよう横木を渡す
+  if (spec.key === 'scaffold') {
+    for (let i = 1; i <= 2; i++) {
+      const y = Math.round(y0 + (bh * i) / 3);
+      c.rect(x0 - 2, y, Math.round(bw) + 4, 2, INK, 1);
+    }
+  }
+  return c;
+}
+
+// ==================== 装飾デカール ====================
+
+/**
+ * 地面の装飾（B-3）。`render/tilemap.ts` の `DECAL_SETS` に出てくる名前と一致させること。
+ *
+ * 32px枠の中に小さく描く。実表示は 16px（`DECAL_PX = TILE_PX * 0.5`）なので、
+ * ここでは中央に寄せて余白を残す。
+ */
+interface DecalSpec {
+  key: string;
+  /** 主色 */
+  color: string;
+  /** 形 */
+  shape: 'tuft' | 'flower' | 'pebble' | 'leaf' | 'mushroom' | 'shell';
+}
+
+const DECALS: readonly DecalSpec[] = [
+  { key: 'grass_tuft', color: '#a8c25a', shape: 'tuft' },
+  { key: 'flower_white', color: '#fffdf3', shape: 'flower' },
+  { key: 'flower_yellow', color: '#ffe878', shape: 'flower' },
+  { key: 'flower_pink', color: '#ffb9a3', shape: 'flower' },
+  { key: 'pebble', color: '#b9b3a6', shape: 'pebble' },
+  { key: 'leaf', color: '#c9a05c', shape: 'leaf' },
+  { key: 'mushroom', color: '#e39a8c', shape: 'mushroom' },
+  { key: 'shell', color: '#f3e2cd', shape: 'shell' },
+];
+
+function drawDecal(spec: DecalSpec): Canvas {
+  const c = new Canvas(TILE_PX, TILE_PX);
+  const col = hex(spec.color);
+  const cx = TILE_PX / 2;
+  const cy = TILE_PX / 2;
+
+  if (spec.shape === 'tuft') {
+    // 3本の草。輪郭は付けない（小さすぎて潰れる）
+    for (const [dx, h] of [
+      [-4, 8],
+      [0, 11],
+      [4, 7],
+    ] as const) {
+      c.triangle(
+        [
+          [cx + dx, cy - h],
+          [cx + dx - 2, cy + 2],
+          [cx + dx + 2, cy + 2],
+        ],
+        col,
+        1,
+      );
+    }
+    return c;
+  }
+  if (spec.shape === 'flower') {
+    // 花びら4枚＋芯
+    for (const [dx, dy] of [
+      [0, -3],
+      [3, 0],
+      [0, 3],
+      [-3, 0],
+    ] as const) {
+      c.disc(cx + dx, cy + dy, 2.6, col, 1);
+    }
+    c.disc(cx, cy, 1.6, hex('#ffe878'), 1);
+    return c;
+  }
+  if (spec.shape === 'pebble') {
+    c.ellipse(cx, cy, 4.5, 3.2, INK, 1);
+    c.ellipse(cx, cy, 3.6, 2.4, col, 1);
+    return c;
+  }
+  if (spec.shape === 'leaf') {
+    c.ellipse(cx, cy, 5, 2.6, col, 1);
+    return c;
+  }
+  if (spec.shape === 'mushroom') {
+    c.rect(cx - 1, cy, 3, 5, CREAM, 1);
+    c.ellipse(cx + 0.5, cy, 4.4, 3.2, col, 1);
+    return c;
+  }
+  // shell
+  c.ellipse(cx, cy, 4.2, 4.2, col, 1);
+  c.rect(cx - 1, cy - 4, 2, 8, INK, 0.35);
+  return c;
+}
+
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = join(here, '..', 'packages', 'client', 'public', 'assets', 'placeholder');
 mkdirSync(outDir, { recursive: true });
@@ -508,6 +692,11 @@ for (const spec of CHARS) {
 // 設置物・資源
 for (const spec of OBJECTS) {
   emit(`obj_${spec.key}.png`, drawObject(spec).toPng());
+}
+
+// 装飾デカール
+for (const spec of DECALS) {
+  emit(`decal_${spec.key}.png`, drawDecal(spec).toPng());
 }
 
 written.sort();

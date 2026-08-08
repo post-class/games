@@ -15,7 +15,8 @@ import { TileMap } from './render/tilemap.ts';
 import { ActorLayer } from './render/sprites.ts';
 import { ObjectLayer } from './render/objects.ts';
 import { ShadowLayer } from './render/shadows.ts';
-import { NightSky, TimeTint } from './render/effects.ts';
+import { ConstructionLayer } from './render/constructions.ts';
+import { NightSky, SeasonTint, TimeTint } from './render/effects.ts';
 import { LightLayer } from './render/lights.ts';
 import { WeatherLayer } from './render/weather.ts';
 import { Minimap } from './render/minimap.ts';
@@ -56,6 +57,9 @@ const tilemap = new TileMap(stage.app.renderer, stage.layers, textures.terrain, 
 const actorLayer = new ActorLayer(stage.layers, textures.chars, camera);
 const objectLayer = new ObjectLayer(stage.layers, textures.objects, camera);
 const shadows = new ShadowLayer(stage.layers, camera);
+const constructionLayer = new ConstructionLayer(stage.layers, textures.objects, camera);
+// 季節の色被せは時間帯より下に置きたいので TimeTint より先に作る（overlayRoot は追加順に重なる）
+const seasonTint = new SeasonTint(stage.layers);
 const tint = new TimeTint(stage.layers);
 const nightSky = new NightSky(stage.layers);
 const lights = new LightLayer(stage.layers, camera);
@@ -91,6 +95,7 @@ function renderClock(): void {
     `${clock.islandDay}日目 ${SEASON_LABEL[clock.season] ?? clock.season}・` +
     `${TOD_LABEL[clock.timeOfDay] ?? clock.timeOfDay} ${WEATHER_LABEL[clock.weather] ?? clock.weather}`;
   tint.setTimeOfDay(clock.timeOfDay);
+  seasonTint.setSeason(clock.season);
   nightSky.setTimeOfDay(clock.timeOfDay);
   nightSky.setIslandDay(clock.islandDay);
   lights.setTimeOfDay(clock.timeOfDay);
@@ -134,6 +139,7 @@ let constructions: import('@ai-pet/shared').ConstructionWire[] = [];
 function renderConstructions(items: import('@ai-pet/shared').ConstructionWire[]): void {
   constructions = items;
   lights.setConstructions(items);
+  constructionLayer.setItems(items);
   const el = document.getElementById('hud-build');
   if (!el) return;
   const active = items.filter((c) => !c.done);
@@ -178,9 +184,35 @@ function selfPos(nowMs: number): Vec2 {
 }
 
 /** 予測移動の当たり判定（未受信タイルは通す＝最終判定はサーバ） */
+/**
+ * 歩行不可の設置物（C-1 / C-2）と、その footprint の [幅, 高さ]（タイル）。
+ *
+ * サーバは `world.solid` で判定しているが、クライアントの予測移動は地形しか見ていなかったため
+ * **家をすり抜けてからサーバ値に引き戻される**（ラバーバンドが見える）。ここで同じ形を持つ。
+ * 未受信の設置物は判定できないが、最終的な判定はサーバなので通してよい。
+ */
+const SOLID_PLACEABLES: Record<string, readonly [number, number]> = {
+  house_a: [2, 2],
+  house_b: [2, 2],
+  house_c: [2, 2],
+  windmill: [2, 2],
+  fountain: [1, 1],
+  fence_h: [1, 1],
+  fence_v: [1, 1],
+};
+
 function canStand(p: Vec2): boolean {
   const t = world.terrainAt(Math.floor(p.x), Math.floor(p.y));
-  return t !== T_WATER;
+  if (t === T_WATER) return false;
+  // サーバは pos = (左上x + 幅/2, 上y + 高さ - 0.5) で送ってくる
+  for (const o of world.placeables.values()) {
+    const size = SOLID_PLACEABLES[o.type];
+    if (!size) continue;
+    const x0 = o.x - size[0] / 2;
+    const y0 = o.y - size[1] + 0.5;
+    if (p.x >= x0 && p.x < x0 + size[0] && p.y >= y0 && p.y < y0 + size[1]) return false;
+  }
+  return true;
 }
 
 // ---------- 地形チャンクの要求 ----------
@@ -478,10 +510,12 @@ stage.app.ticker.add(() => {
   stage.layers.worldRoot.scale.set(camera.zoom);
 
   objectLayer.sync(world);
+  constructionLayer.update();
   actorLayer.sync(world, now, dtSec);
   // 影は actorLayer の後（自アバターの予測位置が確定してから）に描く
   shadows.update(world, now, actorLayer.selfPos);
   lights.update(world, dtSec);
+  seasonTint.update(stage.app.renderer.width, stage.app.renderer.height, dtSec);
   tint.update(stage.app.renderer.width, stage.app.renderer.height, dtSec);
   nightSky.update(stage.app.renderer.width, stage.app.renderer.height, dtSec);
   weather.update(stage.app.renderer.width, stage.app.renderer.height, dtSec);

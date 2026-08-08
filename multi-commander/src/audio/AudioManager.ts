@@ -1,7 +1,22 @@
 import { onSettingsChanged, settings } from '../app/settings';
 
-type ExplosionSize = 'small' | 'large' | 'torpedo';
+type ExplosionSize = 'small' | 'large' | 'torpedo' | 'shield' | 'breach';
 type MissileId = 'dumbfire' | 'heat-seeker' | 'image-rec' | 'torpedo' | (string & {});
+
+const AFTER3_WEAPON_AUDIO_IDS = [
+  'laser',
+  'mass-driver',
+  'neutron-gun',
+  'particle-cannon',
+  'dumbfire',
+  'heat-seeker',
+  'image-rec',
+  'torpedo',
+  'pulse-cannon',
+  'ion-lance',
+  'shield-breaker',
+  'armor-breacher',
+] as const;
 
 /**
  * Web Audio API による合成効果音。音源ファイルを持たない。
@@ -13,6 +28,9 @@ export class AudioManager {
   private sfxBus?: GainNode;
   private musicBus?: GainNode;
   private noiseBuffer?: AudioBuffer;
+  /** 比較資料で採用した after3 の実音声。読み込み失敗時は合成音へ戻す。 */
+  private weaponAudioBuffers = new Map<string, AudioBuffer>();
+  private weaponAudioLoads = new Map<string, Promise<void>>();
   private engine?: { osc: OscillatorNode; noise: AudioBufferSourceNode; gain: GainNode; filter: BiquadFilterNode };
   private unsub: () => void;
   /** 同時発音数を抑えるための直近再生時刻 */
@@ -84,6 +102,7 @@ export class AudioManager {
       const data = buf.getChannelData(0);
       for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
       this.noiseBuffer = buf;
+      this.loadAfter3WeaponAudio(ctx);
     } catch {
       this.ctx = undefined;
       this.master = undefined;
@@ -184,11 +203,55 @@ export class AudioManager {
     }
   }
 
+  /** after3 の採用音を先読みする。ゲーム開始直後に未完了でも合成音で継続する。 */
+  private loadAfter3WeaponAudio(ctx: AudioContext): void {
+    for (const id of AFTER3_WEAPON_AUDIO_IDS) {
+      if (this.weaponAudioLoads.has(id) || this.weaponAudioBuffers.has(id)) continue;
+      const load = fetch(`/audio/weapons/${id}-after3.wav`)
+        .then((response) => {
+          if (!response.ok) throw new Error(`weapon audio ${id}: ${response.status}`);
+          return response.arrayBuffer();
+        })
+        .then((data) => ctx.decodeAudioData(data))
+        .then((buffer) => {
+          if (this.ctx === ctx) this.weaponAudioBuffers.set(id, buffer);
+        })
+        .catch(() => undefined);
+      this.weaponAudioLoads.set(id, load);
+    }
+  }
+
+  /** 読み込み済みの after3 を距離・左右位置付きで再生する。 */
+  private playAfter3WeaponAudio(
+    weaponId: string,
+    distance: number,
+    pan: number,
+    gain: number,
+  ): boolean {
+    if (!this.ctx || !this.sfxBus) return false;
+    const buffer = this.weaponAudioBuffers.get(weaponId);
+    if (!buffer) return false;
+    const out = this.spatial(gain, distance, pan);
+    if (!out) return false;
+    try {
+      const source = this.ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(out);
+      source.start(this.ctx.currentTime);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   // ───────── 効果音 ─────────
 
   /** 砲撃。武装によって音色を変える。 */
   gun(weaponId: string, distance: number, pan: number): void {
-    if (!this.ctx || !this.claimVoice(`gun-${weaponId}`, weaponId === 'particle-cannon' ? 0.035 : 0.06, 0.24)) return;
+    const after3 = this.weaponAudioBuffers.get(weaponId);
+    const voiceDuration = after3 ? Math.min(after3.duration + 0.05, 2.5) : 0.24;
+    if (!this.ctx || !this.claimVoice(`gun-${weaponId}`, weaponId === 'particle-cannon' ? 0.035 : 0.06, voiceDuration)) return;
+    if (this.playAfter3WeaponAudio(weaponId, distance, pan, 0.35)) return;
     const t = this.ctx.currentTime;
     const out = this.spatial(0.35, distance, pan);
     if (!out) return;
@@ -219,6 +282,20 @@ export class AudioManager {
         osc.frequency.exponentialRampToValueAtTime(320, t + 0.1);
         filter.frequency.value = 2400;
         filter.Q.value = 1;
+        break;
+      case 'pulse-cannon':
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(620, t);
+        osc.frequency.exponentialRampToValueAtTime(180, t + 0.14);
+        filter.frequency.value = 1200;
+        filter.Q.value = 1.8;
+        break;
+      case 'ion-lance':
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(2100, t);
+        osc.frequency.exponentialRampToValueAtTime(260, t + 0.22);
+        filter.frequency.value = 2800;
+        filter.Q.value = 2.6;
         break;
       case 'laser':
         osc.type = 'sawtooth';
@@ -257,6 +334,13 @@ export class AudioManager {
         const at = t + i * 0.025;
         this.tone(out, 2200 - i * 260, 520, 0.08, 0.045, 0.075, at, 'triangle');
       }
+    } else if (weaponId === 'pulse-cannon') {
+      for (let i = 0; i < 3; i++) {
+        this.tone(out, 1180 - i * 150, 380, 0.07, 0.06, 0.09, t + i * 0.035, 'triangle');
+      }
+    } else if (weaponId === 'ion-lance') {
+      this.tone(out, 3200, 620, 0.16, 0.3, 0.34, t, 'sawtooth');
+      this.tone(out, 130, 48, 0.16, 0.22, 0.28, t + 0.02, 'sine');
     }
   }
 
@@ -303,8 +387,8 @@ export class AudioManager {
     osc.stop(t + 0.25);
     this.tone(
       out,
-      weaponId === 'neutron-gun' ? 2800 : 2300,
-      weaponId === 'particle-cannon' ? 1200 : 900,
+      weaponId === 'neutron-gun' || weaponId === 'shield-breaker' ? 2800 : 2300,
+      weaponId === 'particle-cannon' ? 1200 : weaponId === 'shield-breaker' ? 1500 : 900,
       0.12,
       0.12,
       0.16,
@@ -333,8 +417,8 @@ export class AudioManager {
     env.connect(out);
     this.tone(
       out,
-      layer === 'hull' ? 120 : weaponId === 'mass-driver' ? 420 : 520,
-      layer === 'hull' ? 42 : weaponId === 'particle-cannon' ? 280 : 180,
+      layer === 'hull' ? 120 : weaponId === 'mass-driver' ? 420 : weaponId === 'armor-breacher' ? 360 : 520,
+      layer === 'hull' ? 42 : weaponId === 'particle-cannon' ? 280 : weaponId === 'armor-breacher' ? 160 : 180,
       layer === 'hull' ? 0.55 : 0.25,
       layer === 'hull' ? 0.3 : 0.16,
       layer === 'hull' ? 0.34 : 0.2,
@@ -347,20 +431,28 @@ export class AudioManager {
   explosion(distance: number, pan: number, size: ExplosionSize | boolean): void {
     const profile: ExplosionSize = size === true ? 'large' : size === false ? 'small' : size;
     const key = `boom-${profile}`;
-    const duration = profile === 'torpedo' ? 2.1 : profile === 'large' ? 1.6 : 0.7;
+    const duration =
+      profile === 'torpedo' ? 2.1 : profile === 'large' ? 1.6 : profile === 'breach' ? 0.95 : profile === 'shield' ? 0.8 : 0.7;
     if (!this.ctx || !this.claimVoice(key, 0.05, duration + 0.1)) return;
     const t = this.ctx.currentTime;
     const dur = duration;
     const big = profile !== 'small';
     const torpedo = profile === 'torpedo';
-    const out = this.spatial(torpedo ? 1 : big ? 0.9 : 0.55, distance, pan);
+    const out = this.spatial(
+      torpedo ? 1 : profile === 'breach' ? 0.72 : profile === 'shield' ? 0.62 : big ? 0.9 : 0.55,
+      distance,
+      pan,
+    );
     if (!out) return;
 
     const src = this.noise(dur);
     if (src) {
       const filter = this.ctx.createBiquadFilter();
       filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(torpedo ? 3200 : big ? 2600 : 1800, t);
+      filter.frequency.setValueAtTime(
+        torpedo ? 3200 : profile === 'shield' ? 4200 : profile === 'breach' ? 1900 : big ? 2600 : 1800,
+        t,
+      );
       filter.frequency.exponentialRampToValueAtTime(torpedo ? 90 : 120, t + dur * 0.8);
       const env = this.ctx.createGain();
       env.gain.setValueAtTime(1, t);
@@ -372,10 +464,13 @@ export class AudioManager {
     // 低音の押し
     const sub = this.ctx.createOscillator();
     sub.type = 'sine';
-    sub.frequency.setValueAtTime(torpedo ? 58 : big ? 90 : 130, t);
+    sub.frequency.setValueAtTime(torpedo ? 58 : profile === 'breach' ? 72 : profile === 'shield' ? 180 : big ? 90 : 130, t);
     sub.frequency.exponentialRampToValueAtTime(torpedo ? 18 : 28, t + dur * 0.7);
     const subEnv = this.ctx.createGain();
-    subEnv.gain.setValueAtTime(torpedo ? 1.35 : big ? 1.1 : 0.6, t);
+    subEnv.gain.setValueAtTime(
+      torpedo ? 1.35 : profile === 'breach' ? 0.82 : profile === 'shield' ? 0.45 : big ? 1.1 : 0.6,
+      t,
+    );
     subEnv.gain.exponentialRampToValueAtTime(0.001, t + dur * 0.9);
     sub.connect(subEnv);
     subEnv.connect(out);
@@ -391,17 +486,31 @@ export class AudioManager {
     const weaponId: MissileId = typeof weaponOrDistance === 'string' ? weaponOrDistance : 'dumbfire';
     const distance = typeof weaponOrDistance === 'number' ? weaponOrDistance : distanceOrPan;
     const pan = typeof weaponOrDistance === 'number' ? distanceOrPan : (maybePan ?? 0);
-    const duration = weaponId === 'torpedo' ? 1.55 : weaponId === 'image-rec' ? 1.05 : 0.9;
+    const after3 = this.weaponAudioBuffers.get(weaponId);
+    const duration = after3
+      ? Math.min(after3.duration + 0.05, 2.5)
+      : weaponId === 'torpedo'
+        ? 1.55
+        : weaponId === 'image-rec'
+          ? 1.05
+          : weaponId === 'armor-breacher'
+            ? 1.15
+            : weaponId === 'shield-breaker'
+              ? 0.82
+              : 0.9;
     if (!this.ctx || !this.claimVoice(`missile-${weaponId}`, 0.08, duration)) return;
+    if (this.playAfter3WeaponAudio(weaponId, distance, pan, weaponId === 'torpedo' ? 0.8 : 0.6)) return;
     const t = this.ctx.currentTime;
-    const out = this.spatial(weaponId === 'torpedo' ? 0.8 : 0.6, distance, pan);
+    const out = this.spatial(weaponId === 'torpedo' ? 0.8 : weaponId === 'armor-breacher' ? 0.68 : 0.6, distance, pan);
     if (!out) return;
     const src = this.noise(duration);
     const filter = this.ctx.createBiquadFilter();
-    filter.type = weaponId === 'torpedo' ? 'lowpass' : 'bandpass';
-    filter.Q.value = weaponId === 'image-rec' ? 2.4 : 1.4;
-    const start = weaponId === 'torpedo' ? 100 : weaponId === 'image-rec' ? 1500 : weaponId === 'heat-seeker' ? 650 : 400;
-    const end = weaponId === 'torpedo' ? 520 : weaponId === 'image-rec' ? 3200 : weaponId === 'heat-seeker' ? 2800 : 2600;
+    filter.type = weaponId === 'torpedo' || weaponId === 'armor-breacher' ? 'lowpass' : 'bandpass';
+    filter.Q.value = weaponId === 'image-rec' || weaponId === 'shield-breaker' ? 2.4 : 1.4;
+    const start =
+      weaponId === 'torpedo' ? 100 : weaponId === 'armor-breacher' ? 180 : weaponId === 'image-rec' ? 1500 : weaponId === 'heat-seeker' ? 650 : weaponId === 'shield-breaker' ? 1800 : 400;
+    const end =
+      weaponId === 'torpedo' ? 520 : weaponId === 'armor-breacher' ? 820 : weaponId === 'image-rec' ? 3200 : weaponId === 'heat-seeker' ? 2800 : weaponId === 'shield-breaker' ? 4200 : 2600;
     filter.frequency.setValueAtTime(start, t);
     filter.frequency.exponentialRampToValueAtTime(end, t + (weaponId === 'torpedo' ? 0.9 : 0.5));
     const env = this.ctx.createGain();
@@ -421,6 +530,12 @@ export class AudioManager {
       this.tone(out, 1850, 900, 0.1, 0.16, 0.2, t + 0.42, 'square');
     } else if (weaponId === 'torpedo') {
       this.tone(out, 72, 32, 0.5, 1.2, 1.5, t, 'sine');
+    } else if (weaponId === 'shield-breaker') {
+      this.tone(out, 2400, 800, 0.16, 0.22, 0.28, t + 0.05, 'square');
+      this.tone(out, 150, 80, 0.08, 0.18, 0.22, t, 'sine');
+    } else if (weaponId === 'armor-breacher') {
+      this.tone(out, 110, 42, 0.3, 0.45, 0.55, t, 'sine');
+      this.tone(out, 420, 120, 0.12, 0.28, 0.34, t + 0.1, 'square');
     }
   }
 
@@ -444,7 +559,25 @@ export class AudioManager {
   lockTone(complete: boolean, weaponId?: string): void {
     if (this.throttled(`lock-${weaponId ?? 'unknown'}`, complete ? 0.4 : 0.22)) return;
     const torpedo = weaponId === 'torpedo';
-    const frequency = complete ? (torpedo ? 520 : weaponId === 'image-rec' ? 1180 : 1500) : torpedo ? 360 : weaponId === 'heat-seeker' ? 820 : 900;
+    const frequency = complete
+      ? torpedo
+        ? 520
+        : weaponId === 'armor-breacher'
+          ? 420
+          : weaponId === 'shield-breaker'
+            ? 1720
+            : weaponId === 'image-rec'
+              ? 1180
+              : 1500
+      : torpedo
+        ? 360
+        : weaponId === 'armor-breacher'
+          ? 300
+          : weaponId === 'shield-breaker'
+            ? 1150
+            : weaponId === 'heat-seeker'
+              ? 820
+              : 900;
     this.beep(frequency, complete ? (torpedo ? 0.24 : 0.14) : torpedo ? 0.1 : 0.06, torpedo ? 0.28 : 0.22, torpedo ? 'triangle' : 'square');
   }
 
@@ -669,6 +802,8 @@ export class AudioManager {
     this.sfxBus = undefined;
     this.musicBus = undefined;
     this.noiseBuffer = undefined;
+    this.weaponAudioBuffers.clear();
+    this.weaponAudioLoads.clear();
   }
 }
 
