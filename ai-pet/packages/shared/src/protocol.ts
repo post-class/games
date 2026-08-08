@@ -86,6 +86,14 @@ export const CreatePetMsg = z.object({
   species: z.enum(['mofi', 'mizune', 'hakka', 'momona', 'hoshira']),
   name: z.string().min(1).max(12),
   persona: PersonaInput,
+  /**
+   * プレイヤー自身のアバター色（D-5）。`player_<avatar>_<dir>.png` に対応する。
+   *
+   * 省略可能にしてあるのは、UI側（`eggSelect.ts`）の選択機能と
+   * サーバの保存を別々に入れられるようにするため。
+   * 来なければサーバが playerId から決定論的に割り振る（`Math.random` は使わない）。
+   */
+  avatar: z.enum(['a', 'b', 'c', 'd']).optional(),
 });
 
 export const PingMsg = z.object({
@@ -191,6 +199,13 @@ export interface PetWire {
   species: string;
   name: string;
   affection: number;
+  /**
+   * `Needs.hunger` の生値（0=満たされている / 100=空腹）。**反転しない**（E-6）。
+   *
+   * `petState` にも同じ値が乗るが、それは会話や撫でたときにしか飛ばない。
+   * 入島直後からおなかバーを出すために welcome にも載せている。
+   */
+  hunger: number;
   persona: {
     traitTags: string[];
     catchphrase: string;
@@ -261,7 +276,20 @@ export type ServerMsg =
   | { t: 'chatChunk'; convId: string; entityId: number; delta: string; done: boolean }
   | { t: 'notice'; text: string; importance: number }
   | { t: 'awaySummary'; lines: string[]; islandDaysPassed: number }
-  | { t: 'petState'; affection: number; intent?: { goal: string; reason: string }; mood: string }
+  /**
+   * ペットの状態（E-1のゲージパネルの材料）。
+   *
+   * ⚠️ `hunger` は `Actor.needs.hunger` の**生値**（0=満たされている / 100=空腹）。
+   * クライアント（`petGauge.ts`）が反転して「おなか」バーにするので、
+   * **サーバでは絶対に反転しない**（すると満腹と餓死寸前が入れ替わる）。
+   */
+  | {
+      t: 'petState';
+      affection: number;
+      hunger: number;
+      intent?: { goal: string; reason: string };
+      mood: string;
+    }
   | { t: 'warn'; code: string; message: string }
   | { t: 'serverClosing'; reason: string }
   | { t: 'pong'; ts: number; tick: number };

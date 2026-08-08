@@ -451,6 +451,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.mc-tutorial .next {
+  color: var(--warn);
+  margin-left: 0.8em;
+}
 .mc-tutorial.done {
   border-left-color: var(--good);
   color: var(--good);

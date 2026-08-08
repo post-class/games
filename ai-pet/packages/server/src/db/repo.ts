@@ -29,6 +29,9 @@ import {
   type Vec2,
   type Weather,
 } from '@ai-pet/shared';
+// アバターの語彙は「見た目」の定義なので sim/actors.ts に置いてある（species と並べたかった）。
+// ここから参照しているのは純粋関数だけで、循環importにはならない
+import { avatarFromPlayerId, normalizeAvatar, type PlayerAvatar } from '../sim/actors.ts';
 
 /** 荒廃度BLOBの正しい長さ */
 export const TILES_DECAY_BYTES = MAP_W * MAP_H;
@@ -43,6 +46,8 @@ export interface PlayerRecord {
   lastSeenAt: number;
   /** 前回いた島日（留守中サマリの起点） */
   lastSeenIslandDay: number;
+  /** アバターの色（D-5）。`'a'|'b'|'c'|'d'`。そのまま `Actor.species` に入る */
+  avatar: PlayerAvatar;
 }
 
 export interface IslandStateRecord {
@@ -137,6 +142,7 @@ interface PlayerRow {
   created_at: number;
   last_seen_at: number;
   last_seen_island_day: number;
+  avatar: string | null;
 }
 
 interface EventRow {
@@ -163,6 +169,8 @@ function toPlayer(row: PlayerRow): PlayerRecord {
     createdAt: row.created_at,
     lastSeenAt: row.last_seen_at,
     lastSeenIslandDay: row.last_seen_island_day ?? 1,
+    // 列が無い古いDBを読んだ場合でも壊れないように normalize を通す
+    avatar: normalizeAvatar(row.avatar),
   };
 }
 
@@ -233,6 +241,20 @@ export class Repo {
     const cols = this.db.prepare('PRAGMA table_info(player)').all() as { name: string }[];
     if (!cols.some((c) => c.name === 'last_seen_island_day')) {
       this.db.exec('ALTER TABLE player ADD COLUMN last_seen_island_day INTEGER NOT NULL DEFAULT 1');
+    }
+    // D-5: アバターの列。既にある列へ ALTER すると SQLite はエラーにするので、
+    // PRAGMA で有無を見てから足す（同じDBに何度流しても安全＝冪等）
+    if (!cols.some((c) => c.name === 'avatar')) {
+      this.db.exec("ALTER TABLE player ADD COLUMN avatar TEXT NOT NULL DEFAULT 'a'");
+      // 既存プレイヤーを既定値 'a' のまま放置すると全員同じ見た目のままになり、
+      // D-5（同じ島に色違いの人がいる）の狙いが古いDBだけ達成できない。
+      // playerId のハッシュで決定論的に振り直す（何度流しても同じ結果になる）
+      const ids = this.db.prepare('SELECT id FROM player').all() as { id: string }[];
+      const upd = this.db.prepare('UPDATE player SET avatar = ? WHERE id = ?');
+      const tx = this.db.transaction((list: { id: string }[]) => {
+        for (const r of list) upd.run(avatarFromPlayerId(r.id), r.id);
+      });
+      tx(ids);
     }
     const snapCols = this.db.prepare('PRAGMA table_info(island_snapshot)').all() as { name: string }[];
     if (snapCols.length > 0 && !snapCols.some((c) => c.name === 'constructions_json')) {
@@ -365,10 +387,18 @@ export class Repo {
   }
 
   /** 新規作成。secretは平文で受け取り、ハッシュして保存する */
-  createPlayer(opts: { secret: string; displayName: string; islandId: string; pos: Vec2 }): PlayerRecord {
+  createPlayer(opts: {
+    secret: string;
+    displayName: string;
+    islandId: string;
+    pos: Vec2;
+    /** 未指定なら playerId のハッシュから決める（D-5） */
+    avatar?: string;
+  }): PlayerRecord {
     const now = Date.now();
+    const id = randomUUID();
     const rec: PlayerRecord = {
-      id: randomUUID(),
+      id,
       secretHash: hashSecret(opts.secret),
       displayName: opts.displayName,
       islandId: opts.islandId,
@@ -376,12 +406,13 @@ export class Repo {
       createdAt: now,
       lastSeenAt: now,
       lastSeenIslandDay: 1,
+      avatar: opts.avatar ? normalizeAvatar(opts.avatar) : avatarFromPlayerId(id),
     };
     this.db
       .prepare(
         `INSERT INTO player
-           (id, secret_hash, display_name, island_id, last_pos_x, last_pos_y, created_at, last_seen_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, secret_hash, display_name, island_id, last_pos_x, last_pos_y, created_at, last_seen_at, avatar)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         rec.id,
@@ -392,13 +423,14 @@ export class Repo {
         rec.pos.y,
         rec.createdAt,
         rec.lastSeenAt,
+        rec.avatar,
       );
     return rec;
   }
 
   updatePlayer(
     id: string,
-    patch: { displayName?: string; pos?: Vec2; lastSeenAt?: number; lastSeenIslandDay?: number },
+    patch: { displayName?: string; pos?: Vec2; lastSeenAt?: number; lastSeenIslandDay?: number; avatar?: string },
   ): void {
     const sets: string[] = [];
     const args: (string | number)[] = [];
@@ -417,6 +449,11 @@ export class Repo {
     if (patch.lastSeenIslandDay !== undefined) {
       sets.push('last_seen_island_day = ?');
       args.push(patch.lastSeenIslandDay);
+    }
+    if (patch.avatar !== undefined) {
+      sets.push('avatar = ?');
+      // 不正な値でDBを汚さない（読み出し側でも normalize するが、入り口で止めるほうが追いやすい）
+      args.push(normalizeAvatar(patch.avatar));
     }
     if (sets.length === 0) return;
     args.push(id);

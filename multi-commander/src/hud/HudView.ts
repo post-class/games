@@ -700,8 +700,8 @@ export class HudView {
       else if (e.kind === 'missile') color = '#ffffff';
       else if (e.ship?.ace && isHostile(player.faction, e.faction)) color = '#ffd75e';
       else if (isHostile(player.faction, e.faction)) color = '#ff4d4d';
-      else if (e.faction === player.faction) color = '#68e5ff';
-      else color = '#ffd166';
+      // 中立艦も敵対せずロック対象外なので、味方と同じ水色で表示する。
+      else color = '#68e5ff';
       blip.setAttribute('fill', color);
       blip.setAttribute(
         'r',
@@ -985,12 +985,12 @@ export class HudView {
       if (!p.onScreen) continue;
       const m = this.marker(used++);
       const hostile = isHostile(player.faction, e.faction);
-      const cls = `mc-marker ${hostile ? 'enemy' : e.faction === player.faction ? 'friend' : ''}`;
+      const cls = `mc-marker ${hostile ? 'enemy' : 'friend'}`;
       if (m.className !== cls) m.className = cls;
       m.style.display = '';
       m.style.left = `${p.x}px`;
       m.style.top = `${p.y}px`;
-      const shape = e.ship?.ace ? '★' : hostile ? '△' : e.faction === player.faction ? '○' : '◇';
+      const shape = e.ship?.ace ? '★' : hostile ? '△' : '○';
       m.textContent = d > 3000 ? shape : `${shape} ${(d / 1000).toFixed(1)}k`;
       if (e.ship?.ace) m.style.color = 'var(--ace)';
       else m.style.color = '';

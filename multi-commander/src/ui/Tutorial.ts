@@ -21,8 +21,8 @@ interface Step {
   minShow?: number;
 }
 
-/** 操作の達成状況に関係なく、一定時間ごとに案内を切り替える。 */
-const STEP_DURATION = 20;
+/** チュートリアルの案内を次へ送る専用キー。通常の戦闘操作と衝突しない。 */
+const TUTORIAL_NEXT_CODE = 'KeyB';
 
 const SIMPLE_STEPS: Step[] = [
   {
@@ -123,7 +123,7 @@ const DETAILED_STEPS: Step[] = [
 
 /**
  * 初回プレイ向けの短い操作案内。
- * 各ステップを20秒ずつ表示し、最後まで進むと最初へ戻って繰り返す。
+ * B キーでステップを進め、最後まで進むと最初へ戻って繰り返す。
  */
 export class Tutorial {
   active = false;
@@ -152,6 +152,13 @@ export class Tutorial {
     );
     const onKeyDown = (ev: KeyboardEvent) => {
       if (!this.active || ev.repeat) return;
+      if (ev.code === TUTORIAL_NEXT_CODE) {
+        // B はチュートリアル専用。ゲーム側へ渡して意図しない操作を起こさない。
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+        this.advance();
+        return;
+      }
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyQ', 'KeyE'].includes(ev.code)) {
         this.usedActions.add('flightInput');
       }
@@ -203,12 +210,15 @@ export class Tutorial {
       this.render();
       return;
     }
-    // 入力の達成状況では進めず、各案内を一定時間表示する。
-    if (this.stepElapsed >= STEP_DURATION) {
-      this.index = (this.index + 1) % steps.length;
-      this.stepElapsed = 0;
-      this.render();
-    }
+  }
+
+  /** 現在の案内を確認したら次のステップへ進める。 */
+  private advance(): void {
+    if (!this.active) return;
+    const steps = this.mode === 'detailed' ? DETAILED_STEPS : SIMPLE_STEPS;
+    this.index = (this.index + 1) % steps.length;
+    this.stepElapsed = 0;
+    this.render();
   }
 
   private render(): void {
@@ -218,7 +228,7 @@ export class Tutorial {
     this.el.style.display = '';
     this.el.innerHTML =
       `<span class="step">${this.mode === 'detailed' ? '詳細訓練' : '簡易訓練'} ${this.index + 1} / ${steps.length}</span>` +
-      `<span class="message">${step.text}</span>`;
+      `<span class="message">${step.text} <span class="next">[B] 次へ</span></span>`;
   }
 
   dispose(): void {

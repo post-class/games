@@ -679,3 +679,131 @@ body.minimap-open .hud { padding-right: 190px; }
   .petgauge-track { width: min(108px, 40vw); }
   .petgauge-box { padding: 5px 9px; }
 }
+
+/* ---------- 右下の丸いアクションボタン（E-2） ---------- */
+/*
+ * 宣伝資料 images/screen-talk.png の右下の3つ（肉球・じょうろ・かご）。
+ *
+ * 位置の判断:
+ * - PC（1280×720）は宣伝資料どおり**横並び**で右下。チャット欄は左下・幅360pxなので交わらない
+ * - スマホは `touchPad` の設置ボタン（`.pad-buttons`）が同じ右下に出る。
+ *   横並びのままだと必ず重なるので `body.has-pad` では**縦並びにして上へ逃がす**。
+ *   `.pad-buttons` は2段（約44px×2＋隙間8＋下余白14）で約110pxなので、下から118pxに置く
+ * - 縦並びにすると今度はチャット欄（左下・幅は画面幅−20px）と横で交わるため、
+ *   ボタンを出しているあいだだけチャット欄の幅を詰める（`body.has-actions`）
+ */
+.actions {
+  position: fixed;
+  right: max(10px, env(safe-area-inset-right));
+  bottom: max(14px, env(safe-area-inset-bottom));
+  /* `.pad`（30）より上。`.pad` は画面下端いっぱいの箱なので、
+     隙間が詰まったときに丸ボタンが下に潜らないようにする */
+  z-index: 31;
+  display: flex;
+  gap: 12px;
+  /* 隙間はcanvasへ抜けさせる（ボタン側だけ auto にする） */
+  pointer-events: none;
+}
+
+.actions.hidden { display: none; }
+
+.act-btn {
+  width: 62px;
+  height: 62px;
+  padding: 0;
+  border: 4px solid var(--ink);
+  border-radius: 50%;
+  background: var(--cream);
+  box-shadow: var(--shadow);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  /* ⚠️ `.hud` は pointer-events: none なので、親がどこでも押せるよう明示する（AI_CODING §7） */
+  pointer-events: auto;
+  transition: opacity 0.12s linear;
+}
+
+/* 撫でるだけ桃色（宣伝資料の肉球ボタンが桃色で、いちばん押してほしいボタン） */
+.act-btn[data-act="pet"] { background: var(--peach); }
+
+.act-btn svg { width: 34px; height: 34px; display: block; }
+
+.act-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(74, 59, 42, 0.2); }
+
+/* 押す前に「届かない」が分かるようにする（押してから警告が返る作りをやめるのがE-2の主眼） */
+.act-btn:disabled {
+  opacity: 0.42;
+  filter: grayscale(0.7);
+  cursor: default;
+  box-shadow: none;
+}
+.act-btn:disabled:active { transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .act-btn { transition: none; }
+}
+
+/* バーチャルパッドと同居するときは縦並びで上へ逃がす */
+body.has-pad .actions {
+  flex-direction: column;
+  gap: 10px;
+  bottom: calc(118px + env(safe-area-inset-bottom));
+}
+
+body.has-pad .act-btn { width: 56px; height: 56px; }
+body.has-pad .act-btn svg { width: 30px; height: 30px; }
+
+/* 縦並びの列とチャット欄が横で交わらないよう、狭い画面ではチャット欄を詰める */
+@media (max-width: 640px) {
+  body.has-actions.has-pad .chat { width: min(360px, calc(100% - 96px)); }
+}
+
+/* ---------- タマゴの孵化演出（E-4） ---------- */
+.egg-img { width: 48px; height: 48px; image-rendering: pixelated; }
+
+/* 演出中は他のカードとボタンを触らせない（二度押し防止） */
+.egg-hatching .egg-card,
+.egg-hatching .egg-tag,
+.egg-hatching .egg-form input { pointer-events: none; }
+.egg-hatching .egg-go { opacity: 0.6; }
+
+/* 選ばれたタマゴだけ揺れて、割れたあとに軽く跳ねる */
+.egg-card.hatching .egg-img { animation: egg-shake 0.4s ease-in-out 2; }
+.egg-card.hatched .egg-img { animation: egg-pop 0.4s ease-out; }
+
+@keyframes egg-shake {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-9deg); }
+  75% { transform: rotate(9deg); }
+}
+
+@keyframes egg-pop {
+  0% { transform: scale(0.7); opacity: 0.4; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .egg-card.hatching .egg-img,
+  .egg-card.hatched .egg-img { animation: none; }
+}
+
+/* ---------- 自分のふくの色（D-5） ---------- */
+.egg-avatars { margin-top: 14px; }
+
+.egg-avatar {
+  font: inherit;
+  background: #fff;
+  border: 3px solid var(--ink);
+  border-radius: 16px;
+  padding: 4px;
+  margin: 0 8px 0 0;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.egg-avatar img { width: 40px; height: 40px; image-rendering: pixelated; }
+
+/* 選択中は宣伝資料のカード選択と同じ見た目に合わせる */
+.egg-avatar.on { background: var(--grass); box-shadow: 0 0 0 3px var(--purple) inset; }

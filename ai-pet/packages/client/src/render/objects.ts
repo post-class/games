@@ -4,8 +4,10 @@
  * アクターと同じ `entities` レイヤに置き、y座標で前後をソートする
  * （木の後ろに動物が回り込めるようにするため）。
  *
- * 木の実の木は在庫が0になると「枯れた見た目」にしたいが、
- * いまは実つき1枚しかないので、在庫0のときだけ少し暗くする。
+ * 木の実の木は4状態の絵（B-5）を持つ。以前は1枚しか無かったので
+ * 在庫0のときに `alpha 0.65` で暗くしていたが、
+ * **暗いだけでは「実が無いのか枯れたのか」が分からない**（並ぶと同じ絵の反復にも見えた）。
+ * 絵で区別できるようになったので暗くするのはやめた。
  */
 import { Container, Sprite, Texture } from 'pixi.js';
 import { TILE_PX } from '@ai-pet/shared';
@@ -30,6 +32,64 @@ export class ObjectTextureSet {
   has(name: string): boolean {
     return this.map.has(name);
   }
+
+  /**
+   * 候補を順に見て、**最初に持っているもの**の名前を返す。1つも無ければ最後の候補。
+   *
+   * 状態差分アセット（`obj_berry_tree_full.png` など）は「まだ生成されていない」ことが
+   * 普通なので、呼び出し側が毎回 `has` を書かなくて済むようにここに寄せた。
+   * 最後の候補は必ず基本アセット（`obj_berry_tree`）にしておくこと。
+   */
+  resolve(...names: readonly string[]): string {
+    for (const n of names) if (this.map.has(n)) return n;
+    return (names[names.length - 1] ?? '') as string;
+  }
+}
+
+/** 木の実の木の見た目（B-5）。`obj_berry_tree_<state>.png` に対応する */
+export type BerryTreeState = 'full' | 'empty' | 'young' | 'dead';
+
+/**
+ * 木の「個体差」の抽選。座標から決定論的に作る（`Math.random` 禁止・AI_CODING.md §3）。
+ * サーバから種別が来ないので、クライアントだけで完結させている（帯域も増えない）。
+ */
+function treeHash01(x: number, y: number): number {
+  // 木はタイル中心（x.5）に置かれるので、まず整数タイルへ落としてから混ぜる
+  const ix = Math.floor(x);
+  const iy = Math.floor(y);
+  let n = Math.imul(ix + 0x7f4a, 0x85ebca6b) ^ Math.imul(iy + 0x2c1b, 0xc2b2ae35);
+  n = Math.imul(n ^ (n >>> 15), 0x2545f491);
+  return ((n ^ (n >>> 13)) >>> 0) / 0x100000000;
+}
+
+/**
+ * 若木・枯れ木にする割合。
+ *
+ * 森の木がぜんぶ同じ大木だと反復に見える（B-5 の動機）ので、
+ * 一部を若木・枯れ木にして粗密を作る。
+ * 合わせて2割ほど。3割にすると「実のなる木を探しても見つからない島」に見えた
+ * （在庫で絵が変わるのは残りの8割だけなので、ここを増やすと情報量が減る）。
+ */
+const YOUNG_RATIO = 0.13;
+const DEAD_RATIO = 0.07;
+
+/**
+ * 木の実の木の状態を決める。
+ *
+ * 優先順:
+ *   1. `max <= 0` は枯死（実る上限が無い木）。いまの worldgen は作らないが、
+ *      将来「枯れた木の資源」を置いても絵が付くようにしておく
+ *   2. 座標ハッシュで選ばれた若木・枯れ木は**在庫では絵を変えない**。
+ *      同じ木が若木↔大木に化けると「別の木に置き換わった」ように見えるため。
+ *      若木・枯れ木は実を付けないものとして扱う（実の有無は残り8割の木で読める）
+ *   3. 在庫0なら実なし、あれば実つき
+ */
+export function berryTreeState(amount: number, max: number, x: number, y: number): BerryTreeState {
+  if (max <= 0) return 'dead';
+  const h = treeHash01(x, y);
+  if (h < YOUNG_RATIO) return 'young';
+  if (h < YOUNG_RATIO + DEAD_RATIO) return 'dead';
+  return amount <= 0 ? 'empty' : 'full';
 }
 
 /** 描画に使うスプライトの実体 */
@@ -44,6 +104,14 @@ interface Entry {
  */
 export const OBJECT_SCALE: Record<string, number> = {
   berry_tree: 1.9,
+  // 木の実の木の状態差分（B-5）。実つき・実なしは同じ大木なので基本と同寸、
+  // 若木は小さく、枯れ木は葉が無いぶん少し低い。
+  // ⚠️ 接地影（`shadows.ts`）は状態を知らず `berry_tree` の 1.9 を使うので、
+  // 若木の影は絵より少し大きい。影の側は触れないので値を離しすぎないでおく
+  berry_tree_full: 1.9,
+  berry_tree_empty: 1.9,
+  berry_tree_young: 1.35,
+  berry_tree_dead: 1.7,
   field: 1.3,
   fishing_spot: 1.0,
   water: 1.0,
@@ -70,6 +138,14 @@ export const OBJECT_SCALE: Record<string, number> = {
   // 上に丸まった動物（48px）が乗る前提なので動物より小さくする。
   // 1.0 だと動物がすっぽり隠れて「巣で寝ている」に見えない
   nest: 0.9,
+  // 島に散らす小オブジェクト（C-4）。
+  // 焚き火は夜の広場の主役なので少し大きく（`lights.ts` の campfire 光が半径4.6で乗る）、
+  // 岩・切り株・茂みは「地面の飾り」なので1タイルに収める。
+  // 1.4 以上にすると草地が茂みで埋まって動物が見えなくなった
+  campfire: 1.3,
+  rock: 1.0,
+  stump: 0.9,
+  bush: 1.15,
 };
 
 export class ObjectLayer {

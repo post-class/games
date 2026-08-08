@@ -358,7 +358,7 @@ export class MissionRunner {
     let nearestDistance = Infinity;
     for (const e of this.world.entities) {
       if (!e.alive || e.kind !== 'ship' || !e.ship) continue;
-      if (e.id === player.id || e.faction !== player.faction) continue;
+      if (e.id === player.id || isHostile(player.faction, e.faction)) continue;
       if (e.ship.def.role !== 'transport' && e.ship.def.role !== 'capital') continue;
 
       const distance = player.pos.distanceTo(e.pos);

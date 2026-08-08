@@ -27,6 +27,7 @@ import { showEggSelect } from './ui/eggSelect.ts';
 import { PetPanel } from './ui/petPanel.ts';
 import { PetGauge } from './ui/petGauge.ts';
 import { TouchPad, isTouchDevice } from './ui/touchPad.ts';
+import { ActionButtons, pickPetTarget, pickResourceTarget } from './ui/actionButtons.ts';
 import { Tutorial } from './ui/tutorial.ts';
 import { GameAudio, attachAudioToggle } from './ui/audio.ts';
 
@@ -366,12 +367,20 @@ function onMessage(msg: ServerMsg): void {
         world.petId = msg.pet.id;
         petName = msg.pet.name;
         renderPet(msg.pet.affection);
+        petGauge.update({ name: msg.pet.name, affection: msg.pet.affection, hunger: msg.pet.hunger });
         petPanel.update({ name: msg.pet.name, species: msg.pet.species, affection: msg.pet.affection });
         tutorial.start();
       } else if (msg.petCatalog && msg.petCatalog.length > 0) {
         // ペットが居ないので、タマゴを選んでもらう
         showEggSelect(msg.petCatalog, (sel) => {
-          socket?.send({ t: 'createPet', species: sel.species, name: sel.name, persona: sel.persona });
+          socket?.send({
+            t: 'createPet',
+            species: sel.species,
+            name: sel.name,
+            persona: sel.persona,
+            // 未選択なら送らない（サーバが playerId のハッシュで決定論的に割り振る）
+            ...(sel.avatar ? { avatar: sel.avatar } : {}),
+          });
           tutorial.start();
         });
       }
@@ -431,6 +440,9 @@ function onMessage(msg: ServerMsg): void {
       break;
     case 'petState':
       renderPet(msg.affection, msg.intent?.reason);
+      // E-6: サーバは `Needs.hunger` の生値（0=満たされ / 100=空腹）を送る。
+      // **反転は petGauge 側（fullnessRatio）がやる**ので、ここでは触らない
+      petGauge.update({ hunger: msg.hunger });
       petPanel.update({
         affection: msg.affection,
         mood: msg.mood,
@@ -526,6 +538,31 @@ if (isTouchDevice() || params.has('pad')) {
   });
 }
 
+// ---------- 右下の丸いアクションボタン（E-2） ----------
+
+/**
+ * キー操作を知らなくても遊べるように、撫でる・水やり・収穫をボタンで出す。
+ * 判定のしきい値はサーバと揃えてあり（ペット1.2 / 資源2タイル）、
+ * 押せないときは押す前に分かるようにしている（従来は押してから通知が出るだけだった）。
+ */
+const actionButtons = new ActionButtons({
+  petTarget: () => {
+    const id = world.petId;
+    if (id === null) return null;
+    const view = world.actors.get(id);
+    if (!view) return null;
+    const p = interpolatedPos(view, performance.now());
+    return pickPetTarget(selfPos(performance.now()), { id, x: p.x, y: p.y });
+  },
+  resourceTarget: (act) => pickResourceTarget(act, selfPos(performance.now()), world.resources.values()),
+  send: (msg) => socket?.send(msg),
+  onUsed: (act) => {
+    if (act === 'pet') petPanel.show();
+    tutorial.did(act === 'pet' ? 'pet' : 'harvest');
+    audio.play(act);
+  },
+});
+
 // ---------- メインループ ----------
 
 let lastFrameAt = performance.now();
@@ -558,6 +595,7 @@ stage.app.ticker.add(() => {
   nightSky.update(stage.app.renderer.width, stage.app.renderer.height, dtSec);
   weather.update(stage.app.renderer.width, stage.app.renderer.height, dtSec);
   tutorial.update(now);
+  actionButtons.update();
   minimap.update(world);
 
   // 吹き出しはDOMなので、ワールド座標を画面座標に変換して位置だけ動かす

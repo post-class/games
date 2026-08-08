@@ -16,6 +16,7 @@ import {
   Rng,
   encodeAnim,
   encodeFacing,
+  hashSeed,
   q2,
   type Actor,
   type ActorWire,
@@ -27,6 +28,31 @@ import type { IslandWorld } from './world.ts';
 
 /** 動物住民の種。アセット名と一致させる */
 export const CRITTER_SPECIES: readonly string[] = ['rabbit', 'cat', 'bird', 'frog', 'squirrel', 'boar'];
+
+/**
+ * プレイヤーのアバター（D-5）。宣伝資料 `screen-multiplayer.png` の紫・緑・桃・黄の4人ぶん。
+ *
+ * `Actor.species` にこの1文字をそのまま入れ、クライアントは `player_<species>_<dir>.png` を引く。
+ * `PlaceableType` のような新しい union をプロトコルに足していないのは、
+ * `ActorWire.s` がもともと文字列で、増やす必要が無かったため（互換も壊れない）。
+ */
+export const PLAYER_AVATARS = ['a', 'b', 'c', 'd'] as const;
+export type PlayerAvatar = (typeof PLAYER_AVATARS)[number];
+
+/** 未知の値・空文字は 'a' に寄せる（古いDBやクライアントの取り違えで絵が消えないように） */
+export function normalizeAvatar(v: string | null | undefined): PlayerAvatar {
+  return (PLAYER_AVATARS as readonly string[]).includes(v ?? '') ? (v as PlayerAvatar) : 'a';
+}
+
+/**
+ * 指定が無いときのアバター。**playerId のハッシュ**から決める。
+ *
+ * `Math.random()` を使うと再接続で色が変わってしまい「あの黄色い人」という認識が崩れる
+ * （決定論の方針は AI_CODING.md §3）。playerId は UUID なので4色にほぼ均等に散る。
+ */
+export function avatarFromPlayerId(playerId: string): PlayerAvatar {
+  return PLAYER_AVATARS[hashSeed(playerId) % PLAYER_AVATARS.length] as PlayerAvatar;
+}
 
 /** 名前の素（かな2音を繋げて作る）。日本語の見た目を優先した固定プール */
 const NAME_PARTS: readonly string[] = [
@@ -122,12 +148,20 @@ function randomName(rng: Rng): string {
   return rng.pick(NAME_PARTS) + rng.pick(NAME_PARTS);
 }
 
-export function createPlayerActor(world: IslandWorld, opts: { name: string; pos?: Vec2 }): Actor {
+/**
+ * @param opts.avatar `'a'|'b'|'c'|'d'`。未指定・不正なら 'a'（絵が消えるより地味なほうがマシ）
+ */
+export function createPlayerActor(
+  world: IslandWorld,
+  opts: { name: string; pos?: Vec2; avatar?: string },
+): Actor {
   const pos = opts.pos ?? world.spawn;
   const actor: Actor = {
     id: world.allocId(),
     kind: 'player',
-    species: 'player_a',
+    // ⚠️ 以前は 'player_a' 固定だった。D-5でアバター種別だけを入れる形に変えている
+    // （アセット名は描画側が `player_${species}_${dir}` として組み立てる）
+    species: normalizeAvatar(opts.avatar),
     name: opts.name,
     pos: { x: pos.x, y: pos.y },
     facing: 's',

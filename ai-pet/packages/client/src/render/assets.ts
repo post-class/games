@@ -11,11 +11,12 @@
  * 追加分（B-1 / B-2）:
  *   tile_<terrain>_<0..3>.png       バリエーション。**無いものは tile_<terrain>.png に落ちる**
  *   edge_<from>_<to>_<mask>.png     遷移タイル（mask=1..15）。無ければ遷移を描かない
- * どちらも「無くても動く」扱いなので、生成が済んだものから順に置いていける。
+ *   <kind>_<species>_sleep.png      睡眠ポーズ（D-3）。無ければ立ち絵を半透明にする
+ * どれも「無くても動く」扱いなので、生成が済んだものから順に置いていける。
  */
 import { Assets, Texture } from 'pixi.js';
 import { TERRAINS, type Terrain } from '@ai-pet/shared';
-import { DIRS, charPrefixes } from '../state/species.ts';
+import { DIRS, charPrefixes, sleepPrefixes } from '../state/species.ts';
 import { DECAL_SETS, EDGE_MASK_MAX, EDGE_PAIRS, TILE_VARIANTS, edgeKey, type TerrainTextures } from './tilemap.ts';
 import { CharTextureSet } from './sprites.ts';
 import { ObjectTextureSet } from './objects.ts';
@@ -117,6 +118,14 @@ export function decalNames(): string[] {
   return [...set].sort().map((n) => `decal_${n}.png`);
 }
 
+/**
+ * 睡眠ポーズのアセット名（D-3）。**必須ではない**。
+ * 無い種は従来どおり立ち絵を半透明にして寝ている扱いになる。
+ */
+export function sleepNames(): string[] {
+  return sleepPrefixes().map((p) => `${p}_sleep.png`);
+}
+
 export async function loadTextures(): Promise<LoadedTextures> {
   const names: string[] = [];
   for (const t of TERRAINS) names.push(`tile_${t}.png`);
@@ -124,7 +133,7 @@ export async function loadTextures(): Promise<LoadedTextures> {
   for (const o of OBJECT_TYPES) names.push(`obj_${o}.png`);
 
   // 任意アセットは「無いのが普通」なので missing に数えない（デバッグ表示が無意味に膨らむ）
-  const optionalNames = [...terrainVariantNames(), ...edgeTileNames(), ...decalNames()];
+  const optionalNames = [...terrainVariantNames(), ...edgeTileNames(), ...decalNames(), ...sleepNames()];
 
   // 並列に読む（1枚ずつ待つと数十枚で目に見えて遅い）
   const results = await Promise.all(
@@ -188,6 +197,16 @@ export async function loadTextures(): Promise<LoadedTextures> {
       const tex = loaded.get(`${p}_${d}.png`);
       if (tex) charEntries.push([`${p}_${d}`, tex]);
     }
+  }
+
+  // 睡眠ポーズ（D-3）。**立ち絵と出所が同じものだけ採用する**。
+  // 本番の critter_rabbit_* が仕上がっているのに、プレースホルダの
+  // critter_rabbit_sleep.png を採ると「夜だけ絵が塊に化ける」ので、
+  // タイルバリエーションと同じ「出所を揃える」判定にした。
+  for (const p of sleepPrefixes()) {
+    const file = `${p}_sleep.png`;
+    const tex = loaded.get(file);
+    if (tex && fromGame.has(file) === fromGame.has(`${p}_s.png`)) charEntries.push([`${p}_sleep`, tex]);
   }
 
   const objEntries: [string, Texture][] = [];

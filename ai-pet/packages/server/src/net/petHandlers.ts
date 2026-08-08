@@ -39,12 +39,19 @@ export interface PetSession {
   entityId: EntityId;
 }
 
-export function petToWire(pet: PetRow, entityId: EntityId): PetWire {
+/**
+ * @param hunger `Actor.needs.hunger` の生値（0=満たされ / 100=空腹）。
+ *   アクターが引けない場面（理論上は無いが型で保証できない）に備えて既定値を持たせている。
+ *   ⚠️ 反転はクライアント側の責務。ここで反転しないこと。
+ */
+export function petToWire(pet: PetRow, entityId: EntityId, hunger = 0): PetWire {
   return {
     id: entityId,
     species: pet.persona.species,
     name: pet.persona.name,
     affection: pet.affection,
+    // ゲージは百分率のバーなので整数で足りる（生の値は 19.376295... のような小数になる）
+    hunger: Math.round(hunger),
     persona: {
       traitTags: pet.persona.traitTags,
       catchphrase: pet.persona.catchphrase,
@@ -309,6 +316,8 @@ export class PetManager {
         send({
           t: 'petState',
           affection: res.affection,
+          // おなかは生値をそのまま（反転はクライアント側）。整数に丸めるだけ
+          hunger: Math.round(petActor.needs.hunger),
           mood: res.fallback ? 'ねむそう' : 'ふつう',
           ...(petActor.intent ? { intent: { goal: petActor.intent.goal, reason: petActor.intent.reason } } : {}),
         });
@@ -358,7 +367,7 @@ export class PetManager {
     petActor.anim = 'talk';
     const line = row.persona.catchphrase;
     opts.send({ t: 'bubble', entityId: petActor.id, text: line, kind: 'say', ms: bubbleMs(line) });
-    opts.send({ t: 'petState', affection, mood: 'うれしい' });
+    opts.send({ t: 'petState', affection, hunger: Math.round(petActor.needs.hunger), mood: 'うれしい' });
   }
 
   // ---------- 記憶 ----------

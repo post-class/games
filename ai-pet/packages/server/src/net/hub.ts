@@ -27,7 +27,7 @@ import {
   type ServerMsg,
   type Vec2,
 } from '@ai-pet/shared';
-import { actorToWire, createPlayerActor } from '../sim/actors.ts';
+import { actorToWire, createPlayerActor, normalizeAvatar } from '../sim/actors.ts';
 import { clearAxisInput, forgetActor, setAxisInput } from '../sim/movement.ts';
 import type { IslandSim } from '../sim/island.ts';
 import type { Repo } from '../db/repo.ts';
@@ -296,7 +296,15 @@ export class ConnectionHub {
     const client = this.clientOfPlayer(session.playerId);
     if (!client) return;
     this.send(client, { t: 'notice', text: diary, importance: 6 });
-    this.send(client, { t: 'petState', affection, mood: 'ねむそう' });
+    // おなかは生値のまま送る（反転はクライアントの petGauge.ts）。
+    // 島に居ないケースは理論上ないが、アクターが引けなければ「満たされている」扱いにする
+    const petActor = this.pets.petActorOfPetId(petId);
+    this.send(client, {
+      t: 'petState',
+      affection,
+      hunger: Math.round(petActor?.needs.hunger ?? 0),
+      mood: 'ねむそう',
+    });
   }
 
   private clientOfPlayer(playerId: string): Client | undefined {
@@ -430,11 +438,14 @@ export class ConnectionHub {
         const existing = msg.secret ? this.repo.findPlayerBySecret(msg.secret) : null;
 
         let startPos = world.spawn;
+        // アバターの色（D-5）。DBに入っている値が正なので、再接続をまたいでも変わらない
+        let avatar: string;
         if (existing) {
           client.playerId = existing.id;
           client.displayName = msg.displayName ?? existing.displayName;
           // 前回の位置に戻す。地形が変わっている等で立てない場合は広場へ
           if (world.canStandAt(existing.pos)) startPos = existing.pos;
+          avatar = existing.avatar;
           this.rejoins++;
         } else {
           const created = this.repo.createPlayer({
@@ -445,10 +456,12 @@ export class ConnectionHub {
           });
           client.playerId = created.id;
           client.displayName = created.displayName;
+          // 新規は playerId のハッシュ由来（repo が決める）。タマゴ選択で選び直せる
+          avatar = created.avatar;
         }
         client.secret = secret;
 
-        const you = createPlayerActor(world, { name: client.displayName, pos: { ...startPos } });
+        const you = createPlayerActor(world, { name: client.displayName, pos: { ...startPos }, avatar });
         client.entityId = you.id;
         client.joined = true;
         this.repo.updatePlayer(client.playerId, {
@@ -477,7 +490,7 @@ export class ConnectionHub {
           seed: this.sim.seed,
           clock: this.sim.clockState(),
           you: actorToWire(you),
-          pet: restored ? petToWire(restored.pet, restored.actor.id) : null,
+          pet: restored ? petToWire(restored.pet, restored.actor.id, restored.actor.needs.hunger) : null,
           // ペットが居ないときだけ図鑑を送る（タマゴ選択UIの材料）
           ...(restored ? {} : { petCatalog: petCatalog() }),
           mapW: MAP_W,
@@ -563,6 +576,12 @@ export class ConnectionHub {
 
       case 'createPet': {
         if (!actor) return;
+        // タマゴ選択のついでにアバターの色も決まる（D-5）。
+        // 来なければ hello で割り振ったものを維持する（UI側は別担当なので任意項目）
+        if (msg.avatar) {
+          actor.species = normalizeAvatar(msg.avatar);
+          this.repo.updatePlayer(client.playerId, { avatar: actor.species });
+        }
         const { pet, actor: petActor } = this.pets.create(
           client.playerId,
           { species: msg.species, name: msg.name, persona: msg.persona },
@@ -579,7 +598,7 @@ export class ConnectionHub {
           seed: this.sim.seed,
           clock: this.sim.clockState(),
           you: actorToWire(actor),
-          pet: petToWire(pet, petActor.id),
+          pet: petToWire(pet, petActor.id, petActor.needs.hunger),
           mapW: MAP_W,
           mapH: MAP_H,
         });

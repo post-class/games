@@ -73,7 +73,6 @@ export class NavMap {
         // 障害物は「その宙域の地形」なので、航路を考えられるように出す
         blips.push({ x: e.pos.x, y: e.pos.z, kind: e.kind });
       } else if (e.kind === 'ship' && e.ship) {
-        const capital = e.ship.def.role === 'capital' || e.ship.def.role === 'transport';
         blips.push({
           x: e.pos.x,
           y: e.pos.z,
@@ -82,11 +81,7 @@ export class NavMap {
               ? 'player'
               : isHostile(player.faction, e.faction)
                   ? 'enemy'
-                  : e.faction === player.faction
-                    ? 'friend'
-                    : capital
-                      ? 'capital'
-                    : 'neutral',
+                  : 'friend',
         });
       }
     }
@@ -158,7 +153,7 @@ export class NavMap {
           parts.push(`<circle cx="${px}" cy="${py}" r="3.2" fill="#ff4d4d"/>`);
           break;
         case 'friend':
-          parts.push(`<circle cx="${px}" cy="${py}" r="3.2" fill="#5fd8ff"/>`);
+          parts.push(`<circle cx="${px}" cy="${py}" r="3.2" fill="#68e5ff"/>`);
           break;
         case 'rock':
           parts.push(`<circle cx="${px}" cy="${py}" r="2" fill="rgba(150,140,125,0.75)"/>`);

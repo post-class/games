@@ -8,8 +8,18 @@
  * - 画面外は `renderable = false` で culling
  */
 import { Container, Sprite, type Texture } from 'pixi.js';
-import { CHAR_PX, PLAYER_SPEED, TILE_PX, type ActorKind, type EntityId, type Facing, type Vec2 } from '@ai-pet/shared';
+import {
+  CHAR_PX,
+  PLAYER_SPEED,
+  TILE_PX,
+  type ActorKind,
+  type AnimName,
+  type EntityId,
+  type Facing,
+  type Vec2,
+} from '@ai-pet/shared';
 import { interpolatedPos, type ActorView, type WorldState } from '../state/world.ts';
+import { normalizePlayerSpecies } from '../state/species.ts';
 import type { Camera } from './camera.ts';
 import type { Layers } from './stage.ts';
 
@@ -54,14 +64,46 @@ export function crowdOffset(index: number, total: number): { dx: number; dy: num
 export const ANCHOR_Y = 43 / CHAR_PX;
 
 /**
- * 種ごとの表示倍率。
+ * いのししの表示倍率（D-6 のハック）。
  *
- * いのししは絵が横長なので、48px枠に収めると高さが他の動物の6割ほどになり、
- * 「ひとまわり大きい」という設定が見た目に出ない。枠ごと大きくして補う。
+ * いまの `critter_boar_{n,s,e}` は絵が横長なので、48px枠に収めると高さが他の動物の6割ほどになり、
+ * 「ひとまわり大きい」という設定が見た目に出ない。枠ごと大きくして補っている。
+ *
+ * ⚠️ **絵を正方寸りに作り直したら、この値を `1.0` にすること**（それがハックの撤去になる）。
+ * 絵より先に 1.0 にすると、いのししが他の動物と同じ大きさに見えて設定が消えるので順番を守る。
+ */
+export const BOAR_SCALE = 1.3;
+
+/**
+ * 種ごとの表示倍率。
+ * `shadows.ts` が接地影の大きさを合わせるために import しているので、名前を変えないこと。
  */
 export const SPECIES_SCALE: Record<string, number> = {
-  boar: 1.3,
+  boar: BOAR_SCALE,
 };
+
+/** 睡眠ポーズのアセットが無いときの代用（従来の見た目）。半透明にして「寝ている」を示す */
+export const SLEEP_ALPHA = 0.75;
+
+/**
+ * アクター1体の見た目（テクスチャキーと不透明度）を決める（D-3）。
+ *
+ * `sync()` は Pixi と camera が要るのでテストから引きにくい。
+ * 「睡眠ポーズがあれば差し替え、無ければ従来どおり半透明」という**分岐だけ**を純粋関数に切り出した。
+ */
+export function charLook(
+  kind: ActorKind,
+  species: string,
+  facing: Facing,
+  anim: AnimName,
+  hasSleepTexture: boolean,
+): { texKey: string; alpha: number; sleepPose: boolean } {
+  const prefix = CharTextureSet.prefixOf(kind, species);
+  const sleeping = anim === 'sleep';
+  // 丸まった絵は向きを持たない（どの方向から見ても同じ塊なので `_sleep` 1枚で足りる）
+  if (sleeping && hasSleepTexture) return { texKey: `${prefix}_sleep`, alpha: 1, sleepPose: true };
+  return { texKey: `${prefix}_${facing}`, alpha: sleeping ? SLEEP_ALPHA : 1, sleepPose: false };
+}
 
 /**
  * 種別＋種＋向き からテクスチャを引く。
@@ -76,15 +118,30 @@ export class CharTextureSet {
     this.fallback = fallback;
   }
 
-  /** `player_a` / `pet_mofi` / `critter_rabbit` のような prefix を作る */
+  /**
+   * `player_b` / `pet_mofi` / `critter_rabbit` のような prefix を作る。
+   *
+   * プレイヤーは `species` に4色の識別子（`a`..`d`）が入って届く（D-5）。
+   * 4色化より前のプレイヤーは空文字なので `a` に正規化する（旧DBのプレイヤーを壊さない）。
+   */
   static prefixOf(kind: ActorKind, species: string): string {
-    if (kind === 'player') return 'player_a';
+    if (kind === 'player') return `player_${normalizePlayerSpecies(species)}`;
     return `${kind}_${species}`;
   }
 
   get(kind: ActorKind, species: string, facing: Facing): Texture {
     const key = `${CharTextureSet.prefixOf(kind, species)}_${facing}`;
     return this.map.get(key) ?? this.map.get(`${CharTextureSet.prefixOf(kind, species)}_s`) ?? this.fallback;
+  }
+
+  /** 睡眠ポーズ（`<kind>_<species>_sleep`）を持っているか（D-3） */
+  hasSleep(kind: ActorKind, species: string): boolean {
+    return this.map.has(`${CharTextureSet.prefixOf(kind, species)}_sleep`);
+  }
+
+  /** 睡眠ポーズのテクスチャ。無ければ null（呼び側は立ち絵＋半透明に落ちる） */
+  getSleep(kind: ActorKind, species: string): Texture | null {
+    return this.map.get(`${CharTextureSet.prefixOf(kind, species)}_sleep`) ?? null;
   }
 }
 
@@ -214,14 +271,26 @@ export class ActorLayer {
         : crowdOffset(crowdIndex.get(view.id) ?? 0, crowd.get(key) ?? 1);
       sprite.x = (pos.x + off.dx) * TILE_PX;
       sprite.y = (pos.y + off.dy) * TILE_PX + bob;
-      sprite.alpha = view.anim === 'sleep' ? 0.75 : 1;
       // 深度はずらした後の y で決める（前後関係もほぐれた並びに合わせる）
       sprite.zIndex = Math.round((pos.y + off.dy) * 100);
 
-      const texKey = `${CharTextureSet.prefixOf(view.kind, view.species)}_${facing}`;
-      if (entry.texKey !== texKey) {
-        sprite.texture = this.textures.get(view.kind, view.species, facing);
-        entry.texKey = texKey;
+      // 睡眠ポーズ（D-3）。アセットが無い種は従来どおり立ち絵＋半透明で寝ている扱いになる
+      const look = charLook(
+        view.kind,
+        view.species,
+        facing,
+        view.anim,
+        this.textures.hasSleep(view.kind, view.species),
+      );
+      sprite.alpha = look.alpha;
+      if (entry.texKey !== look.texKey) {
+        sprite.texture = look.sleepPose
+          ? (this.textures.getSleep(view.kind, view.species) as Texture)
+          : this.textures.get(view.kind, view.species, facing);
+        entry.texKey = look.texKey;
+        // Pixi はテクスチャを差し替えると scale から表示寸法を決め直すので、
+        // 睡眠ポーズの絵が48px枠でなくても崩れないよう毎回入れ直す（切替時だけなので安い）
+        this.applySize(sprite, view.species);
       }
     }
   }
@@ -261,17 +330,23 @@ export class ActorLayer {
     }
   }
 
+  /** 表示寸法を種ごとの倍率で入れる（いのししの D-6 ハックが効くのはここ） */
+  private applySize(sprite: Sprite, species: string): void {
+    const scale = SPECIES_SCALE[species ?? ''] ?? 1;
+    sprite.width = CHAR_PX * scale;
+    sprite.height = CHAR_PX * scale;
+  }
+
   private ensure(view: ActorView, facing: Facing): Entry {
     const found = this.entries.get(view.id);
     if (found) return found;
     const tex = this.textures.get(view.kind, view.species, facing);
     const sprite = new Sprite(tex);
     sprite.anchor.set(0.5, ANCHOR_Y);
-    const scale = SPECIES_SCALE[view.species ?? ''] ?? 1;
-    sprite.width = CHAR_PX * scale;
-    sprite.height = CHAR_PX * scale;
+    this.applySize(sprite, view.species);
     sprite.label = `actor:${view.id}`;
     this.parent.addChild(sprite);
+    // 生成直後は立ち絵。睡眠ポーズへの差し替えは sync() が同フレーム中に行う
     const entry: Entry = { sprite, texKey: `${CharTextureSet.prefixOf(view.kind, view.species)}_${facing}` };
     this.entries.set(view.id, entry);
     return entry;

@@ -53,7 +53,10 @@ CREATE TABLE IF NOT EXISTS player (
   last_seen_at  INTEGER NOT NULL,
   -- 前回いた島日。留守中サマリで「島で何日すぎたか」を出すために必要
   -- （last_seen_at は実時刻なので、島が止まっていた時間を含んでしまう）
-  last_seen_island_day INTEGER NOT NULL DEFAULT 1
+  last_seen_island_day INTEGER NOT NULL DEFAULT 1,
+  -- アバターの色（D-5）。'a'|'b'|'c'|'d' の1文字で、そのまま Actor.species に入る。
+  -- 既存DBには CREATE TABLE IF NOT EXISTS では増えないので Repo.migrate() が ALTER で足す
+  avatar        TEXT NOT NULL DEFAULT 'a'
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_player_secret ON player(secret_hash);
 CREATE INDEX IF NOT EXISTS idx_player_island ON player(island_id);

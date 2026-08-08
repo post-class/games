@@ -17,9 +17,10 @@
  *   tile_{terrain}.png                  32x32 ×6
  *   tile_{terrain}_{0..3}.png           32x32 ×24（B-1 バリエーション）
  *   edge_{from}_{to}_{1..15}.png        32x32 ×60（B-2 遷移タイル / 4境界×15）
- *   player_a_{n|e|s|w}.png              48x48
+ *   player_{a..d}_{n|e|s|w}.png         48x48 ×4色（D-5）
  *   pet_{species}_{dir}.png             48x48 ×5種
  *   critter_{species}_{dir}.png         48x48 ×6種
+ *   {pet|critter}_{species}_sleep.png   48x48 ×11（D-3 睡眠ポーズ / 方向なし）
  *   manifest.json                       生成物の一覧（デバッグ用）
  */
 import { deflateSync } from 'node:zlib';
@@ -385,8 +386,12 @@ interface CharSpec {
 }
 
 const CHARS: readonly CharSpec[] = [
-  // プレイヤー
-  { key: 'player_a', color: '#ffb9a3', radius: 15, ears: false },
+  // プレイヤー4色（D-5）。本番アセット `player_{a..d}_*.png` の服の色に合わせて
+  // a=紫 / b=緑 / c=桃 / d=黄（是正プラン D-5 の「紫・緑・桃・黄」の順）
+  { key: 'player_a', color: '#a892e0', radius: 15, ears: false },
+  { key: 'player_b', color: '#a8e0b4', radius: 15, ears: false },
+  { key: 'player_c', color: '#ffb9a3', radius: 15, ears: false },
+  { key: 'player_d', color: '#ffcf7a', radius: 15, ears: false },
   // ペット5種（宣伝資料 images/pets.png のトーンに寄せた配色）
   { key: 'pet_mofi', color: '#ffeeba', radius: 13, ears: true },
   { key: 'pet_mizune', color: '#9fd8ee', radius: 13, ears: true },
@@ -462,6 +467,52 @@ function drawChar(spec: CharSpec, dir: Dir): Canvas {
       cv.disc(cx + shift + sx * r * 0.34, cy - r * 0.12, Math.max(1.4, r * 0.14), INK);
     }
   }
+  return cv;
+}
+
+/**
+ * 睡眠ポーズ（D-3）。`<kind>_<species>_sleep.png` の仮素材。
+ *
+ * 宣伝資料 `images/screen-ecosystem.png` の夜側は「横に丸まって目を閉じた塊」なので、
+ * **立ち絵より低く・横に広い**シルエットにする（立ち絵と一目で違いが分かることが仮素材の役目）。
+ * 向きは持たない（丸まっているのでどの向きでも同じ）。
+ */
+function drawCharSleep(spec: CharSpec): Canvas {
+  const cv = new Canvas(CHAR_PX, CHAR_PX);
+  const body = hex(spec.color);
+  const outline = mix(INK, body, 0.15);
+  const r = spec.radius;
+  const cx = CHAR_PX / 2;
+  // 丸まると背が低くなるので、体の中心を立ち絵より下（足元 y=43 の近く）へ置く
+  const cy = CHAR_PX - 6 - r * 0.62;
+
+  // 接地影（立ち絵と同じ薄さ。潰れて寝ているので横に広い）
+  cv.ellipse(cx, CHAR_PX - 4, r * 1.15, r * 0.3, INK, 0.18);
+
+  // 体：横に広い楕円（輪郭 → 本体 → お腹のハイライト）
+  cv.ellipse(cx, cy, r * 1.25 + 2, r * 0.72 + 2, outline);
+  cv.ellipse(cx, cy, r * 1.25, r * 0.72, body);
+  cv.ellipse(cx, cy + r * 0.28, r * 0.8, r * 0.3, mix(body, CREAM, 0.55), 0.7);
+
+  // 頭は左に寄せて丸め込む（尻尾を右に置くので左右で読み分けられる）
+  const hx = cx - r * 0.8;
+  const hy = cy - r * 0.18;
+  if (spec.ears) {
+    // 耳は寝ているので後ろへ倒す
+    for (const sx of [-0.45, 0.25] as const) {
+      cv.disc(hx + sx * r, hy - r * 0.62, r * 0.3 + 2, outline);
+      cv.disc(hx + sx * r, hy - r * 0.62, r * 0.3, body);
+    }
+  }
+  cv.disc(hx, hy, r * 0.62 + 2, outline);
+  cv.disc(hx, hy, r * 0.62, body);
+
+  // 閉じた目（横線1本）。点で描くと起きているように見える
+  cv.rect(Math.round(hx - r * 0.36), Math.round(hy - r * 0.06), Math.max(2, Math.round(r * 0.42)), 1, INK, 0.9);
+
+  // 尻尾（右側に小さく添える）
+  cv.ellipse(cx + r * 1.18, cy + r * 0.18, r * 0.36 + 2, r * 0.26 + 2, outline);
+  cv.ellipse(cx + r * 1.18, cy + r * 0.18, r * 0.36, r * 0.26, body);
   return cv;
 }
 
@@ -689,6 +740,10 @@ for (const [from, to] of EDGE_PAIRS) {
 for (const spec of CHARS) {
   for (const dir of DIRS) {
     emit(`${spec.key}_${dir}.png`, drawChar(spec, dir).toPng());
+  }
+  // 睡眠ポーズ（D-3）。プレイヤーには作らない（操作中のアバターに sleep は来ない）
+  if (!spec.key.startsWith('player_')) {
+    emit(`${spec.key}_sleep.png`, drawCharSleep(spec).toPng());
   }
 }
 
