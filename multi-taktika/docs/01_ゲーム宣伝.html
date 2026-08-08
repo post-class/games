@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Taktika — 複数の戦線を、同時に指揮する</title>
+<style>
+  :root {
+    --bg: #14100c;
+    --bg2: #1d1811;
+    --panel: #26200f;
+    --line: #4a3a1e;
+    --gold: #e0b34a;
+    --gold-dim: #a88530;
+    --text: #e8ded0;
+    --text-dim: #a89b89;
+    --green: #7cb342;
+    --red: #c0562f;
+    --blue: #4a7fb5;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    padding: 0 20px 80px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+    font-size: 16px;
+    line-height: 1.8;
+  }
+
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+    image-rendering: auto;
+    border: 2px solid var(--line);
+    border-radius: 2px;
+    background: #000;
+  }
+
+  a { color: var(--gold); }
+
+  /* ---------- header (最低限) ---------- */
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 16px;
+    padding: 14px 0;
+    border-bottom: 2px solid var(--line);
+    margin-bottom: 28px;
+  }
+  header .logo {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    color: var(--gold);
+  }
+  header .tag {
+    font-size: 14px;
+    color: var(--text-dim);
+  }
+  header .meta {
+    margin-left: auto;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  /* ---------- section ---------- */
+  section { margin: 0 0 56px; }
+
+  h2 {
+    font-size: 22px;
+    margin: 0 0 6px;
+    color: var(--gold);
+    border-left: 5px solid var(--gold-dim);
+    padding-left: 12px;
+    line-height: 1.4;
+  }
+  h2 .en {
+    display: block;
+    font-size: 12px;
+    letter-spacing: .18em;
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+  h3 { font-size: 17px; margin: 0 0 6px; color: var(--gold); }
+  p { margin: 0 0 14px; }
+  /* 画像・表は幅いっぱいに広げ、地の文だけ行長を抑える */
+  section > p { max-width: 90ch; }
+  .lead { font-size: 18px; }
+  .dim { color: var(--text-dim); font-size: 14px; }
+
+  /* ---------- hero ---------- */
+  .hero { margin-bottom: 56px; }
+  .hero-copy {
+    font-size: clamp(26px, 4.4vw, 52px);
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: .02em;
+    margin: 0 0 12px;
+    color: #fff;
+  }
+  .hero-copy em {
+    font-style: normal;
+    color: var(--gold);
+  }
+  .hero-sub { max-width: 70ch; }
+  .hero-figure { margin: 24px 0 0; }
+  figure { margin: 0; }
+  figcaption {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-top: 8px;
+  }
+  .badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 18px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .badges li {
+    font-size: 13px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 3px 12px;
+    color: var(--text-dim);
+    background: var(--bg2);
+  }
+
+  /* ---------- grid ---------- */
+  .grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--gold-dim);
+    border-radius: 3px;
+    padding: 16px 18px;
+  }
+  .card p:last-child { margin-bottom: 0; }
+  .card .num {
+    font-size: 12px;
+    letter-spacing: .2em;
+    color: var(--gold-dim);
+  }
+
+  /* 画像 + テキストの2カラム。狭いと1カラムに落ちる */
+  .split {
+    display: grid;
+    gap: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    align-items: start;
+    margin-top: 18px;
+  }
+
+  /* ---------- table ---------- */
+  .table-wrap { overflow-x: auto; margin-top: 18px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+    min-width: 560px;
+  }
+  caption {
+    text-align: left;
+    font-size: 13px;
+    color: var(--text-dim);
+    padding-bottom: 6px;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  thead th {
+    background: var(--panel);
+    color: var(--gold);
+    white-space: nowrap;
+  }
+  tbody th { background: rgba(255,255,255,.02); white-space: nowrap; }
+  tbody tr:nth-child(even) td { background: rgba(255,255,255,.015); }
+
+  ul.plain { margin: 0 0 14px; padding-left: 1.3em; }
+  ul.plain li { margin-bottom: 6px; }
+
+  .note {
+    border: 1px dashed var(--line);
+    border-radius: 3px;
+    padding: 12px 16px;
+    font-size: 14px;
+    color: var(--text-dim);
+    background: var(--bg2);
+  }
+
+  footer {
+    border-top: 2px solid var(--line);
+    padding-top: 16px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">MULTI-TAKTIKA</span>
+  <span class="tag">ブラウザで動く 高精細 2D 歴史ストラテジー</span>
+  <span class="meta">企画紹介資料 / 2026-08</span>
+</header>
+
+<!-- ================= HERO ================= -->
+<div class="hero">
+  <p class="hero-copy">複数の戦線を、<br><em>同時に</em>指揮する。</p>
+  <p class="lead hero-sub">
+    村ひとつから文明を育て、4 つの時代を駆け上がる ―― ここまでは、あなたが知っているストラテジーです。
+    <strong>Multi-Taktika</strong> が変えるのは「その先」。同時に走る 3 つ以上の戦線を、
+    指先の速さではなく <strong>判断</strong> で勝ち切るリアルタイムストラテジーです。
+  </p>
+  <ul class="badges">
+    <li>ブラウザだけで動作・インストール不要</li>
+    <li>高精細 2D / 斜め見下ろし</li>
+    <li>8 文明</li>
+    <li>4 時代進化</li>
+    <li>1〜8 人対戦</li>
+    <li>キャンペーン搭載</li>
+  </ul>
+  <figure class="hero-figure">
+    <img src="assets/img/gameplay-village.png"
+         alt="村の内政画面。町の中心・家・風車・麦畑と、伐採・採掘する村人、街道に並ぶ槍兵と弓兵">
+    <figcaption>▲ ゲーム本編のプレイ画面イメージ。資源 4 種の HUD、ユニットパネル、ミニマップ。</figcaption>
+  </figure>
+</div>
+
+<!-- ================= 3本の柱 ================= -->
+<section>
+  <h2>どんなゲーム？<span class="en">THREE PILLARS</span></h2>
+  <p>やることは 3 つだけ。<strong>集める・伸ばす・捌く</strong>。</p>
+  <div class="grid">
+    <div class="card">
+      <p class="num">01</p>
+      <h3>集める ― 内政</h3>
+      <p>
+        食料・木材・石材・金の 4 資源。村人を配り、農地を広げ、伐採所と鉱山を伸ばす。
+        序盤 5 分の資源配分が、そのまま 20 分後の兵力差になります。
+      </p>
+    </div>
+    <div class="card">
+      <p class="num">02</p>
+      <h3>伸ばす ― 時代進化</h3>
+      <p>
+        黎明期から帝国期まで 4 段階。進化すると建物の見た目・ユニット・戦術の選択肢が丸ごと入れ替わる。
+        「いつ進化を切るか」が最大の駆け引きです。
+      </p>
+    </div>
+    <div class="card">
+      <p class="num">03</p>
+      <h3>捌く ― 戦域指令</h3>
+      <p>
+        本作の中核。複数の戦線に <strong>作戦カード</strong> を割り当てて半自動で走らせ、
+        あなたは勝負所だけに手を入れる。全戦線を見ながら戦う、新しい操作感。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 戦域指令 ================= -->
+<section>
+  <h2>中核システム：戦域指令<span class="en">MULTI-FRONT COMMAND</span></h2>
+  <p class="lead">
+    「右で押されている。でも左の攻めも止めたくない。」<br>
+    従来の RTS がプレイヤーに手の速さで解かせてきたこの問題を、Multi-Taktika は<strong>仕組み</strong>で解きます。
+  </p>
+
+  <div class="split">
+    <figure>
+      <img src="assets/img/multi-front-command.png"
+         alt="戦域指令ビュー。3つの戦域が色付きの輪で示され、部隊の移動指示が矢印で描かれ、右に作戦カードが3枚並ぶ">
+      <figcaption>▲ 戦域指令ビュー。3 つの戦域（赤・青・黄）と、右側の作戦カードスロット。</figcaption>
+    </figure>
+    <div>
+      <h3>戦域（Front）</h3>
+      <p>
+        戦闘が起きている場所は自動的に「戦域」としてマーキングされます。
+        戦域は同時に最大 6 つまで発生し、それぞれが独立した小さな戦場として進行します。
+      </p>
+      <h3>作戦カード（Taktika）</h3>
+      <p>
+        各戦域にカードを 1 枚セットすると、その戦域の部隊はカードの方針に従って自律的に動きます。
+        セットしたまま放置してもきちんと戦い、負け始めれば警告が飛んできます。
+      </p>
+      <h3>あなたがやること</h3>
+      <p>
+        全戦域を俯瞰し、<strong>どの戦域を捨て、どの戦域に増援を送るか</strong>を決める。
+        クリック数ではなく、その判断だけで勝敗が決まる設計です。
+      </p>
+      <p class="note">
+        操作が苦手な人でも複数戦線を扱えて、上手い人はカードの切り替えと直接操作を混ぜてさらに伸ばせる ――
+        腕前の差が「疲労」ではなく「思考」に出るようにしたい、というのが設計の狙いです。
+      </p>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <caption>作戦カードの例（文明ごとに固有カードが追加されます）</caption>
+      <thead>
+        <tr><th>カード</th><th>部隊の挙動</th><th>使いどころ</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>突撃</th><td>最も近い敵に向かって前進し続ける</td><td>数で押し切れると読んだとき</td></tr>
+        <tr><th>死守</th><td>指定地点から離れず、迎撃に専念する</td><td>時間を稼いで進化を通したいとき</td></tr>
+        <tr><th>包囲</th><td>攻城兵器を前に出し、歩兵で護衛する</td><td>城・塔を落としたいとき</td></tr>
+        <tr><th>略奪</th><td>敵の村人と資源施設を優先して狙う</td><td>相手の内政を折りたいとき</td></tr>
+        <tr><th>建設</th><td>村人が防壁・塔を前線に建て進める</td><td>戦線を押し上げて固定したいとき</td></tr>
+        <tr><th>後退</th><td>損害を避けつつ最寄りの拠点まで下がる</td><td>捨てる戦域を決めたとき</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================= 時代進化 ================= -->
+<section>
+  <h2>4 つの時代を駆け上がる<span class="en">FOUR AGES</span></h2>
+  <p>
+    進化は数値の底上げではありません。<strong>村の見た目が変わり、戦い方そのものが変わります。</strong>
+    石斧の狩人で始まった集落が、最後は大砲を備えた城塞都市になる ―― その 30 分を 1 試合に凝縮しました。
+  </p>
+  <figure>
+    <img src="assets/img/ages.png"
+         alt="同じ集落が4つの時代を経て変化する様子。茅葺きの小屋から市場、石造りの砦、そして大聖堂を備えた城へ">
+    <figcaption>▲ 左から 黎明期 → 青銅期 → 鉄器期 → 帝国期。同じ集落が変貌していきます。</figcaption>
+  </figure>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>時代</th><th>村の姿</th><th>主力ユニット</th><th>この時代のテーマ</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>黎明期</th><td>茅葺きの小屋と焚き火</td><td>棍棒兵・狩人</td><td>探索と土地取り。まず食料。</td></tr>
+        <tr><th>青銅期</th><td>日干し煉瓦の家と市場</td><td>青銅槍兵・投石兵</td><td>初めての衝突。戦域が 1 つ立つ。</td></tr>
+        <tr><th>鉄器期</th><td>石造りの砦と鍛冶場</td><td>剣士・騎兵・弓兵</td><td>戦線が複数に割れる。カード運用の本番。</td></tr>
+        <tr><th>帝国期</th><td>城・大聖堂・軍旗</td><td>長槍兵・大砲・攻城兵器</td><td>総力戦。攻城戦で決着をつける。</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================= 文明 ================= -->
+<section>
+  <h2>8 つの文明、8 つの勝ち筋<span class="en">CIVILIZATIONS</span></h2>
+  <p>
+    文明は見た目替えではありません。<strong>固有ユニット・内政ボーナス・固有の作戦カード</strong>が 3 点セットで付き、
+    「この文明ならこう勝つ」がはっきり分かれます。
+  </p>
+  <div class="split">
+    <figure>
+      <img src="assets/img/civilizations.png"
+           alt="文明選択画面。8つの紋章タイルが並び、左上のヤマトが金枠で選択され、右に武将の立ち絵が表示されている">
+      <figcaption>▲ 文明選択画面。紋章を選ぶと右に総大将と主力兵が表示されます。</figcaption>
+    </figure>
+    <div>
+      <h3>選び方の指針</h3>
+      <ul class="plain">
+        <li><strong>攻めたい</strong> → ヴァイキング、モンゴル、アステカ</li>
+        <li><strong>守って伸ばしたい</strong> → ヤマト、ローマ、唐</li>
+        <li><strong>資源で殴りたい</strong> → マリ、ペルシア</li>
+      </ul>
+      <p class="dim">
+        固有カードは戦域指令のスロットに追加され、他文明には真似できない戦線運用ができます。
+        例えばモンゴルの「遊撃」は、戦域を固定せず動き回る運用そのものを可能にします。
+      </p>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>文明</th><th>固有ユニット</th><th>内政ボーナス</th><th>固有の作戦カード</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>ヤマト</th><td>武士</td><td>農地の食料収集が速い</td><td>陣立て：防御隊形で被害を軽減</td></tr>
+        <tr><th>ローマ</th><td>レギオン</td><td>街道が建設コスト半減</td><td>方陣：損耗しても隊列が崩れない</td></tr>
+        <tr><th>唐</th><td>連弩兵</td><td>技術研究が安い</td><td>火計：建物へのダメージが増える</td></tr>
+        <tr><th>ヴァイキング</th><td>ベルセルク</td><td>船と伐採が強化</td><td>上陸：水辺の戦域に強襲をかける</td></tr>
+        <tr><th>マリ</th><td>近衛弓兵</td><td>金の採掘量が多い</td><td>交易：戦域を維持すると金が入る</td></tr>
+        <tr><th>アステカ</th><td>ジャガー戦士</td><td>村人の建設が速い</td><td>奉納：撃破数が資源に変わる</td></tr>
+        <tr><th>ペルシア</th><td>戦象</td><td>開始資源が多い</td><td>圧壊：正面の敵陣を押し崩す</td></tr>
+        <tr><th>モンゴル</th><td>弓騎兵</td><td>騎兵の生産が速い</td><td>遊撃：戦域を跨いで移動し続ける</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================= 攻城戦 ================= -->
+<section>
+  <h2>決着は、城の前で<span class="en">SIEGE</span></h2>
+  <div class="split">
+    <figure>
+      <img src="assets/img/siege.png"
+           alt="攻城戦の画面。堀と跳ね橋のある石造りの城へ、破城槌・投石機・梯子で攻めかかる青と赤の歩兵隊と弓兵の矢の斉射">
+      <figcaption>▲ 帝国期の攻城戦。梯子・破城槌・投石機を、歩兵の壁で守りながら押し上げます。</figcaption>
+    </figure>
+    <div>
+      <p class="lead">城は「体力の多い建物」ではありません。<strong>攻め方を要求してくる地形</strong>です。</p>
+      <ul class="plain">
+        <li><strong>堀と跳ね橋</strong> — 攻城兵器は橋を通るしかない。橋の前が必ず激戦地になります。</li>
+        <li><strong>梯子</strong> — 歩兵だけで壁を越えられるが、上の守備兵に削られます。</li>
+        <li><strong>投石機</strong> — 壁に穴を空けられるが、射線に護衛を置かないと真っ先に潰されます。</li>
+        <li><strong>崩れた壁は残る</strong> — 一度空いた穴はその試合の間ずっと通り道になります。</li>
+      </ul>
+      <p>
+        だからこそ「囮の戦域」が効きます。反対側に <strong>略奪</strong> カードを刺して守備兵を引き剥がし、
+        本命の門前を <strong>包囲</strong> で押し切る ―― これが戦域指令の一番気持ちいい瞬間です。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= モード ================= -->
+<section>
+  <h2>遊び方<span class="en">GAME MODES</span></h2>
+  <div class="grid">
+    <div class="card">
+      <h3>キャンペーン</h3>
+      <p>
+        全 4 章・各 5 ミッション。ひとつの文明の興亡を追いながら、戦域指令の使い方が自然に身につく構成です。
+        負けても分岐して先に進めます。
+      </p>
+    </div>
+    <div class="card">
+      <h3>スカーミッシュ</h3>
+      <p>
+        マップ・文明・AI の強さを選んで単発対戦。AI は 5 段階。最上位はプレイヤーと同じく戦域指令で戦ってきます。
+      </p>
+    </div>
+    <div class="card">
+      <h3>オンライン対戦</h3>
+      <p>
+        1 対 1 から 4 対 4 まで、最大 8 人。URL を共有するだけで参加でき、アカウント登録は不要です。
+      </p>
+    </div>
+    <div class="card">
+      <h3>観戦・リプレイ</h3>
+      <p>
+        全戦域の指令履歴が残ります。「どこで判断を間違えたか」を戦域単位で振り返れます。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 技術・動作環境 ================= -->
+<section>
+  <h2>動作環境<span class="en">TECH &amp; REQUIREMENTS</span></h2>
+  <div class="table-wrap">
+    <table>
+      <tbody>
+        <tr><th>プラットフォーム</th><td>PC ブラウザ（Chrome / Edge / Safari / Firefox）。インストール・追加プラグイン不要。</td></tr>
+        <tr><th>描画</th><td>斜め見下ろしの 2D。レトロなドット絵ではなく、手描きの高解像度スプライトを滑らかに描画する方針（HTML5 Canvas 2D の自前レンダラ）。</td></tr>
+        <tr><th>実装</th><td>TypeScript + Vite。ゲームロジックは決定論的に実装し、リプレイと対戦同期を同じ仕組みで扱う。</td></tr>
+        <tr><th>通信</th><td>WebSocket によるロックステップ同期。入力だけを送るため通信量は小さい。</td></tr>
+        <tr><th>要求スペック</th><td>統合 GPU のノート PC でも 60fps を目標。3D を使わないぶん、ユニット数を稼ぐ方針。</td></tr>
+        <tr><th>操作</th><td>マウス中心。戦域の切り替えと作戦カードはキーボード 1 〜 6 に割り当て。</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="dim" style="margin-top:14px">
+    ※ 掲載している画面イメージはコンセプトを示すためのもので、実装中の画面とは異なります。
+  </p>
+</section>
+
+<footer>
+  Multi-Taktika ― 企画紹介資料。掲載画像はイメージです。
+</footer>
+
+</body>
+</html>
