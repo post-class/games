@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { newAceStates, recordAceEscape, recordAceKill } from '../src/content/aces';
-import { applyFrontlineOutcome, chooseDynamicMission, dynamicMissionDef, newFrontlineState } from '../src/content/frontline';
-import { MISSION_COUNT, missionDef } from '../src/content/missions';
-import { clampLoadout, consumeLoadout, newSupplies } from '../src/app/supplies';
-import { advanceCampaignSave, newSave } from '../src/app/save';
-import { newStatistics, recordCampaignOutcome, recordMissionStatistics } from '../src/app/statistics';
+import { newAceStates, recordAceEscape, recordAceKill } from '../../src/content/aces';
+import { applyFrontlineOutcome, chooseDynamicMission, dynamicMissionDef, newFrontlineState } from '../../src/content/frontline';
+import { MISSION_COUNT, missionDef } from '../../src/content/missions';
+import { clampLoadout, consumeLoadout, newSupplies } from '../../src/app/supplies';
+import { advanceCampaignSave, newSave } from '../../src/app/save';
+import { newStatistics, recordCampaignOutcome, recordMissionStatistics } from '../../src/app/statistics';
 import {
   CANON_CAMPAIGN,
   CANON_CAMPAIGN_START,
@@ -16,7 +16,7 @@ import {
   resolveCampaignOutcome,
   VICTORY,
   DEFEAT,
-} from '../src/content/campaign';
+} from '../../src/content/campaign';
 
 describe('キャンペーンの名作化システム', () => {
   it('宿敵は離脱を記録し、撃墜後は再び生存に戻らない', () => {
@@ -32,7 +32,7 @@ describe('キャンペーンの名作化システム', () => {
   it('戦況作戦は最も押されている星系を選び、結果で値を動かす', () => {
     const frontline = newFrontlineState();
     const ref = chooseDynamicMission(frontline, 'm2-escort', 0);
-    expect(ref.system).toBe('Vega');
+    expect(ref.system).toBe('vega-gate');
     const before = frontline.systems[ref.system].control;
     applyFrontlineOutcome(frontline, ref, 'win', { kills: 5, escortLost: false });
     expect(frontline.systems[ref.system].control).toBeGreaterThan(before);
@@ -123,14 +123,15 @@ describe('キャンペーンの名作化システム', () => {
     expect(stats.campaignNodes[CANON_CAMPAIGN_START]).toEqual({ wins: 1, losses: 0 });
   });
 
-  it('常設任務を含めて20前後の任務が登録され、多段攻撃が存在する', () => {
-    expect(MISSION_COUNT).toBe(20);
+  it('常設任務と十章キャンペーンを含めて任務が登録され、多段攻撃が存在する', () => {
+    // 本線9本 + 敗北ルート2本 + 外周作戦9本 = 20本に、veil の十章を加えて 30 本
+    expect(MISSION_COUNT).toBe(30);
     expect(missionDef('m7-quiet-patrol').spawns).toHaveLength(0);
     expect(missionDef('m6-flagship').capitalStages?.map((s) => s.tag)).toEqual(['escort', 'flagship']);
   });
 
   it('戦況の拠点強襲は砲塔→エンジン→魚雷の順に進む', () => {
-    const ref = { id: 'dynamic-1-Vega-capital', system: 'Vega', kind: 'capital', seed: 1, returnNode: 'm2-escort' } as const;
+    const ref = { id: 'dynamic-1-vega-gate-capital', system: 'vega-gate', kind: 'capital', seed: 1, returnNode: 'm2-escort' } as const;
     const stages = dynamicMissionDef(ref).capitalStages ?? [];
     expect(stages.map((stage) => stage.subsystem ?? stage.weapon)).toEqual(['turret', 'engine', 'torpedo']);
   });

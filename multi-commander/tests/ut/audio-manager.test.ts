@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Vector3 } from 'three';
-import { AudioManager } from '../src/audio/AudioManager';
-import { audio } from '../src/audio/AudioManager';
-import { CombatAudio, explosionAudioSize } from '../src/audio/CombatAudio';
-import { bus } from '../src/core/events';
-import { shipDef } from '../src/content/ships';
-import { newAi } from '../src/sim/ai';
-import { spawnShip, World } from '../src/world/world';
-import { settings } from '../src/app/settings';
+import { AudioManager } from '../../src/audio/AudioManager';
+import { audio } from '../../src/audio/AudioManager';
+import { CombatAudio, explosionAudioSize } from '../../src/audio/CombatAudio';
+import { bus } from '../../src/core/events';
+import { shipDef } from '../../src/content/ships';
+import { newAi } from '../../src/sim/ai';
+import { spawnShip, World } from '../../src/world/world';
+import { settings } from '../../src/app/settings';
 
 class FakeParam {
   value = 0;
@@ -111,7 +111,7 @@ describe('AudioManager 無線音声', () => {
     const manager = new AudioManager();
     manager.resume();
 
-    const seconds = manager.radioVoice('テスト通信', 'friendly', 'Spirit');
+    const seconds = manager.radioVoice('テスト通信', 'friendly', 'Sable');
     const context = manager.context as unknown as FakeAudioContext;
     const closingSquelch = context.sources[2];
 

@@ -1,0 +1,164 @@
+{
+  "_meta": {
+    "source": "docs/07_ゲームシステム.html §4（段の分類）/ §5（重みの入れ替え方と結果として起きる挙動）/ docs/01_ゲーム宣伝.html（固有令の一行説明）",
+    "count": 14,
+    "tierRule": "上段 = 移動・配置の方針（どこへ行くか・下がるか・何を建てるか）、下段 = 攻撃目標の優先（何を狙うか・誰を護衛するか）。二重旗では上段1枚+下段1枚まで（07§4）。基本6の分類は固定: 上段 charge/hold/retreat/build、下段 siege/raid。",
+    "weightKeys": "advance（前進）/ hold（持ち場を守る）/ guard（護衛）/ build（建設）/ evade（被弾回避）。unitDecision のスコア式の重み（30_実装手順書 §6.3）。値域は -1.0..1.0。",
+    "targetPriorityKeys": "nearest / in_range / unit / villager / resource_building / house / building / wall_gate / ship / siege_unit。先頭が最優先。井戸(well)・種籾蔵(seed_store)は自動ターゲットに含めない（03 の掟）。",
+    "formationKeys": "normal（標準）/ dense（密集。範囲攻撃に弱くなる）/ loose（散開）/ escort（兵器を中心に囲む）。",
+    "keyRule": "基本6は数字キー 1〜6。固有令は全文明とも key:7（Shift+7）。",
+    "uniqueTierDecision": "方陣（上段）と交易（下段）は 07§4 に明記。残る6件は docs/ISSUES.md 「[判断] 固有令の段の割り当て」に根拠を記載（T-M9-08）。",
+    "flagKeys": "固有令の効果は flags（name/key/tier/civ/weights/targetPriority/formation/note 以外のキー）として持つ。読む場所は sim/core/orderEffects.ts の 1 箇所だけで、値の『型』で解釈が決まる（数値 = 倍率・比率、真偽値 = 有無、オブジェクト = 資源ごとの毎秒量）。令の名前でコード分岐しないので、同じ型のフラグを持つ令を足すだけで効果が付く。",
+    "flagNumbersRule": "資料（01 の固有令の表 / 03§5）に数値は無いので、次の方針で決めた初期値。(1) 07§6 に既にある倍率の刻みに揃える（denseAoeTaken 1.4 / counterGood 1.5 / counterBad 0.7 と衝突しない値）。(2) 常時掛かる補正は ±15% 前後に留め、条件付き（対建物・撃破時）の補正はそれより大きく取る。(3) 収入は 07§8 の交易収入（金 = 片道距離 × 0.5 / 往復）と同じ桁に収める。個別の根拠は各令の note を参照。",
+    "flagOwners": "damageTakenMul / buildingDamageMul / killIncomeRatio / moraleBreakImmune / waterAssault / pushThrough / holdIncome = sim/core/orderEffects.ts 経由で combat・morale・economy が使う。siegeLead / followSiege / avoidCombatUnits / crossFront / requiresWaterFront / formationKeep = sim/systems/unitDecision.ts が使う。フラグを足したら必ずどちらかから読むこと（読まれないキーは「変えても効かない」罠になる）。"
+  },
+
+  "charge": {
+    "name": "突撃",
+    "key": 1,
+    "tier": "upper",
+    "weights": { "advance": 1.0, "hold": 0.0, "guard": 0.0, "build": 0.0, "evade": 0.0 },
+    "targetPriority": ["nearest"],
+    "formation": "normal",
+    "note": "前進最大／持ち場0／対象は「最も近い敵」。止まらない。射程の有利を捨てて距離を詰める。数で押し切れると読んだとき"
+  },
+  "siege": {
+    "name": "包囲",
+    "key": 2,
+    "tier": "lower",
+    "weights": { "advance": 0.5, "hold": 0.0, "guard": 1.0, "build": 0.0, "evade": 0.0 },
+    "targetPriority": ["wall_gate", "building", "unit"],
+    "formation": "escort",
+    "siegeLead": true,
+    "followSiege": true,
+    "note": "攻城兵器の前進を優先し、歩兵の護衛重みを最大。兵器が前、歩兵が周囲。兵器が下がると歩兵も下がる（followSiege）。投石系は射線に味方を置かない配置補正を入れる"
+  },
+  "hold": {
+    "name": "死守",
+    "key": 3,
+    "tier": "upper",
+    "weights": { "advance": 0.0, "hold": 1.0, "guard": 0.0, "build": 0.0, "evade": 0.0 },
+    "targetPriority": ["in_range"],
+    "formation": "dense",
+    "note": "持ち場最大／前進0／隊列は密集。指定地点から離れず、射程内に来た敵だけを撃つ。密集なので範囲攻撃に弱くなる"
+  },
+  "raid": {
+    "name": "略奪",
+    "key": 4,
+    "tier": "lower",
+    "weights": { "advance": 0.6, "hold": 0.0, "guard": 0.0, "build": 0.0, "evade": 0.4 },
+    "targetPriority": ["villager", "resource_building", "house"],
+    "formation": "loose",
+    "avoidCombatUnits": true,
+    "note": "対象の優先を「村人 → 資源施設 → 家」に変更。戦闘ユニットを避けて回り込む。井戸・種籾蔵は自動では狙わない"
+  },
+  "build": {
+    "name": "建設",
+    "key": 5,
+    "tier": "upper",
+    "weights": { "advance": 0.0, "hold": 0.2, "guard": 0.8, "build": 1.0, "evade": 0.0 },
+    "targetPriority": ["nearest"],
+    "formation": "normal",
+    "note": "村人の「建てる」重みを最大、兵は村人の護衛。前線が壁と塔で押し上がっていく"
+  },
+  "retreat": {
+    "name": "後退",
+    "key": 6,
+    "tier": "upper",
+    "weights": { "advance": -1.0, "hold": 0.0, "guard": 0.0, "build": 0.0, "evade": 1.0 },
+    "targetPriority": ["in_range"],
+    "formation": "loose",
+    "note": "前進を負の値にし、被弾回避を最大。戦いながら最寄りの拠点まで下がる。士気の低い兵から順に下がる"
+  },
+
+  "jindate": {
+    "name": "陣立て",
+    "civ": "yamato",
+    "key": 7,
+    "tier": "upper",
+    "weights": { "advance": 0.0, "hold": 0.8, "guard": 0.4, "build": 0.0, "evade": 0.2 },
+    "targetPriority": ["in_range"],
+    "formation": "dense",
+    "damageTakenMul": 0.85,
+    "note": "防御隊形で被害を軽減（被ダメージ ×0.85）。【数値】常時掛かる補正なので -15% に留めた（0.7 まで下げると密集の範囲被害 1.4 を打ち消して「陣立て＋死守」が硬すぎる）。【段の判断】隊形と持ち場という配置の方針を変える令なので上段。攻撃目標は既定のまま変えない"
+  },
+  "hojin": {
+    "name": "方陣",
+    "civ": "roma",
+    "key": 7,
+    "tier": "upper",
+    "weights": { "advance": 0.3, "hold": 0.7, "guard": 0.5, "build": 0.0, "evade": 0.0 },
+    "targetPriority": ["nearest"],
+    "formation": "dense",
+    "formationKeep": true,
+    "moraleBreakImmune": true,
+    "note": "損耗しても隊列が崩れない（formationKeep / 士気崩壊しない）。段は 07§4 に「ローマ方陣は上段」と明記"
+  },
+  "kakei": {
+    "name": "火計",
+    "civ": "tou",
+    "key": 7,
+    "tier": "lower",
+    "weights": { "advance": 0.4, "hold": 0.0, "guard": 0.3, "build": 0.0, "evade": 0.0 },
+    "targetPriority": ["building", "wall_gate", "unit"],
+    "formation": "normal",
+    "buildingDamageMul": 1.35,
+    "note": "建物へのダメージが増える（×1.35）。【数値】対建物のときだけ掛かる条件付き補正なので常時補正より大きく取り、相性の有利（1.5）は超えないところに置いた。【段の判断】狙う対象を建物へ寄せる令＝攻撃目標の優先を変えるので下段。包囲と同じ性質"
+  },
+  "jouriku": {
+    "name": "上陸",
+    "civ": "viking",
+    "key": 7,
+    "tier": "upper",
+    "weights": { "advance": 1.0, "hold": 0.0, "guard": 0.0, "build": 0.0, "evade": 0.0 },
+    "targetPriority": ["nearest"],
+    "formation": "normal",
+    "waterAssault": true,
+    "requiresWaterFront": true,
+    "note": "水辺の戦域に強襲をかける。輸送船から一斉に降りて前進する。【解釈】資料は「強襲」とだけなので、水際（浅瀬・湿地）に足を置いて攻めている間の (a) 低所→高所の地形不利 0.9 の打ち消し と (b) 与ダメージ ×config.orderEffects.waterAssaultDamageMul として実装した。岸へ攻め上がる不利を消すのが「上陸」の意味であり、requiresWaterFront と条件が一致する。移動速度（浅瀬の騎兵 -30%）は movement の担当なので未適用（申し送り）。【段の判断】どこへ行くか（船から岸へ）という移動の方針そのものなので上段"
+  },
+  "koeki": {
+    "name": "交易",
+    "civ": "mali",
+    "key": 7,
+    "tier": "lower",
+    "weights": { "advance": 0.0, "hold": 0.8, "guard": 0.4, "build": 0.0, "evade": 0.2 },
+    "targetPriority": ["in_range"],
+    "formation": "normal",
+    "holdIncome": { "gold": 1.5 },
+    "note": "戦域を維持すると金が入る（毎秒 金 1.5）。【数値】07§8 の交易収入（片道 20 マスで往復あたり金 10）と同じ桁に収めた。荷車 1 台ぶんの収入が、狙われない代わりに戦域を畳めなくなる形で入る。段は 07§4 に「マリ交易は下段」と明記"
+  },
+  "hounou": {
+    "name": "奉納",
+    "civ": "azteca",
+    "key": 7,
+    "tier": "lower",
+    "weights": { "advance": 0.5, "hold": 0.0, "guard": 0.0, "build": 0.0, "evade": 0.0 },
+    "targetPriority": ["unit", "villager", "building"],
+    "formation": "normal",
+    "killIncomeRatio": 0.5,
+    "note": "撃破数が資源に変わる（撃破したユニットのコストの 50% を得る）。【数値】撃破時だけの条件付き還元なので大きめに取ったが、1.0 にすると「兵を撃ち合わせるだけで内政が成立する」ので半分に留めた。対象はユニットのみ（config.orderEffects.killIncomeIncludesBuildings で切替）。【段の判断】移動や隊形を変えず「建物より生きた敵を狙う」に寄せる令なので下段"
+  },
+  "assai": {
+    "name": "圧壊",
+    "civ": "persia",
+    "key": 7,
+    "tier": "upper",
+    "weights": { "advance": 1.0, "hold": 0.0, "guard": 0.2, "build": 0.0, "evade": 0.0 },
+    "targetPriority": ["nearest"],
+    "formation": "dense",
+    "pushThrough": true,
+    "note": "正面の敵陣を押し崩す。密集して直進し、槍の壁を踏み越える。【解釈】03§7 の獣兵「槍兵に止められない突破力」に合わせ、相性倍率の打ち消しとして実装した。攻める側では自分の不利 0.7 が等倍に戻り、受ける側では相手の有利 1.5 が等倍に落ちる（等倍に寄せるだけで有利は伸ばさない）。押し出しで敵を弾く方は特性 knockback（戦象）が担当しており、令で二重に持たせると獣兵の個性が薄れるため採らなかった。【段の判断】前進と隊形＝移動・配置の方針を変える令なので上段。突撃と同段で排他になるのが妥当"
+  },
+  "yugeki": {
+    "name": "遊撃",
+    "civ": "mongol",
+    "key": 7,
+    "tier": "upper",
+    "weights": { "advance": 0.7, "hold": 0.0, "guard": 0.0, "build": 0.0, "evade": 0.5 },
+    "targetPriority": ["villager", "resource_building", "nearest"],
+    "formation": "loose",
+    "crossFront": true,
+    "note": "戦域を跨いで移動し続ける。【段の判断】戦域の枠を越えて動き回るという移動の方針そのものなので上段。下段（略奪など）と重ねて「動きながら村人を狙う」が成立する"
+  }
+}

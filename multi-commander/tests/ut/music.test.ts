@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { MusicDirector, type MusicMedia } from '../src/audio/MusicDirector';
-import { combatMusicCue, musicPath, MUSIC_TRACKS } from '../src/audio/musicCues';
+import { MusicDirector, type MusicMedia } from '../../src/audio/MusicDirector';
+import { combatMusicCue, musicPath, MUSIC_TRACKS } from '../../src/audio/musicCues';
 
 class FakeMedia implements MusicMedia {
   src = '';

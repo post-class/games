@@ -1,18 +1,18 @@
 import { Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
-import { bus } from '../src/core/events';
-import { GUNS, MISSILES } from '../src/content/weapons';
-import { applyDamage } from '../src/sim/damage';
-import { resolveProjectileHits } from '../src/sim/combat';
-import { fireGuns, fireMissile, updateMissileLock } from '../src/sim/weapons';
-import { spawnShip, World } from '../src/world/world';
-import { shipDef } from '../src/content/ships';
+import { bus } from '../../src/core/events';
+import { GUNS, MISSILES } from '../../src/content/weapons';
+import { applyDamage } from '../../src/sim/damage';
+import { resolveProjectileHits } from '../../src/sim/combat';
+import { fireGuns, fireMissile, updateMissileLock } from '../../src/sim/weapons';
+import { spawnShip, World } from '../../src/world/world';
+import { shipDef } from '../../src/content/ships';
 
 describe('武器プロファイル', () => {
-  it('主砲4種は挙動・描画・音声の識別情報を持つ', () => {
+  it('主砲6種は挙動・描画・音声の識別情報を持つ', () => {
     const guns = Object.values(GUNS);
-    expect(guns).toHaveLength(4);
-    expect(new Set(guns.map((g) => g.presentation.fireMode)).size).toBe(4);
+    expect(guns).toHaveLength(6);
+    expect(new Set(guns.map((g) => g.presentation.fireMode)).size).toBe(6);
     for (const gun of guns) {
       expect(gun.speed).toBeGreaterThan(0);
       expect(gun.refire).toBeGreaterThan(0);
@@ -23,10 +23,10 @@ describe('武器プロファイル', () => {
     }
   });
 
-  it('ミサイル4種は誘導・航跡・起爆情報を持つ', () => {
+  it('ミサイル6種は誘導・航跡・起爆情報を持つ', () => {
     const missiles = Object.values(MISSILES);
-    expect(missiles).toHaveLength(4);
-    expect(new Set(missiles.map((m) => m.audioProfile)).size).toBe(4);
+    expect(missiles).toHaveLength(6);
+    expect(new Set(missiles.map((m) => m.audioProfile)).size).toBe(6);
     for (const missile of missiles) {
       expect(missile.armTime).toBeGreaterThan(0);
       expect(missile.description.length).toBeGreaterThan(0);
@@ -57,7 +57,7 @@ describe('武器固有の手応え', () => {
   it('ニュートロンガンは同じ基礎ダメージでもシールドを強く削る', () => {
     const world = new World();
     const target = spawnShip(world, {
-      def: shipDef('dralthi'),
+      def: shipDef('kf03-greyhaul'),
       faction: 'kilrathi',
       pos: new Vector3(),
       speed: 0,
@@ -82,7 +82,7 @@ describe('武器固有の手応え', () => {
     });
     world.playerId = player.id;
     const enemy = spawnShip(world, {
-      def: shipDef('dralthi'),
+      def: shipDef('kf03-greyhaul'),
       faction: 'kilrathi',
       pos: new Vector3(0, 0, -300),
       speed: 0,
@@ -125,7 +125,7 @@ describe('武器固有の手応え', () => {
     });
     world.playerId = player.id;
     const enemy = spawnShip(world, {
-      def: shipDef('dralthi'),
+      def: shipDef('kf03-greyhaul'),
       faction: 'kilrathi',
       pos: new Vector3(0, 0, -1000),
       speed: 0,

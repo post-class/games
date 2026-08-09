@@ -1,0 +1,332 @@
+/*
+ * styles/hud.css — 対戦画面 HUD（T-M5-06）
+ *
+ * 規約（`AI_CODING.md` / 手順書 §8.2）:
+ *   - 左右の余白 20px。ウィンドウを広げたら領域も広がる（固定幅にしない）
+ *   - 本文 16px を基準。ヘッダは最小限（HUD にタイトル行を置かない）
+ *   - HUD の位置は固定（`05§1`）: 資源 = 上端左 / 戦域スロット = 右端 /
+ *     選択とコマンド = 下端。**画面が変わっても動かさない**
+ */
+
+.mt-hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-size: 16px;
+  color: var(--text, #e8ded0);
+}
+
+.mt-hud button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* ---------------------------------------------- 上端左: 資源・人口・ミニマップ */
+
+.mt-top {
+  position: absolute;
+  top: 12px;
+  left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.mt-res {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  padding: 8px 14px;
+  background: rgba(18, 16, 12, 0.78);
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 4px;
+  pointer-events: auto;
+}
+
+.mt-res-item {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: auto 4px;
+  column-gap: 6px;
+  align-items: center;
+  min-width: 74px;
+}
+
+.mt-res-icon {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.mt-res-value {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 数字の下の細い増減バー（`05§6-1`「毎分の収入が分かります」） */
+.mt-res-bar {
+  grid-column: 1 / span 2;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.mt-res-bar-fill {
+  height: 100%;
+  width: 0;
+  background: var(--text, #e8ded0);
+  transition: width 0.4s linear;
+}
+
+.mt-minimap-wrap {
+  padding: 6px;
+  background: rgba(18, 16, 12, 0.78);
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 4px;
+  width: max-content;
+  pointer-events: auto;
+}
+
+.mt-minimap {
+  display: block;
+  width: 180px;
+  height: 180px;
+  image-rendering: pixelated;
+  cursor: crosshair;
+}
+
+/* ---------------------------------------------- 右端: 戦域スロット列 */
+
+.mt-right {
+  position: absolute;
+  top: 12px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 190px;
+  pointer-events: auto;
+}
+
+.mt-overview {
+  padding: 8px 10px;
+  background: rgba(38, 32, 15, 0.9);
+  border: 1px solid var(--gold-dim, #a88530);
+  border-radius: 4px;
+  text-align: center;
+}
+
+.mt-slot {
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  grid-template-rows: auto 5px;
+  column-gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  background: rgba(18, 16, 12, 0.78);
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 4px;
+  text-align: left;
+}
+
+/* 旗は色 + 形 + 番号の 3 重（色覚に依存しない。`06§12`） */
+.mt-slot-flag {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.mt-slot-order {
+  font-size: 14px;
+  color: var(--text-dim, #a89b89);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mt-slot-bar {
+  grid-column: 1 / span 2;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.mt-slot-bar-fill {
+  height: 100%;
+  width: 0;
+}
+
+.mt-slot-active {
+  border-color: var(--gold, #e0b34a);
+}
+
+.mt-slot-locked {
+  opacity: 0.4;
+}
+
+/* 崩れかけの戦域は点滅（`05§6-4` / 手順書 §7.3） */
+.mt-slot-warn {
+  animation: mt-blink 0.7s steps(1, end) infinite;
+}
+
+@keyframes mt-blink {
+  50% {
+    background: rgba(192, 86, 47, 0.85);
+  }
+}
+
+/* ---------------------------------------------- 下端: 選択・コマンド・生産キュー */
+
+.mt-bottom {
+  position: absolute;
+  bottom: 12px;
+  left: 20px;
+  right: 20px;
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+  pointer-events: auto;
+}
+
+.mt-sel {
+  flex: 1 1 260px;
+  min-width: 200px;
+  padding: 8px 12px;
+  background: rgba(18, 16, 12, 0.82);
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 4px;
+}
+
+.mt-sel-name {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.mt-sel-hp {
+  height: 8px;
+  margin: 6px 0 4px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.mt-sel-hp-fill {
+  height: 100%;
+  width: 0;
+  background: var(--green, #7cb342);
+}
+
+.mt-sel-hp-text {
+  font-size: 14px;
+  color: var(--text-dim, #a89b89);
+}
+
+.mt-sel-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.mt-chip {
+  padding: 2px 8px;
+  font-size: 14px;
+  background: rgba(74, 58, 30, 0.6);
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 10px;
+}
+
+/* コマンドグリッドは 3 段 12 ボタン。キー QWER/ASDF/ZXCV と並びが一対一（`05§9`） */
+.mt-grid {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, 88px);
+  grid-template-rows: repeat(3, 44px);
+  gap: 4px;
+  padding: 8px;
+  background: rgba(18, 16, 12, 0.82);
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 4px;
+}
+
+.mt-grid-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  background: rgba(38, 32, 15, 0.9);
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 3px;
+  font-size: 14px;
+  line-height: 1.15;
+  overflow: hidden;
+}
+
+.mt-grid-key {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 11px;
+  color: var(--gold-dim, #a88530);
+}
+
+.mt-grid-label {
+  text-align: center;
+}
+
+.mt-grid-empty {
+  opacity: 0.25;
+  cursor: default;
+}
+
+/* 暗いボタン = 条件を満たさない（理由はカーソルを乗せると出る。`05§9`） */
+.mt-grid-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.mt-queue {
+  flex: 0 0 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  background: rgba(18, 16, 12, 0.82);
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 4px;
+}
+
+.mt-queue-slot {
+  height: 22px;
+  padding: 2px 6px;
+  font-size: 14px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.05);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.mt-queue-filled {
+  background: rgba(74, 58, 30, 0.7);
+}
+
+/* ---------------------------------------------- デバッグ行（開発中のみ） */
+
+.mt-debug {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 10px;
+  font-size: 14px;
+  color: var(--text-dim, #a89b89);
+  background: rgba(18, 16, 12, 0.6);
+  border-radius: 3px;
+  pointer-events: none;
+  white-space: nowrap;
+}

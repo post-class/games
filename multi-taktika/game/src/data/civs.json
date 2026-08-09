@@ -1,0 +1,432 @@
+{
+  "_meta": {
+    "source": "docs/03_文明と進化.html §3（固有建物）/ §5（兵種ツリーと『穴と尖り』）/ §8（エリート）/ §9（固有研究と制限）、docs/02_世界観.html（風土と『ゲーム上の現れ』）",
+    "count": 8,
+    "unitTreeRule": "配列は [青銅, 鉄器, 帝国] の 3 要素固定。その段を持たない場合は null。1 段に 2 種いる場合のみ配列（ローマの鉄器攻城 = 破城槌とバリスタ）。系統キーは line ID（melee / ranged / cavalry / beast / siege / ship）。",
+    "econBonusRule": "econBonus の要素の type は techs.json の _meta.effectTypes に登録済みの型のみを使う（コードに文明名の分岐を書かないため）。",
+    "replaceBuildingsRule": "キー = 共通建物 ID、値 = 置き換わる固有建物 ID。uniqueBuildings は置き換えではなく追加で建てられる固有建物。",
+    "mongolNote": "モンゴルは城を建てられない（forbidBuildings に castle）が、大天幕が城の役割を置き換える（replaceBuildings で castle → great_tent）。03§3 の表記どおり両方に載せている。"
+  },
+  "yamato": {
+    "name": "ヤマト",
+    "homeland": "穂群の野",
+    "note": "水が豊富で米が余る。ただし平野が狭く、逃げ場がない → 土地を捨てられないので守り抜く作法が発達した",
+    "econBonus": [
+      {
+        "type": "gatherRateMul",
+        "resource": "food",
+        "from": "farm",
+        "mul": 1.15
+      }
+    ],
+    "uniqueOrder": "jindate",
+    "uniqueTech": "tanren",
+    "eliteUnit": "y-bushi",
+    "replaceBuildings": {
+      "watch_tower": "yagura"
+    },
+    "uniqueBuildings": [],
+    "forbidBuildings": [],
+    "forbidTechs": [],
+    "unitTree": {
+      "melee": [
+        "y-ashigaru",
+        "y-musha",
+        "y-nagae"
+      ],
+      "ranged": [
+        "y-yumiashigaru",
+        "y-daikyu",
+        "y-teppo"
+      ],
+      "cavalry": [
+        null,
+        "y-horo",
+        "y-kiba"
+      ],
+      "siege": [
+        null,
+        "y-seiro",
+        "y-ozutsu"
+      ]
+    },
+    "strengths": "歩兵の防御研究が1段多い（固有研究「鍛錬」）。櫓は射程が長く兵を5名収容できる",
+    "weaknesses": "鉄器の世に壁を壊す手段がない（井楼は越えるだけ）",
+    "winCondition": "序盤を守り切り、鉄器以降の練度で押し返す"
+  },
+  "roma": {
+    "name": "ローマ",
+    "homeland": "白石海岸",
+    "note": "畑が貧しく、石と港だけがある → 他所から運んでくる技術＝道と船と規格を極めた",
+    "econBonus": [
+      {
+        "type": "buildCostMul",
+        "building": "road",
+        "mul": 0.5
+      }
+    ],
+    "uniqueOrder": "hojin",
+    "uniqueTech": "guntan",
+    "eliteUnit": "r-legion",
+    "replaceBuildings": {},
+    "uniqueBuildings": [
+      "road"
+    ],
+    "forbidBuildings": [],
+    "forbidTechs": [],
+    "unitTree": {
+      "melee": [
+        "r-hastati",
+        "r-principes",
+        "r-triarii"
+      ],
+      "ranged": [
+        "r-slinger",
+        "r-scorpio",
+        "r-handgun"
+      ],
+      "cavalry": [
+        "r-eq-light",
+        "r-eq",
+        "r-eq-heavy"
+      ],
+      "siege": [
+        null,
+        [
+          "r-ram",
+          "r-ballista"
+        ],
+        "r-onager"
+      ]
+    },
+    "strengths": "近接・遠隔・騎兵の3系統すべてが3段揃う唯一の文明。街道で戦域間の増援が最速。騎兵が青銅から出る",
+    "weaknesses": "穴なし（＝どこも突出していない）",
+    "winCondition": "全戦域に均等に手を回して、崩れた側へ即座に増援"
+  },
+  "tou": {
+    "name": "唐",
+    "homeland": "水閘",
+    "note": "人口が多く、職人が多い。土地は肥えている → 人を数えて割り振る官僚制。記録を残すことに執着する",
+    "econBonus": [],
+    "uniqueOrder": "kakei",
+    "uniqueTech": "kayakujutsu",
+    "eliteUnit": "t-renkyu",
+    "replaceBuildings": {
+      "academy": "kanrin"
+    },
+    "uniqueBuildings": [],
+    "forbidBuildings": [],
+    "forbidTechs": [
+      "kouba"
+    ],
+    "unitTree": {
+      "melee": [
+        "t-hosotsu",
+        "t-hakuto",
+        "t-nagayari"
+      ],
+      "ranged": [
+        "t-yumite",
+        "t-dote",
+        "t-kaju"
+      ],
+      "cavalry": [
+        null,
+        "t-keiki",
+        "t-tekki"
+      ],
+      "siege": [
+        null,
+        "t-shoshido",
+        "t-kasensha"
+      ]
+    },
+    "strengths": "遠隔と攻城が全文明最強。翰林院で研究が20%速く20%安い",
+    "weaknesses": "近接の攻撃研究が1段少ない（鋼刃を研究できない）。近接は最も弱い",
+    "winCondition": "遠隔で削り、攻城で建物を壊して押し切る",
+    "econBonusNote": "内政ボーナス「技術研究が安い」は固有建物 翰林院（学舎の置き換え・研究が 20% 速く 20% 安い）そのものが担っている。文明レベルにも researchCostMul 0.8 を置くと同じ効果が二重に掛かり 学舎の研究が 0.64 倍になってしまうため、03§3 に明記された数値のある建物側だけを残した。詳細は docs/ISSUES.md の [矛盾] 唐の研究コスト割引 を参照。"
+  },
+  "viking": {
+    "name": "ヴァイキング",
+    "homeland": "北崖",
+    "note": "耕地がほぼない。冬が長い。木材は無限にある → 足りないものは海の向こうから取ってくる、と割り切った",
+    "econBonus": [
+      {
+        "type": "gatherRateMul",
+        "resource": "wood",
+        "from": "forest",
+        "mul": 1.15
+      },
+      {
+        "type": "unitCostMul",
+        "lines": [
+          "ship"
+        ],
+        "mul": 0.85
+      }
+    ],
+    "uniqueOrder": "jouriku",
+    "uniqueTech": "kyousen",
+    "eliteUnit": "v-berserk",
+    "replaceBuildings": {
+      "harbor": "boathouse"
+    },
+    "uniqueBuildings": [],
+    "forbidBuildings": [
+      "stable",
+      "stone_wall",
+      "stone_gate",
+      "gunpowder_workshop"
+    ],
+    "forbidTechs": [
+      "bankinyoroi",
+      "bayoroi"
+    ],
+    "unitTree": {
+      "melee": [
+        "v-raider",
+        "v-shield",
+        "v-axe"
+      ],
+      "ranged": [
+        "v-javelin",
+        "v-bow",
+        null
+      ],
+      "cavalry": [
+        null,
+        null,
+        null
+      ],
+      "siege": [
+        null,
+        "v-fire",
+        "v-ram"
+      ],
+      "ship": [
+        null,
+        "v-longship",
+        "v-greatship"
+      ]
+    },
+    "strengths": "近接の攻撃が最高。船が最強で安く、長船を作れる。ベルセルクが自己回復",
+    "weaknesses": "騎兵・火器・投石・石壁がない。壁は木柵で代用する。長引かせると負ける",
+    "winCondition": "海から降りて短期決戦"
+  },
+  "mali": {
+    "name": "マリ",
+    "homeland": "塩街道",
+    "note": "岩塩と砂金が採れるが、水が遠い → 戦うより買う。金で人を動かすことを覚えた",
+    "econBonus": [
+      {
+        "type": "gatherRateMul",
+        "resource": "gold",
+        "from": "mine",
+        "mul": 1.2
+      }
+    ],
+    "uniqueOrder": "koeki",
+    "uniqueTech": "shahou",
+    "eliteUnit": "m-guard-archer",
+    "replaceBuildings": {},
+    "uniqueBuildings": [
+      "salt_store"
+    ],
+    "forbidBuildings": [],
+    "forbidTechs": [
+      "chuuzou"
+    ],
+    "unitTree": {
+      "melee": [
+        "m-yarite",
+        "m-menko",
+        "m-naga"
+      ],
+      "ranged": [
+        "m-yumi",
+        "m-daikyu",
+        "m-hinawa"
+      ],
+      "cavalry": [
+        null,
+        "m-camel",
+        "m-camel-heavy"
+      ],
+      "siege": [
+        null,
+        "m-ram",
+        "m-catapult"
+      ]
+    },
+    "strengths": "遠隔の射程研究が1段多い（固有研究「射法」）。金が最も稼げる。塩蔵で交易収入 +25%、市場を3つまで建てられる。駱駝騎兵は敵の騎兵に強い",
+    "weaknesses": "攻城の最上位を持たない（投石機まで。破城槌は継続して作れる）。鋳造を研究できない",
+    "winCondition": "金で兵を回し続け、駱駝で敵の騎兵を食う"
+  },
+  "azteca": {
+    "name": "アステカ",
+    "homeland": "翠壁",
+    "note": "石材と人手は潤沢。鉄がまったく出ない → 刃を石で作り、数と勇気で埋める戦い方になった",
+    "econBonus": [
+      {
+        "type": "buildSpeedMul",
+        "mul": 1.3
+      },
+      {
+        "type": "produceSpeedMul",
+        "lines": [
+          "melee"
+        ],
+        "mul": 1.2
+      }
+    ],
+    "uniqueOrder": "hounou",
+    "uniqueTech": "menkou",
+    "eliteUnit": "a-jaguar",
+    "replaceBuildings": {},
+    "uniqueBuildings": [
+      "temple_platform"
+    ],
+    "forbidBuildings": [
+      "stable",
+      "gunpowder_workshop"
+    ],
+    "forbidTechs": [
+      "kusariyoroi",
+      "bankinyoroi",
+      "bayoroi"
+    ],
+    "unitTree": {
+      "melee": [
+        "a-club",
+        "a-obsidian",
+        "a-feather"
+      ],
+      "ranged": [
+        "a-blowgun",
+        "a-atlatl",
+        null
+      ],
+      "cavalry": [
+        null,
+        null,
+        null
+      ],
+      "siege": [
+        null,
+        "a-catapult",
+        "a-bigcatapult"
+      ]
+    },
+    "strengths": "歩兵の生産が最速。村人の建設が最速。石造攻城が安い。神殿基壇で周囲の兵の生産速度 +20%",
+    "weaknesses": "騎兵・火器・鉄の防具研究（鎖鎧・板金鎧・馬鎧）がない",
+    "winCondition": "数で戦域を埋める。固有研究「綿甲」で矢に耐える"
+  },
+  "persia": {
+    "name": "ペルシア",
+    "homeland": "泉都",
+    "note": "水は地下にしかない。掘り当てた者が富む → 大きな投資で大きく返す。初手から重く出る",
+    "econBonus": [
+      {
+        "type": "startResourceAdd",
+        "food": 200,
+        "wood": 200,
+        "stone": 100,
+        "gold": 100
+      }
+    ],
+    "uniqueOrder": "assai",
+    "uniqueTech": "kangyo",
+    "eliteUnit": "p-guard-elephant",
+    "replaceBuildings": {},
+    "uniqueBuildings": [
+      "qanat"
+    ],
+    "forbidBuildings": [],
+    "forbidTechs": [],
+    "unitTree": {
+      "melee": [
+        "p-immortal",
+        "p-shield",
+        "p-naga"
+      ],
+      "ranged": [
+        "p-bow",
+        "p-daikyu",
+        "p-gun"
+      ],
+      "cavalry": [
+        null,
+        "p-cav",
+        "p-cataphract"
+      ],
+      "beast": [
+        null,
+        "p-elephant",
+        "p-elephant-armored"
+      ],
+      "siege": [
+        null,
+        "p-tower",
+        "p-cannon"
+      ]
+    },
+    "strengths": "唯一「獣兵」系統を持つ。開始資源が最多。地下水路で周囲の村人の採集速度 +15%。大砲は単発火力が最大",
+    "weaknesses": "機動力（全兵が遅い）。すべて重く、すべて遅い",
+    "winCondition": "重い編成を1〜2戦域に集中させて正面から割る"
+  },
+  "mongol": {
+    "name": "モンゴル",
+    "homeland": "風原",
+    "note": "草はどこにでもあり、城を建てる石がない → 守るべき場所を持たない。留まらないことが強さになった",
+    "econBonus": [
+      {
+        "type": "produceSpeedMul",
+        "lines": [
+          "cavalry"
+        ],
+        "mul": 1.2
+      }
+    ],
+    "uniqueOrder": "yugeki",
+    "uniqueTech": "ekiden",
+    "eliteUnit": "g-guard-horsearcher",
+    "replaceBuildings": {
+      "castle": "great_tent"
+    },
+    "uniqueBuildings": [],
+    "forbidBuildings": [
+      "castle",
+      "stone_wall",
+      "stone_gate",
+      "gunpowder_workshop"
+    ],
+    "forbidTechs": [
+      "bankinyoroi"
+    ],
+    "unitTree": {
+      "melee": [
+        null,
+        "g-dismount",
+        null
+      ],
+      "ranged": [
+        null,
+        null,
+        null
+      ],
+      "cavalry": [
+        "g-light",
+        "g-archer",
+        "g-heavy"
+      ],
+      "siege": [
+        null,
+        null,
+        "g-catapult"
+      ]
+    },
+    "strengths": "青銅から騎兵（ローマと並ぶ最速）。全兵の移動が最速。大天幕で拠点と令の発信点ごと動かせる",
+    "weaknesses": "徒歩の遠隔・近接の上位段・攻城・城がない。簡易投石機の威力は他文明の60%",
+    "winCondition": "戦域を固定せず、常に弱い戦域を選んで殴り続ける"
+  }
+}

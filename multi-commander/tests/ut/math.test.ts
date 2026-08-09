@@ -8,7 +8,7 @@ import {
   leadPoint,
   moveTowards,
   upOf,
-} from '../src/core/math';
+} from '../../src/core/math';
 
 describe('math ヘルパー', () => {
   it('moveTowards は目標を越えない', () => {

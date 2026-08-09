@@ -43,6 +43,23 @@ export interface GameEvents {
     hitFace?: 'front' | 'rear' | 'left' | 'right';
     critical?: boolean;
   };
+  /**
+   * 兵装が機体に命中した (1回の命中につき1件)。
+   *
+   * `shieldHit` / `armorHit` はダメージの層ごとに複数回飛ぶうえ、`isPlayer` が
+   * 「撃たれたのが自機か」を意味するため、「誰が誰に当てたか」を数えられない。
+   * 誤射判定のように命中回数と撃った側が必要な処理はこのイベントを使う。
+   * 衝突・機雷などの兵装以外のダメージでは発生しない。
+   */
+  weaponHit: {
+    target: Entity;
+    /** 撃った機体 (すでに失われている場合は undefined) */
+    shooter?: Entity;
+    /** 自機が撃った弾か */
+    fromPlayer: boolean;
+    weaponKind: 'gun' | 'missile';
+    weaponId?: string;
+  };
   /** 撃墜/破壊 */
   destroyed: { target: Entity; source?: Entity; killedByPlayer: boolean; reason?: DestructionReason };
   /** 爆発 (ミサイル起爆など) */

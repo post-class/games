@@ -1,4 +1,5 @@
 import type { CampaignMode, CampaignOutcome, CampaignRoute } from '../content/campaign';
+import type { ReturneeEntry, ReturneeKind } from './narrative';
 
 export interface CampaignStatistics {
   shotsFired: number;
@@ -21,6 +22,14 @@ export interface CampaignStatistics {
   retreatCount: number;
   campaignModes: Record<CampaignMode, number>;
   campaignNodes: Record<string, { wins: number; losses: number }>;
+  /**
+   * 帰還者の累計人数（勢力を問わない）。
+   * `rescuedWingmen` は僚機の救出回数なので意味が異なる。こちらは最終無線で
+   * 読み上げる名前の総数で、十章作戦記録が言う唯一の戦績。
+   */
+  returneesTotal: number;
+  /** 立場ごとの帰還者数 */
+  returneesByKind: Record<ReturneeKind, number>;
 }
 
 export function newStatistics(): CampaignStatistics {
@@ -42,8 +51,10 @@ export function newStatistics(): CampaignStatistics {
     campaignLosses: 0,
     advanceCount: 0,
     retreatCount: 0,
-    campaignModes: { canon: 0, expanded: 0 },
+    campaignModes: { canon: 0, expanded: 0, veil: 0 },
     campaignNodes: {},
+    returneesTotal: 0,
+    returneesByKind: { civilian: 0, wingman: 0, 'enemy-ace': 0, 'ally-faction': 0 },
   };
 }
 
@@ -54,6 +65,7 @@ export function normalizeStatistics(raw: unknown): CampaignStatistics {
   for (const k of [
     'shotsFired', 'hits', 'combatSeconds', 'missionsWon', 'missionsLost', 'longestWingmanSurvival',
     'rescuedWingmen', 'abandonedWingmen', 'navsReached', 'escortAttempts', 'escortSuccesses', 'seriesScore', 'campaignWins', 'campaignLosses', 'advanceCount', 'retreatCount',
+    'returneesTotal',
   ] as const) {
     const value = r[k];
     if (typeof value === 'number' && Number.isFinite(value)) {
@@ -61,8 +73,15 @@ export function normalizeStatistics(raw: unknown): CampaignStatistics {
       fallback[k] = k === 'seriesScore' ? value : Math.max(0, value);
     }
   }
+  if (r.returneesByKind && typeof r.returneesByKind === 'object') {
+    for (const kind of ['civilian', 'wingman', 'enemy-ace', 'ally-faction'] as const) {
+      const value = r.returneesByKind[kind];
+      if (typeof value === 'number' && Number.isFinite(value)) fallback.returneesByKind[kind] = Math.max(0, Math.floor(value));
+    }
+  }
   if (r.campaignModes && typeof r.campaignModes === 'object') {
-    for (const mode of ['canon', 'expanded'] as const) {
+    // veil は後から増えたモード。旧セーブには無いが、キーがあれば復元する。
+    for (const mode of ['canon', 'expanded', 'veil'] as const) {
       const value = r.campaignModes[mode];
       if (typeof value === 'number' && Number.isFinite(value)) fallback.campaignModes[mode] = Math.max(0, Math.floor(value));
     }
@@ -110,6 +129,24 @@ export function recordCampaignOutcome(
 }
 
 export const recordSeriesOutcome = recordCampaignOutcome;
+
+/**
+ * 帰還者を統計へ累計する。名簿（`NarrativeState`）への追加と対で呼ぶ。
+ *
+ * 既存の撃墜・救出カウンタの意味は変えない。ここは「読み上げる名前の数」だけを積む。
+ */
+export function recordReturnees(stats: CampaignStatistics, entries: readonly ReturneeEntry[]): number {
+  if (!Array.isArray(entries)) return 0;
+  let added = 0;
+  for (const entry of entries) {
+    if (!entry || typeof entry.name !== 'string' || entry.name.trim().length === 0) continue;
+    stats.returneesTotal += 1;
+    const kind: ReturneeKind | undefined = entry.kind in stats.returneesByKind ? entry.kind : undefined;
+    if (kind) stats.returneesByKind[kind] += 1;
+    added += 1;
+  }
+  return added;
+}
 
 export function recordMissionStatistics(
   stats: CampaignStatistics,

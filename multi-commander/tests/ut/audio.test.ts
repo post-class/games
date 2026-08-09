@@ -1,8 +1,8 @@
 import { Scene, Vector3, type BufferGeometry, type LineSegments } from 'three';
 import { describe, expect, it } from 'vitest';
-import { SpaceDust } from '../src/render/SpaceDust';
-import { shipDef } from '../src/content/ships';
-import { spawnShip, World } from '../src/world/world';
+import { SpaceDust } from '../../src/render/SpaceDust';
+import { shipDef } from '../../src/content/ships';
+import { spawnShip, World } from '../../src/world/world';
 
 describe('ジャンプ演出 (宇宙塵の筋)', () => {
   /** 線分の長さの平均を測る */

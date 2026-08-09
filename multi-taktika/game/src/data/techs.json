@@ -1,0 +1,780 @@
+{
+  "_meta": {
+    "source": "docs/03_文明と進化.html §9（鍛冶場8 / 学舎7 / その他11 / 文明固有8 = 34）",
+    "count": 34,
+    "researchSecRule": "researchSec は age だけで決める（一貫規則）: seido=30 / tekki=45 / teikoku=60。根拠は 30_実装手順書 §5.6 の例「旗竿（鉄器）= 45」。資料に研究時間の記載がないため、これ以外の係数は掛けない。",
+    "costRule": "鍛冶場8と学舎7のコストは 03§9 の表そのまま。その他11と文明固有8は資料にコスト記載がないため age だけで決める: seido={food:100,wood:50} / tekki={food:200,gold:100} / teikoku={food:300,gold:200}。",
+    "ageRule": "03§9 に「世」の記載がある鍛冶場8・学舎7はその値。その他11は『1段目=その建物が建つ世（伐採所/採掘場/町の中心/市場は青銅、祈祷所/港/城は鉄器）、2段目=鉄器』。固有8は効果の前提（板金鎧の上乗せなど）から決めた。",
+    "requiresRule": "同枝を飛び越して研究できない（05§10）。鋼刃←打刃 / 鋼鏃←鏃 / 鎖鎧←革鎧 / 板金鎧←鎖鎧 / 大鋸←両手斧 / 坑道←鶴嘴 / 輪作←犂 / 隊商←荷駄 / 鍛錬←板金鎧 / 綿甲←革鎧 / 灌漁←犂。",
+    "effectTypes": {
+      "unitStat": "ユニットの数値を加算/乗算する。対象は lines / roles / units のいずれか（複数指定は AND ではなく OR の和集合）。stat = atk | def | pierceDef | rangeTiles | speed | hp。add で加算、mul で乗算。両方あるときは add → mul の順。",
+      "frontSlot": "戦域スロット上限 +add（上限は config の maxFrontSlots=6）。",
+      "orderDelayMul": "令が戦域に届くまでの遅延に ×mul（復唱 0.5）。計算順は 06§6.2 に従い伝令加算のあと。",
+      "orderDelayDistanceZero": "令の遅延式の距離の項（dist×0.02）を 0 にする（モンゴル駅伝）。",
+      "orderSwitchIntervalMul": "同一戦域へ次の令を出せるまでの間隔に ×mul（早馬 0.7 → 6.0s が 4.2s）。",
+      "orderStackSlots": "1 戦域に重ねられる令の枚数を slots にする（二重旗 2。上段1+下段1 の制約は別途 tier で判定）。",
+      "gatherRateMul": "採集速度に ×mul。resource で資源を、from で採集元（farm / forest / mine / hunt / fish / fruit / herd）を絞る。省略時は全て。",
+      "depositMul": "資源の埋蔵量に ×mul。resources で対象資源を絞る（坑道 = stone/gold の鉱脈 1.3）。",
+      "farmYieldMul": "農地 1 面の総産出量に ×mul（累積は乗算で重ねる）。",
+      "buildingSightAdd": "全建物の視界半径 +add（マス）。",
+      "researchCostMul": "以降に着手する研究のコストに ×mul（写本 0.85）。",
+      "produceSpeedMul": "生産速度に ×mul。lines / roles / units で対象ユニットを、at で生産建物を絞る。省略時は全て。",
+      "queueLengthAdd": "生産キューの長さ +add。at で対象建物を絞る（軍団編成 = 兵舎/射場/厩で 5→10 なので add:5）。",
+      "healSpeedMul": "祈祷師の治療速度に ×mul。",
+      "shipStatMul": "船（line=ship）の stat に ×mul。造船の耐久 +20% に使う。",
+      "eliteCostMul": "城のエリートユニットの生産コストに ×mul（鋳造 0.8）。",
+      "tradeIncomeMul": "交易荷車 1 往復の収入に ×mul。",
+      "cartSpeedMul": "交易荷車の移動速度に ×mul。",
+      "lowHpAtkBonus": "体力が減るほど攻撃が上がる。欠損体力比 0 で ×1.0、atMissingHpRatio で ×maxAtkMul まで線形補間。lines / roles で対象を絞る。",
+      "rangedResistAdd": "遠隔（貫通）攻撃に対する耐性 +add。lines / roles で対象を絞る（綿甲 = 歩兵 +3）。",
+      "buildCostMul": "建設コストに ×mul。building で対象建物を絞る（ローマ街道 0.5）。civs.json の econBonus 用。",
+      "buildSpeedMul": "村人の建設速度に ×mul。civs.json の econBonus 用。",
+      "unitCostMul": "ユニットの生産コストに ×mul。lines / roles / units で対象を絞る。civs.json の econBonus 用。",
+      "startResourceAdd": "試合開始時の所持資源に加算（ペルシア）。civs.json の econBonus 用。",
+      "gatherRateAura": "【建物由来】周囲 radiusTiles 内の村人の採集速度に ×mul。scope で対象資源を絞れる（地下水路 +15% / 井戸を壊された跡地 0.8）。buildings.json が使う。",
+      "trainRateAura": "【建物由来】周囲 radiusTiles 内の建物の生産速度に ×mul。scope=\"military\" で兵のみ（神殿基壇 +20%）。",
+      "moveSpeedOnTile": "【建物由来】その敷設物の上を通るユニットの移動速度に ×mul。scope で自軍のみ/味方も含むを指定（街道 +30%）。",
+      "researchTimeMul": "【建物由来】その建物で行う研究の所要時間に ×mul（翰林院 0.8）。researchCostMul と対で使う。",
+      "unlockUnits": "【建物由来】units[] の生産を解禁する（船小屋 → 長船・大長船）。",
+      "buildingLimitOverride": "【建物由来】building の建設上限を max に上書きする（塩蔵 → 市場 3 棟）。",
+      "forbidRebuildHere": "【建物由来】その建物があった場所への再建を durationSec 秒禁止する（-1 = その試合中ずっと。井戸）。",
+      "forbidRebuildNearby": "【建物由来】周囲 radiusTiles 内の building の再建を durationSec 秒禁止する（種籾蔵 → 農地）。"
+    },
+    "effectTypeRegistryNote": "このレジストリは techs.json / civs.json / buildings.json すべての effects・econBonus の 唯一の登録簿。未登録の type は適用エンジン（T-M6-04）が黙って無視するため、src/data/load.ts の横断検証で起動時に例外にしている。新しい効果を追加するときは必ずここに登録する。"
+  },
+  "uchiba": {
+    "name": "打刃",
+    "at": "blacksmith",
+    "age": "seido",
+    "cost": {
+      "food": 100
+    },
+    "researchSec": 30,
+    "requires": [],
+    "effects": [
+      {
+        "type": "unitStat",
+        "lines": [
+          "melee"
+        ],
+        "stat": "atk",
+        "add": 1
+      }
+    ],
+    "note": "近接兵の攻撃 +1"
+  },
+  "kouba": {
+    "name": "鋼刃",
+    "at": "blacksmith",
+    "age": "tekki",
+    "cost": {
+      "food": 150,
+      "gold": 50
+    },
+    "researchSec": 45,
+    "requires": [
+      "uchiba"
+    ],
+    "effects": [
+      {
+        "type": "unitStat",
+        "lines": [
+          "melee"
+        ],
+        "stat": "atk",
+        "add": 1
+      }
+    ],
+    "note": "近接兵の攻撃 +1（打刃に累積）。唐は研究できない"
+  },
+  "yajiri": {
+    "name": "鏃",
+    "at": "blacksmith",
+    "age": "seido",
+    "cost": {
+      "food": 100,
+      "wood": 50
+    },
+    "researchSec": 30,
+    "requires": [],
+    "effects": [
+      {
+        "type": "unitStat",
+        "lines": [
+          "ranged"
+        ],
+        "stat": "atk",
+        "add": 1
+      }
+    ],
+    "note": "遠隔兵の攻撃 +1"
+  },
+  "kouyajiri": {
+    "name": "鋼鏃",
+    "at": "blacksmith",
+    "age": "tekki",
+    "cost": {
+      "food": 150,
+      "gold": 50
+    },
+    "researchSec": 45,
+    "requires": [
+      "yajiri"
+    ],
+    "effects": [
+      {
+        "type": "unitStat",
+        "lines": [
+          "ranged"
+        ],
+        "stat": "atk",
+        "add": 1
+      }
+    ],
+    "note": "遠隔兵の攻撃 +1（鏃に累積）"
+  },
+  "kawayoroi": {
+    "name": "革鎧",
+    "at": "blacksmith",
+    "age": "seido",
+    "cost": {
+      "food": 100
+    },
+    "researchSec": 30,
+    "requires": [],
+    "effects": [
+      {
+        "type": "unitStat",
+        "lines": [
+          "melee",
+          "ranged"
+        ],
+        "stat": "def",
+        "add": 1
+      }
+    ],
+    "note": "歩兵（徒歩の近接・遠隔）の防御 +1"
+  },
+  "kusariyoroi": {
+    "name": "鎖鎧",
+    "at": "blacksmith",
+    "age": "tekki",
+    "cost": {
+      "food": 200,
+      "gold": 100
+    },
+    "researchSec": 45,
+    "requires": [
+      "kawayoroi"
+    ],
+    "effects": [
+      {
+        "type": "unitStat",
+        "lines": [
+          "melee",
+          "ranged"
+        ],
+        "stat": "def",
+        "add": 1
+      }
+    ],
+    "note": "歩兵の防御 +1（革鎧に累積）。アステカは鉄が出ないため研究できない"
+  },
+  "bankinyoroi": {
+    "name": "板金鎧",
+    "at": "blacksmith",
+    "age": "teikoku",
+    "cost": {
+      "food": 300,
+      "gold": 150
+    },
+    "researchSec": 60,
+    "requires": [
+      "kusariyoroi"
+    ],
+    "effects": [
+      {
+        "type": "unitStat",
+        "lines": [
+          "melee",
+          "ranged"
+        ],
+        "stat": "def",
+        "add": 2
+      }
+    ],
+    "note": "歩兵の防御 +2（累積）。ヴァイキング・アステカ・モンゴルは研究できない"
+  },
+  "bayoroi": {
+    "name": "馬鎧",
+    "at": "blacksmith",
+    "age": "tekki",
+    "cost": {
+      "food": 150,
+      "gold": 150
+    },
+    "researchSec": 45,
+    "requires": [],
+    "effects": [
+      {
+        "type": "unitStat",
+        "lines": [
+          "cavalry",
+          "beast"
+        ],
+        "stat": "def",
+        "add": 2
+      }
+    ],
+    "note": "騎兵・獣兵の防御 +2。ヴァイキング・アステカは研究できない"
+  },
+  "hatazao": {
+    "name": "旗竿",
+    "at": "academy",
+    "age": "tekki",
+    "cost": {
+      "wood": 200,
+      "gold": 100
+    },
+    "researchSec": 45,
+    "requires": [],
+    "effects": [
+      {
+        "type": "frontSlot",
+        "add": 1
+      }
+    ],
+    "note": "戦域スロット +1。城を建てる石材がないとき"
+  },
+  "hayaba": {
+    "name": "早馬",
+    "at": "academy",
+    "age": "tekki",
+    "cost": {
+      "food": 150,
+      "gold": 100
+    },
+    "researchSec": 45,
+    "requires": [],
+    "effects": [
+      {
+        "type": "orderSwitchIntervalMul",
+        "mul": 0.7
+      }
+    ],
+    "note": "令の切り替え待ち時間 −30%（6.0 秒 → 4.2 秒）。戦況が細かく動く乱戦"
+  },
+  "fukusho": {
+    "name": "復唱",
+    "at": "academy",
+    "age": "tekki",
+    "cost": {
+      "food": 200
+    },
+    "researchSec": 45,
+    "requires": [],
+    "effects": [
+      {
+        "type": "orderDelayMul",
+        "mul": 0.5
+      }
+    ],
+    "note": "令が戦域に届くまでの遅延 −50%。本陣から遠い戦域を抱えたとき"
+  },
+  "nijuuhata": {
+    "name": "二重旗",
+    "at": "academy",
+    "age": "teikoku",
+    "cost": {
+      "wood": 300,
+      "gold": 300
+    },
+    "researchSec": 60,
+    "requires": [],
+    "effects": [
+      {
+        "type": "orderStackSlots",
+        "slots": 2
+      }
+    ],
+    "note": "1 つの戦域に令を 2 枚まで重ねられる（上段1+下段1）。「包囲」＋「死守」など複合運用"
+  },
+  "sokuryo": {
+    "name": "測量",
+    "at": "academy",
+    "age": "seido",
+    "cost": {
+      "food": 100
+    },
+    "researchSec": 30,
+    "requires": [],
+    "effects": [
+      {
+        "type": "buildingSightAdd",
+        "add": 4
+      }
+    ],
+    "note": "建物の視界 +4。戦域の発生を早く知る。学舎ではなく青銅の世に置かれるが 03§9 では学舎の枝"
+  },
+  "shahon": {
+    "name": "写本",
+    "at": "academy",
+    "age": "tekki",
+    "cost": {
+      "food": 200,
+      "gold": 100
+    },
+    "researchSec": 45,
+    "requires": [],
+    "effects": [
+      {
+        "type": "researchCostMul",
+        "mul": 0.85
+      }
+    ],
+    "note": "以降の研究コスト −15%。長期戦を狙うとき"
+  },
+  "chouheirei": {
+    "name": "徴兵令",
+    "at": "academy",
+    "age": "teikoku",
+    "cost": {
+      "food": 400,
+      "gold": 200
+    },
+    "researchSec": 60,
+    "requires": [],
+    "effects": [
+      {
+        "type": "produceSpeedMul",
+        "lines": [
+          "melee",
+          "ranged",
+          "cavalry",
+          "beast",
+          "siege",
+          "ship",
+          "elite"
+        ],
+        "mul": 1.25
+      }
+    ],
+    "note": "すべての兵の生産速度 +25%（村人は含まない）。6 戦域を同時に維持する終盤"
+  },
+  "ryotebono": {
+    "name": "両手斧",
+    "at": "lumber_camp",
+    "age": "seido",
+    "cost": {
+      "food": 100,
+      "wood": 50
+    },
+    "researchSec": 30,
+    "requires": [],
+    "effects": [
+      {
+        "type": "gatherRateMul",
+        "resource": "wood",
+        "from": "forest",
+        "mul": 1.2
+      }
+    ],
+    "note": "伐採速度 +20%"
+  },
+  "oonoko": {
+    "name": "大鋸",
+    "at": "lumber_camp",
+    "age": "tekki",
+    "cost": {
+      "food": 200,
+      "gold": 100
+    },
+    "researchSec": 45,
+    "requires": [
+      "ryotebono"
+    ],
+    "effects": [
+      {
+        "type": "gatherRateMul",
+        "resource": "wood",
+        "from": "forest",
+        "mul": 1.2
+      }
+    ],
+    "note": "伐採速度 +20%（両手斧に累積）"
+  },
+  "tsuruhashi": {
+    "name": "鶴嘴",
+    "at": "mining_camp",
+    "age": "seido",
+    "cost": {
+      "food": 100,
+      "wood": 50
+    },
+    "researchSec": 30,
+    "requires": [],
+    "effects": [
+      {
+        "type": "gatherRateMul",
+        "resource": "stone",
+        "from": "mine",
+        "mul": 1.15
+      },
+      {
+        "type": "gatherRateMul",
+        "resource": "gold",
+        "from": "mine",
+        "mul": 1.15
+      }
+    ],
+    "note": "石材・金の採掘速度 +15%"
+  },
+  "koudou": {
+    "name": "坑道",
+    "at": "mining_camp",
+    "age": "tekki",
+    "cost": {
+      "food": 200,
+      "gold": 100
+    },
+    "researchSec": 45,
+    "requires": [
+      "tsuruhashi"
+    ],
+    "effects": [
+      {
+        "type": "depositMul",
+        "resources": [
+          "stone",
+          "gold"
+        ],
+        "mul": 1.3
+      }
+    ],
+    "note": "鉱脈の埋蔵量 +30%"
+  },
+  "suki": {
+    "name": "犂",
+    "at": "town_center",
+    "age": "seido",
+    "cost": {
+      "food": 100,
+      "wood": 50
+    },
+    "researchSec": 30,
+    "requires": [],
+    "effects": [
+      {
+        "type": "farmYieldMul",
+        "mul": 1.3
+      }
+    ],
+    "note": "農地の産出量 +30%。03§9 では「町の中心 / 農地」の枝"
+  },
+  "rinsaku": {
+    "name": "輪作",
+    "at": "town_center",
+    "age": "tekki",
+    "cost": {
+      "food": 200,
+      "gold": 100
+    },
+    "researchSec": 45,
+    "requires": [
+      "suki"
+    ],
+    "effects": [
+      {
+        "type": "farmYieldMul",
+        "mul": 1.4
+      }
+    ],
+    "note": "農地の産出量 +40%（犂に累積）"
+  },
+  "nida": {
+    "name": "荷駄",
+    "at": "market",
+    "age": "seido",
+    "cost": {
+      "food": 100,
+      "wood": 50
+    },
+    "researchSec": 30,
+    "requires": [],
+    "effects": [
+      {
+        "type": "cartSpeedMul",
+        "mul": 1.25
+      }
+    ],
+    "note": "交易荷車の速度 +25%"
+  },
+  "taisho": {
+    "name": "隊商",
+    "at": "market",
+    "age": "tekki",
+    "cost": {
+      "food": 200,
+      "gold": 100
+    },
+    "researchSec": 45,
+    "requires": [
+      "nida"
+    ],
+    "effects": [
+      {
+        "type": "tradeIncomeMul",
+        "mul": 1.3
+      }
+    ],
+    "note": "交易の収入 +30%"
+  },
+  "yakusou": {
+    "name": "薬草",
+    "at": "shrine",
+    "age": "tekki",
+    "cost": {
+      "food": 200,
+      "gold": 100
+    },
+    "researchSec": 45,
+    "requires": [],
+    "effects": [
+      {
+        "type": "healSpeedMul",
+        "mul": 1.5
+      }
+    ],
+    "note": "治療速度 +50%"
+  },
+  "zousen": {
+    "name": "造船",
+    "at": "harbor",
+    "age": "tekki",
+    "cost": {
+      "food": 200,
+      "gold": 100
+    },
+    "researchSec": 45,
+    "requires": [],
+    "effects": [
+      {
+        "type": "produceSpeedMul",
+        "lines": [
+          "ship"
+        ],
+        "mul": 1.3
+      },
+      {
+        "type": "shipStatMul",
+        "stat": "hp",
+        "mul": 1.2
+      }
+    ],
+    "note": "船の生産速度 +30%・耐久 +20%"
+  },
+  "chuuzou": {
+    "name": "鋳造",
+    "at": "castle",
+    "age": "tekki",
+    "cost": {
+      "food": 200,
+      "gold": 100
+    },
+    "researchSec": 45,
+    "requires": [],
+    "effects": [
+      {
+        "type": "eliteCostMul",
+        "mul": 0.8
+      }
+    ],
+    "note": "エリートユニットの生産コスト −20%。マリは研究できない"
+  },
+  "tanren": {
+    "name": "鍛錬",
+    "civ": "yamato",
+    "at": "blacksmith",
+    "age": "teikoku",
+    "cost": {
+      "food": 300,
+      "gold": 200
+    },
+    "researchSec": 60,
+    "requires": [
+      "bankinyoroi"
+    ],
+    "effects": [
+      {
+        "type": "unitStat",
+        "lines": [
+          "melee",
+          "ranged"
+        ],
+        "stat": "def",
+        "add": 1
+      }
+    ],
+    "note": "歩兵の防御 +1（板金鎧に上乗せ。歩兵防御が全文明最高になる）"
+  },
+  "guntan": {
+    "name": "軍団編成",
+    "civ": "roma",
+    "at": "academy",
+    "age": "tekki",
+    "cost": {
+      "food": 200,
+      "gold": 100
+    },
+    "researchSec": 45,
+    "requires": [],
+    "effects": [
+      {
+        "type": "queueLengthAdd",
+        "at": [
+          "barracks",
+          "archery_range",
+          "stable"
+        ],
+        "add": 5
+      }
+    ],
+    "note": "兵舎・射場・厩の生産待ち行列が 2 倍の長さになる（既定 5 → 10 なので add:5）"
+  },
+  "kayakujutsu": {
+    "name": "火薬術",
+    "civ": "tou",
+    "at": "gunpowder_workshop",
+    "age": "teikoku",
+    "cost": {
+      "food": 300,
+      "gold": 200
+    },
+    "researchSec": 60,
+    "requires": [],
+    "effects": [
+      {
+        "type": "unitStat",
+        "roles": [
+          "gunpowder"
+        ],
+        "units": [
+          "t-kasensha"
+        ],
+        "stat": "atk",
+        "mul": 1.25
+      }
+    ],
+    "note": "火器と火箭車の攻撃 +25%。火箭車は role=siege なので units で個別に足している"
+  },
+  "kyousen": {
+    "name": "狂戦",
+    "civ": "viking",
+    "at": "blacksmith",
+    "age": "tekki",
+    "cost": {
+      "food": 200,
+      "gold": 100
+    },
+    "researchSec": 45,
+    "requires": [],
+    "effects": [
+      {
+        "type": "lowHpAtkBonus",
+        "lines": [
+          "melee"
+        ],
+        "maxAtkMul": 1.5,
+        "atMissingHpRatio": 1.0
+      }
+    ],
+    "note": "近接兵は体力が減るほど攻撃が上がる。体力満タンで ×1.0、瀕死で ×1.5 まで線形"
+  },
+  "shahou": {
+    "name": "射法",
+    "civ": "mali",
+    "at": "archery_range",
+    "age": "tekki",
+    "cost": {
+      "food": 200,
+      "gold": 100
+    },
+    "researchSec": 45,
+    "requires": [],
+    "effects": [
+      {
+        "type": "unitStat",
+        "lines": [
+          "ranged"
+        ],
+        "stat": "rangeTiles",
+        "add": 1
+      }
+    ],
+    "note": "遠隔兵の射程 +1（全文明最長になる）"
+  },
+  "menkou": {
+    "name": "綿甲",
+    "civ": "azteca",
+    "at": "blacksmith",
+    "age": "tekki",
+    "cost": {
+      "food": 200,
+      "gold": 100
+    },
+    "researchSec": 45,
+    "requires": [
+      "kawayoroi"
+    ],
+    "effects": [
+      {
+        "type": "rangedResistAdd",
+        "lines": [
+          "melee",
+          "ranged"
+        ],
+        "add": 3
+      }
+    ],
+    "note": "歩兵の遠隔耐性 +3。鎖鎧・板金鎧が研究できない代替なので革鎧を前提にしている"
+  },
+  "kangyo": {
+    "name": "灌漁",
+    "civ": "persia",
+    "at": "town_center",
+    "age": "tekki",
+    "cost": {
+      "food": 200,
+      "gold": 100
+    },
+    "researchSec": 45,
+    "requires": [
+      "suki"
+    ],
+    "effects": [
+      {
+        "type": "farmYieldMul",
+        "mul": 1.2
+      }
+    ],
+    "note": "農地の産出量 +20%（累積）。重い編成を支える"
+  },
+  "ekiden": {
+    "name": "駅伝",
+    "civ": "mongol",
+    "at": "academy",
+    "age": "tekki",
+    "cost": {
+      "food": 200,
+      "gold": 100
+    },
+    "researchSec": 45,
+    "requires": [],
+    "effects": [
+      {
+        "type": "orderDelayDistanceZero"
+      }
+    ],
+    "note": "令の遅延が距離に関係なく一定になる（常に 1.5 秒。復唱と併用で 0.75 秒）"
+  }
+}

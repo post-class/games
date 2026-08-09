@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
-import { ReplayBuffer } from '../src/app/replay';
-import { shipDef } from '../src/content/ships';
-import { spawnShip, World } from '../src/world/world';
+import { ReplayBuffer } from '../../src/app/replay';
+import { shipDef } from '../../src/content/ships';
+import { spawnShip, World } from '../../src/world/world';
 
 describe('ReplayBuffer', () => {
   it('固定ステップを直近30秒に切り詰め、時間指定で近いフレームを返す', () => {
     const world = new World();
     const player = spawnShip(world, { def: shipDef('rapier'), faction: 'confed', pos: new Vector3(), speed: 0 });
     world.playerId = player.id;
-    const enemy = spawnShip(world, { def: shipDef('dralthi'), faction: 'kilrathi', pos: new Vector3(100, 0, -800), speed: 0 });
+    const enemy = spawnShip(world, { def: shipDef('kf03-greyhaul'), faction: 'kilrathi', pos: new Vector3(100, 0, -800), speed: 0 });
     const input = { pitch: 0.2, yaw: -0.1, roll: 0, throttle: 0.7 } as never;
     const replay = new ReplayBuffer();
 

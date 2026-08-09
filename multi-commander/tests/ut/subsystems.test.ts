@@ -1,10 +1,10 @@
 import { Vector3 } from 'three';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { shipDef } from '../src/content/ships';
-import { reseed } from '../src/core/rng';
-import { setCombatOptions } from '../src/sim/combat';
-import { applyDamage } from '../src/sim/damage';
-import { updateFlight, updateShipPower } from '../src/sim/flight';
+import { shipDef } from '../../src/content/ships';
+import { reseed } from '../../src/core/rng';
+import { setCombatOptions } from '../../src/sim/combat';
+import { applyDamage } from '../../src/sim/damage';
+import { updateFlight, updateShipPower } from '../../src/sim/flight';
 import {
   afterburnerAvailable,
   commsAvailable,
@@ -18,10 +18,10 @@ import {
   stateOf,
   SUBSYSTEMS,
   thrusterOutput,
-} from '../src/sim/subsystems';
-import { fireGuns } from '../src/sim/weapons';
-import { spawnShip, World } from '../src/world/world';
-import type { Entity } from '../src/world/entity';
+} from '../../src/sim/subsystems';
+import { fireGuns } from '../../src/sim/weapons';
+import { spawnShip, World } from '../../src/world/world';
+import type { Entity } from '../../src/world/entity';
 
 beforeEach(() => {
   reseed(0x51b5e7a4);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { classifyDestruction } from '../src/core/destruction';
-import { PlaytestLog, PlaytestRecorder } from '../src/app/playtest';
+import { classifyDestruction } from '../../src/core/destruction';
+import { PlaytestLog, PlaytestRecorder } from '../../src/app/playtest';
 
 describe('PlaytestRecorder', () => {
   it('目標の変化、Nav 到達、死亡理由、入力遅延を任務単位で保持する', () => {

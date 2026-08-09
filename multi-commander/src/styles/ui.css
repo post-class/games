@@ -1,3 +1,16 @@
+/* ───────── 勢力色（名鑑の色値。src/content/veil/world.ts と同値） ─────────
+   敵味方軸の --friend / --enemy / --neutral は base.css のまま残し、
+   勢力軸としてこの5色を追加する。HUD では
+   「枠線・文字色 = 敵味方（factionColor）」「勢力ラベル = 勢力色（factionColorVar）」
+   の二軸で表示し、どちらも content/factions.ts の関係テーブルから生成する。 */
+:root {
+  --faction-confed: #73d7ff;
+  --faction-kilrathi: #ff7d86;
+  --faction-serecion: #7fe3b0;
+  --faction-ordo: #d9b977;
+  --faction-neurowm: #c9a6ff;
+}
+
 /* ───────── 通信メニュー ───────── */
 
 .mc-comms {
@@ -807,6 +820,14 @@
   height: 100%;
   min-height: 0;
   grid-template-columns: minmax(180px, 0.8fr) minmax(240px, 1.15fr) minmax(280px, 1.1fr);
+  /*
+   * 行を枠の高さに固定する。
+   * 既定の auto 行だと、読み進めて伸びた本文の高さに行が合わせて伸び、
+   * 左列の顔（`height: 100%`）も一緒に伸びて枠外へはみ出す。
+   * 画面が低いとき、はみ出した顔の上端＝額だけが見える状態になっていた。
+   * 本文側は `.mc-brief-log` が overflow-y: auto を持つので情報は欠けない。
+   */
+  grid-template-rows: minmax(0, 1fr);
   gap: 18px;
   align-items: stretch;
 }
@@ -1735,5 +1756,232 @@
   .mc-screen:has(.mc-hangar-layout) .mc-panel > .mc-hangar-layout > .block > .dim {
     font-size: 10px;
     line-height: 1.25;
+  }
+}
+
+/* ───────── 主人公選択 (T7-1) / 章末の選択 (T7-4) ─────────
+   どちらも ScreenHost の `content` に差し込む部品なので、
+   幅は固定せず親いっぱいに広がるようにする（ブラウザ幅を広げると領域も広がる）。
+   左右の余白は .mc-screen 側の 18px と合わせて 20px になるようにしている。 */
+
+.mc-pilot-select,
+.mc-choice {
+  width: 100%;
+  min-width: 0;
+  /* 画面が低いときは項目を切らずに、この部品の中でスクロールさせる */
+  min-height: 0;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding-inline: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+  color: #b9dccb;
+}
+
+/* 5名を横一列に並べる。狭い画面では横スクロールで到達させ、情報は削らない。 */
+.mc-pilot-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(198px, 1fr);
+  gap: 10px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  padding-bottom: 4px;
+}
+.mc-pilot-card {
+  min-width: 0;
+  scroll-snap-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(127, 227, 176, 0.24);
+  background: rgba(8, 18, 22, 0.7);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.mc-pilot-card:hover,
+.mc-pilot-card.sel {
+  background: rgba(127, 227, 176, 0.14);
+  border-color: var(--hud);
+}
+.mc-pilot-face {
+  line-height: 0;
+  align-self: center;
+}
+.mc-pilot-face svg,
+.mc-pilot-face img {
+  width: clamp(72px, 8vw, 112px);
+  height: clamp(72px, 8vw, 112px);
+}
+.mc-pilot-name {
+  font-size: 15px;
+  color: #cdefdd;
+  line-height: 1.3;
+}
+.mc-pilot-epithet {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--warn);
+}
+.mc-pilot-grade {
+  font-size: 12px;
+  color: var(--faction-confed);
+}
+.mc-pilot-role {
+  font-size: 12px;
+  color: var(--hud-dim);
+}
+.mc-pilot-ach {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #a8c9b9;
+}
+.mc-pilot-detail {
+  border-top: 1px solid rgba(127, 227, 176, 0.18);
+  padding-top: 8px;
+  min-height: 0;
+}
+.mc-pilot-detail-head {
+  color: #cdefdd;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.mc-pilot-detail-body {
+  color: var(--hud-dim);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* 章末の選択。2〜4択のどれでも崩れないよう auto-fit で折り返す。 */
+.mc-choice-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mc-choice-kind {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  color: var(--hud-dim);
+}
+.mc-choice-question {
+  font-size: 16px;
+  line-height: 1.4;
+  color: #cdefdd;
+}
+.mc-choice-note {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--hud-dim);
+}
+.mc-choice-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  gap: 8px;
+}
+.mc-choice-option {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 12px;
+  border: 1px solid rgba(127, 227, 176, 0.24);
+  background: rgba(8, 18, 22, 0.7);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.mc-choice-option:hover,
+.mc-choice-option.sel {
+  background: rgba(127, 227, 176, 0.14);
+  border-color: var(--hud);
+}
+.mc-choice-label {
+  font-size: 15px;
+  line-height: 1.35;
+  color: #cdefdd;
+}
+.mc-choice-caption {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--hud-dim);
+}
+.mc-choice-consequence {
+  font-size: 12px;
+  line-height: 1.55;
+  color: #a8c9b9;
+}
+/* 決定後は操作を受け付けない（二重適用の防止を見た目にも出す） */
+.mc-choice.decided .mc-choice-option,
+.mc-pilot-select.decided .mc-pilot-card {
+  cursor: default;
+  pointer-events: none;
+}
+.mc-choice.decided .mc-choice-option.dim {
+  opacity: 0.4;
+}
+
+/* 844×390 のような低い画面。カード内は要点だけ見せ、全文は下段の詳細で読ませる。 */
+@media (max-height: 500px) {
+  .mc-pilot-select,
+  .mc-choice {
+    gap: 6px;
+    font-size: 13px;
+  }
+  .mc-pilot-track {
+    grid-auto-columns: minmax(172px, 1fr);
+    gap: 7px;
+  }
+  .mc-pilot-card {
+    padding: 6px 8px;
+    gap: 2px;
+  }
+  .mc-pilot-face svg,
+  .mc-pilot-face img {
+    width: 56px;
+    height: 56px;
+  }
+  .mc-pilot-name {
+    font-size: 13px;
+  }
+  .mc-pilot-epithet,
+  .mc-pilot-grade,
+  .mc-pilot-role {
+    font-size: 11px;
+  }
+  .mc-pilot-ach {
+    font-size: 11px;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .mc-pilot-detail-head {
+    font-size: 12px;
+  }
+  .mc-pilot-detail-body {
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  .mc-choice-question {
+    font-size: 14px;
+  }
+  .mc-choice-options {
+    grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));
+  }
+  .mc-choice-option {
+    padding: 6px 9px;
+  }
+  .mc-choice-label {
+    font-size: 13px;
+  }
+  .mc-choice-consequence {
+    font-size: 11px;
+    line-height: 1.4;
   }
 }

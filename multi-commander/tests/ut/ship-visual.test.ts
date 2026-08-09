@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Group } from 'three';
-import { gltfUrlFor } from '../src/render/MeshFactory';
-import { ShipVisualLifecycle } from '../src/render/ShipVisualLifecycle';
+import { gltfUrlFor } from '../../src/render/MeshFactory';
+import { ShipVisualLifecycle } from '../../src/render/ShipVisualLifecycle';
 
 describe('ship visual replacement', () => {
   it('未指定・空文字・危険なURLはGLTF指定として扱わない', () => {

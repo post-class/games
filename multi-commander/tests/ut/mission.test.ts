@@ -1,6 +1,6 @@
 import { Vector3 } from 'three';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { DIFFICULTIES } from '../src/app/settings';
+import { DIFFICULTIES } from '../../src/app/settings';
 import {
   advance,
   CAMPAIGN,
@@ -8,17 +8,17 @@ import {
   DEFEAT,
   isTerminal,
   VICTORY,
-} from '../src/content/campaign';
-import { MISSIONS, missionDef } from '../src/content/missions';
-import { reseed } from '../src/core/rng';
-import { bus } from '../src/core/events';
-import { MissionRunner } from '../src/mission/MissionRunner';
-import type { MissionDef } from '../src/mission/types';
-import { newAi } from '../src/sim/ai';
-import { destroyEntity, setCombatOptions } from '../src/sim/combat';
-import { simulateStep } from '../src/sim/step';
-import { newSubsystems } from '../src/sim/subsystems';
-import { World } from '../src/world/world';
+} from '../../src/content/campaign';
+import { MISSIONS, missionDef } from '../../src/content/missions';
+import { reseed } from '../../src/core/rng';
+import { bus } from '../../src/core/events';
+import { MissionRunner } from '../../src/mission/MissionRunner';
+import type { MissionDef } from '../../src/mission/types';
+import { newAi } from '../../src/sim/ai';
+import { destroyEntity, setCombatOptions } from '../../src/sim/combat';
+import { simulateStep } from '../../src/sim/step';
+import { newSubsystems } from '../../src/sim/subsystems';
+import { World } from '../../src/world/world';
 
 const DT = 1 / 60;
 
@@ -332,7 +332,7 @@ describe('逃走した敵の扱い', () => {
       ...missionDef('m1-patrol'),
       navs: [{ name: 'NAV 1', pos: [0, 0, -1000] }],
       spawns: [
-        { shipId: 'salthi', count: 1, faction: 'kilrathi', atNav: 0, delay: 0, offset: [0, 0, -500] },
+        { shipId: 'ke04-mirage', count: 1, faction: 'kilrathi', atNav: 0, delay: 0, offset: [0, 0, -500] },
       ],
       objectives: [
         { id: 'clear', text: '撃破', required: true, spec: { kind: 'destroyAll' } },

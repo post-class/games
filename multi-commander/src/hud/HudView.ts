@@ -2,11 +2,23 @@ import { Quaternion, Vector3, type PerspectiveCamera } from 'three';
 import { bus } from '../core/events';
 import { settings } from '../app/settings';
 import { clamp01 } from '../core/math';
-import { isHostile } from '../content/factions';
+import { FACTION_HEX, factionColorVar, factionLabel, isHostile } from '../content/factions';
 import { gunDef, gunPresentation, missileDef } from '../content/weapons';
 import { healthRatios, healthValues, type HealthValue } from '../sim/damage';
 import { radarQuality, stateOf, SUBSYSTEMS } from '../sim/subsystems';
-import { ittsPoint } from '../sim/targeting';
+import { primaryGunSpeed } from '../sim/targeting';
+/**
+ * 通信遅延 (第6章)。味方の位置は「報告位置」を通して読む。
+ * レーダー・マーカー・ターゲット枠・距離・ITTS のすべてが同じ出所を使うので、
+ * 表示だけが遅れて照準が正確、という状態にならない。
+ * 遅延が宣言されていないミッションでは実位置がそのまま返る。
+ */
+import {
+  commsDelaySeconds,
+  reportedLeadPoint,
+  reportedPosition,
+  reportedVelocity,
+} from '../sim/comms';
 import { activeMissileSlot } from '../sim/weapons';
 import type { ArmorFace, Entity } from '../world/entity';
 import type { World } from '../world/world';
@@ -104,6 +116,8 @@ export class HudView {
   private stickEl: HTMLElement;
   private autopilotEl: HTMLElement;
   private mouseHintEl!: HTMLElement;
+  /** 通信遅延の表示 (第6章。遅延が無い作戦では常に非表示) */
+  private commsDelayEl!: HTMLElement;
   private cockpit: HTMLElement;
   private chrome: HTMLElement[] = [];
 
@@ -130,6 +144,9 @@ export class HudView {
   private unsubs: Array<() => void> = [];
   private tmpScreen: ScreenPoint = { x: 0, y: 0, inFront: false, onScreen: false };
   private tmpV = new Vector3();
+  /** 報告位置・報告速度の作業用 (通信遅延) */
+  private tmpReport = new Vector3();
+  private tmpReportVel = new Vector3();
   private tmpQ = new Quaternion();
 
   constructor(container: HTMLElement) {
@@ -200,6 +217,19 @@ export class HudView {
     this.mouseHintEl.textContent = 'マウスを照準へ動かすと操縦できます (M でマウス操縦 OFF)';
     this.mouseHintEl.style.display = 'none';
     this.hud.appendChild(this.mouseHintEl);
+
+    // 通信遅延の表示。CSS を増やさずに済むよう、位置と色はここで指定する
+    // (遅延を宣言していない作戦では display:none のまま一度も出ない)。
+    this.commsDelayEl = el('div', 'mc-commsdelay');
+    this.commsDelayEl.style.position = 'absolute';
+    this.commsDelayEl.style.right = '20px';
+    this.commsDelayEl.style.top = '96px';
+    this.commsDelayEl.style.color = '#ffd166';
+    this.commsDelayEl.style.fontSize = '13px';
+    this.commsDelayEl.style.letterSpacing = '0.08em';
+    this.commsDelayEl.style.textShadow = '0 0 6px rgba(0,0,0,0.8)';
+    this.commsDelayEl.style.display = 'none';
+    this.hud.appendChild(this.commsDelayEl);
 
     // ── コクピット ──
     // 風防の枠と柱は 3D 内装 (render/Cockpit.ts) が描くので、
@@ -483,6 +513,16 @@ export class HudView {
 
     this.mouseHintEl.style.display = f.mouseArmPending ? '' : 'none';
 
+    // 通信遅延 (第6章)。位置表示が何秒古いかを明示する。
+    const delay = commsDelaySeconds();
+    if (delay > 0) {
+      const text = `通信妨害 — 味方位置 ${delay.toFixed(1)}s 遅延`;
+      if (this.commsDelayEl.textContent !== text) this.commsDelayEl.textContent = text;
+      this.commsDelayEl.style.display = '';
+    } else {
+      this.commsDelayEl.style.display = 'none';
+    }
+
     if (f.stick && f.mouseFlight) {
       this.stickEl.style.display = '';
       this.stickEl.style.left = `${(f.stick.x * 0.5 + 0.5) * f.width}px`;
@@ -648,7 +688,8 @@ export class HudView {
       if (!e.alive || e.id === player.id) continue;
       const isHazard = e.kind === 'rock' || e.kind === 'mine';
       if (e.kind !== 'ship' && e.kind !== 'missile' && !isHazard) continue;
-      const d = e.pos.distanceTo(player.pos);
+      // 味方はレーダーにも遅れて映る (報告位置で距離を測る)
+      const d = reportedPosition(e, this.tmpReport).distanceTo(player.pos);
       // 障害物は数が多いので、ぶつかりうる至近距離のものだけ映す
       if (d > (isHazard ? HAZARD_RADAR_RANGE : MARKER_RANGE)) continue;
       (isHazard ? hazards : ships).push({ e, d });
@@ -677,7 +718,11 @@ export class HudView {
         blip.setAttribute('visibility', 'hidden');
         continue;
       }
-      this.tmpV.copy(e.pos).sub(player.pos).applyQuaternion(this.tmpQ).normalize();
+      this.tmpV
+        .copy(reportedPosition(e, this.tmpReport))
+        .sub(player.pos)
+        .applyQuaternion(this.tmpQ)
+        .normalize();
       if (quality < 1) {
         // 位置をぶらす
         const j = (1 - quality) * 0.22;
@@ -701,7 +746,9 @@ export class HudView {
       else if (e.ship?.ace && isHostile(player.faction, e.faction)) color = '#ffd75e';
       else if (isHostile(player.faction, e.faction)) color = '#ff4d4d';
       // 中立艦も敵対せずロック対象外なので、味方と同じ水色で表示する。
-      else color = '#68e5ff';
+      else if (e.faction === player.faction || e.faction === 'neutral') color = '#68e5ff';
+      // 非敵対の他勢力（セレシオン・オルド、共同作戦中の相手）は敵色にせず勢力色で示す。
+      else color = FACTION_HEX[e.faction];
       blip.setAttribute('fill', color);
       blip.setAttribute(
         'r',
@@ -775,7 +822,9 @@ export class HudView {
     if (target?.ship) {
       const h = healthRatios(target);
       const values = healthValues(target);
-      const d = target.pos.distanceTo(player.pos);
+      // 距離と接近速度も報告値から作る (味方を選ぶと3秒古い数字が出る)
+      const reportedTargetPos = reportedPosition(target, this.tmpReport);
+      const d = reportedTargetPos.distanceTo(player.pos);
       const cls = target.ship.ace
         ? 'ace'
         : isHostile(player.faction, target.faction)
@@ -783,15 +832,18 @@ export class HudView {
           : target.faction === player.faction
             ? 'friend'
             : '';
-      const closing = this.tmpV.copy(target.vel).sub(player.vel).dot(
-        this.tmpV.clone().copy(target.pos).sub(player.pos).normalize(),
-      );
+      const closing = this.tmpV
+        .copy(reportedVelocity(target, this.tmpReportVel))
+        .sub(player.vel)
+        .dot(this.tmpV.clone().copy(reportedTargetPos).sub(player.pos).normalize());
       const targetValue = (label: string, value: HealthValue): string =>
         `<span style="color:${barColor(value.max > 0 ? value.current / value.max : 0)}">${label} ${Math.round(value.current)}/${Math.round(value.max)}</span>`;
       const targetValues = (leftLabel: string, left: HealthValue, rightLabel: string, right: HealthValue): string =>
         `<span class="mc-target-values">${targetValue(leftLabel, left)}<span class="mc-target-gap"> </span>${targetValue(rightLabel, right)}</span>`;
       targetHtml = [
-        `<div class="name ${cls}">${target.ship.ace ? '★ ' : ''}${escapeHtml(target.ship.pilot ?? target.label ?? '')}</div>`,
+        // 文字色 = 敵味方（cls）、勢力ラベル = 勢力色。どちらも factions.ts の関係テーブル由来。
+        `<div class="name ${cls}">${target.ship.ace ? '★ ' : ''}${escapeHtml(target.ship.pilot ?? target.label ?? '')}` +
+          `<span class="mc-target-faction" style="color:${factionColorVar(target.faction)}">${escapeHtml(factionLabel(target.faction))}</span></div>`,
         `<div class="row"><span class="k">TYPE</span><span>${escapeHtml(target.ship.def.name)}</span></div>`,
         `<div class="row"><span class="k">DIST</span><span>${d.toFixed(0)}</span></div>`,
         `<div class="row"><span class="k">${closing < 0 ? 'CLOSING' : 'BREAKING'}</span><span>${Math.abs(closing).toFixed(0)}</span></div>`,
@@ -902,10 +954,12 @@ export class HudView {
 
     // ── ターゲット枠 ──
     if (target) {
-      const p = worldToScreen(f.camera, target.pos, w, hgt, this.tmpScreen);
+      // 味方は報告位置に枠が出る (3秒前の場所を囲む)
+      const targetPos = reportedPosition(target, this.tmpReport);
+      const p = worldToScreen(f.camera, targetPos, w, hgt, this.tmpScreen);
       if (p.onScreen) {
         // 距離に応じた枠の大きさ
-        const d = Math.max(1, target.pos.distanceTo(player.pos));
+        const d = Math.max(1, targetPos.distanceTo(player.pos));
         const px = Math.max(22, Math.min(320, (target.radius * 2.2 * hgt) / (2 * d * Math.tan((f.camera.fov * Math.PI) / 360))));
         this.tgtBox.style.display = '';
         this.tgtBox.style.left = `${p.x}px`;
@@ -918,11 +972,14 @@ export class HudView {
             ? 'mc-tgtbox'
             : 'mc-tgtbox friend';
         if (this.tgtBox.className !== cls) this.tgtBox.className = cls;
+        // 枠線は敵味方（cls）、ラベル文字は勢力色。中立・非敵対勢力が敵色にならない。
+        const tint = factionColorVar(target.faction);
+        if (this.tgtLabel.style.color !== tint) this.tgtLabel.style.color = tint;
         this.tgtLabel.textContent = `${target.label ?? ''} ${d.toFixed(0)}`;
         this.tgtArrow.style.display = 'none';
       } else {
         this.tgtBox.style.display = 'none';
-        const a = edgeArrow(f.camera, target.pos, w, hgt, 40);
+        const a = edgeArrow(f.camera, targetPos, w, hgt, 40);
         this.tgtArrow.style.display = '';
         this.tgtArrow.style.left = `${a.x}px`;
         this.tgtArrow.style.top = `${a.y}px`;
@@ -930,7 +987,15 @@ export class HudView {
       }
 
       // ── ITTS リード表示 ──
-      const leadPos = ittsPoint(player, target, this.tmpV, f.playerGunSpeedScale ?? 1);
+      // 照準支援も報告位置・報告速度から作る。距離表示と同じ出所なので、
+      // 「表示は3秒古いのに照準だけ正確」という状態にならない。
+      // 遅延の無い相手 (敵・非遅延ミッション) では従来の ittsPoint と同値。
+      const leadPos = reportedLeadPoint(
+        player,
+        target,
+        primaryGunSpeed(player, f.playerGunSpeedScale ?? 1),
+        this.tmpV,
+      );
       const lp = worldToScreen(f.camera, leadPos, w, hgt);
       if (lp.onScreen) {
         this.lead.style.display = '';
@@ -974,14 +1039,15 @@ export class HudView {
     for (const e of f.world.entities) {
       if (!e.alive || e.kind !== 'ship' || e.id === player.id) continue;
       if (target && e.id === target.id) continue;
-      const d = e.pos.distanceTo(player.pos);
+      // 味方のマーカーも報告位置に出る (通信遅延)
+      const d = reportedPosition(e, this.tmpReport).distanceTo(player.pos);
       if (d > MARKER_RANGE) continue;
       list.push({ e, d });
     }
     list.sort((a, b) => a.d - b.d);
     for (const { e, d } of list) {
       if (used >= MAX_MARKERS) break;
-      const p = worldToScreen(f.camera, e.pos, w, hgt);
+      const p = worldToScreen(f.camera, reportedPosition(e, this.tmpReport), w, hgt);
       if (!p.onScreen) continue;
       const m = this.marker(used++);
       const hostile = isHostile(player.faction, e.faction);

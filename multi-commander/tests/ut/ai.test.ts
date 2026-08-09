@@ -1,13 +1,13 @@
 import { Quaternion, Vector3 } from 'three';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { reseed } from '../src/core/rng';
-import { DIFFICULTIES } from '../src/app/settings';
-import { shipDef } from '../src/content/ships';
-import { newAi } from '../src/sim/ai';
-import { setCombatOptions } from '../src/sim/combat';
-import { simulateStep } from '../src/sim/step';
-import { spawnShip, World } from '../src/world/world';
-import type { Entity } from '../src/world/entity';
+import { reseed } from '../../src/core/rng';
+import { DIFFICULTIES } from '../../src/app/settings';
+import { shipDef } from '../../src/content/ships';
+import { newAi } from '../../src/sim/ai';
+import { setCombatOptions } from '../../src/sim/combat';
+import { simulateStep } from '../../src/sim/step';
+import { spawnShip, World } from '../../src/world/world';
+import type { Entity } from '../../src/world/entity';
 
 const DT = 1 / 60;
 
@@ -132,7 +132,7 @@ describe('AI ドッグファイト', () => {
     let highBetter = 0;
     const rounds = 7;
     for (let i = 0; i < rounds; i++) {
-      const r = duel('dralthi', 'dralthi', 0.1, 0.95, 90, 1600 + i * 220);
+      const r = duel('kf03-greyhaul', 'kf03-greyhaul', 0.1, 0.95, 90, 1600 + i * 220);
       // 残存でも最低値でも、高技量側が有利であること
       if (r.bMin > r.aMin || (r.bAlive && !r.aAlive)) highBetter++;
     }
@@ -145,15 +145,15 @@ describe('AI ドッグファイト', () => {
   it('重戦闘機は軽戦闘機より多くの耐久を残して戦い続けられる', () => {
     let heavyTougher = 0;
     for (let i = 0; i < 5; i++) {
-      const r = duel('salthi', 'gratha', 0.7, 0.7, 120, 1800 + i * 300);
+      const r = duel('ke04-mirage', 'kb02-bastion', 0.7, 0.7, 120, 1800 + i * 300);
       if (r.bHp >= r.aHp) heavyTougher++;
     }
     expect(heavyTougher).toBeGreaterThanOrEqual(4);
   });
 
   it('軽戦闘機は重戦闘機より旋回性能を高く保てる (機体の癖)', () => {
-    const light = shipDef('salthi');
-    const heavy = shipDef('gratha');
+    const light = shipDef('ke04-mirage');
+    const heavy = shipDef('kb02-bastion');
     // 最高速付近で失う旋回性能
     expect(light.handling.turnSpeedPenalty).toBeLessThan(heavy.handling.turnSpeedPenalty);
     // 旋回時に速度が流れる度合い
@@ -162,10 +162,10 @@ describe('AI ドッグファイト', () => {
 
   it('遠距離では損害がほとんど出ず、接近戦で初めて削り合う', () => {
     // 離れて撃ち合っている間はほぼ当たらない
-    const far = duel('dralthi', 'dralthi', 0.5, 0.5, 10, 9000);
+    const far = duel('kf03-greyhaul', 'kf03-greyhaul', 0.5, 0.5, 10, 9000);
     expect(Math.min(far.aMin, far.bMin)).toBeGreaterThan(0.9);
     // 近距離から始めればいずれ当たる
-    const close = duel('dralthi', 'dralthi', 0.7, 0.7, 90, 900);
+    const close = duel('kf03-greyhaul', 'kf03-greyhaul', 0.7, 0.7, 90, 900);
     expect(close.anyDamage).toBe(true);
   });
 
@@ -195,7 +195,7 @@ describe('AI ドッグファイト', () => {
   it('大きく損傷した機体は士気が下がって離脱モードに入る', () => {
     const world = new World();
     const prey = spawnShip(world, {
-      def: shipDef('salthi'),
+      def: shipDef('ke04-mirage'),
       faction: 'kilrathi',
       pos: new Vector3(0, 0, -900),
       speed: 200,
@@ -217,7 +217,7 @@ describe('AI ドッグファイト', () => {
   it('撃たれなくなった離脱機は立て直して再交戦する', () => {
     const world = new World();
     const prey = spawnShip(world, {
-      def: shipDef('krant'),
+      def: shipDef('kf01-leonfang'),
       faction: 'kilrathi',
       pos: new Vector3(0, 0, -900),
       speed: 200,
@@ -247,7 +247,7 @@ describe('AI ドッグファイト', () => {
     });
     for (let i = 0; i < 4; i++) {
       spawnShip(world, {
-        def: shipDef('dralthi'),
+        def: shipDef('kf03-greyhaul'),
         faction: 'kilrathi',
         pos: new Vector3(-400 + i * 260, 0, -3000),
         speed: 200,

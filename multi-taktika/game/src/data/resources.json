@@ -1,0 +1,72 @@
+{
+  "food": {
+    "name": "食料",
+    "gatherFrom": ["farm", "hunt", "fish", "fruit", "sheep"],
+    "gatherFromNote": "農地・狩猟・漁・果樹・羊。03§1",
+    "usedFor": ["villager", "infantry", "ageAdvance"],
+    "usedForNote": "村人・歩兵・時代進化。03§1",
+    "note": "切れると止まるもの: 兵の増援と進化。序盤で最も詰まる。03§1",
+    "baseGatherRatePerSec": 0.5,
+    "baseGatherRatePerSecNote": "資料に数値なし・初期値。07§8 の式（基礎速度 × 研究倍率 × 文明倍率 × (1 - 運搬損失)）の基礎速度",
+    "defaultDeposit": 400,
+    "defaultDepositNote": "農地 1 面 = 食料 400（07§8 の明記値）。狩猟・果樹・羊の 1 体あたり埋蔵量は下記 depositsByNode",
+    "depositsByNode": {
+      "farm": 400,
+      "hunt": 140,
+      "fish": 200,
+      "fruit": 125,
+      "sheep": 100
+    },
+    "depositsByNodeNote": "farm 400 のみ 07§8 由来。hunt / fish / fruit / sheep は資料に数値なし・初期値",
+    "depletable": true,
+    "rebuildable": true,
+    "rebuildCostResource": "wood",
+    "rebuildCostRatio": 0.5,
+    "rebuildNote": "枯れた農地は木材の半額で再建（自動再建の設定も可）。07§8"
+  },
+  "wood": {
+    "name": "木材",
+    "gatherFrom": ["forest"],
+    "gatherFromNote": "伐採（森）。03§1",
+    "usedFor": ["building", "archer", "siege", "ship"],
+    "usedForNote": "建物・弓兵・攻城兵器・船。03§1",
+    "note": "切れると止まるもの: 建物が建たない。生産ラインごと止まる。03§1",
+    "baseGatherRatePerSec": 0.45,
+    "baseGatherRatePerSecNote": "資料に数値なし・初期値",
+    "defaultDeposit": 100,
+    "defaultDepositNote": "森 1 本あたりの埋蔵量。資料に数値なし・初期値（07§8「採り切った分だけ減る」「標準ペースなら 20 分前後から枯れ始める」を満たすよう要調整）",
+    "depletable": true,
+    "rebuildable": false
+  },
+  "stone": {
+    "name": "石材",
+    "gatherFrom": ["stone_quarry"],
+    "gatherFromNote": "石切場。03§1",
+    "usedFor": ["castle", "stone_wall", "tower", "catapult"],
+    "usedForNote": "城・石壁・塔・投石機。03§1",
+    "note": "切れると止まるもの: 守りが作れない。攻城もできない。03§1",
+    "baseGatherRatePerSec": 0.4,
+    "baseGatherRatePerSecNote": "資料に数値なし・初期値",
+    "defaultDeposit": 350,
+    "defaultDepositNote": "鉱脈 1 か所あたりの埋蔵量。資料に数値なし・初期値",
+    "depletable": true,
+    "rebuildable": false
+  },
+  "gold": {
+    "name": "金",
+    "gatherFrom": ["gold_mine", "trade", "tribute"],
+    "gatherFromNote": "金鉱・交易・貢納。03§1",
+    "usedFor": ["elite", "upperTech", "gunpowder"],
+    "usedForNote": "エリートユニット・上位研究・火器。03§1",
+    "note": "切れると止まるもの: 文明の個性が出せない。上限が伸びない。03§1",
+    "baseGatherRatePerSec": 0.4,
+    "baseGatherRatePerSecNote": "資料に数値なし・初期値",
+    "defaultDeposit": 400,
+    "defaultDepositNote": "金鉱 1 か所あたりの埋蔵量。資料に数値なし・初期値。争点の中央金鉱は mapgen 側で増量する（07§13）",
+    "depletable": true,
+    "rebuildable": false,
+    "tradeGoldPerTile": 0.5,
+    "tributeFeeRatio": 0.1,
+    "tradeNote": "交易・貢納の計算は config.json の economy を参照（値の二重管理を避けるため再掲のみ）"
+  }
+}

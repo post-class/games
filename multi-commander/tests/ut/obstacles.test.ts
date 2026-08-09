@@ -1,22 +1,22 @@
 import { Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
-import { shipDef } from '../src/content/ships';
-import { missionDef } from '../src/content/missions';
-import { DIFFICULTIES } from '../src/app/settings';
-import { MissionRunner } from '../src/mission/MissionRunner';
+import { shipDef } from '../../src/content/ships';
+import { missionDef } from '../../src/content/missions';
+import { DIFFICULTIES } from '../../src/app/settings';
+import { MissionRunner } from '../../src/mission/MissionRunner';
 import {
   resolveObstacleCollisions,
   resolveObstacleHits,
   updateObstacles,
-} from '../src/sim/obstacles';
-import { canAutopilot } from '../src/sim/nav';
+} from '../../src/sim/obstacles';
+import { canAutopilot } from '../../src/sim/nav';
 import {
   spawnMine,
   spawnProjectile,
   spawnRock,
   spawnShip,
   World,
-} from '../src/world/world';
+} from '../../src/world/world';
 
 const DT = 1 / 60;
 
@@ -147,7 +147,7 @@ describe('機雷', () => {
   it('敵が接近すると起爆し、範囲内に損害を与える', () => {
     const world = newWorld();
     const enemy = spawnShip(world, {
-      def: shipDef('dralthi'),
+      def: shipDef('kf03-greyhaul'),
       faction: 'kilrathi',
       pos: new Vector3(0, 0, -50),
       speed: 0,

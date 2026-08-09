@@ -1,4 +1,4 @@
-import type { PortraitSpec } from '../content/pilots';
+import { pilotFaceId, type PortraitSpec } from '../content/pilots';
 
 /**
  * SVG によるパイロットの顔。
@@ -171,8 +171,25 @@ export function portraitSvg(spec: PortraitSpec, o: PortraitOptions = {}): string
  * SVG 版 (`portraitSvg`) は画像が無いときのフォールバックとして残している。
  */
 
-/** 生成画像を持つパイロット。ここに無い id は SVG に落ちる */
-const WITH_ART = new Set([
+/**
+ * 人物名簿 (`content/veil/people.ts`) と同じ規則で連番 id を並べる。
+ * 名簿側も `<勢力>-<2桁連番>` で id を作っているので、こちらもその規則に合わせる。
+ */
+function personFaceIds(faction: string, count: number): string[] {
+  return Array.from({ length: count }, (_, i) => `${faction}-${String(i + 1).padStart(2, '0')}`);
+}
+
+/**
+ * 用意してある顔画像の id (`public/art/tex/face-<id>-<表情>.jpg`)。
+ * パイロット id とは別物で、`pilotFaceId()` で変換してから引く。
+ * ブリーフィングの話者 (`briefingSpeakerId`) はここの id をそのまま指す。
+ *
+ * T2-6 第1段階で、人物名簿の全76名ぶんを取り込んだ。
+ * TODO(T2-6b): 現状は1人1枚の肖像を5表情すべてに複製しているだけで、表情差分は作り分けていない。
+ * 表情ごとの絵を用意したら、同名ファイルを差し替える（id 集合とテストはそのまま使える）。
+ */
+export const FACE_ART_IDS: ReadonlySet<string> = new Set([
+  // ── 旧キャンペーン (既存11ミッション) が参照している暫定 id。
   // 艦長 (ブリーフィング官)。飛ばないが顔画像は同じ形式で持つ
   'halcyon',
   'spirit',
@@ -183,14 +200,20 @@ const WITH_ART = new Set([
   'padre',
   'slate',
   'nomad',
+  // ── THE VEIL FRONT 人物名簿の76名。
+  ...personFaceIds('confed', 36),
+  ...personFaceIds('kilrashi', 10),
+  ...personFaceIds('serecion', 10),
+  ...personFaceIds('ordo', 10),
+  ...personFaceIds('neurowm', 10),
 ]);
 
 export function hasPortraitArt(pilotId: string): boolean {
-  return WITH_ART.has(pilotId);
+  return FACE_ART_IDS.has(pilotFaceId(pilotId));
 }
 
 function faceUrl(pilotId: string, exp: Expression): string {
-  return `${import.meta.env.BASE_URL}art/tex/face-${pilotId}-${exp}.jpg`;
+  return `${import.meta.env.BASE_URL}art/tex/face-${pilotFaceId(pilotId)}-${exp}.jpg`;
 }
 
 export interface FaceOptions extends PortraitOptions {

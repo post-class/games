@@ -6,8 +6,10 @@
  * App は save.campaignMode に応じて `campaignGraph()` を選べる。
  */
 
+import { VEIL_CHAPTERS, type VeilChapter } from './veil/chapters';
+
 export type CampaignNodeId = string;
-export type CampaignMode = 'canon' | 'expanded';
+export type CampaignMode = 'canon' | 'expanded' | 'veil';
 export type CampaignOutcome = 'win' | 'loss';
 export type CampaignRoute = 'advance' | 'hold' | 'retreat';
 export type CampaignMissionType =
@@ -265,20 +267,122 @@ export const CANON_CAMPAIGN_START: CampaignNodeId = 'canon-enyo-patrol';
 export const CANON_TOTAL_CHAPTERS = 7;
 export const TOTAL_CHAPTERS = 9;
 
+// ───────── THE VEIL FRONT / 十章キャンペーン (veil) ─────────
+
+/**
+ * 章ごとの任務性格・勝利点・敵編成。表示文（作戦名／戦域名／主目標／タグライン）は
+ * `VEIL_CHAPTERS` から生成するので、ここには文字列を二重に置かない。
+ */
+const VEIL_NODE_TRAITS: Record<string, { missionType: CampaignMissionType; victoryPoints: number; enemyComposition: string[] }> = {
+  'veil-ch01': { missionType: 'rescue', victoryPoints: 2, enemyComposition: ['キルラシー先遣隊', '救難妨害の襲撃機'] },
+  'veil-ch02': { missionType: 'recon', victoryPoints: 2, enemyComposition: ['識別偽装ドローン群', '二重応答の擬装編隊'] },
+  'veil-ch03': { missionType: 'escort', victoryPoints: 3, enemyComposition: ['ニューロウム熱紋機雷帯', '帝国哨戒機'] },
+  'veil-ch04': { missionType: 'rescue', victoryPoints: 3, enemyComposition: ['オルド重力アンカー', '移動残骸帯', '無許可通過を狙う私掠機'] },
+  'veil-ch05': { missionType: 'intercept', victoryPoints: 4, enemyComposition: ['決闘士ラギティカ（KF03 グレイハウル）', '急進派分艦隊'] },
+  'veil-ch06': { missionType: 'strike', victoryPoints: 3, enemyComposition: ['ニューロウム中継器群', '学習型ドローン飽和'] },
+  'veil-ch07': { missionType: 'escort', victoryPoints: 4, enemyComposition: ['連邦哨戒機（足止め）', '帝国急進派の追跡隊'] },
+  'veil-ch08': { missionType: 'defense', victoryPoints: 4, enemyComposition: ['急進派突撃隊', '通信灯台を狙う爆撃機'] },
+  'veil-ch09': { missionType: 'recon', victoryPoints: 5, enemyComposition: ['位相反射体', '幻影僚機'] },
+  'veil-ch10': { missionType: 'capital', victoryPoints: 6, enemyComposition: ['急進派連合旗艦', '旗艦護衛隊'] },
+};
+
+function veilNodeTraits(id: string): { missionType: CampaignMissionType; victoryPoints: number; enemyComposition: string[] } {
+  const traits = VEIL_NODE_TRAITS[id];
+  if (!traits) throw new Error(`missing veil node traits: ${id}`);
+  return traits;
+}
+
+/**
+ * 章メタから戦役ノードを作る。
+ *
+ * 敗北時も次章へ進める（`onLoss` は次章）。第1章で学ぶ「達成しなかった勝利条件が
+ * 記録として残る」という原則をキャンペーン全体に適用するため、失敗はルート分岐
+ * ではなく `lossSituation` の未達成記録として残す。したがって `losingRoute` は使わない。
+ * 例外は第10章のみで、門制御を選べなかった敗北はキャンペーンが成立しないため
+ * `DEFEAT` へ落とす（呼び出し側で `onLoss` を明示指定する）。
+ */
+function makeVeilNode(chapter: VeilChapter, onWin: CampaignNodeId, onLoss: CampaignNodeId): CampaignNode {
+  const traits = veilNodeTraits(chapter.id);
+  return makeNode({
+    missionId: chapter.missionId,
+    series: chapter.operation,
+    system: chapter.theaterName,
+    missionType: traits.missionType,
+    victoryCondition: chapter.objective,
+    defeatCondition: `${chapter.objective}を達成できないまま帰投する`,
+    victoryPoints: traits.victoryPoints,
+    situation: `${chapter.theaterName} — ${chapter.operation}。${chapter.tagline}`,
+    winSituation: `${chapter.operation} 達成。「${chapter.objective}」を記録に残した。`,
+    lossSituation: `${chapter.operation} 未達。「${chapter.objective}」が未達成の勝利条件として記録に残る。`,
+    onWin,
+    onLoss,
+    chapter: chapter.chapter,
+    // 敗北でも次章へ進むため、敗北側の戦役マップ表示は撤退ではなく hold（戦線維持）にする。
+    onWinRoute: 'advance',
+    onLossRoute: 'hold',
+    dialogueKey: chapter.id,
+    enemyComposition: traits.enemyComposition,
+  });
+}
+
+export const VEIL_CAMPAIGN: CampaignGraph = (() => {
+  const graph: CampaignGraph = {};
+  for (const chapter of VEIL_CHAPTERS) {
+    const last = chapter.chapter >= VEIL_CHAPTERS.length;
+    const next = last ? VICTORY : `veil-ch${String(chapter.chapter + 1).padStart(2, '0')}`;
+    // 第10章の敗北だけはキャンペーンが破綻するため DEFEAT。それ以外は敗北でも次章へ。
+    graph[chapter.id] = makeVeilNode(chapter, next, last ? DEFEAT : next);
+  }
+  return graph;
+})();
+
+export const VEIL_CAMPAIGN_START: CampaignNodeId = 'veil-ch01';
+export const VEIL_TOTAL_CHAPTERS = 10;
+
+/**
+ * 第10章で選んだ門の管理方法。既存の `EndingQuality`（勝敗の質）とは別軸で、
+ * 「門をどう扱ったか」だけを表す。
+ */
+export type GateOutcome = 'closed' | 'limited-open' | 'joint-custody';
+
+/** 第10章の選択肢id → 門の管理方法 */
+const GATE_OUTCOME_BY_CHOICE: Record<string, GateOutcome> = {
+  'seal-gate': 'closed',
+  'limited-open': 'limited-open',
+  'joint-custody': 'joint-custody',
+};
+
+export function isGateOutcome(value: unknown): value is GateOutcome {
+  return value === 'closed' || value === 'limited-open' || value === 'joint-custody';
+}
+
+/** 第10章（`veil-ch10`）の選択肢idを門の管理方法へ変換する。未知のidは例外にする。 */
+export function gateOutcomeFromChoice(optionId: string): GateOutcome {
+  const outcome = GATE_OUTCOME_BY_CHOICE[optionId];
+  if (!outcome) throw new Error(`unknown gate choice option: ${optionId}`);
+  return outcome;
+}
+
 export function isCampaignMode(value: unknown): value is CampaignMode {
-  return value === 'canon' || value === 'expanded';
+  return value === 'canon' || value === 'expanded' || value === 'veil';
 }
 
 export function campaignGraph(mode: CampaignMode = 'expanded'): CampaignGraph {
-  return mode === 'canon' ? CANON_CAMPAIGN : CAMPAIGN;
+  if (mode === 'canon') return CANON_CAMPAIGN;
+  if (mode === 'veil') return VEIL_CAMPAIGN;
+  return CAMPAIGN;
 }
 
 export function campaignStart(mode: CampaignMode = 'expanded'): CampaignNodeId {
-  return mode === 'canon' ? CANON_CAMPAIGN_START : CAMPAIGN_START;
+  if (mode === 'canon') return CANON_CAMPAIGN_START;
+  if (mode === 'veil') return VEIL_CAMPAIGN_START;
+  return CAMPAIGN_START;
 }
 
 export function totalChapters(mode: CampaignMode = 'expanded'): number {
-  return mode === 'canon' ? CANON_TOTAL_CHAPTERS : TOTAL_CHAPTERS;
+  if (mode === 'canon') return CANON_TOTAL_CHAPTERS;
+  if (mode === 'veil') return VEIL_TOTAL_CHAPTERS;
+  return TOTAL_CHAPTERS;
 }
 
 export function hasCampaignNode(id: CampaignNodeId, mode: CampaignMode = 'expanded'): boolean {

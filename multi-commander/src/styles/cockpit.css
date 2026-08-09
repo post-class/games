@@ -477,6 +477,12 @@
 .mc-vdu .name.ace {
   color: var(--ace);
 }
+/* 勢力軸の表示。文字色は factionColorVar() が inline で与える。 */
+.mc-vdu .name .mc-target-faction {
+  margin-left: 6px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
 .mc-vdu .row {
   display: flex;
   justify-content: space-between;

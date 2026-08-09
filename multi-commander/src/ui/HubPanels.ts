@@ -10,11 +10,14 @@ import {
   type RosterState,
 } from '../app/roster';
 import { barLine, rumor, type BarMood } from '../content/pilotDialogue';
+import { factionLabel } from '../content/factions';
+import { peopleOfFaction } from '../content/veil/people';
+import { VEIL_FACTIONS, VEIL_THEATERS } from '../content/veil/world';
 import { PERSONALITIES } from '../content/pilots';
-import { PLAYABLE_SHIPS, shipDef } from '../content/ships';
+import { PLAYABLE_SHIPS, SHIPS, shipDef } from '../content/ships';
 import { gunDef, missileDef } from '../content/weapons';
 import { aceDef, type AceState } from '../content/aces';
-import type { FrontlineState } from '../content/frontline';
+import { frontlineSystemName, type FrontlineState, type FrontlineSystemId } from '../content/frontline';
 import type { SupplyState } from '../app/supplies';
 import type { CampaignStatistics } from '../app/statistics';
 import type { LastSortieCondition } from '../app/save';
@@ -328,12 +331,12 @@ function blueprintSvg(def: ReturnType<typeof shipDef>): string {
 export function frontlineHtml(ctx: HubContext): string {
   const state = ctx.frontline;
   if (!state) return '<div class="dim">戦況データなし</div>';
-  const rows = (Object.entries(state.systems) as Array<[string, { control: number; pressure: number; logistics: number }]>).map(([id, s]) =>
-    `<div class="block"><h3>${escapeHtml(id)}</h3>` +
+  const rows = (Object.entries(state.systems) as Array<[FrontlineSystemId, { control: number; pressure: number; logistics: number }]>).map(([id, s]) =>
+    `<div class="block"><h3>${escapeHtml(frontlineSystemName(id))}</h3>` +
     `<div class="dim">連邦支配 ${s.control.toFixed(0)}%　敵圧力 ${s.pressure.toFixed(0)}%　補給余力 ${s.logistics.toFixed(0)}%</div>` +
     `<div class="mc-kb-bar"><span style="width:${s.control.toFixed(1)}%"></span></div></div>`,
   ).join('');
-  return `<div class="block"><h3>戦況マップ</h3><div class="dim">作戦回数 ${state.operations}　最終作戦 ${escapeHtml(state.lastSystem)}</div></div>${rows}`;
+  return `<div class="block"><h3>戦況マップ</h3><div class="dim">作戦回数 ${state.operations}　最終作戦 ${escapeHtml(frontlineSystemName(state.lastSystem))}</div></div>${rows}`;
 }
 
 export function statisticsHtml(ctx: HubContext): string {
@@ -353,4 +356,80 @@ export function statisticsHtml(ctx: HubContext): string {
     `<li>戦役分岐勝率 ${campaignRate.toFixed(1)}%　勝利 ${s.campaignWins} / 敗北 ${s.campaignLosses}</li>` +
     `<li>戦役勝利点 ${s.seriesScore}　前進 ${s.advanceCount}　撤退 ${s.retreatCount}</li></ul></div>` +
     `<div class="block"><h3>搭乗履歴</h3>${ships}</div>`;
+}
+
+/**
+ * 名鑑（THE VEIL FRONT の資料閲覧）。
+ *
+ * 人物・機体・戦域を、実装データからそのまま生成する。
+ * 設定資料のHTMLを複製しないので、データを直せば画面も直る。
+ *
+ * ページ分割にしている理由: 76名＋機体22種を1枚に出すと必ずスクロールが必要になり、
+ * `AI_CODING.md` の「スクロールバーを廃止する場合は…情報が欠落しないようにする」に反する。
+ * 情報を削らずに収めるため、勢力ごとにページを切る。
+ */
+export type CodexPage = 'people-confed' | 'people-kilrashi' | 'people-serecion' | 'people-ordo' | 'people-neurowm' | 'ships' | 'theaters';
+
+export const CODEX_PAGES: ReadonlyArray<{ id: CodexPage; label: string }> = [
+  { id: 'people-confed', label: '人物 — 連邦' },
+  { id: 'people-kilrashi', label: '人物 — キルラシー' },
+  { id: 'people-serecion', label: '人物 — セレシオン' },
+  { id: 'people-ordo', label: '人物 — オルド' },
+  { id: 'people-neurowm', label: '人物 — ニューロウム' },
+  { id: 'ships', label: '機体' },
+  { id: 'theaters', label: '戦域' },
+];
+
+/**
+ * 名鑑での勢力表示名。
+ *
+ * 資料表記（`kilrashi`）と実装id（`kilrathi`）の差があるので、
+ * どちらで来ても `VEIL_FACTIONS` の表示名へ寄せる。'shared' は共同設備。
+ */
+function veilFactionLabel(id: string): string {
+  if (id === 'shared') return '五者協定の共同設備';
+  const key = id === 'kilrathi' ? 'kilrashi' : id;
+  return VEIL_FACTIONS.find((f) => f.id === key)?.name ?? factionLabel(id as never);
+}
+
+export function codexHtml(page: CodexPage): string {
+  if (page === 'theaters') {
+    const rows = VEIL_THEATERS.map(
+      (t) =>
+        `<li><b>${escapeHtml(t.name)}</b>` +
+        `<span class="dim">　${escapeHtml(veilFactionLabel(t.owner))}　圧力 ${escapeHtml(t.pressure)}</span>` +
+        `<div class="dim">${escapeHtml(t.fact)}</div></li>`,
+    ).join('');
+    return `<div class="block"><h3>戦域 — ヴェガ宙域</h3><ul>${rows}</ul></div>`;
+  }
+  if (page === 'ships') {
+    // 名鑑どおりに勢力ごとへ分ける。性能値は `shipDef` の実値をそのまま出す
+    const groups = (['confed', 'kilrathi', 'serecion', 'ordo', 'neurowm'] as const).map((faction) => {
+      const list = Object.values(SHIPS).filter((s) => s.faction === faction);
+      if (list.length === 0) return '';
+      const rows = list
+        .map(
+          (s) =>
+            `<li><b>${escapeHtml(s.name)}</b>` +
+            `<span class="dim">　船体 ${s.hull}　最高速 ${s.maxSpeed}　機動 ${s.agility}</span></li>`,
+        )
+        .join('');
+      return `<div class="block"><h3>${escapeHtml(factionLabel(faction))}</h3><ul>${rows}</ul></div>`;
+    });
+    return groups.join('');
+  }
+  const factionId = page.replace('people-', '') as 'confed' | 'kilrashi' | 'serecion' | 'ordo' | 'neurowm';
+  const people = peopleOfFaction(factionId);
+  const rows = people
+    .map(
+      (p) =>
+        `<li><b>${escapeHtml(p.name)}</b>` +
+        `<span class="dim">　“${escapeHtml(p.epithet)}”　${escapeHtml(p.grade)}級</span>` +
+        `<div class="dim">${escapeHtml(p.role)} ／ ${escapeHtml(p.sex)} ${escapeHtml(p.age)}` +
+        `${p.isLeader ? '　<span class="ok">最高権力者</span>' : ''}` +
+        `${p.protagonist ? '　<span class="ok">主人公候補</span>' : ''}</div>` +
+        `<div class="dim">${escapeHtml(p.achievement)}</div></li>`,
+    )
+    .join('');
+  return `<div class="block"><h3>${escapeHtml(veilFactionLabel(factionId))} — ${people.length} 名</h3><ul>${rows}</ul></div>`;
 }

@@ -1,0 +1,897 @@
+{
+  "_meta": {
+    "note": "建物マスターデータ。共通25 + 付属物2 + 文明固有8 = 35件（_meta は件数に含めない）。上流資料: docs/03_文明と進化.html §3 / docs/07_ゲームシステム.html §9",
+    "costSource": "コストは 03§3 の表から完全転記（文明ボーナスによる変動は civs.json 側で倍率として適用する）。資料にコストが書かれていない文明固有建物は下記 costRuleForCivOnly に従って決めた",
+    "numberRules": {
+      "buildSec": "資料に無いため規則で算出: 総コスト（全資源の合計）÷ 5.5 を 5 秒単位に丸め、最小 3 秒・最大 180 秒。例) 町の中心 500÷5.5=90.9→90 / 城 650÷5.5=118→120 / 碑の写し 3000÷5.5=545→上限 180",
+      "hp": "役割別の基準値。壁1枚 300 / 家 450 / 農地 300 / 資源搬入所 600 / 生産・研究小屋 1200 / 市場・港・学舎級 1500 / 桟橋 900 / 町の中心 2400 / 城 4200 / 記念碑 3000。門は同素材の壁の 2 倍（木門 600 / 城門 1800）。石造は木造の 3 倍（石壁 900）。塔 1000 / 砲塔 1500。大天幕は城の 60%（4200×0.6=2520、07§9 の明記）",
+      "sizeTiles": "壁・柵・塔・砲塔 1x1、門 2x1、小屋・家 2x2、生産・研究・農地・桟橋・港 3x3、町の中心・市場・城 4x4、記念碑 3x3、付属物 1x1、街道 1x1（線で引ける）",
+      "sightTiles": "基準 6。壁・門 3、家・農地 4、付属物 2、街道 2、町の中心・城・大天幕 8、見張り小屋・見張り塔・砲塔 10、櫓 12（射程が長い分だけ広い）。学舎の『測量』で +4 される側の基準値",
+      "attack": "資料に無いため塔系のみ設定: 見張り塔 12/射程8/2.0秒、櫓 12/射程10/2.0秒（射程が長い）、砲塔 18/射程10/3.0秒、城 25/射程9/2.0秒、大天幕 20/射程9/2.0秒",
+      "garrisonCapacity": "見張り塔・砲塔 5（村人のみ）、櫓 5（兵も収容可・03§3）、町の中心 10、城 15、大天幕 15。garrisonAllows で収容できる種別を表す"
+    },
+    "costRuleForCivOnly": "03§3 にコストが書かれていない固有建物は同格の共通建物に合わせた: 街道 木5/1枚（木柵 木2 の 2.5 倍・敷設物）/ 塩蔵 木150（鍛冶場相当）/ 神殿基壇 石200（石材で建てる・03§3）/ 地下水路 木100（採掘場相当）/ 大天幕 木400石250（合計 650 = 城と同額だが遊牧民らしく木主体）",
+    "keys": {
+      "producesLines": "その文明のどの系統（line ID）を生産できるかを表す。兵舎・射場・厩・攻城工房・火薬工房・城は文明ごとに出る兵が違うため、unit ID を直書きせず line で表し units.json の civ+line で解決する（コードに文明名の分岐を書かせないため）",
+      "produces": "文明に依存しない unit ID の配列",
+      "producesRoles": "producesLines をさらに role で絞る（火薬工房は line=ranged/siege のうち role=gunpowder のみ）",
+      "maxCount": "1 プレイヤーが同時に持てる上限（市場 1・碑の写し 1。塩蔵の buildingLimitOverride で上書きされる）",
+      "garrisonAllows": "収容できる種別。villager / military",
+      "buildable": "false ならプレイヤーは建てられない（付属物）",
+      "autoTargetable": "false なら『略奪』などの令の自動ターゲットに入れない（手動選択時のみ攻撃可）",
+      "onDestroyEffects": "破壊されたときに発生する効果（付属物の掟違反ペナルティ）",
+      "lawViolationOnDestroy": "掟 ID。破壊すると忠誠度 −25%（07§10）",
+      "effects": "存在するだけで効果を発揮するもの。型で表現し、コード側は type で分岐する"
+    },
+    "effectTypes": "効果型の登録簿は techs.json:_meta.effectTypes に統合した（二重管理を避けるため）。ここで使う型もすべてそちらに登録されている。",
+    "techPlacementNote": "文明固有の研究 8 件（tanren/guntan/kayakujutsu/kyousen/shahou/menkou/kangyo/ekiden）は所属建物が 03§9 に明記されていないため、ここでは researches に入れず civs.json 側（T-M1-08）で解決する。犂・輪作は 03§9 で『町の中心 / 農地』とあるため町の中心に置いた"
+  },
+  "town_center": {
+    "name": "町の中心",
+    "age": "reimei",
+    "kind": "normal",
+    "cost": {
+      "wood": 350,
+      "stone": 150
+    },
+    "buildSec": 90,
+    "hp": 2400,
+    "sizeTiles": [
+      4,
+      4
+    ],
+    "sightTiles": 8,
+    "popProvide": 10,
+    "isDropOff": true,
+    "isOrderSource": true,
+    "produces": [
+      "villager",
+      "clubman",
+      "hunter",
+      "scout"
+    ],
+    "researches": [
+      "suki",
+      "rinsaku"
+    ],
+    "canAdvanceAge": true,
+    "lossCausesDefeat": true,
+    "attachments": [
+      "well"
+    ],
+    "frontSlotBonus": 0,
+    "garrisonCapacity": 10,
+    "garrisonAllows": [
+      "villager"
+    ],
+    "note": "村人生産・資源搬入・時代進化。これを全て失うと敗北。増設可。人口上限 +10"
+  },
+  "house": {
+    "name": "家",
+    "age": "reimei",
+    "kind": "normal",
+    "cost": {
+      "wood": 30
+    },
+    "buildSec": 5,
+    "hp": 450,
+    "sizeTiles": [
+      2,
+      2
+    ],
+    "sightTiles": 4,
+    "popProvide": 5,
+    "attachments": [
+      "well"
+    ],
+    "note": "人口上限 +5。安いが建て忘れが最も多い"
+  },
+  "farm": {
+    "name": "農地",
+    "age": "reimei",
+    "kind": "normal",
+    "cost": {
+      "wood": 60
+    },
+    "buildSec": 10,
+    "hp": 300,
+    "sizeTiles": [
+      3,
+      3
+    ],
+    "sightTiles": 4,
+    "attachments": [
+      "seed_store"
+    ],
+    "note": "食料を継続産出。収穫し切ると要再建。犂・輪作は町の中心でも研究できる（03§9）"
+  },
+  "lumber_camp": {
+    "name": "伐採所",
+    "age": "reimei",
+    "kind": "normal",
+    "cost": {
+      "wood": 100
+    },
+    "buildSec": 20,
+    "hp": 600,
+    "sizeTiles": [
+      2,
+      2
+    ],
+    "sightTiles": 6,
+    "isDropOff": true,
+    "researches": [
+      "ryotebono",
+      "oonoko"
+    ],
+    "note": "木材の搬入点＋伐採研究。森のそばに建てて運搬距離を詰める"
+  },
+  "mining_camp": {
+    "name": "採掘場",
+    "age": "reimei",
+    "kind": "normal",
+    "cost": {
+      "wood": 100
+    },
+    "buildSec": 20,
+    "hp": 600,
+    "sizeTiles": [
+      2,
+      2
+    ],
+    "sightTiles": 6,
+    "isDropOff": true,
+    "researches": [
+      "tsuruhashi",
+      "koudou"
+    ],
+    "note": "石材・金の搬入点＋採掘研究。鉱脈の近くに"
+  },
+  "watch_hut": {
+    "name": "見張り小屋",
+    "age": "reimei",
+    "kind": "normal",
+    "cost": {
+      "wood": 25
+    },
+    "buildSec": 5,
+    "hp": 300,
+    "sizeTiles": [
+      1,
+      1
+    ],
+    "sightTiles": 10,
+    "note": "視界を得るだけ。戦域の発生を早く知るための目"
+  },
+  "dock": {
+    "name": "桟橋",
+    "age": "reimei",
+    "kind": "normal",
+    "cost": {
+      "wood": 100
+    },
+    "buildSec": 20,
+    "hp": 900,
+    "sizeTiles": [
+      3,
+      3
+    ],
+    "sightTiles": 6,
+    "isDropOff": true,
+    "produces": [
+      "fishing_boat",
+      "transport_ship"
+    ],
+    "note": "漁船・輸送船。水域マップでは食料源として強力"
+  },
+  "barracks": {
+    "name": "兵舎",
+    "age": "seido",
+    "kind": "normal",
+    "cost": {
+      "wood": 175
+    },
+    "buildSec": 30,
+    "hp": 1200,
+    "sizeTiles": [
+      3,
+      3
+    ],
+    "sightTiles": 6,
+    "producesLines": [
+      "melee"
+    ],
+    "note": "その文明の近接歩兵。前線に建てると増援が速い"
+  },
+  "archery_range": {
+    "name": "射場",
+    "age": "seido",
+    "kind": "normal",
+    "cost": {
+      "wood": 175
+    },
+    "buildSec": 30,
+    "hp": 1200,
+    "sizeTiles": [
+      3,
+      3
+    ],
+    "sightTiles": 6,
+    "producesLines": [
+      "ranged"
+    ],
+    "note": "その文明の遠隔歩兵。持たない文明もある（モンゴル）"
+  },
+  "market": {
+    "name": "市場",
+    "age": "seido",
+    "kind": "normal",
+    "cost": {
+      "wood": 175
+    },
+    "buildSec": 30,
+    "hp": 1500,
+    "sizeTiles": [
+      4,
+      4
+    ],
+    "sightTiles": 6,
+    "produces": [
+      "trade_cart"
+    ],
+    "researches": [
+      "nida",
+      "taisho"
+    ],
+    "maxCount": 1,
+    "note": "資源交換・交易荷車・貢納。貢納はチーム戦で味方に資源を送る操作（10% が手数料）。既定では 1 つまで（マリの塩蔵で 3 つまで）"
+  },
+  "blacksmith": {
+    "name": "鍛冶場",
+    "age": "seido",
+    "kind": "normal",
+    "cost": {
+      "wood": 150
+    },
+    "buildSec": 25,
+    "hp": 1200,
+    "sizeTiles": [
+      3,
+      3
+    ],
+    "sightTiles": 6,
+    "researches": [
+      "uchiba",
+      "kouba",
+      "yajiri",
+      "kouyajiri",
+      "kawayoroi",
+      "kusariyoroi",
+      "bankinyoroi",
+      "bayoroi"
+    ],
+    "note": "武器・防具の研究。研究できる範囲が文明で違う（civs.json の bannedTechs で表す）"
+  },
+  "palisade": {
+    "name": "木柵",
+    "age": "seido",
+    "kind": "wall",
+    "cost": {
+      "wood": 2
+    },
+    "buildSec": 3,
+    "hp": 300,
+    "sizeTiles": [
+      1,
+      1
+    ],
+    "sightTiles": 3,
+    "isWall": true,
+    "isLinear": true,
+    "note": "木 2／1 枚。足止め。壊されるが時間は稼げる"
+  },
+  "palisade_gate": {
+    "name": "木門",
+    "age": "seido",
+    "kind": "gate",
+    "cost": {
+      "wood": 30
+    },
+    "buildSec": 5,
+    "hp": 600,
+    "sizeTiles": [
+      2,
+      1
+    ],
+    "sightTiles": 3,
+    "isWall": true,
+    "isGate": true,
+    "note": "自軍だけ通れる出入口。柵で囲うときに必須"
+  },
+  "watch_tower": {
+    "name": "見張り塔",
+    "age": "seido",
+    "kind": "normal",
+    "cost": {
+      "wood": 25,
+      "stone": 125
+    },
+    "buildSec": 25,
+    "hp": 1000,
+    "sizeTiles": [
+      1,
+      1
+    ],
+    "sightTiles": 10,
+    "attackDamage": 12,
+    "attackRangeTiles": 8,
+    "attackSec": 2.0,
+    "garrisonCapacity": 5,
+    "garrisonAllows": [
+      "villager"
+    ],
+    "note": "矢を放つ。視界も広い。村人が退避できる（収容中の村人は矢を放つ）"
+  },
+  "stable": {
+    "name": "厩",
+    "age": "tekki",
+    "kind": "normal",
+    "cost": {
+      "wood": 175
+    },
+    "buildSec": 30,
+    "hp": 1200,
+    "sizeTiles": [
+      3,
+      3
+    ],
+    "sightTiles": 6,
+    "producesLines": [
+      "cavalry",
+      "beast"
+    ],
+    "note": "その文明の騎兵・獣兵。騎兵を持たない 2 文明（ヴァイキング・アステカ）は建てられない"
+  },
+  "academy": {
+    "name": "学舎",
+    "age": "tekki",
+    "kind": "normal",
+    "cost": {
+      "wood": 200
+    },
+    "buildSec": 35,
+    "hp": 1500,
+    "sizeTiles": [
+      3,
+      3
+    ],
+    "sightTiles": 6,
+    "produces": [
+      "herald"
+    ],
+    "researches": [
+      "hatazao",
+      "hayaba",
+      "fukusho",
+      "nijuuhata",
+      "sokuryo",
+      "shahon",
+      "chouheirei"
+    ],
+    "note": "技術研究。「令」の研究もここ。本作で最重要の建物"
+  },
+  "shrine": {
+    "name": "祈祷所",
+    "age": "tekki",
+    "kind": "normal",
+    "cost": {
+      "wood": 175
+    },
+    "buildSec": 30,
+    "hp": 1200,
+    "sizeTiles": [
+      3,
+      3
+    ],
+    "sightTiles": 6,
+    "produces": [
+      "priest"
+    ],
+    "researches": [
+      "yakusou"
+    ],
+    "note": "祈祷師の生産・治療研究。兵を捨てずに回せるようになる"
+  },
+  "siege_workshop": {
+    "name": "攻城工房",
+    "age": "tekki",
+    "kind": "normal",
+    "cost": {
+      "wood": 200
+    },
+    "buildSec": 35,
+    "hp": 1200,
+    "sizeTiles": [
+      3,
+      3
+    ],
+    "sightTiles": 6,
+    "producesLines": [
+      "siege"
+    ],
+    "note": "その文明の攻城兵器。作れる兵器が文明ごとに違う"
+  },
+  "stone_wall": {
+    "name": "石壁",
+    "age": "tekki",
+    "kind": "wall",
+    "cost": {
+      "stone": 25
+    },
+    "buildSec": 5,
+    "hp": 900,
+    "sizeTiles": [
+      1,
+      1
+    ],
+    "sightTiles": 3,
+    "isWall": true,
+    "isLinear": true,
+    "note": "石 25／1 枚。本格的な遮断。破られた穴はその試合ずっと残る"
+  },
+  "stone_gate": {
+    "name": "城門",
+    "age": "tekki",
+    "kind": "gate",
+    "cost": {
+      "stone": 200
+    },
+    "buildSec": 35,
+    "hp": 1800,
+    "sizeTiles": [
+      2,
+      1
+    ],
+    "sightTiles": 3,
+    "isWall": true,
+    "isGate": true,
+    "note": "石壁の出入口。攻城兵器はここを通るしかない"
+  },
+  "castle": {
+    "name": "城",
+    "age": "tekki",
+    "kind": "normal",
+    "cost": {
+      "stone": 650
+    },
+    "buildSec": 120,
+    "hp": 4200,
+    "sizeTiles": [
+      4,
+      4
+    ],
+    "sightTiles": 8,
+    "isOrderSource": true,
+    "frontSlotBonus": 1,
+    "producesLines": [
+      "elite"
+    ],
+    "researches": [
+      "chuuzou"
+    ],
+    "attackDamage": 25,
+    "attackRangeTiles": 9,
+    "attackSec": 2.0,
+    "garrisonCapacity": 15,
+    "garrisonAllows": [
+      "villager",
+      "military"
+    ],
+    "note": "エリート生産・強力な防御・戦域スロット +1 かつ令の発信点（07§9）。石材の最大の使い道"
+  },
+  "harbor": {
+    "name": "港",
+    "age": "tekki",
+    "kind": "normal",
+    "cost": {
+      "wood": 150
+    },
+    "buildSec": 25,
+    "hp": 1500,
+    "sizeTiles": [
+      3,
+      3
+    ],
+    "sightTiles": 6,
+    "isDropOff": true,
+    "produces": [
+      "warship",
+      "fire_ship",
+      "transport_ship"
+    ],
+    "producesLines": [
+      "ship"
+    ],
+    "researches": [
+      "zousen"
+    ],
+    "note": "軍船・火船・輸送船。水域マップでは第 2 の前線になる"
+  },
+  "gunpowder_workshop": {
+    "name": "火薬工房",
+    "age": "teikoku",
+    "kind": "normal",
+    "cost": {
+      "wood": 200,
+      "gold": 200
+    },
+    "buildSec": 75,
+    "hp": 1200,
+    "sizeTiles": [
+      3,
+      3
+    ],
+    "sightTiles": 6,
+    "producesLines": [
+      "ranged",
+      "siege"
+    ],
+    "producesRoles": [
+      "gunpowder"
+    ],
+    "note": "火器と火薬兵器。火器を持たない 3 文明（ヴァイキング・アステカ・モンゴル）は建てられない。producesRoles で role=gunpowder の兵だけに絞る"
+  },
+  "cannon_tower": {
+    "name": "砲塔",
+    "age": "teikoku",
+    "kind": "normal",
+    "cost": {
+      "stone": 200,
+      "gold": 100
+    },
+    "buildSec": 55,
+    "hp": 1500,
+    "sizeTiles": [
+      1,
+      1
+    ],
+    "sightTiles": 10,
+    "attackDamage": 18,
+    "attackRangeTiles": 10,
+    "attackSec": 3.0,
+    "garrisonCapacity": 5,
+    "garrisonAllows": [
+      "villager"
+    ],
+    "note": "射程の長い固定砲台。攻城兵器の射程外からは一方的に壊される。2 基以上で射線を組まないと戦域は止まらない"
+  },
+  "monument": {
+    "name": "碑の写し",
+    "age": "teikoku",
+    "kind": "monument",
+    "cost": {
+      "wood": 1000,
+      "stone": 1000,
+      "gold": 1000
+    },
+    "buildSec": 180,
+    "hp": 3000,
+    "sizeTiles": [
+      3,
+      3
+    ],
+    "sightTiles": 6,
+    "revealToAll": true,
+    "victoryHoldSec": 360,
+    "maxCount": 1,
+    "note": "記念碑。建てて 6 分（9,000 tick）守れば勝利。建設中は全プレイヤーに位置が見える（唯一、情報を隠せない行動）"
+  },
+  "well": {
+    "name": "井戸",
+    "age": "reimei",
+    "kind": "attachment",
+    "buildable": false,
+    "autoTargetable": false,
+    "hp": 200,
+    "sizeTiles": [
+      1,
+      1
+    ],
+    "sightTiles": 2,
+    "attachedTo": [
+      "town_center",
+      "house"
+    ],
+    "lawViolationOnDestroy": "law2",
+    "onDestroyEffects": [
+      {
+        "type": "gatherRateAura",
+        "radiusTiles": 8,
+        "mul": 0.8,
+        "scope": "ownerVillagers"
+      },
+      {
+        "type": "forbidRebuildHere",
+        "durationSec": -1
+      }
+    ],
+    "note": "町の中心・家に 1 か所につき 1 つ自動で付属。独立して破壊可能。壊すと周囲の村人の採集速度 −20%、その場所にはこの試合中もう建てられない。掟二違反で忠誠度 −25%。『略奪』の令では自動で狙わない"
+  },
+  "seed_store": {
+    "name": "種籾蔵",
+    "age": "reimei",
+    "kind": "attachment",
+    "buildable": false,
+    "autoTargetable": false,
+    "hp": 200,
+    "sizeTiles": [
+      1,
+      1
+    ],
+    "sightTiles": 2,
+    "attachedTo": [
+      "farm"
+    ],
+    "lawViolationOnDestroy": "law3",
+    "onDestroyEffects": [
+      {
+        "type": "forbidRebuildNearby",
+        "building": "farm",
+        "radiusTiles": 10,
+        "durationSec": -1
+      }
+    ],
+    "note": "農地の数面ごとに 1 つ自動で付属。独立して破壊可能。壊すとその一帯の農地が再建できなくなる（収穫済みの分は失われない）。掟三違反で忠誠度 −25%。『略奪』の令では自動で狙わない"
+  },
+  "yagura": {
+    "name": "櫓",
+    "age": "seido",
+    "kind": "normal",
+    "civ": "yamato",
+    "replaces": "watch_tower",
+    "cost": {
+      "wood": 25,
+      "stone": 125
+    },
+    "buildSec": 25,
+    "hp": 1000,
+    "sizeTiles": [
+      1,
+      1
+    ],
+    "sightTiles": 12,
+    "attackDamage": 12,
+    "attackRangeTiles": 10,
+    "attackSec": 2.0,
+    "garrisonCapacity": 5,
+    "garrisonAllows": [
+      "villager",
+      "military"
+    ],
+    "note": "見張り塔の置き換え。射程が長く、兵を 5 名まで収容できる"
+  },
+  "road": {
+    "name": "街道",
+    "age": "reimei",
+    "kind": "normal",
+    "civ": "roma",
+    "cost": {
+      "wood": 5
+    },
+    "buildSec": 3,
+    "hp": 150,
+    "sizeTiles": [
+      1,
+      1
+    ],
+    "sightTiles": 2,
+    "isLinear": true,
+    "effects": [
+      {
+        "type": "moveSpeedOnTile",
+        "mul": 1.3,
+        "scope": "ownerAndAlly"
+      }
+    ],
+    "note": "敷設物。上を通る自軍の移動速度 +30%。戦域間の増援が速い。コストは資料に無いため木 5／1 枚とした（建設コスト半減は civs.json のローマ文明ボーナス側）"
+  },
+  "kanrin": {
+    "name": "翰林院",
+    "age": "tekki",
+    "kind": "normal",
+    "civ": "tou",
+    "replaces": "academy",
+    "cost": {
+      "wood": 200
+    },
+    "buildSec": 35,
+    "hp": 1500,
+    "sizeTiles": [
+      3,
+      3
+    ],
+    "sightTiles": 6,
+    "produces": [
+      "herald"
+    ],
+    "researches": [
+      "hatazao",
+      "hayaba",
+      "fukusho",
+      "nijuuhata",
+      "sokuryo",
+      "shahon",
+      "chouheirei"
+    ],
+    "effects": [
+      {
+        "type": "researchTimeMul",
+        "mul": 0.8
+      },
+      {
+        "type": "researchCostMul",
+        "mul": 0.8
+      }
+    ],
+    "note": "学舎の置き換え。研究が 20% 速く、20% 安い"
+  },
+  "boathouse": {
+    "name": "船小屋",
+    "age": "tekki",
+    "kind": "normal",
+    "civ": "viking",
+    "replaces": "harbor",
+    "cost": {
+      "wood": 150
+    },
+    "buildSec": 25,
+    "hp": 1500,
+    "sizeTiles": [
+      3,
+      3
+    ],
+    "sightTiles": 6,
+    "isDropOff": true,
+    "produces": [
+      "warship",
+      "fire_ship",
+      "transport_ship"
+    ],
+    "producesLines": [
+      "ship"
+    ],
+    "researches": [
+      "zousen"
+    ],
+    "effects": [
+      {
+        "type": "unitCostMul",
+        "line": "ship",
+        "mul": 0.8
+      },
+      {
+        "type": "unlockUnits",
+        "units": [
+          "v-longship",
+          "v-greatship"
+        ]
+      }
+    ],
+    "note": "港の置き換え。船が安く、長船を作れる"
+  },
+  "salt_store": {
+    "name": "塩蔵",
+    "age": "seido",
+    "kind": "normal",
+    "civ": "mali",
+    "cost": {
+      "wood": 150
+    },
+    "buildSec": 25,
+    "hp": 1200,
+    "sizeTiles": [
+      3,
+      3
+    ],
+    "sightTiles": 6,
+    "maxCount": 1,
+    "effects": [
+      {
+        "type": "tradeIncomeMul",
+        "mul": 1.25
+      },
+      {
+        "type": "buildingLimitOverride",
+        "building": "market",
+        "max": 3
+      }
+    ],
+    "note": "交易荷車の収入 +25%。市場を 3 つまで建てられる。コストは資料に無いため鍛冶場相当の木 150 とした"
+  },
+  "temple_platform": {
+    "name": "神殿基壇",
+    "age": "seido",
+    "kind": "normal",
+    "civ": "azteca",
+    "cost": {
+      "stone": 200
+    },
+    "buildSec": 35,
+    "hp": 1500,
+    "sizeTiles": [
+      3,
+      3
+    ],
+    "sightTiles": 6,
+    "effects": [
+      {
+        "type": "trainRateAura",
+        "radiusTiles": 10,
+        "mul": 1.2,
+        "scope": "military"
+      }
+    ],
+    "note": "石材で建て、周囲の兵の生産速度 +20%。石造なので石 200（資料は「石材で建て」のみ記載）"
+  },
+  "qanat": {
+    "name": "地下水路",
+    "age": "seido",
+    "kind": "normal",
+    "civ": "persia",
+    "cost": {
+      "wood": 100
+    },
+    "buildSec": 20,
+    "hp": 600,
+    "sizeTiles": [
+      2,
+      2
+    ],
+    "sightTiles": 6,
+    "effects": [
+      {
+        "type": "gatherRateAura",
+        "radiusTiles": 8,
+        "mul": 1.15,
+        "scope": "ownerVillagers"
+      }
+    ],
+    "note": "周囲の村人の採集速度 +15%。コストは資料に無いため採掘場相当の木 100 とした"
+  },
+  "great_tent": {
+    "name": "大天幕",
+    "age": "tekki",
+    "kind": "normal",
+    "civ": "mongol",
+    "replaces": "castle",
+    "cost": {
+      "wood": 400,
+      "stone": 250
+    },
+    "buildSec": 120,
+    "hp": 2520,
+    "sizeTiles": [
+      4,
+      4
+    ],
+    "sightTiles": 8,
+    "isOrderSource": true,
+    "frontSlotBonus": 1,
+    "movable": true,
+    "producesLines": [
+      "elite"
+    ],
+    "researches": [
+      "chuuzou"
+    ],
+    "attackDamage": 20,
+    "attackRangeTiles": 9,
+    "attackSec": 2.0,
+    "garrisonCapacity": 15,
+    "garrisonAllows": [
+      "villager",
+      "military"
+    ],
+    "note": "城の置き換え。いつでも畳んで移動できる。耐久は城の 60%（4200×0.6=2520）。戦域スロット +1 と令の発信点は城と同じで、畳んで動かせば発信点ごと前に出せる"
+  }
+}

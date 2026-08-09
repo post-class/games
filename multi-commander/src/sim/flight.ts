@@ -1,6 +1,7 @@
 import { Vector3 } from 'three';
 import { clamp, clamp01, dampVec, forwardOf, integrateRotation } from '../core/math';
 import type { Entity } from '../world/entity';
+import { gravityMassFactor } from './obstacles';
 import { afterburnerAvailable, engineOutput, shieldRegenScale, thrusterOutput } from './subsystems';
 
 export type FlightMode = 'wc' | 'newton';
@@ -48,8 +49,13 @@ export function updateFlight(e: Entity, dt: number, mode: FlightMode = 'wc'): vo
   const speedNow = e.vel.length();
   const speedRatio = clamp01(speedNow / Math.max(1, maxSpeed));
   const speedTurnScale = 1 - def.handling.turnSpeedPenalty * speedRatio * speedRatio;
+  // 局所重力による実効質量 (第4章 T6-4)。
+  // 重力井戸の宣言が無い作戦では `gravityMassFactor()` が必ず 1 を返すので、
+  // ここは従来の式と完全に一致する。井戸の中では数秒周期で
+  // 「重くて曲がらない / 軽くて効きすぎる」が入れ替わり、機動の前提が崩れる。
+  const massScale = 1 / gravityMassFactor(e.pos);
   // 姿勢制御が壊れていれば旋回が鈍る
-  const turnScale = (ab ? AB_TURN_PENALTY : 1) * speedTurnScale * thrusterOutput(ship);
+  const turnScale = (ab ? AB_TURN_PENALTY : 1) * speedTurnScale * thrusterOutput(ship) * massScale;
   _cmd.set(
     clamp(input.pitch, -1, 1) * def.turn[0] * turnScale,
     -clamp(input.yaw, -1, 1) * def.turn[1] * turnScale,
@@ -71,13 +77,14 @@ export function updateFlight(e: Entity, dt: number, mode: FlightMode = 'wc'): vo
     _delta.copy(_desired).sub(e.vel);
     // drift が大きい機体は速度が機首に追いつくのが遅く、旋回中に流れる
     const driftScale = 1 - def.handling.drift * 0.75;
-    const maxDelta = def.accel * driftScale * (ab ? AB_ACCEL_BOOST : 1) * dt;
+    const maxDelta = def.accel * driftScale * (ab ? AB_ACCEL_BOOST : 1) * massScale * dt;
     const len = _delta.length();
     if (len > maxDelta && len > 1e-6) _delta.multiplyScalar(maxDelta / len);
     e.vel.add(_delta);
   } else {
     // 純慣性: 推力は機首方向にしか出ない
-    const thrust = def.accel * engineOutput(ship) * (ab ? AB_ACCEL_BOOST : 1) * throttle * dt;
+    const thrust =
+      def.accel * engineOutput(ship) * (ab ? AB_ACCEL_BOOST : 1) * throttle * massScale * dt;
     e.vel.addScaledVector(_fwd, thrust);
     if (throttle <= 0.01) {
       // 逆噴射による減速

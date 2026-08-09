@@ -1,14 +1,14 @@
 import { Quaternion, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
-import { shipDef } from '../src/content/ships';
-import { isHostile } from '../src/content/factions';
-import { pointOnSegment, spheresOverlap, sweepSphere } from '../src/sim/collision';
-import { applyDamage, hitFaces, healthRatios } from '../src/sim/damage';
-import { updateFlight, updateShipPower } from '../src/sim/flight';
-import { spawnShip, World } from '../src/world/world';
-import { resolveProjectileHits, updateOrdnance } from '../src/sim/combat';
-import { fireGuns, activeMissileSlot, cycleMissile } from '../src/sim/weapons';
-import { bus } from '../src/core/events';
+import { shipDef } from '../../src/content/ships';
+import { isHostile } from '../../src/content/factions';
+import { pointOnSegment, spheresOverlap, sweepSphere } from '../../src/sim/collision';
+import { applyDamage, hitFaces, healthRatios } from '../../src/sim/damage';
+import { updateFlight, updateShipPower } from '../../src/sim/flight';
+import { spawnShip, World } from '../../src/world/world';
+import { resolveProjectileHits, updateOrdnance } from '../../src/sim/combat';
+import { fireGuns, activeMissileSlot, cycleMissile } from '../../src/sim/weapons';
+import { bus } from '../../src/core/events';
 
 function newWorld() {
   return new World();
@@ -260,7 +260,7 @@ describe('砲の発射', () => {
     const w = newWorld();
     const p = playerShip(w);
     const enemy = spawnShip(w, {
-      def: shipDef('dralthi'),
+      def: shipDef('kf03-greyhaul'),
       faction: 'kilrathi',
       pos: new Vector3(0, 0, -300),
       speed: 0,
@@ -295,7 +295,7 @@ describe('砲の発射', () => {
     const w = newWorld();
     const p = playerShip(w);
     const enemy = spawnShip(w, {
-      def: shipDef('dralthi'),
+      def: shipDef('kf03-greyhaul'),
       faction: 'kilrathi',
       pos: new Vector3(0, 0, -300),
       speed: 0,
@@ -361,7 +361,7 @@ describe('World', () => {
   it('compact で死んだエンティティが消える', () => {
     const w = newWorld();
     const a = playerShip(w);
-    const b = spawnShip(w, { def: shipDef('salthi'), faction: 'kilrathi', pos: new Vector3(0, 0, -500), speed: 0 });
+    const b = spawnShip(w, { def: shipDef('ke04-mirage'), faction: 'kilrathi', pos: new Vector3(0, 0, -500), speed: 0 });
     w.kill(b);
     const removed = w.compact();
     expect(removed).toHaveLength(1);

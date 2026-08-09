@@ -61,6 +61,7 @@ export function newRoster(): RosterState {
 }
 
 function freshPilot(id: string): PilotState {
+  // 初期技量は名簿定義の値（人物名簿の戦闘級から導出される）をそのまま使う。
   const def = pilotDef(id);
   return {
     id,

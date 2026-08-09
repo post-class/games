@@ -49,7 +49,7 @@ export function buildSoundCheckPanel(actions: SoundCheckActions): HTMLElement {
   const voice = document.createElement('div');
   voice.className = 'mc-sound-check-grid';
   const samples: Array<{ tone: 'friendly' | 'enemy' | 'command'; speaker: string; label: string; text: string }> = [
-    { tone: 'friendly', speaker: 'Spirit', label: '僚機の声', text: 'こちらスピリット。帰投経路を確保した。' },
+    { tone: 'friendly', speaker: 'Sable', label: '僚機の声', text: 'こちらセーブル。帰投経路を確保した。' },
     { tone: 'enemy', speaker: 'Ralgha', label: '宿敵の声', text: 'また会ったな。今度は逃がさない。' },
     { tone: 'command', speaker: 'Claw', label: '母艦の声', text: '全機、隊形を維持して帰投せよ。' },
   ];

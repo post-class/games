@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { InputManager } from '../src/app/input';
-import { resetSettings, settings, updateSettings } from '../src/app/settings';
+import { InputManager } from '../../src/app/input';
+import { resetSettings, settings, updateSettings } from '../../src/app/settings';
 
 type EventListener = (event: Record<string, unknown>) => void;
 

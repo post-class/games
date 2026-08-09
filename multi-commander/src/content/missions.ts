@@ -1,5 +1,6 @@
 import type { MissionDef } from '../mission/types';
 import { EXTRA_MISSIONS } from './extraMissions';
+import { VEIL_MISSIONS } from './veil/missions';
 
 /**
  * ミッション定義。ここにデータを足せばゲームが増える。
@@ -22,7 +23,7 @@ const M1_PATROL: MissionDef = {
     '一つだけ言っておく。ここで死ぬな。お前の墓を掘る時間が惜しい。',
   ],
   playerShipId: 'hornet',
-  wingman: { shipId: 'hornet', pilot: 'Spirit', skill: 0.62 },
+  wingman: { shipId: 'hornet', pilot: 'Sable', skill: 0.62 },
   skybox: { nebulaHue: 0.58, planetColor: 0x1d3c5e, seed: 1001, planetTexture: 'planet-gas-violet', nebulae: ['nebula-teal', 'nebula-dust'] },
   landmarks: [
     { kind: 'gas-giant', pos: [14000, 2600, -30000], scale: 4200, texture: 'planet-ice' },
@@ -34,12 +35,12 @@ const M1_PATROL: MissionDef = {
     {
       name: 'NAV 2',
       pos: [-9000, -1200, -24000],
-      onArrive: [{ speaker: 'Spirit', text: 'レーダーに反応。猫が来たぞ。', tone: 'friendly' }],
+      onArrive: [{ speaker: 'Sable', text: 'レーダーに反応。帝国機だ、来るぞ。', tone: 'friendly' }],
     },
     {
       name: 'NAV 3',
       pos: [7000, 2000, -34000],
-      onArrive: [{ speaker: 'Spirit', text: 'ブイの残骸だ…やられてるな。', tone: 'friendly' }],
+      onArrive: [{ speaker: 'Sable', text: 'ブイの残骸だ…やられてるな。', tone: 'friendly' }],
     },
     {
       name: '帰投',
@@ -50,22 +51,22 @@ const M1_PATROL: MissionDef = {
   ],
   spawns: [
     {
-      shipId: 'salthi',
+      shipId: 'ke04-mirage',
       count: 2,
       faction: 'kilrathi',
       atNav: 1,
       delay: 2,
       offset: [2600, 700, -2400],
-      radio: [{ speaker: 'Spirit', text: 'サルシー2機、軽い相手だ。落とすぞ！', tone: 'friendly' }],
+      radio: [{ speaker: 'Sable', text: 'サルシー2機、軽い相手だ。落とすぞ！', tone: 'friendly' }],
     },
     {
-      shipId: 'dralthi',
+      shipId: 'kf03-greyhaul',
       count: 2,
       faction: 'kilrathi',
       atNav: 2,
       delay: 3,
       offset: [-2800, -600, -2600],
-      radio: [{ speaker: 'Spirit', text: 'ドラルシー。さっきよりは硬い。気をつけろ。', tone: 'friendly' }],
+      radio: [{ speaker: 'Sable', text: 'ドラルシー。さっきよりは硬い。気をつけろ。', tone: 'friendly' }],
     },
   ],
   objectives: [
@@ -75,7 +76,7 @@ const M1_PATROL: MissionDef = {
   ],
   openingRadio: [
     { speaker: '管制', text: '発艦を確認。哨戒コースへ乗れ。', tone: 'command' },
-    { speaker: 'Spirit', text: 'お前の翼に付く。オートパイロットは A だ、忘れるなよ。', tone: 'friendly', after: 3 },
+    { speaker: 'Sable', text: 'お前の翼に付く。オートパイロットは A だ、忘れるなよ。', tone: 'friendly', after: 3 },
   ],
   debriefWin: [
     '偵察隊は排除された。ブイの損失は痛いが、宙域の目は取り戻した。',
@@ -99,7 +100,7 @@ const M2_ESCORT: MissionDef = {
     '一つ助言をやろう。輸送艦の周りを離れるな。奴らは君を釣りに来る。',
   ],
   playerShipId: 'scimitar',
-  wingman: { shipId: 'hornet', pilot: 'Spirit', skill: 0.66 },
+  wingman: { shipId: 'hornet', pilot: 'Sable', skill: 0.66 },
   skybox: { nebulaHue: 0.72, planetColor: 0x2a3f6b, seed: 2002, planetTexture: 'planet-earthlike', nebulae: ['nebula-teal', 'nebula-violet'] },
   landmarks: [
     { kind: 'jump-gate', pos: [-9000, 1500, -27000], scale: 1300 },
@@ -129,16 +130,16 @@ const M2_ESCORT: MissionDef = {
       radio: [{ speaker: '《エルバ》', text: 'こちらエルバ。護衛の到着を待っていた。', tone: 'friendly' }],
     },
     {
-      shipId: 'dralthi',
+      shipId: 'kf03-greyhaul',
       count: 3,
       faction: 'kilrathi',
       atNav: 0,
       delay: 2,
       offset: [3000, 800, -2500],
-      radio: [{ speaker: 'Spirit', text: '来たぞ、3機だ！輸送艦から離すな！', tone: 'friendly' }],
+      radio: [{ speaker: 'Sable', text: '来たぞ、3機だ！輸送艦から離すな！', tone: 'friendly' }],
     },
     {
-      shipId: 'krant',
+      shipId: 'kf01-leonfang',
       count: 2,
       faction: 'kilrathi',
       atNav: 0,
@@ -179,7 +180,7 @@ const M3_STRIKE: MissionDef = {
     '君にはラプターを出す。鈍いが、殴り合いには向いている。',
   ],
   playerShipId: 'raptor',
-  wingman: { shipId: 'scimitar', pilot: 'Maniac', skill: 0.7 },
+  wingman: { shipId: 'scimitar', pilot: 'Tempest', skill: 0.7 },
   skybox: { nebulaHue: 0.05, planetColor: 0x4a2a20, sunColor: 0xffd9a0, seed: 3003, planetTexture: 'planet-rock', nebulae: ['nebula-dust', 'nebula-teal'] },
   landmarks: [
     { kind: 'station', pos: [3000, 800, -24000], scale: 1100 },
@@ -195,13 +196,13 @@ const M3_STRIKE: MissionDef = {
       name: 'NAV 2 (補給所)',
       pos: [-6000, 1500, -32000],
       arriveRadius: 2200,
-      onArrive: [{ speaker: 'Maniac', text: '見えたぞ！でっかい的が2つだ、俺が先に沈める！', tone: 'friendly' }],
+      onArrive: [{ speaker: 'Tempest', text: '見えたぞ！でっかい的が2つだ、俺が先に沈める！', tone: 'friendly' }],
     },
     { name: '帰投', pos: [0, 0, 0], arriveRadius: 1400 },
   ],
   spawns: [
     {
-      shipId: 'dorkir',
+      shipId: 'kb05-boarbreaker',
       count: 2,
       faction: 'kilrathi',
       atNav: 1,
@@ -209,16 +210,16 @@ const M3_STRIKE: MissionDef = {
       spread: 900,
     },
     {
-      shipId: 'krant',
+      shipId: 'kf01-leonfang',
       count: 2,
       faction: 'kilrathi',
       atNav: 1,
       delay: 2,
       offset: [4300, 1000, 4600],
-      radio: [{ speaker: 'Maniac', text: '護衛が起きた。任せろ、俺が引きつける。', tone: 'friendly' }],
+      radio: [{ speaker: 'Tempest', text: '護衛が起きた。任せろ、俺が引きつける。', tone: 'friendly' }],
     },
     {
-      shipId: 'salthi',
+      shipId: 'ke04-mirage',
       count: 2,
       faction: 'kilrathi',
       atNav: 1,
@@ -233,7 +234,7 @@ const M3_STRIKE: MissionDef = {
     { id: 'home', text: '帰投', required: true, spec: { kind: 'reachNav', navIndex: 2 } },
   ],
   openingRadio: [
-    { speaker: 'Maniac', text: 'やっと攻めるのか。付き合ってやるよ、リーダー。', tone: 'friendly' },
+    { speaker: 'Tempest', text: 'やっと攻めるのか。付き合ってやるよ、リーダー。', tone: 'friendly' },
   ],
   debriefWin: [
     '補給所は炎上した。ギムレ方面の敵の作戦テンポは確実に落ちる。',
@@ -257,7 +258,7 @@ const M4_DEFEND: MissionDef = {
     'ラピアーを出す。全速で守れ。艦を落とさせるな。',
   ],
   playerShipId: 'rapier',
-  wingman: { shipId: 'rapier', pilot: 'Angel', skill: 0.76 },
+  wingman: { shipId: 'rapier', pilot: 'Nova', skill: 0.76 },
   skybox: { nebulaHue: 0.02, planetColor: 0x3a2426, seed: 4004, planetTexture: 'planet-lava', nebulae: ['nebula-crimson', 'nebula-dust'] },
   landmarks: [{ kind: 'sun', pos: [-20000, 5000, -24000], scale: 1500, color: 0xffe0b0 }],
   hazards: [{ kind: 'asteroids', atNav: 0, count: 12, spread: 2200, rockRadius: [18, 60] }],
@@ -278,7 +279,7 @@ const M4_DEFEND: MissionDef = {
       speed: 30,
     },
     {
-      shipId: 'dralthi',
+      shipId: 'kf03-greyhaul',
       count: 3,
       faction: 'kilrathi',
       delay: 3,
@@ -286,7 +287,7 @@ const M4_DEFEND: MissionDef = {
       radio: [{ speaker: '管制', text: '第1波、ドラルシー3機。防衛点で迎え撃て。', tone: 'command' }],
     },
     {
-      shipId: 'krant',
+      shipId: 'kf01-leonfang',
       count: 3,
       faction: 'kilrathi',
       delay: 48,
@@ -294,7 +295,7 @@ const M4_DEFEND: MissionDef = {
       radio: [{ speaker: '管制', text: '第2波、クラント3機。艦への直進コースだ。', tone: 'command' }],
     },
     {
-      shipId: 'gratha',
+      shipId: 'kb02-bastion',
       count: 2,
       faction: 'kilrathi',
       delay: 96,
@@ -304,7 +305,7 @@ const M4_DEFEND: MissionDef = {
       ],
     },
     {
-      shipId: 'jalthi',
+      shipId: 'kf06-talon',
       count: 2,
       faction: 'kilrathi',
       delay: 150,
@@ -312,7 +313,7 @@ const M4_DEFEND: MissionDef = {
       ace: { pilot: 'Bhurak nar Caxki', skillBonus: 0.35 },
       radio: [
         { speaker: '???', text: 'この艦は私が沈める。名を覚えておけ、Bhurak nar Caxki だ。', tone: 'enemy' },
-        { speaker: 'Angel', text: 'エースよ。単独で相手にしないで。', tone: 'friendly', after: 2.5 },
+        { speaker: 'Nova', text: 'エースよ。単独で相手にしないで。', tone: 'friendly', after: 2.5 },
       ],
     },
   ],
@@ -345,7 +346,7 @@ const M5_ACE: MissionDef = {
     '奴はジャルシーに乗っている。6門だ。正面から行けば当たり負けする。旋回戦に持ち込め。',
   ],
   playerShipId: 'rapier',
-  wingman: { shipId: 'rapier', pilot: 'Angel', skill: 0.8 },
+  wingman: { shipId: 'rapier', pilot: 'Nova', skill: 0.8 },
   skybox: { nebulaHue: 0.85, planetColor: 0x241d4a, sunColor: 0xdfe6ff, seed: 5005, planetTexture: 'planet-gas-violet', nebulae: ['nebula-violet', 'nebula-teal'] },
   landmarks: [
     { kind: 'derelict', pos: [-3200, 600, -17000], scale: 500 },
@@ -363,31 +364,31 @@ const M5_ACE: MissionDef = {
   ],
   spawns: [
     {
-      shipId: 'gratha',
+      shipId: 'kb02-bastion',
       count: 2,
       faction: 'kilrathi',
       atNav: 1,
       delay: 2,
       offset: [3600, 900, 3400],
       tag: 'escort',
-      ace: { pilot: 'Khajja nar Ragitika', skillBonus: 0.4, shipId: 'jalthi' },
+      ace: { pilot: 'ラギティカ', skillBonus: 0.4, shipId: 'kf06-talon' },
       radio: [
         {
-          speaker: 'Khajja nar Ragitika',
-          text: '来たか、猿。お前の名は聞いている。私の18人目になれ。',
+          speaker: 'ラギティカ',
+          text: '来たか。お前の名は聞いている。名を名乗れ、記録に残す。',
           tone: 'enemy',
         },
-        { speaker: 'Angel', text: '本人よ。落ち着いて、旋回戦に引き込んで。', tone: 'friendly', after: 3 },
+        { speaker: 'Nova', text: '本人よ。落ち着いて、旋回戦に引き込んで。', tone: 'friendly', after: 3 },
       ],
     },
     {
-      shipId: 'salthi',
+      shipId: 'ke04-mirage',
       count: 3,
       faction: 'kilrathi',
       atNav: 1,
       delay: 40,
       offset: [-3400, 900, -3600],
-      radio: [{ speaker: 'Angel', text: '増援！やっぱり罠だったわ。', tone: 'friendly' }],
+      radio: [{ speaker: 'Nova', text: '増援！やっぱり罠だったわ。', tone: 'friendly' }],
     },
   ],
   objectives: [
@@ -395,7 +396,7 @@ const M5_ACE: MissionDef = {
     { id: 'home', text: '帰投', required: true, spec: { kind: 'reachNav', navIndex: 2 } },
   ],
   openingRadio: [
-    { speaker: 'Angel', text: '仇を討つ機会よ。でも、熱くならないで。', tone: 'friendly' },
+    { speaker: 'Nova', text: '仇を討つ機会よ。でも、熱くならないで。', tone: 'friendly' },
   ],
   debriefWin: [
     'Khajja nar Ragitika は落ちた。3人の仲間の借りは返した。',
@@ -424,7 +425,7 @@ const M6_FLAGSHIP: MissionDef = {
     { missileId: 'heat-seeker', count: 2 },
     { missileId: 'torpedo', count: 4 },
   ],
-  wingman: { shipId: 'rapier', pilot: 'Angel', skill: 0.84 },
+  wingman: { shipId: 'rapier', pilot: 'Nova', skill: 0.84 },
   skybox: { nebulaHue: 0.9, planetColor: 0x1b2a4a, seed: 6006, planetTexture: 'planet-gas-amber', nebulae: ['nebula-violet', 'nebula-crimson'] },
   landmarks: [
     { kind: 'gas-giant', pos: [16000, -3000, -29000], scale: 5600, texture: 'planet-gas-violet' },
@@ -437,13 +438,13 @@ const M6_FLAGSHIP: MissionDef = {
       name: 'NAV 2 (敵艦隊)',
       pos: [-8000, -2500, -34000],
       arriveRadius: 2400,
-      onArrive: [{ speaker: 'Angel', text: '《カクタグ》を視認。護衛が上がってくるわ。', tone: 'friendly' }],
+      onArrive: [{ speaker: 'Nova', text: '《カクタグ》を視認。護衛が上がってくるわ。', tone: 'friendly' }],
     },
     { name: '帰投', pos: [0, 0, 0], arriveRadius: 1400 },
   ],
   spawns: [
     {
-      shipId: 'ralatha',
+      shipId: 'kilrashi-destroyer',
       count: 1,
       faction: 'kilrathi',
       atNav: 1,
@@ -451,7 +452,7 @@ const M6_FLAGSHIP: MissionDef = {
       speed: 40,
     },
     {
-      shipId: 'jalthi',
+      shipId: 'kf06-talon',
       count: 2,
       faction: 'kilrathi',
       atNav: 1,
@@ -460,14 +461,14 @@ const M6_FLAGSHIP: MissionDef = {
       tag: 'escort',
     },
     {
-      shipId: 'gratha',
+      shipId: 'kb02-bastion',
       count: 2,
       faction: 'kilrathi',
       atNav: 1,
       delay: 30,
       offset: [-4200, -900, 3800],
       tag: 'escort',
-      radio: [{ speaker: 'Angel', text: 'グラサが来た！魚雷手を守るわ、撃って！', tone: 'friendly' }],
+      radio: [{ speaker: 'Nova', text: 'グラサが来た！魚雷手を守るわ、撃って！', tone: 'friendly' }],
     },
   ],
   objectives: [
@@ -485,14 +486,14 @@ const M6_FLAGSHIP: MissionDef = {
       text: '旗艦の砲塔を無力化',
       tag: 'flagship',
       subsystem: 'turret',
-      radio: [{ speaker: 'Angel', text: '砲塔を潰した。次はエンジンを狙って！', tone: 'friendly' }],
+      radio: [{ speaker: 'Nova', text: '砲塔を潰した。次はエンジンを狙って！', tone: 'friendly' }],
     },
     {
       id: 'engine',
       text: '旗艦のエンジンを停止',
       tag: 'flagship',
       subsystem: 'engine',
-      radio: [{ speaker: 'Angel', text: 'エンジン停止。今よ、魚雷を撃って！', tone: 'friendly' }],
+      radio: [{ speaker: 'Nova', text: 'エンジン停止。今よ、魚雷を撃って！', tone: 'friendly' }],
     },
     {
       id: 'torpedo',
@@ -529,7 +530,7 @@ const L1_RETREAT: MissionDef = {
     '死ぬな。今は一機も失えない。',
   ],
   playerShipId: 'scimitar',
-  wingman: { shipId: 'hornet', pilot: 'Spirit', skill: 0.6 },
+  wingman: { shipId: 'hornet', pilot: 'Sable', skill: 0.6 },
   skybox: { nebulaHue: 0.0, planetColor: 0x2a2226, seed: 7007, planetTexture: 'planet-rock', nebulae: ['nebula-dust', 'nebula-crimson'] },
   landmarks: [{ kind: 'derelict', pos: [2400, -500, -9000], scale: 620 }],
   hazards: [{ kind: 'asteroids', atNav: 0, count: 20, spread: 1900, rockRadius: [16, 70] }],
@@ -545,19 +546,19 @@ const L1_RETREAT: MissionDef = {
       radio: [{ speaker: '《ホーカー》', text: 'こちらホーカー。曳航中、機動できない。頼む。', tone: 'friendly' }],
     },
     {
-      shipId: 'dralthi',
+      shipId: 'kf03-greyhaul',
       count: 2,
       faction: 'kilrathi',
       delay: 4,
       offset: [1800, 500, -6500],
     },
     {
-      shipId: 'krant',
+      shipId: 'kf01-leonfang',
       count: 2,
       faction: 'kilrathi',
       delay: 45,
       offset: [-2200, -600, -7000],
-      radio: [{ speaker: 'Spirit', text: 'まだ来る！あと少しだ、耐えろ！', tone: 'friendly' }],
+      radio: [{ speaker: 'Sable', text: 'まだ来る！あと少しだ、耐えろ！', tone: 'friendly' }],
     },
   ],
   objectives: [
@@ -589,7 +590,7 @@ const L2_LAST_STAND: MissionDef = {
     '生き延びろ。それだけを命じる。',
   ],
   playerShipId: 'raptor',
-  wingman: { shipId: 'rapier', pilot: 'Angel', skill: 0.78 },
+  wingman: { shipId: 'rapier', pilot: 'Nova', skill: 0.78 },
   skybox: { nebulaHue: 0.98, planetColor: 0x321c1c, sunColor: 0xffc9a0, seed: 8008, planetTexture: 'planet-earthlike', nebulae: ['nebula-crimson', 'nebula-dust'] },
   landmarks: [{ kind: 'sun', pos: [18000, 4200, -22000], scale: 1400, color: 0xffcf90 }],
   hazards: [{ kind: 'asteroids', atNav: 0, count: 16, spread: 2400, rockRadius: [18, 65] }],
@@ -604,14 +605,14 @@ const L2_LAST_STAND: MissionDef = {
       speed: 20,
     },
     {
-      shipId: 'krant',
+      shipId: 'kf01-leonfang',
       count: 3,
       faction: 'kilrathi',
       delay: 3,
       offset: [2000, 700, -7000],
     },
     {
-      shipId: 'gratha',
+      shipId: 'kb02-bastion',
       count: 2,
       faction: 'kilrathi',
       delay: 55,
@@ -619,7 +620,7 @@ const L2_LAST_STAND: MissionDef = {
       radio: [{ speaker: '管制', text: '重戦闘機だ。艦の対空火器と協調して落とせ。', tone: 'command' }],
     },
     {
-      shipId: 'jalthi',
+      shipId: 'kf06-talon',
       count: 3,
       faction: 'kilrathi',
       delay: 115,
@@ -663,7 +664,7 @@ const M2B_RECON: MissionDef = {
     '一つ厄介なことがある。小惑星帯の中ではオートパイロットが効かない。自分の手で抜けろ。',
   ],
   playerShipId: 'hornet',
-  wingman: { shipId: 'hornet', pilot: 'Spirit', skill: 0.66 },
+  wingman: { shipId: 'hornet', pilot: 'Sable', skill: 0.66 },
   skybox: { nebulaHue: 0.1, planetColor: 0x5a4636, seed: 2210, planetTexture: 'planet-gas-amber', nebulae: ['nebula-dust', 'nebula-crimson'] },
   landmarks: [
     { kind: 'gas-giant', pos: [-16000, -3000, -26000], scale: 5200, texture: 'planet-gas-amber' },
@@ -685,7 +686,7 @@ const M2B_RECON: MissionDef = {
       name: 'NAV 2 (拠点)',
       pos: [-3000, -800, -23000],
       onArrive: [
-        { speaker: 'Spirit', text: '見えた。停泊してる。……岩の陰から寄れ、正面から行くな。', tone: 'friendly' },
+        { speaker: 'Sable', text: '見えた。停泊してる。……岩の陰から寄れ、正面から行くな。', tone: 'friendly' },
       ],
     },
     {
@@ -697,7 +698,7 @@ const M2B_RECON: MissionDef = {
   ],
   spawns: [
     {
-      shipId: 'dorkir',
+      shipId: 'kb05-boarbreaker',
       count: 2,
       faction: 'kilrathi',
       atNav: 1,
@@ -707,13 +708,13 @@ const M2B_RECON: MissionDef = {
       speed: 40,
     },
     {
-      shipId: 'salthi',
+      shipId: 'ke04-mirage',
       count: 2,
       faction: 'kilrathi',
       atNav: 1,
       delay: 26,
       offset: [2200, 500, -1800],
-      radio: [{ speaker: 'Spirit', text: '哨戒に見つかった！撮り終えたらすぐ抜けるぞ。', tone: 'friendly' }],
+      radio: [{ speaker: 'Sable', text: '哨戒に見つかった！撮り終えたらすぐ抜けるぞ。', tone: 'friendly' }],
     },
   ],
   objectives: [
@@ -729,7 +730,7 @@ const M2B_RECON: MissionDef = {
   openingRadio: [
     { speaker: '管制', text: '偵察任務だ。撃ち合いに行くんじゃないぞ。', tone: 'command' },
     {
-      speaker: 'Spirit',
+      speaker: 'Sable',
       text: '岩の中は自動航行が使えない。速度を落とせ、岩は硬いぞ。',
       tone: 'friendly',
       after: 3,
@@ -758,7 +759,7 @@ const M3B_SAR: MissionDef = {
     '難民船《ミルカ》も同じ宙域で足を止めている。エンジンをやられたらしい。守ってやれ。',
   ],
   playerShipId: 'scimitar',
-  wingman: { shipId: 'scimitar', pilot: 'Angel', skill: 0.7 },
+  wingman: { shipId: 'scimitar', pilot: 'Nova', skill: 0.7 },
   skybox: { nebulaHue: 0.72, planetColor: 0x24405e, seed: 3310, planetTexture: 'planet-ice', nebulae: ['nebula-teal', 'nebula-violet'] },
   landmarks: [
     { kind: 'station', pos: [9000, 1200, -21000], scale: 900 },
@@ -770,7 +771,7 @@ const M3B_SAR: MissionDef = {
       name: 'NAV 1 (遭難宙域)',
       pos: [1500, -400, -15000],
       onArrive: [
-        { speaker: 'Angel', text: 'ポッドの信号、3つとも生きてる。急ぐよ。', tone: 'friendly' },
+        { speaker: 'Nova', text: 'ポッドの信号、3つとも生きてる。急ぐよ。', tone: 'friendly' },
       ],
     },
     {
@@ -800,22 +801,22 @@ const M3B_SAR: MissionDef = {
       speed: 20,
     },
     {
-      shipId: 'dralthi',
+      shipId: 'kf03-greyhaul',
       count: 3,
       faction: 'kilrathi',
       atNav: 0,
       delay: 6,
       offset: [3000, 800, -2400],
-      radio: [{ speaker: 'Angel', text: 'ドラルシー3機。ポッドを狙ってる、割り込んで！', tone: 'friendly' }],
+      radio: [{ speaker: 'Nova', text: 'ドラルシー3機。ポッドを狙ってる、割り込んで！', tone: 'friendly' }],
     },
     {
-      shipId: 'krant',
+      shipId: 'kf01-leonfang',
       count: 2,
       faction: 'kilrathi',
       atNav: 0,
       delay: 52,
       offset: [-2600, -900, -2800],
-      radio: [{ speaker: 'Angel', text: '第2波。まだポッドが残ってる、任せて！', tone: 'friendly' }],
+      radio: [{ speaker: 'Nova', text: '第2波。まだポッドが残ってる、任せて！', tone: 'friendly' }],
     },
   ],
   objectives: [
@@ -832,7 +833,7 @@ const M3B_SAR: MissionDef = {
   openingRadio: [
     { speaker: '管制', text: '救助任務だ。ポッドに近づけば回収できる。', tone: 'command' },
     {
-      speaker: 'Angel',
+      speaker: 'Nova',
       text: 'ポッドは撃たれたら終わり。私が敵を引きつける、あなたが拾って。',
       tone: 'friendly',
       after: 3,
@@ -865,7 +866,7 @@ const M5B_INTERCEPT: MissionDef = {
     { missileId: 'heat-seeker', count: 4 },
     { missileId: 'image-rec', count: 2 },
   ],
-  wingman: { shipId: 'rapier', pilot: 'Maniac', skill: 0.76 },
+  wingman: { shipId: 'rapier', pilot: 'Tempest', skill: 0.76 },
   skybox: { nebulaHue: 0.02, planetColor: 0x402030, seed: 5510, planetTexture: 'planet-lava', nebulae: ['nebula-crimson', 'nebula-violet'] },
   landmarks: [
     { kind: 'sun', pos: [22000, 6000, -26000], scale: 1600, color: 0xffd9a0 },
@@ -880,7 +881,7 @@ const M5B_INTERCEPT: MissionDef = {
       name: 'NAV 1 (迎撃点)',
       pos: [0, 200, -11000],
       onArrive: [
-        { speaker: 'Maniac', text: '来たぞ！魚雷を抱えたデブが5匹だ。俺は護衛をやる！', tone: 'friendly' },
+        { speaker: 'Tempest', text: '来たぞ！魚雷を抱えたデブが5匹だ。俺は護衛をやる！', tone: 'friendly' },
       ],
     },
     {
@@ -892,7 +893,7 @@ const M5B_INTERCEPT: MissionDef = {
   ],
   spawns: [
     {
-      shipId: 'gratha',
+      shipId: 'kb02-bastion',
       count: 4,
       faction: 'kilrathi',
       atNav: 0,
@@ -904,7 +905,7 @@ const M5B_INTERCEPT: MissionDef = {
       speed: 260,
     },
     {
-      shipId: 'jalthi',
+      shipId: 'kf06-talon',
       count: 2,
       faction: 'kilrathi',
       atNav: 0,
@@ -912,13 +913,13 @@ const M5B_INTERCEPT: MissionDef = {
       offset: [-2200, 700, -3600],
     },
     {
-      shipId: 'dralthi',
+      shipId: 'kf03-greyhaul',
       count: 2,
       faction: 'kilrathi',
       atNav: 0,
       delay: 70,
       offset: [2600, -700, -3800],
-      radio: [{ speaker: 'Maniac', text: '増援だと？ 順番待ちしてろ！', tone: 'friendly' }],
+      radio: [{ speaker: 'Tempest', text: '増援だと？ 順番待ちしてろ！', tone: 'friendly' }],
     },
   ],
   objectives: [
@@ -934,8 +935,8 @@ const M5B_INTERCEPT: MissionDef = {
   openingRadio: [
     { speaker: '管制', text: '迎撃発艦。制限時間は 4 分だ。', tone: 'command' },
     {
-      speaker: 'Maniac',
-      text: '機雷は味方が敷いた分だ、俺たちには反応しない。猫だけが踏む。',
+      speaker: 'Tempest',
+      text: '機雷は味方が敷いた分だ、俺たちには反応しない。踏むのは帝国機だけだ。',
       tone: 'friendly',
       after: 3,
     },
@@ -963,6 +964,8 @@ export const MISSIONS: Record<string, MissionDef> = {
   [L1_RETREAT.id]: L1_RETREAT,
   [L2_LAST_STAND.id]: L2_LAST_STAND,
   ...Object.fromEntries(EXTRA_MISSIONS.map((m) => [m.id, m])),
+  // 十章キャンペーン（veil モード）。既存11本と外周作戦はそのまま残す
+  ...VEIL_MISSIONS,
 };
 
 export const MISSION_COUNT = Object.keys(MISSIONS).length;

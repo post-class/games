@@ -4,15 +4,20 @@ import {
   campaignMap,
   campaignNode,
   campaignStart,
+  gateOutcomeFromChoice,
   isTerminal,
   totalChapters,
   VICTORY,
   DEFEAT,
   type CampaignMode,
   type CampaignNodeId,
+  type GateOutcome,
 } from '../content/campaign';
 import { missionDef } from '../content/missions';
-import { dynamicMissionDef, chooseDynamicMission, applyFrontlineOutcome, type DynamicMissionKind } from '../content/frontline';
+import { VEIL_ERA } from '../content/veil/world';
+import { VEIL_CHAPTERS } from '../content/veil/chapters';
+import { speakerName } from '../content/veil/missions/shared';
+import { dynamicMissionDef, chooseDynamicMission, applyFrontlineOutcome, frontlineSystemName, FRONTLINE_SYSTEM_IDS, type DynamicMissionKind, type FrontlineSystemId } from '../content/frontline';
 import { PERSONALITIES, pilotDef } from '../content/pilots';
 import { mournLine } from '../content/pilotDialogue';
 import { PLAYABLE_SHIPS, shipDef } from '../content/ships';
@@ -25,6 +30,9 @@ import {
   recRoomHtml,
   frontlineHtml,
   statisticsHtml,
+  codexHtml,
+  CODEX_PAGES,
+  type CodexPage,
   type HangarSelection,
   type HubContext,
 } from '../ui/HubPanels';
@@ -58,15 +66,49 @@ import {
 } from './save';
 import { availableMissiles, clampLoadout, consumeLoadout, replenishForMission, scaleLoadout } from './supplies';
 import { recordMissionStatistics } from './statistics';
+import {
+  addReturneeEntries,
+  adjustNarrative,
+  applyChoice,
+  MAX_RELAYS,
+  narrativeSummary,
+  recordRelaysHeld,
+  returneeRollCall,
+  supportLevel,
+  type ReturneeKind,
+} from './narrative';
 import { difficulty, settings, updateSettings } from './settings';
 import { showcase, type ShowcaseOptions, type ShowcaseResult } from './showroom';
 import { ReplayPanel } from './replay';
 import { audio } from '../audio/AudioManager';
 import { type MusicTrackId } from '../audio/musicCues';
 import { buildSoundCheckPanel } from '../ui/SoundCheckPanel';
+import { PilotSelectScene } from '../ui/PilotSelectScene';
+import { ChoiceScene } from '../ui/ChoiceScene';
 
 /** 母艦の名前。ブリーフィング官の名札に出す */
 const CLAW_NAME = 'TCS タイガーズ・クロー';
+/**
+ * タイトルで切り替えられる新規戦役のモード。
+ * 十章キャンペーン（veil）を先頭に置き、既存の canon / expanded も選べるまま残す。
+ */
+const NEW_CAMPAIGN_MODES: readonly CampaignMode[] = ['veil', 'canon', 'expanded'];
+
+/** 最終無線で読み上げる立場のラベル */
+const RETURNEE_KIND_LABEL: Record<ReturneeKind, string> = {
+  civilian: '民間',
+  wingman: '僚機',
+  'enemy-ace': '敵エース',
+  'ally-faction': '他勢力',
+};
+
+/** デブリーフに出す4状態の増減。理由を必ず添える（数値だけでは何が効いたか分からない） */
+interface NarrativeChange {
+  label: string;
+  delta: number;
+  reason: string;
+}
+
 
 /**
  * 画面遷移とキャンペーン進行の統括。
@@ -92,14 +134,17 @@ export class App {
   private trainingEnemyCount = 3;
   private trainingSkill = 0.55;
   private replayPanel?: ReplayPanel;
-  /** 新規戦役で選ぶモード。既存セーブのモードはセーブ側を優先する。 */
-  private newCampaignMode: CampaignMode = 'canon';
+  /**
+   * 新規戦役で選ぶモード。既存セーブのモードはセーブ側を優先する。
+   * 既定は十章キャンペーン（veil）。canon / expanded は互換のため選べるまま残す。
+   */
+  private newCampaignMode: CampaignMode = 'veil';
   private barPilotId?: string;
 
   constructor(canvas: HTMLCanvasElement, overlay: HTMLElement) {
     this.game = new Game(canvas, overlay);
     this.screens = new ScreenHost(overlay);
-    this.save = loadSave() ?? newCampaignSave('canon');
+    this.save = loadSave() ?? newCampaignSave('veil');
     this.newCampaignMode = this.save.campaignMode;
 
     this.game.onMissionEnd = (outcome) => this.onMissionEnd(outcome);
@@ -132,7 +177,9 @@ export class App {
       {
         label: `新規戦役モードを切替 (${this.modeLabel(this.newCampaignMode)})`,
         onSelect: () => {
-          this.newCampaignMode = this.newCampaignMode === 'canon' ? 'expanded' : 'canon';
+          this.newCampaignMode = NEW_CAMPAIGN_MODES[
+            (NEW_CAMPAIGN_MODES.indexOf(this.newCampaignMode) + 1) % NEW_CAMPAIGN_MODES.length
+          ];
           this.showTitle();
         },
       },
@@ -144,17 +191,25 @@ export class App {
     const progress = saved
       ? `前回の記録: ${this.modeLabel(saved.campaignMode)}・第 ${this.chapterOf(saved.node, saved.campaignMode)} 章 / 勝利点 ${saved.seriesScore} / 通算撃墜 ${saved.totalKills} 機`
       : '記録なし';
+    const veil = this.newCampaignMode === 'veil';
     this.screens.show({
-      title: 'MULTI-COMMANDER',
-      subtitle: 'TCS TIGER’S CLAW — VEGA SECTOR',
+      title: veil ? 'THE VEIL FRONT' : 'MULTI-COMMANDER',
+      subtitle: veil
+        ? `統合暦 ${VEIL_ERA.year} — ヴェガ非常事態 / ${CLAW_NAME}`
+        : 'TCS TIGER’S CLAW — VEGA SECTOR',
       heroTitle: true,
       crest: artUrl('title-crest'),
       crestHeight: 210,
       background: artUrl('tex/bg-space', 'jpg'),
       bodyHtml:
         `<div class="block"><h3>状況</h3>` +
-        `キルラシー帝国との戦争は6年目に入った。君はタイガーズ・クローに配属された新任パイロットだ。` +
-        `ブリーフィングを受け、出撃し、生きて帰れ。戦況は君の戦果で変わる。</div>` +
+        (veil
+          ? `五勢力がヴェガ門の通行権をめぐって睨み合っている。停戦線は残っているが、停戦を信じる艦は少ない。` +
+            `君は前進基地オリオン港に寄港する空母の艦載機パイロットだ。護衛、偵察、迎撃、救難。` +
+            `勝利は撃墜数では測れない。誰を帰し、どの航路を残すかが、門の明日を決める。`
+          : `キルラシー帝国との戦争は6年目に入った。君はタイガーズ・クローに配属された新任パイロットだ。` +
+            `ブリーフィングを受け、出撃し、生きて帰れ。戦況は君の戦果で変わる。`) +
+        `</div>` +
         `<div class="dim">${escapeHtml(progress)}　難易度: ${difficulty().label}</div>`,
       items,
       hint: '▲▼ で選択 / Enter で決定',
@@ -162,6 +217,7 @@ export class App {
   }
 
   private modeLabel(mode: CampaignMode): string {
+    if (mode === 'veil') return 'THE VEIL FRONT / 十章';
     return mode === 'canon' ? 'CANON / ENYO' : 'EXPANDED / McCAFFREY';
   }
 
@@ -227,10 +283,46 @@ export class App {
 
   // ───────── キャンペーン進行 ─────────
 
+  /**
+   * 十章キャンペーンの主人公を選ばせる。
+   *
+   * F-54 専任パイロット5名から選ぶ（固定主人公にしない仕様）。
+   * veil 以外のモード、または既に選択済みのセーブでは呼ばない。
+   */
+  private showPilotSelect(after: () => void): void {
+    const scene = new PilotSelectScene({
+      initialId: this.save.protagonistId,
+      onSelect: (personId) => {
+        this.save.protagonistId = personId;
+        writeSave(this.save);
+        scene.dispose();
+        after();
+      },
+    });
+    this.screens.show({
+      title: 'F-54 専任パイロット 選任',
+      subtitle: `統合暦 ${VEIL_ERA.year} — ヴェガ非常事態`,
+      background: artUrl('tex/bg-briefing', 'jpg'),
+      content: scene.el,
+      hint: scene.hint,
+      onCancel: () => {
+        scene.dispose();
+        this.showTitle();
+      },
+    });
+    scene.start();
+  }
+
   private startCampaign(fresh: boolean): void {
     if (fresh) {
       this.save = newCampaignSave(this.newCampaignMode);
       writeSave(this.save);
+      if (this.save.campaignMode === 'veil') {
+        this.newCampaignMode = this.save.campaignMode;
+        this.selection = undefined;
+        this.showPilotSelect(() => this.showHub());
+        return;
+      }
     } else {
       this.save = loadSave() ?? newCampaignSave(this.newCampaignMode);
     }
@@ -245,6 +337,10 @@ export class App {
     if (this.save.campaignMode === 'expanded' && this.save.dynamicMission) return dynamicMissionDef(this.save.dynamicMission);
     const node = campaignNode(this.save.node, this.save.campaignMode);
     const base = missionDef(node.missionId);
+    // 十章キャンペーンは章ごとに専用のミッション定義を持ち、題名・星系・本文は
+    // すべて章データから作られている。下の canon 向けアダプタを通すと作戦名が
+    // 題名に二重で入り（ヘッダが溢れる）、戦況文がブリーフィング冒頭に重複する。
+    if (this.save.campaignMode === 'veil') return base;
     const localizedTitle = base.title
       .replace('マッカフリー', node.system)
       .replace('McCaffrey', node.system);
@@ -264,18 +360,39 @@ export class App {
   private loadoutFor(def: MissionDef): Loadout {
     const sel = this.ensureSelection(def);
     const missilePackage = sel.missiles ?? shipDef(sel.shipId).missiles;
+    /**
+     * 十章キャンペーンでは、4状態が「味方の顔ぶれと持ち物」を決める（T4-3）。
+     *
+     * 難易度は動かさない。動かすのは搭載兵装の上限と僚機の出撃可否だけで、
+     * 敵の強さには一切触れない（narrative.ts の実装規約）。
+     */
+    const support = this.save.campaignMode === 'veil' ? supportLevel(this.save.narrative) : undefined;
     const load: Loadout = {
       shipId: sel.shipId,
       gunId: sel.gunId,
       missiles: clampLoadout(
         this.save.supplies,
-        scaleLoadout(missilePackage, difficulty().playerMissileCountScale),
+        scaleLoadout(
+          missilePackage,
+          difficulty().playerMissileCountScale * (support?.missileBudget ?? 1),
+        ),
       ),
       aceStates: this.save.aceStates,
       wingmanSlot: sel.wingmanSlot,
       flares: Math.min(12, this.save.supplies.flares),
+      // 章ごとの選択記録。第9章の位相迷路が「過去章の無線を反転した意味で再生する」ために使う
+      choices: this.save.narrative.choices,
     };
-    const w = sel.wingmanId ? pilotState(this.save.roster, sel.wingmanId) : undefined;
+    /**
+     * 軍令信用が落ちていると僚機が付かない（司令部が機体を出さない）。
+     *
+     * 仕様 §03 では僚機を左右するのは「軍令信用」なので、帰還者指標
+     * （`supportLevel().wingmanSlots`）ではなくこちらで判定する。帰還者は
+     * 増える一方の指標なので、それで門を作ると初回出撃から僚機が付かなくなる。
+     * `wingmanSlots` は将来の複数僚機編成のための余剰枠として残している。
+     */
+    const wingmanAllowed = !support || this.save.narrative.commandTrust >= 25;
+    const w = sel.wingmanId && wingmanAllowed ? pilotState(this.save.roster, sel.wingmanId) : undefined;
     if (w && w.status === 'active') {
       const wd = pilotDef(w.id);
       const pers = PERSONALITIES[wd.personality];
@@ -368,7 +485,11 @@ export class App {
         `${dead.length ? `　<span class="ng">戦死 ${dead.length} 名</span>` : ''}</span></div>` +
         `<div class="dim">次の任務: ${escapeHtml(def.title)}` +
         `${this.save.dynamicMission ? '　<span class="ok">戦況作戦</span>' : ''}</div>` +
-        `<div class="dim">戦況: ${escapeHtml(this.save.campaignSituation)}　/　勝利点 ${this.save.seriesScore}　/　${this.frontlineSummary()}</div>` +
+        (this.save.campaignMode === 'veil'
+          // 十章キャンペーンでは勝利点ではなく4状態が進行の指標なので、そちらを出す
+          ? `<div class="dim">戦況: ${escapeHtml(this.save.campaignSituation)}</div>` +
+            `<div class="dim">${this.narrativeGaugeLine()}</div>`
+          : `<div class="dim">戦況: ${escapeHtml(this.save.campaignSituation)}　/　勝利点 ${this.save.seriesScore}　/　${this.frontlineSummary()}</div>`) +
         `</div>`,
       items: [
         {
@@ -391,6 +512,10 @@ export class App {
         { label: '戦況マップ', onSelect: () => this.showFrontline() },
         { label: '訓練室', onSelect: () => this.showTraining() },
         { label: '統計', onSelect: () => this.showStatistics() },
+        // 名鑑は THE VEIL FRONT の資料なので veil のときだけ出す
+        ...(this.save.campaignMode === 'veil'
+          ? [{ label: '名鑑 — 人物・機体・戦域', onSelect: () => this.showCodex('people-confed') }]
+          : []),
         {
           label: `出撃 (${escapeHtml(shipDef(sel.shipId).name)}${sel.wingmanId ? ' / ' + escapeHtml(pilotDef(sel.wingmanId).callsign) : ' / 単独'})`,
           icon: artUrl('icon-launch'),
@@ -492,11 +617,76 @@ export class App {
 
   private frontlineSummary(): string {
     const systems = Object.entries(this.save.frontline.systems);
-    return systems.map(([id, s]) => `${id} ${s.control.toFixed(0)}%`).join(' / ');
+    return systems.map(([id, s]) => `${frontlineSystemName(id as FrontlineSystemId)} ${s.control.toFixed(0)}%`).join(' / ');
   }
 
   /** 勝敗で塗り替わる戦役の道筋。現在地と次に進み得る両方を同時に見せる。 */
+  /**
+   * 授与式などで名前を出す上官。
+   * veil はハート艦長（人物名簿を単一の出所にする）、既存モードは従来のハルシオン大佐。
+   */
+  private commanderName(): string {
+    // 名前の整形は `speakerName()` を再利用する（章側と同じ表記に揃え、解析を二重に書かない）
+    return this.save.campaignMode === 'veil' ? `${speakerName('confed-06')} 艦長` : 'ハルシオン大佐';
+  }
+
+  /**
+   * 画面の背景画。
+   *
+   * 十章キャンペーンでは章ごとの生成画像（`tex/story-chNN.jpg`）を使い、
+   * 「どの空域の話か」を絵でも示す。章が特定できない場面は既定の背景に落とす。
+   */
+  private chapterBackground(): string {
+    if (this.save.campaignMode !== 'veil' || isTerminal(this.save.node)) {
+      return artUrl('tex/bg-briefing', 'jpg');
+    }
+    const chapter = campaignNode(this.save.node, 'veil').chapter;
+    return artUrl(`tex/story-ch${String(chapter).padStart(2, '0')}`, 'jpg');
+  }
+
+  /** 4状態を1行で並べる。ハブと作戦記録で同じ表現を使う */
+  private narrativeGaugeLine(): string {
+    const summary = narrativeSummary(this.save.narrative);
+    const gauges = [summary.returnees, summary.routeTrust, summary.commandTrust, summary.aceOath]
+      .map((g) => `${escapeHtml(g.label)} <b>${g.value}</b>（${escapeHtml(g.grade)}）`)
+      .join('　');
+    const relays = this.save.narrative.relaysHeld;
+    return `${gauges}　名簿 <b>${this.save.narrative.returnees.length}</b> 名` +
+      (relays === undefined ? '' : `　通信灯台 <b>${relays}/${MAX_RELAYS}</b>`);
+  }
+
+  /**
+   * 十章キャンペーンの進行表示。
+   *
+   * veil は勝敗で分岐しない（敗北でも次章へ進み、達成しなかった条件は記録として残る）ため、
+   * 分岐グラフではなく章順の一覧と、選択で動く4状態を見せる。
+   */
+  private veilChapterMapHtml(): string {
+    const graph = campaignGraph('veil');
+    const done = new Map(this.save.campaignHistory.map((h) => [h.node, h.outcome]));
+    const current = this.save.node;
+    const rows = Object.entries(graph)
+      .sort(([, a], [, b]) => a.chapter - b.chapter)
+      .map(([id, node]) => {
+        const outcome = done.get(id);
+        const status = id === current ? 'current' : outcome ? `completed-${outcome}` : 'unreached';
+        const label = id === current ? '現在地' : outcome === 'win' ? '達成' : outcome === 'loss' ? '記録に残す' : '未到達';
+        return `<div class="mc-campaign-node ${status}">` +
+          `<span class="mc-campaign-node-status">${escapeHtml(label)}</span>` +
+          `<div><b>第${node.chapter}章 ${escapeHtml(node.seriesName)}</b>` +
+          `<div class="dim">${escapeHtml(node.system)}　${escapeHtml(node.victoryCondition)}</div></div>` +
+          `</div>`;
+      })
+      .join('');
+    const n = this.save.narrative;
+    return `<div class="block mc-campaign-map"><h3>作戦記録 — 全${totalChapters('veil')}章</h3>` +
+      `<div class="dim">${this.narrativeGaugeLine()}</div>` +
+      `<div class="dim">帰還者 <b>${n.returnees.length}</b> 名　${escapeHtml(this.save.campaignSituation)}</div>` +
+      rows + `</div>`;
+  }
+
   private campaignMapHtml(): string {
+    if (this.save.campaignMode === 'veil') return this.veilChapterMapHtml();
     const entries = campaignMap(this.save.campaignMode, this.save.node, this.save.campaignHistory);
     const statusLabel: Record<string, string> = {
       current: '現在地',
@@ -525,7 +715,7 @@ export class App {
     const active = this.save.dynamicMission;
     const frontlinePanel = this.save.campaignMode === 'expanded'
       ? frontlineHtml(this.hubContext()) +
-        `<div class="block"><h3>独自拡張の作戦方針</h3><div class="dim">McCaffrey / Gimle / Vega の動的前線作戦は EXPANDED モードでのみ発生する。</div></div>`
+        `<div class="block"><h3>独自拡張の作戦方針</h3><div class="dim">${escapeHtml(FRONTLINE_SYSTEM_IDS.map(frontlineSystemName).join(' / '))} の動的前線作戦は EXPANDED モードでのみ発生する。</div></div>`
       : `<div class="block"><h3>CANON 戦役</h3><div class="dim">この画面では Enyo → McAuliffe → Gateway の固定戦役だけを表示する。独自前線作戦は発生しない。</div></div>`;
     this.screens.show({
       background: artUrl('tex/bg-briefing', 'jpg'),
@@ -548,6 +738,31 @@ export class App {
     });
   }
 
+  /**
+   * 名鑑。人物・機体・戦域を実装データから生成して見せる。
+   *
+   * 76名を1枚に出すとスクロールが必要になるので、勢力ごとにページを切る
+   * （`AI_CODING.md`「スクロールバーを廃止するなら情報が欠落しないように」）。
+   */
+  private showCodex(page: CodexPage): void {
+    const current = CODEX_PAGES.find((p) => p.id === page) ?? CODEX_PAGES[0];
+    this.screens.show({
+      title: '名鑑',
+      subtitle: `${current.label}　—　THE VEIL FRONT / 統合暦 ${VEIL_ERA.year}`,
+      background: artUrl('tex/bg-quarters', 'jpg'),
+      bodyHtml: codexHtml(current.id),
+      items: [
+        ...CODEX_PAGES.filter((p) => p.id !== current.id).map((p) => ({
+          label: p.label,
+          onSelect: () => this.showCodex(p.id),
+        })),
+        { label: '艦内へ戻る', onSelect: () => this.showHub() },
+      ],
+      onCancel: () => this.showHub(),
+      hint: '▲▼ でページを選択 / Enter で決定 / Esc で戻る',
+    });
+  }
+
   private showStatistics(): void {
     this.screens.show({
       background: artUrl('tex/bg-quarters', 'jpg'),
@@ -559,7 +774,7 @@ export class App {
   }
 
   private trainingDef(): MissionDef {
-    const ref = { id: `training-${this.trainingKind}`, system: 'McCaffrey' as const, kind: this.trainingKind, seed: 99, returnNode: this.save.node };
+    const ref = { id: `training-${this.trainingKind}`, system: 'orion-port' as const, kind: this.trainingKind, seed: 99, returnNode: this.save.node };
     const base = dynamicMissionDef(ref);
     if (this.trainingKind === 'quiet') return { ...base, title: '訓練室 — 航法・帰投', debriefWin: ['航法訓練を終了した。'], debriefLoss: ['訓練を中断した。'] };
     const spawns = base.spawns.map((g) => ({ ...g, skill: this.trainingSkill, count: g.faction === 'kilrathi' ? this.trainingEnemyCount : g.count }));
@@ -569,7 +784,7 @@ export class App {
   private tutorialDef(mode: TutorialMode): MissionDef {
     const base = dynamicMissionDef({
       id: `tutorial-${mode}`,
-      system: 'McCaffrey',
+      system: 'orion-port',
       kind: 'patrol',
       seed: 707,
       returnNode: this.save.node,
@@ -670,7 +885,7 @@ export class App {
         `<div class="dim">キャンペーンの資源と名簿は変化していない。</div>`,
       items: [
         { label: 'リプレイ / キルカム', disabled: this.game.replay.length < 2, onSelect: () => this.showReplayPanel(() => this.showTrainingDebrief(outcome)) },
-        { label: 'プレイテスト記録を保存 (JSON)', onSelect: () => this.downloadPlaytestLog() },
+        { label: '記録を保存 (JSON)', onSelect: () => this.downloadPlaytestLog() },
         { label: '訓練室へ戻る', onSelect: () => this.showTraining() },
         { label: '艦内へ戻る', onSelect: () => this.showHub() },
       ],
@@ -826,9 +1041,14 @@ export class App {
       variant: 'briefing',
       crest: artUrl('emblem-confed'),
       crestHeight: 64,
-      background: artUrl('tex/bg-briefing', 'jpg'),
+      background: this.chapterBackground(),
       title: def.title,
-      subtitle: `${this.modeLabel(this.save.campaignMode)}　${node.seriesName}　${node.chapter}/${totalChapters(this.save.campaignMode)}　—　${def.system} 星系${node.losingRoute ? '　(戦況悪化)' : ''}`,
+      // ヘッダは最低限にする（横に溢れるとメインの領域を食う）。
+      // veil は題名に「第N章 …」が入っているので、副題では章番号を繰り返さない。
+      subtitle:
+        this.save.campaignMode === 'veil'
+          ? `${node.seriesName}　${node.chapter}/${totalChapters('veil')}　—　${def.system}`
+          : `${this.modeLabel(this.save.campaignMode)}　${node.seriesName}　${node.chapter}/${totalChapters(this.save.campaignMode)}　—　${def.system} 星系${node.losingRoute ? '　(戦況悪化)' : ''}`,
       content: scene.el,
       items: [
         {
@@ -957,7 +1177,64 @@ export class App {
       return;
     }
     this.applyRosterOutcome();
-    this.showDebrief(outcome);
+    // 章末の選択は「今飛んだ章」に対して記録するので、キャンペーンを進める前に出す。
+    this.showChapterChoice(() => this.showDebrief(outcome));
+  }
+
+  /**
+   * 章末の FIELD CHOICE。
+   *
+   * veil モードで、今のノードに選択肢があり、まだ選んでいない章のときだけ出す。
+   * `applyChoice` は同じ章で二度加算しないので、再表示されても状態は壊れない。
+   */
+  private showChapterChoice(after: () => void): void {
+    if (this.save.campaignMode !== 'veil' || isTerminal(this.save.node)) {
+      after();
+      return;
+    }
+    const node = campaignNode(this.save.node, 'veil');
+    const chapter = VEIL_CHAPTERS.find((c) => c.id === this.save.node);
+    if (!chapter || this.save.narrative.choices[chapter.id]) {
+      after();
+      return;
+    }
+    const scene = new ChoiceScene({
+      choice: chapter.choice,
+      chapterLabel: `第${node.chapter}章`,
+      onSelect: (choiceId) => {
+        const option = chapter.choice.options.find((o) => o.id === choiceId);
+        if (option) {
+          // 章データの `returnees` は「名前が判らない増減（人数）」なので、
+          // 名簿（名前の配列）ではなくクレジットとして渡す。
+          // 名前の付く帰還者は出撃結果の側から記録される。
+          const { returnees, ...rest } = option.effects;
+          applyChoice(this.save.narrative, chapter.id, choiceId, {
+            ...rest,
+            ...(returnees === undefined ? {} : { returneeCredit: returnees }),
+          });
+        }
+        // 第10章の選択は門の管理方法そのもの。結末の分岐に使うので別に保存する。
+        // 選択肢id（`seal-gate` 等）と結末id（`closed` 等）は別なので必ず変換を通す。
+        if (node.chapter === 10) {
+          try {
+            this.save.gateOutcome = gateOutcomeFromChoice(choiceId);
+          } catch {
+            // 章データに門以外の選択肢が増えても結末選択を壊さない
+          }
+        }
+        writeSave(this.save);
+        scene.dispose();
+        after();
+      },
+    });
+    this.screens.show({
+      title: chapter.choice.kind,
+      subtitle: `第${node.chapter}章 ${chapter.title}`,
+      background: this.chapterBackground(),
+      content: scene.el,
+      hint: scene.hint,
+    });
+    scene.start();
   }
 
   /**
@@ -984,6 +1261,126 @@ export class App {
     this.lastLostWingman = outcome.wingmanLost ? outcome.wingmanId : undefined;
   }
 
+  /**
+   * 出撃結果を4状態へ反映する（十章作戦記録 §03）。
+   *
+   * 撃墜数は一切見ない。見るのは「誰を帰したか」「撃たずに済ませたか」
+   * 「民間を損なわなかったか」「命令の範囲で収めたか」だけである。
+   * 1回の出撃あたりの振れ幅は小さく（±6以内）保ち、章末の選択（±15）が主役であるようにする。
+   */
+  private applySortieToNarrative(outcome: 'win' | 'loss'): NarrativeChange[] {
+    const s = this.lastSummary;
+    if (!s) return [];
+    const chapter = campaignNode(this.save.node, 'veil').chapter;
+    const n = this.save.narrative;
+    const changes: NarrativeChange[] = [];
+
+    // 帰還者: 名前が判らないので人数のクレジットとして積む。
+    // 敵側の救難は、名簿に「勢力を問わず並ぶ」ので同じ扱いにする。
+    const heads = s.rescued + s.enemyRescued;
+    if (heads > 0) {
+      adjustNarrative(n, { returneeCredit: heads });
+      const detail = s.enemyRescued > 0 ? `（うち敵側 ${s.enemyRescued}）` : '';
+      changes.push({ label: '帰還者', delta: heads, reason: `救難 ${heads} 件${detail}` });
+    }
+
+    // 航路信頼: 中立規約の順守（発砲・誤射なし）で上がり、民間損害で下がる
+    let routeTrust = 0;
+    const routeReasons: string[] = [];
+    if (s.civilianLosses > 0) {
+      const drop = Math.min(6, s.civilianLosses * 2);
+      routeTrust -= drop;
+      routeReasons.push(`民間損害 ${s.civilianLosses} 隻`);
+    }
+    if (s.friendlyFireHits === 0 && s.civilianLosses === 0) {
+      routeTrust += 2;
+      routeReasons.push('誤射・民間損害なし');
+    }
+    if (s.shotsFired === 0) {
+      routeTrust += 2;
+      routeReasons.push('一発も撃たずに完了');
+    }
+
+    // 軍令信用: 命令順守と損害の最小化で上がり、未達成の条件で下がる
+    let commandTrust = outcome === 'win' ? 2 : -2;
+    const commandReasons: string[] = [outcome === 'win' ? '任務達成' : '任務失敗'];
+    if (s.objectivesFailed.length > 0) {
+      commandTrust -= Math.min(4, s.objectivesFailed.length);
+      commandReasons.push(`未達成の条件 ${s.objectivesFailed.length} 件`);
+    }
+    if (s.wingmenLost > 0) {
+      commandTrust -= 2;
+      commandReasons.push('僚機喪失');
+    }
+
+    // 敵エースの誓約: 敵の救難を優先すると上がり、誤射（＝停戦中の発砲）で下がる
+    let aceOath = 0;
+    const oathReasons: string[] = [];
+    if (s.enemyRescued > 0) {
+      aceOath += Math.min(6, s.enemyRescued * 3);
+      oathReasons.push(`敵側の救難 ${s.enemyRescued} 件`);
+    }
+    if (s.friendlyFireHits > 0) {
+      aceOath -= Math.min(4, s.friendlyFireHits);
+      oathReasons.push(`誤射 ${s.friendlyFireHits} 発`);
+    }
+
+    adjustNarrative(n, { routeTrust, commandTrust, aceOath });
+    if (routeTrust !== 0) changes.push({ label: '航路信頼', delta: routeTrust, reason: routeReasons.join('・') });
+    if (commandTrust !== 0) changes.push({ label: '軍令信用', delta: commandTrust, reason: commandReasons.join('・') });
+    if (aceOath !== 0) changes.push({ label: '敵エースの誓約', delta: aceOath, reason: oathReasons.join('・') });
+
+    // 生き延びた僚機は名前が判るので、名簿に載せる（最終無線で読み上げる）
+    // 第8章の通信灯台。残した本数が第9章・第10章の援護の濃さになる。
+    // 1基でも残れば認証は成立するが、記録するのは成否ではなく本数そのもの。
+    const beacons = s.tagSurvivors['beacon'];
+    if (beacons) {
+      recordRelaysHeld(n, beacons.alive);
+      changes.push({
+        label: '通信灯台',
+        delta: beacons.alive - beacons.total,
+        reason: `${beacons.alive}/${beacons.total} 回線を維持`,
+      });
+    }
+
+    const wingmanId = this.selection?.wingmanId;
+    if (wingmanId && s.wingmenSurvived > 0) {
+      const def = pilotDef(wingmanId);
+      const added = addReturneeEntries(n, [
+        { name: def.name, chapter, kind: 'wingman', personId: def.personId },
+      ]);
+      if (added > 0) changes.push({ label: '帰還者', delta: added, reason: `${def.name} が帰投` });
+    }
+    return changes;
+  }
+
+  /**
+   * 4状態の増減を理由つきで見せる（T7-5）。
+   *
+   * 撃墜数を強調せず、「何をしたから何が動いたか」を1行ずつ示す。
+   * 変化が無かった出撃でも、現在値だけは出して指標の存在を伝える。
+   */
+  private narrativeChangeHtml(changes: readonly NarrativeChange[]): string {
+    if (this.save.campaignMode !== 'veil') return '';
+    const summary = narrativeSummary(this.save.narrative);
+    const rows = changes
+      .map(
+        (c) =>
+          // 0 は「損なわなかった」なので good 側に寄せる（灯台 3/3 維持など）
+          `<li class="${c.delta >= 0 ? 'ok' : 'ng'}">` +
+          `${escapeHtml(c.label)} <b>${c.delta > 0 ? '+' : ''}${c.delta}</b>　` +
+          `<span class="dim">${escapeHtml(c.reason)}</span></li>`,
+      )
+      .join('');
+    const now = [summary.returnees, summary.routeTrust, summary.commandTrust, summary.aceOath]
+      .map((g) => `${escapeHtml(g.label)} ${g.value}`)
+      .join('　');
+    return `<div class="block"><h3>作戦の帰結</h3>` +
+      (rows ? `<ul>${rows}</ul>` : `<div class="dim">この出撃では4状態は動かなかった。</div>`) +
+      // 「帰還者」は 0..100 の指標、「名簿」は読み上げる人数。名前を分けて混同を避ける
+      `<div class="dim">現在: ${now}　名簿 ${this.save.narrative.returnees.length} 名</div></div>`;
+  }
+
   private showDebrief(outcome: 'win' | 'loss'): void {
     const def = this.currentMission();
     const s = this.lastSummary;
@@ -1008,6 +1405,8 @@ export class App {
         escortSuccess: s.escortSuccess,
       });
     }
+    const narrativeChanges =
+      this.save.campaignMode === 'veil' ? this.applySortieToNarrative(outcome) : [];
     replenishForMission(this.save.supplies, outcome, !!s?.escortLost);
     let nextNode: CampaignNodeId;
     let transition: ReturnType<typeof advanceCampaignSave> | undefined;
@@ -1078,8 +1477,11 @@ export class App {
           `<li>通算撃墜 ${this.save.totalKills} 機 / 出撃 ${this.save.sorties} 回</li>` +
           `</ul></div>`, slot: 'flight-plan' },
         { html: `<div class="block"><h3>目標</h3><ul>${objectives}</ul></div>` +
+          this.narrativeChangeHtml(narrativeChanges) +
           (outcome === 'loss'
-            ? `<div class="dim">失敗しても戦争は続く。次の任務は戦況の悪化を受けたものになる。</div>`
+            ? `<div class="dim">${this.save.campaignMode === 'veil'
+                ? '達成できなかった条件は記録として残る。次の章はこの記録の上で始まる。'
+                : '失敗しても戦争は続く。次の任務は戦況の悪化を受けたものになる。'}</div>`
             : ''), slot: 'lower-left' },
       ],
       '報告受信中',
@@ -1099,7 +1501,7 @@ export class App {
         { label: '続ける', onSelect: () => this.afterDebrief(nextNode) },
         // デブリーフは表示時に統計を確定するため、戻り先は再集計を起こさない艦内画面にする。
         { label: 'リプレイ / キルカム', disabled: this.game.replay.length < 2, onSelect: () => this.showReplayPanel(() => this.showHub()) },
-        { label: 'プレイテスト記録を保存 (JSON)', onSelect: () => this.downloadPlaytestLog() },
+        { label: '記録を保存 (JSON)', onSelect: () => this.downloadPlaytestLog() },
         { label: 'この任務をやり直す', onSelect: () => this.retry(def.id, outcome) },
         { label: 'タイトルへ戻る', onSelect: () => this.showTitle() },
       ],
@@ -1210,7 +1612,8 @@ export class App {
       title: '授与式',
       subtitle: 'TCS タイガーズ・クロー 格納庫',
       bodyHtml:
-        `<div class="block"><div class="speaker">ハルシオン大佐:</div>` +
+        // 授与式は veil でも通る画面なので、艦長名をモードに合わせる。
+        `<div class="block"><div class="speaker">${escapeHtml(this.commanderName())}:</div>` +
         `<div>${escapeHtml(
           c.promotedTo
             ? `全員、整列。本日をもって本官の権限により、貴官を${c.promotedTo}に任ずる。`
@@ -1242,7 +1645,83 @@ export class App {
     this.showHub();
   }
 
+  /**
+   * 十章キャンペーンの結末（T7-6）。
+   *
+   * 仕様の要点をそのまま実装する。
+   *   - 結末は3種（永久閉鎖 / 限定開放 / 五者共同管理）。どれも解決ではない
+   *   - **撃墜数の集計を表示しない**
+   *   - 帰還した者の名前を、艦と勢力を問わず一人ずつ読み上げる
+   *   - 読み上げられる名前の数だけがプレイヤーの戦績である
+   */
+  private showVeilEnding(victory: boolean): void {
+    this.game.sound.music.play(victory ? 'victory' : 'defeat');
+    this.game.endMission();
+    const gate = this.save.gateOutcome;
+    const closing: Record<GateOutcome, { title: string; subtitle: string; body: string }> = {
+      closed: {
+        title: '門を閉じた',
+        subtitle: 'THE GATE IS SEALED',
+        body: '制御核は砕かれ、ヴェガ門は永久に閉じた。この宙域の戦争は終わる。' +
+          '同時に、門の向こうにあった辺境の居住区も切り捨てられた。静かに枯れていく航路の名前は、誰も読み上げない。',
+      },
+      'limited-open': {
+        title: '限定開放を選んだ',
+        subtitle: 'THE GATE STANDS OPEN',
+        body: '核は共鳴し、全勢力の航路が再起動した。連邦の物流は生き延びた。' +
+          'だが開いた扉の管理者は、もう誰でもない。次に誰が通るのかを決める者がいない。',
+      },
+      'joint-custody': {
+        title: '五者共同管理に委ねた',
+        subtitle: 'FIVE SIGNATURES',
+        body: '八十三年遅れて六つ目の条項が発効し、門制御核は共同管理下に入った。' +
+          '最も遅く、最も脆く、最も多くの署名を必要とする道だ。誰も相手を信じていないまま、全員が明日も交渉を続ける。',
+      },
+    };
+    const chosen = gate ? closing[gate] : undefined;
+    const roll = returneeRollCall(this.save.narrative);
+    const names = roll.length
+      ? roll
+          .map(
+            (e) =>
+              `<li>${escapeHtml(e.name)}` +
+              `<span class="dim">　${e.chapter ? `第${e.chapter}章` : '章外'}・${escapeHtml(RETURNEE_KIND_LABEL[e.kind])}</span></li>`,
+          )
+          .join('')
+      : '';
+    this.screens.show({
+      crest: artUrl('emblem-carrier'),
+      // 名簿の行数を稼ぐため、他の結末画面（132）より紋章を小さくする
+      crestHeight: 88,
+      title: chosen?.title ?? (victory ? '門前の帰還' : '戦役終了'),
+      heroTitle: true,
+      subtitle: chosen?.subtitle ?? (victory ? 'OPERATION OPEN HAND' : 'THE GATE REMAINS'),
+      background: artUrl('tex/bg-space', 'jpg'),
+      bodyHtml:
+        `<div class="block">${chosen?.body ?? (victory
+          ? '旗艦は無力化した。だが門の管理方法は決まらないまま、艦隊は帰投した。'
+          : '門は開いたままで、誰も止められなかった。停戦線は失われ、五者通行協定は口実を失った。')}</div>` +
+        `<div class="block"><h3>最終無線 — 帰還した者</h3>` +
+        (names
+          // 名簿は十章分で数十名になり、パネル内でスクロールする。
+          // 「読み上げた名前 N」＝この物語の戦績なので、一覧より前に置いて必ず見せる。
+          ? `<div class="ok">読み上げた名前 <b>${roll.length}</b> — これが君の戦績である。</div>` +
+            `<div class="dim">勝者の名は読まない。艦と勢力を問わず、帰ってきた者の名前だけを読み上げる。</div>` +
+            `<ul>${names}</ul>`
+          : `<div class="dim">読み上げる名前がない。誰も連れて帰らなかった。</div>`) +
+        `</div>`,
+      items: [
+        { label: 'もう一度戦役を始める', onSelect: () => this.startCampaign(true) },
+        { label: 'タイトルへ戻る', onSelect: () => this.showTitle() },
+      ],
+    });
+  }
+
   private showEnding(victory: boolean): void {
+    if (this.save.campaignMode === 'veil') {
+      this.showVeilEnding(victory);
+      return;
+    }
     this.game.sound.music.play(victory ? 'victory' : 'defeat');
     this.game.endMission();
     const quality = victory ? (this.save.ending ?? 'victory') : 'defeat';

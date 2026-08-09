@@ -315,7 +315,7 @@ function barrels(b: PartBuilder, k: Keys, def: ShipDef): void {
  * キルラシーの造形の癖。
  *
  * 骨格 (kind) は連邦と共用しつつ、爪・牙・肋・赤い単眼を足して
- * 「猫の帝国の機体」と一目で分かるようにする。
+ * 「誓約と血統を掲げる帝国（獣人）の機体」と一目で分かるようにする。
  * len は機体の半長、w は半幅の目安。
  */
 function clawMotifs(b: PartBuilder, k: Keys, len: number, w: number): void {

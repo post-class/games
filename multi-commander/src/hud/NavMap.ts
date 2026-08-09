@@ -1,5 +1,8 @@
 import { Vector3 } from 'three';
 import { isHostile } from '../content/factions';
+// 通信遅延 (第6章)。味方の機影は報告位置に置く。
+// 遅延を宣言していないミッションでは実位置がそのまま返るので表示は変わらない。
+import { reportedPosition } from '../sim/comms';
 import type { Entity } from '../world/entity';
 import type { World } from '../world/world';
 
@@ -73,9 +76,10 @@ export class NavMap {
         // 障害物は「その宙域の地形」なので、航路を考えられるように出す
         blips.push({ x: e.pos.x, y: e.pos.z, kind: e.kind });
       } else if (e.kind === 'ship' && e.ship) {
+        const shown = reportedPosition(e, _tmp);
         blips.push({
-          x: e.pos.x,
-          y: e.pos.z,
+          x: shown.x,
+          y: shown.z,
           kind:
             e.id === player.id
               ? 'player'

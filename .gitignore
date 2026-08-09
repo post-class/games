@@ -161,4 +161,7 @@ dist/
 *.local
 .tmp/
 data/
+# multi-taktika のマスターデータはゲーム本体の一部なので追跡する（上の data/ の例外）
+!multi-taktika/game/src/data/
+!multi-taktika/game/src/data/**
 .DS_Store

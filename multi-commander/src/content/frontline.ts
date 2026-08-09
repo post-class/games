@@ -1,7 +1,60 @@
 import type { MissionDef } from '../mission/types';
+import { speakerName } from './veil/missions/shared';
+import { veilPerson } from './veil/people';
+import { veilTheater, type VeilTheaterId } from './veil/world';
 
-export type FrontlineSystemId = 'McCaffrey' | 'Gimle' | 'Vega';
+/**
+ * 動的作戦が扱う戦域id（THE VEIL FRONT）。
+ *
+ * 戦域の事実・圧力・表示名は `veil/world.ts` の `VEIL_THEATERS` を単一の
+ * 出所とし、idもそちらの正典表記をそのまま使う（名前は再定義しない）。
+ *
+ * 8戦域のうち動的作戦の対象はここに挙げた5つだけ。
+ * `ashcrown-corridor`（灰冠回廊）／`lagrange-rift`（ラグランジュ裂谷）／
+ * `notary-relay`（ヴェガ門公証中継所）は本編の章専用の舞台なので、
+ * 常設・動的作戦は発生させない。
+ */
+export type FrontlineSystemId = 'orion-port' | 'vega-gate' | 'quiet-sea' | 'deep-mining-belt' | 'hive-veins';
 export type DynamicMissionKind = 'patrol' | 'escort' | 'strike' | 'rescue' | 'quiet' | 'capital';
+
+/** 動的作戦の対象戦域。`VEIL_THEATERS` の部分集合であることを型で担保する。 */
+export const FRONTLINE_SYSTEM_IDS = [
+  'orion-port',
+  'vega-gate',
+  'quiet-sea',
+  'deep-mining-belt',
+  'hive-veins',
+] as const satisfies readonly VeilTheaterId[] satisfies readonly FrontlineSystemId[];
+
+/**
+ * 旧セーブ（マッカフリー戦役）の戦域名 → 新戦域id。
+ *
+ * 方針: 既定値へ落とすのではなく**値を引き継いで移行する**。
+ * control / pressure / logistics はどちらも同じ 0〜100 の意味なので、
+ * プレイヤーが積み上げた戦況を捨てる理由がない。対応の根拠は、
+ * 旧 McCaffrey が連邦側の後方拠点＝オリオン港、旧 Gimle が敵補給所を
+ * 叩く資源地帯＝深層採掘帯、旧 Vega が決戦線＝ヴェガ門であること。
+ */
+const LEGACY_SYSTEM_ID_MAP: Record<string, FrontlineSystemId> = {
+  McCaffrey: 'orion-port',
+  Gimle: 'deep-mining-belt',
+  Vega: 'vega-gate',
+};
+
+/** 戦域の日本語表示名。`VEIL_THEATERS` から引くので重複定義しない。 */
+export function frontlineSystemName(id: FrontlineSystemId): string {
+  return veilTheater(id).name;
+}
+
+/**
+ * 未知・旧世代の戦域名を新戦域idへ寄せる。判別できない値は undefined。
+ * セーブ読み込み（`save.ts`）と `normalizeFrontline` の両方で使う。
+ */
+export function migrateFrontlineSystemId(raw: unknown): FrontlineSystemId | undefined {
+  if (typeof raw !== 'string') return undefined;
+  if ((FRONTLINE_SYSTEM_IDS as readonly string[]).includes(raw)) return raw as FrontlineSystemId;
+  return LEGACY_SYSTEM_ID_MAP[raw];
+}
 
 const DYNAMIC_KINDS: DynamicMissionKind[] = ['patrol', 'escort', 'strike', 'rescue', 'quiet', 'capital'];
 
@@ -29,25 +82,56 @@ export interface DynamicMissionRef {
   returnNode: string;
 }
 
+/**
+ * 戦域の初期値。世界観spec §05「戦域別の状態と圧力」を3値へ写したもの。
+ *
+ * pressure は §05 の「圧力」を段階で固定し、戦域ごとに揺らさない:
+ *   中 = 44 / 高 = 62 / 極高 = 82 / 不明 = 53
+ * 「不明」は観測できていないだけで安全という意味ではないため、
+ * 中(44)と高(62)の中間値 53 とする。楽観にも悲観にも寄せない。
+ *
+ * control は「0=帝国優勢 / 100=連邦優勢」なので、その戦域を実際に
+ * 押さえている勢力と連邦の到達度で決める。連邦拠点＞共同航行圏＞
+ * 中立勢力圏＞ニューロウム圏の順に低くなる。
+ *
+ * logistics は「連邦艦隊の補給余力」。修理設備の有無、航路の安定、
+ * 資源の入手可否で決める。
+ */
 export function newFrontlineState(): FrontlineState {
   return {
     systems: {
-      McCaffrey: { control: 54, pressure: 38, logistics: 78 },
-      Gimle: { control: 48, pressure: 50, logistics: 70 },
-      Vega: { control: 43, pressure: 62, logistics: 64 },
+      // オリオン港（連邦・圧力「高」）: 連邦の補給・修理拠点なので control は高い。
+      // ただし避難民が流入して物資を食うため、拠点にしては logistics を抑える。
+      'orion-port': { control: 72, pressure: 62, logistics: 66 },
+      // ヴェガ門（共同設備・圧力「極高」）: 通行権をめぐる睨み合いで拮抗＝control は
+      // ほぼ中央。門の稼働が不安定で補給が読めないため logistics は最低水準に近い。
+      'vega-gate': { control: 48, pressure: 82, logistics: 44 },
+      // 静穏海（セレシオン・圧力「中」）: 中立回廊が生きているので連邦機も通れるが、
+      // 支配しているのはセレシオン。救難船団が航路を維持している分 logistics は最良。
+      'quiet-sea': { control: 58, pressure: 44, logistics: 74 },
+      // 深層採掘帯（オルド・圧力「中」）: オルド圏で連邦の影響は薄く control は劣勢寄り。
+      // 採掘停止で未精製資源が手に入らず価格が急騰しているため logistics が痛い。
+      'deep-mining-belt': { control: 40, pressure: 44, logistics: 38 },
+      // 巣脈群（ニューロウム・圧力「不明」）: 連邦の足場が最も薄いので
+      // control は最低。通信障害で補給の調整自体が通らないため logistics も低い。
+      'hive-veins': { control: 32, pressure: 53, logistics: 46 },
     },
     operations: 0,
-    lastSystem: 'McCaffrey',
+    // 戦役の起点は連邦の前進拠点。
+    lastSystem: 'orion-port',
   };
 }
 
 export function normalizeFrontline(raw: unknown): FrontlineState {
   const fallback = newFrontlineState();
   if (!raw || typeof raw !== 'object') return fallback;
-  const r = raw as Partial<FrontlineState>;
-  for (const id of Object.keys(fallback.systems) as FrontlineSystemId[]) {
-    const incoming = r.systems?.[id];
-    if (!incoming) continue;
+  const r = raw as { systems?: Record<string, unknown>; operations?: unknown; lastSystem?: unknown; lastKind?: unknown };
+  // 旧セーブは McCaffrey / Gimle / Vega をキーに持つ。キー側を走査して
+  // 移行表を通すので、未知のキーは例外にせず単に無視される。
+  for (const [key, value] of Object.entries(r.systems ?? {})) {
+    const id = migrateFrontlineSystemId(key);
+    if (!id || !value || typeof value !== 'object') continue;
+    const incoming = value as Partial<FrontlineSystemState>;
     fallback.systems[id] = {
       control: clamp(numberOr(incoming.control, fallback.systems[id].control), 0, 100),
       pressure: clamp(numberOr(incoming.pressure, fallback.systems[id].pressure), 0, 100),
@@ -55,9 +139,11 @@ export function normalizeFrontline(raw: unknown): FrontlineState {
     };
   }
   if (typeof r.operations === 'number' && Number.isFinite(r.operations)) fallback.operations = Math.max(0, Math.floor(r.operations));
-  if (r.lastSystem && r.lastSystem in fallback.systems) fallback.lastSystem = r.lastSystem;
-  if (r.lastKind && DYNAMIC_KINDS.includes(r.lastKind)) {
-    fallback.lastKind = r.lastKind;
+  // lastSystem も移行表を通す。未知の値は既定値（オリオン港）のまま。
+  const lastSystem = migrateFrontlineSystemId(r.lastSystem);
+  if (lastSystem) fallback.lastSystem = lastSystem;
+  if (typeof r.lastKind === 'string' && DYNAMIC_KINDS.includes(r.lastKind as DynamicMissionKind)) {
+    fallback.lastKind = r.lastKind as DynamicMissionKind;
   }
   return fallback;
 }
@@ -121,11 +207,17 @@ export function chooseDynamicMission(
  * quiet は「何も起きない哨戒」を明示的に実装したものだが、帰投まで
  * の航路と戦況の変化は残るので、単なる待ち時間にはならない。
  */
+/** 動的作戦のブリーフィング話者。ウィリアム・ハート艦長 */
+const HART_ID = 'confed-06';
+
 export function dynamicMissionDef(ref: DynamicMissionRef): MissionDef {
+  const name = frontlineSystemName(ref.system);
   const common = {
     id: ref.id,
-    system: ref.system,
-    briefingSpeaker: 'ハルシオン大佐',
+    system: name,
+    briefingSpeaker: `${speakerName(HART_ID)} 艦長`,
+    briefingSpeakerRole: veilPerson(HART_ID).role,
+    briefingSpeakerId: HART_ID,
     playerShipId: ref.kind === 'capital' ? 'rapier' : 'hornet',
     navs: [
       { name: '発艦点', pos: [0, 0, -3600] as [number, number, number] },
@@ -139,7 +231,7 @@ export function dynamicMissionDef(ref: DynamicMissionRef): MissionDef {
   if (ref.kind === 'quiet') {
     return {
       ...common,
-      title: `${ref.system} 哨戒 — 静かな航路`,
+      title: `${name} 哨戒 — 静かな航路`,
       briefing: ['定時哨戒だ。今日は敵影の報告がない。', '何も起きない一日を、何も起こさずに終わらせろ。'],
       spawns: [],
       objectives: [{ id: 'home', text: '航路を確認して帰投', required: true, spec: { kind: 'reachNav', navIndex: 1 } }],
@@ -149,12 +241,12 @@ export function dynamicMissionDef(ref: DynamicMissionRef): MissionDef {
   if (ref.kind === 'escort') {
     return {
       ...common,
-      title: `${ref.system} 補給線護衛`,
+      title: `${name} 補給線護衛`,
       briefing: ['補給船団を一つ、前線まで通す。', '敵が来ても船団を見失うな。撃墜数は目的ではない。'],
       spawns: [
         { shipId: 'drayman', count: 1, faction: 'confed', tag: 'convoy', offset: [0, -300, 1500], speed: 34, cruiseToNav: 0 },
-        { shipId: 'dralthi', count: 2, faction: 'kilrathi', atNav: 0, delay: 1, offset: [1800, 400, -900], tag: 'raiders' },
-        { shipId: 'salthi', count: 2, faction: 'kilrathi', atNav: 0, delay: 34, offset: [-1800, -400, -1200], tag: 'raiders' },
+        { shipId: 'kf03-greyhaul', count: 2, faction: 'kilrathi', atNav: 0, delay: 1, offset: [1800, 400, -900], tag: 'raiders' },
+        { shipId: 'ke04-mirage', count: 2, faction: 'kilrathi', atNav: 0, delay: 34, offset: [-1800, -400, -1200], tag: 'raiders' },
       ],
       objectives: [
         { id: 'convoy', text: '補給船団を守る', required: true, spec: { kind: 'protect', tag: 'convoy' } },
@@ -166,11 +258,11 @@ export function dynamicMissionDef(ref: DynamicMissionRef): MissionDef {
   if (ref.kind === 'rescue') {
     return {
       ...common,
-      title: `${ref.system} 捜索救難 — 帰還信号`,
+      title: `${name} 捜索救難 — 帰還信号`,
       briefing: ['救難信号を拾った。敵の勢力圏だ。', '救える人数だけでいい。だが、信号を無視するな。'],
       spawns: [
         { shipId: 'refugee-liner', count: 1, faction: 'confed', atNav: 0, tag: 'survivors', speed: 8 },
-        { shipId: 'salthi', count: 3, faction: 'kilrathi', atNav: 0, delay: 2, offset: [1900, 400, -1000] },
+        { shipId: 'ke04-mirage', count: 3, faction: 'kilrathi', atNav: 0, delay: 2, offset: [1900, 400, -1000] },
       ],
       objectives: [
         { id: 'rescue', text: '生存者を回収', required: true, spec: { kind: 'rescue', tag: 'survivors', radius: 360 } },
@@ -182,13 +274,13 @@ export function dynamicMissionDef(ref: DynamicMissionRef): MissionDef {
   if (ref.kind === 'capital') {
     return {
       ...common,
-      title: `${ref.system} 強襲 — 補給拠点`,
+      title: `${name} 強襲 — 補給拠点`,
       briefing: ['敵の補給拠点を叩く。防衛線が薄い今だけの機会だ。', '砲塔、エンジンの順に機能を止め、最後に魚雷を撃ち込め。魚雷を無駄にするな。'],
       playerMissiles: [{ missileId: 'heat-seeker', count: 2 }, { missileId: 'torpedo', count: 3 }],
       spawns: [
-        { shipId: 'ralatha', count: 1, faction: 'kilrathi', atNav: 0, tag: 'capital', speed: 20 },
-        { shipId: 'jalthi', count: 2, faction: 'kilrathi', atNav: 0, delay: 1, tag: 'escort' },
-        { shipId: 'gratha', count: 2, faction: 'kilrathi', atNav: 0, delay: 48, tag: 'escort' },
+        { shipId: 'kilrashi-destroyer', count: 1, faction: 'kilrathi', atNav: 0, tag: 'capital', speed: 20 },
+        { shipId: 'kf06-talon', count: 2, faction: 'kilrathi', atNav: 0, delay: 1, tag: 'escort' },
+        { shipId: 'kb02-bastion', count: 2, faction: 'kilrathi', atNav: 0, delay: 48, tag: 'escort' },
       ],
       objectives: [
         { id: 'capital', text: '補給拠点を撃破', required: true, spec: { kind: 'destroyTag', tag: 'capital' } },
@@ -205,16 +297,16 @@ export function dynamicMissionDef(ref: DynamicMissionRef): MissionDef {
   const strike = ref.kind === 'strike';
   return {
     ...common,
-    title: `${ref.system} ${strike ? '攻撃機掃討' : '前線哨戒'}`,
+    title: `${name} ${strike ? '攻撃機掃討' : '前線哨戒'}`,
     briefing: strike
       ? ['敵の前線拠点を短時間で叩く。', '目標を見失わず、撃破を確認して帰投せよ。']
       : ['敵の哨戒隊が航路へ接近している。', '接触したら追い払い、深追いはするな。'],
     spawns: strike
       ? [
-          { shipId: 'dorkir', count: 1, faction: 'kilrathi', atNav: 0, tag: 'target', speed: 24 },
-          { shipId: 'dralthi', count: 3, faction: 'kilrathi', atNav: 0, delay: 2, tag: 'escort' },
+          { shipId: 'kb05-boarbreaker', count: 1, faction: 'kilrathi', atNav: 0, tag: 'target', speed: 24 },
+          { shipId: 'kf03-greyhaul', count: 3, faction: 'kilrathi', atNav: 0, delay: 2, tag: 'escort' },
         ]
-      : [{ shipId: 'salthi', count: 2, faction: 'kilrathi', atNav: 0, delay: 1, tag: 'patrol' }],
+      : [{ shipId: 'ke04-mirage', count: 2, faction: 'kilrathi', atNav: 0, delay: 1, tag: 'patrol' }],
     objectives: strike
       ? [
           { id: 'target', text: '攻撃機を撃破', required: true, spec: { kind: 'destroyTag', tag: 'target' } },

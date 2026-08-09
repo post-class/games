@@ -9,11 +9,15 @@ import {
   type CampaignHistoryEntry,
   type CampaignMode,
   type CampaignNodeId,
+  isGateOutcome,
   type CampaignOutcome,
+  type GateOutcome,
 } from '../content/campaign';
+import { PROTAGONISTS } from '../content/veil/people';
+import { newNarrative, normalizeNarrative, type NarrativeState } from './narrative';
 import { newAceStates, normalizeAceStates, type AceState } from '../content/aces';
 import { newRoster, normalizeRoster, type RosterState } from './roster';
-import { newFrontlineState, normalizeFrontline, type FrontlineState } from '../content/frontline';
+import { migrateFrontlineSystemId, newFrontlineState, normalizeFrontline, type FrontlineState } from '../content/frontline';
 import { newSupplies, normalizeSupplies, type SupplyState } from './supplies';
 import { newStatistics, normalizeStatistics, recordCampaignOutcome, type CampaignStatistics } from './statistics';
 
@@ -31,8 +35,14 @@ export interface LastSortieCondition {
 export interface CampaignSave {
   /** 現在のキャンペーンノード */
   node: CampaignNodeId;
-  /** canon=Enyo 起点の本家寄せ、expanded=従来の McCaffrey 起点 */
+  /** canon=Enyo 起点の本家寄せ、expanded=従来の McCaffrey 起点、veil=THE VEIL FRONT 十章 */
   campaignMode: CampaignMode;
+  /** 主人公として選んだ人物id（`confed-01`〜`-05`）。選択前は未定義 */
+  protagonistId?: string;
+  /** 選択結果で管理する4状態（帰還者／航路信頼／軍令信用／敵エースの誓約） */
+  narrative: NarrativeState;
+  /** 第10章で選んだ門の管理方法。選択前は未定義。`ending` とは独立の軸 */
+  gateOutcome?: GateOutcome;
   /** 戦役シリーズの勝利点。totalKills とは別の進行値 */
   seriesScore: number;
   /** 勝敗分岐の見える記録 */
@@ -72,6 +82,14 @@ export interface CampaignSave {
   lastSortie?: LastSortieCondition;
 }
 
+/**
+ * 保存キーの版は上げない。
+ *
+ * 追加した `narrative` / `protagonistId` / `gateOutcome` はいずれも欠落耐性がある
+ * （`parseSave` が `normalizeNarrative()` で既定値を作り、未知の主人公id・門の結末は
+ * `undefined` に落とす）。旧 v3・v2 セーブをそのまま読み続けられるので、
+ * 版を上げてプレイヤーの進行を捨てる理由がない。
+ */
 const KEY = 'multi-commander.campaign.v3';
 const LEGACY_KEY = 'multi-commander.campaign.v2';
 const SLOT_KEY_PREFIX = 'multi-commander.campaign.slot.v1.';
@@ -100,6 +118,8 @@ export function newCampaignSave(mode: CampaignMode): CampaignSave {
     frontline: newFrontlineState(),
     supplies: newSupplies(),
     statistics: newStatistics(),
+    // 主人公（protagonistId）と門の結末（gateOutcome）は選択前なので未定義のまま。
+    narrative: newNarrative(),
     noEscortLost: true,
     noWingmanLost: true,
     savedAt: Date.now(),
@@ -123,6 +143,9 @@ function parseSave(raw: string): CampaignSave | undefined {
   return {
     node,
     campaignMode,
+    protagonistId: normalizeProtagonistId(parsed.protagonistId),
+    narrative: normalizeNarrative(parsed.narrative),
+    gateOutcome: isGateOutcome(parsed.gateOutcome) ? parsed.gateOutcome : undefined,
     seriesScore: finiteNumber(parsed.seriesScore, 0),
     campaignHistory: normalizeCampaignHistory(parsed.campaignHistory, campaignMode),
     campaignSituation: typeof parsed.campaignSituation === 'string'
@@ -204,9 +227,18 @@ function normalizeDynamicMission(raw: unknown): CampaignSave['dynamicMission'] {
   if (!raw || typeof raw !== 'object') return undefined;
   const r = raw as Partial<NonNullable<CampaignSave['dynamicMission']>>;
   if (typeof r.id !== 'string' || typeof r.returnNode !== 'string' || typeof r.seed !== 'number') return undefined;
-  if (!['McCaffrey', 'Gimle', 'Vega'].includes(String(r.system))) return undefined;
+  // 旧セーブの戦域名（McCaffrey / Gimle / Vega）は新戦域idへ移行して残す。
+  // 判別できない値だけ、進行中の動的作戦を捨てる（次回ハブで再選択できる）。
+  const system = migrateFrontlineSystemId(r.system);
+  if (!system) return undefined;
   if (!['patrol', 'escort', 'strike', 'rescue', 'quiet', 'capital'].includes(String(r.kind))) return undefined;
-  return { id: r.id, system: r.system!, kind: r.kind!, seed: r.seed, returnNode: r.returnNode };
+  return { id: r.id, system, kind: r.kind!, seed: r.seed, returnNode: r.returnNode };
+}
+
+/** 主人公id。`PROTAGONISTS`（confed-01〜-05）にあるidだけ許可し、未知の値は捨てる */
+function normalizeProtagonistId(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined;
+  return PROTAGONISTS.some((person) => person.id === raw) ? raw : undefined;
 }
 
 function normalizeEnding(raw: unknown): CampaignSave['ending'] {

@@ -1,11 +1,11 @@
 import { Euler, Quaternion, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
-import { AIM_PITCH_OFFSET } from '../src/core/aim';
-import { LOCAL_FORWARD, LOCAL_RIGHT, leadPoint } from '../src/core/math';
-import { shipDef } from '../src/content/ships';
-import { updateOrdnance } from '../src/sim/combat';
-import { fireMissile, updateMissileLock } from '../src/sim/weapons';
-import { spawnShip, World } from '../src/world/world';
+import { AIM_PITCH_OFFSET } from '../../src/core/aim';
+import { LOCAL_FORWARD, LOCAL_RIGHT, leadPoint } from '../../src/core/math';
+import { shipDef } from '../../src/content/ships';
+import { updateOrdnance } from '../../src/sim/combat';
+import { fireMissile, updateMissileLock } from '../../src/sim/weapons';
+import { spawnShip, World } from '../../src/world/world';
 
 const DT = 1 / 60;
 
@@ -38,7 +38,7 @@ function angleBetween(a: Vector3, b: Vector3): number {
 
 function lockTarget(world: World, player: ReturnType<typeof playerShip>, position: Vector3) {
   const target = spawnShip(world, {
-    def: shipDef('dralthi'),
+    def: shipDef('kf03-greyhaul'),
     faction: 'kilrathi',
     pos: position,
     speed: 0,

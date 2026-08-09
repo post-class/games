@@ -214,6 +214,14 @@ function detonate(world: World, e: Entity, at: Vector3 | undefined): void {
       damageType: 'missile',
       origin: e.pos,
     });
+    // 命中1件につき1回だけ流す (層ごとの shieldHit/armorHit とは別の入口)
+    bus.emit('weaponHit', {
+      target: s,
+      shooter: world.byId(m.ownerId),
+      fromPlayer: m.fromPlayer,
+      weaponKind: 'missile',
+      weaponId: def.id,
+    });
     applySubsystemDamage(world, s, res.hullDamage, res.armorFace);
     if (res.destroyed) destroyEntity(world, s, world.byId(m.ownerId), 'missile');
   }
@@ -366,6 +374,13 @@ export function resolveProjectileHits(world: World): void {
       weaponId: pr.gun.id,
       damageType: 'gun',
       origin: p.prevPos,
+    });
+    bus.emit('weaponHit', {
+      target: bestShip,
+      shooter: world.byId(pr.ownerId),
+      fromPlayer: pr.fromPlayer,
+      weaponKind: 'gun',
+      weaponId: pr.gun.id,
     });
     applySubsystemDamage(world, bestShip, res.hullDamage, res.armorFace);
     if (res.destroyed) destroyEntity(world, bestShip, world.byId(pr.ownerId), 'gun');

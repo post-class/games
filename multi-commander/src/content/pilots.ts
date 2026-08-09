@@ -3,7 +3,16 @@
  *
  * 僚機を「名前と技量パラメータ」から「人」にするためのデータ。
  * 性格は飛び方 (AI) と無線の口調の両方に効く。
+ *
+ * ■ 人物の出所（T2-2）
+ * 名前・二つ名・戦闘級は `src/content/veil/people.ts`（THE VEIL FRONT 人物名簿）が単一の出所。
+ * ここでは `personId` で人物を参照し、表示名 (`name`) と無線の呼び名 (`callsign`) は
+ * 人物名簿の `name` / `epithet` をそのまま使う（複製しない）。
+ * 技量 (`skill`) も戦闘級から `skillFromGrade()` で一意に決め、ハードコードしない。
+ * このファイルが独自に持つのは、ゲーム側の都合で決まる値だけ（性格・好みの機体・SVGの顔）。
  */
+
+import { skillFromGrade, veilPerson, type VeilPerson } from './veil/people';
 
 export type PersonalityId = 'reckless' | 'steady' | 'precise' | 'veteran' | 'grim' | 'green';
 
@@ -105,107 +114,134 @@ export interface PortraitSpec {
 
 export interface PilotDef {
   id: string;
-  /** 無線に出る呼び名 */
+  /** 人物名簿 (`src/content/veil/people.ts`) の id。名前・二つ名・戦闘級の出所。 */
+  personId: string;
+  /** 無線に出る呼び名。人物名簿の `epithet`。 */
   callsign: string;
-  /** 本名 */
+  /** 本名。人物名簿の `name`。 */
   name: string;
   personality: PersonalityId;
-  /** 初期技量 0..1 */
+  /** 初期技量 0..1。人物の戦闘級から `skillFromGrade()` で導出する。 */
   skill: number;
   /** 好んで乗る機体 (在庫にあれば) */
   preferredShip: string;
-  /** 紹介文 (名簿と酒場で使う) */
+  /** 紹介文 (名簿と酒場で使う)。人物名簿の役割・実績から組み立てる。 */
   bio: string;
+  portrait: PortraitSpec;
+  /**
+   * 顔画像 (`public/art/tex/face-<id>-<表情>.jpg`) の id。
+   * 人物名簿の id と同一（肖像は人物単位で用意されている）。
+   */
+  faceId: string;
+}
+
+/** 名簿1名分の、ゲーム側だけで決まる値。 */
+interface PilotSeed {
+  id: string;
+  /** 人物名簿の id */
+  personId: string;
+  personality: PersonalityId;
+  preferredShip: string;
+  /** 性格の一言。人物名簿の役割・実績のあとに足す。 */
+  note: string;
   portrait: PortraitSpec;
 }
 
 /**
- * 飛行隊の名簿。
- * Spirit / Maniac / Angel は既に無線台詞で使っていたので踏襲し、
- * 残りはこの作品用に用意した。
+ * 飛行隊の名簿（8名）。
+ *
+ * アウレリア連邦の人物名簿から、僚機として飛ぶ役割の8名を選んでいる。
+ * 主人公候補5名 (`confed-01`〜`-05`) はプレイヤーが操縦する側なので、ここには入れない。
+ * id は人物の二つ名 (`epithet`) を小文字にしたもの。
  */
-export const PILOTS: PilotDef[] = [
+const PILOT_SEEDS: readonly PilotSeed[] = [
   {
-    id: 'spirit',
-    callsign: 'Spirit',
-    name: '田中 真理子',
+    id: 'sable',
+    personId: 'confed-17', // 桐谷 綾 / Sable / 近接護衛パイロット / S級
     personality: 'steady',
-    skill: 0.62,
     preferredShip: 'hornet',
-    bio: '指示に忠実で、決して持ち場を離れない。故郷に婚約者がいるという噂がある。',
+    note: '持ち場を離れない。守る相手を決めたら、そこから動かない。',
     portrait: { skin: '#e7c9a4', hair: '#2b2119', hairStyle: 'tied', eyes: 'normal' },
   },
   {
-    id: 'maniac',
-    callsign: 'Maniac',
-    name: 'Todd Marsh',
+    id: 'tempest',
+    personId: 'confed-25', // 榊 恒一 / Tempest / 突撃艇隊長 / S級
     personality: 'reckless',
-    skill: 0.7,
     preferredShip: 'scimitar',
-    bio: '腕はある。命令は聞かない。「編隊を組め」と言った次の秒に単独で突っ込んでいる。',
-    portrait: { skin: '#f0d3ae', hair: '#8a5a2b', hairStyle: 'short', eyes: 'wide', marks: ['stubble'] },
+    note: '封鎖線は突き破るものだと思っている。「編隊を組め」の次の秒には前に出ている。',
+    portrait: { skin: '#f0d3ae', hair: '#2f2318', hairStyle: 'short', eyes: 'wide', marks: ['stubble'] },
   },
   {
-    id: 'angel',
-    callsign: 'Angel',
-    name: 'Jeanne Duval',
+    id: 'orion',
+    personId: 'confed-23', // 橘 蒼真 / Orion / 長距離迎撃士 / S級
     personality: 'precise',
-    skill: 0.8,
     preferredShip: 'rapier',
-    bio: '無駄弾を撃たない。指示は簡潔で、状況判断が早い。飛行隊で最も信頼されている。',
-    portrait: { skin: '#f2dcc4', hair: '#c9a227', hairStyle: 'long', eyes: 'sharp' },
+    note: '無駄弾を撃たない。報告は距離と数だけで、余計なことを言わない。',
+    portrait: { skin: '#e8cdb0', hair: '#3b4a5a', hairStyle: 'short', eyes: 'sharp', marks: ['visor'] },
   },
   {
-    id: 'tinman',
-    callsign: 'Tinman',
-    name: 'Peter Kowalczyk',
+    id: 'aster',
+    personId: 'confed-18', // 黒瀬 日和 / Aster / 戦術解析官 / A級
     personality: 'veteran',
-    skill: 0.76,
     preferredShip: 'raptor',
-    bio: '三度撃墜されて三度帰ってきた。「機体は替えが効く。お前は効かない」が口癖。',
-    portrait: { skin: '#c99b72', hair: '#3a3a3a', hairStyle: 'buzz', eyes: 'tired', marks: ['scar'] },
+    note: '伏撃を先に見つける癖がある。「機体は替えが効く。お前は効かない」が口癖。',
+    portrait: { skin: '#dfbe98', hair: '#4a4a4a', hairStyle: 'tied', eyes: 'tired', marks: ['scar'] },
   },
   {
-    id: 'cricket',
-    callsign: 'Cricket',
-    name: 'Amara Osei',
-    personality: 'green',
-    skill: 0.38,
-    preferredShip: 'hornet',
-    bio: '士官学校を出たばかり。よく喋る。まだ誰も撃墜していない。',
-    portrait: { skin: '#8a5b3a', hair: '#191919', hairStyle: 'short', eyes: 'wide' },
-  },
-  {
-    id: 'padre',
-    callsign: 'Padre',
-    name: 'Tomás Rivas',
+    id: 'vesper',
+    personId: 'confed-15', // 柊 奏 / Vesper / 電子戦操縦士 / S級
     personality: 'grim',
-    skill: 0.66,
-    preferredShip: 'scimitar',
-    bio: '出撃前に必ず祈る。戦死者の名前を全員覚えている。それが重荷になっている。',
-    portrait: { skin: '#d9ab80', hair: '#2a2a2a', hairStyle: 'short', eyes: 'tired', marks: ['stubble'] },
-  },
-  {
-    id: 'slate',
-    callsign: 'Slate',
-    name: 'Yuri Beklemishev',
-    personality: 'precise',
-    skill: 0.72,
     preferredShip: 'rapier',
-    bio: '無口。報告は数字だけ。だが射撃は正確で、指示された的を確実に減らす。',
-    portrait: { skin: '#e8cdb0', hair: '#6b6b6b', hairStyle: 'short', eyes: 'sharp', marks: ['visor'] },
+    note: '撃つより先に敵の目を潰す。誰が帰ってこなかったかを、全員覚えている。',
+    portrait: { skin: '#f2dcc4', hair: '#1f2a33', hairStyle: 'long', eyes: 'tired' },
   },
   {
-    id: 'nomad',
-    callsign: 'Nomad',
-    name: 'Kaia Tuisamoa',
-    personality: 'reckless',
-    skill: 0.6,
+    id: 'nova',
+    personId: 'confed-20', // 東雲 澪 / Nova / 偵察飛行士 / S級
+    personality: 'precise',
     preferredShip: 'hornet',
-    bio: '所属を三度変えている。腕は荒いが度胸がある。深追いの癖が直らない。',
-    portrait: { skin: '#a9744c', hair: '#1c1c1c', hairStyle: 'long', eyes: 'sharp', marks: ['bandana'] },
+    note: '単独行動に慣れている。状況判断が早く、指示が簡潔。',
+    portrait: { skin: '#f0d6ba', hair: '#7a5a2b', hairStyle: 'short', eyes: 'sharp' },
+  },
+  {
+    id: 'raven',
+    personId: 'confed-26', // 藤堂 悠真 / Raven / 艦載機パイロット / A級
+    personality: 'reckless',
+    preferredShip: 'hornet',
+    note: '囮役を自分から引き受ける。深追いの癖が直らない。',
+    portrait: { skin: '#c99b72', hair: '#1c1c1c', hairStyle: 'buzz', eyes: 'sharp', marks: ['bandana'] },
+  },
+  {
+    id: 'solace',
+    personId: 'confed-28', // 久世 朔 / Solace / 救難艇操縦士 / A級
+    personality: 'green',
+    preferredShip: 'hornet',
+    note: '救助の腕は確かだが、空戦は数えるほどしかしていない。よく喋る。',
+    portrait: { skin: '#d9ab80', hair: '#2a2a2a', hairStyle: 'short', eyes: 'wide' },
   },
 ];
+
+function buildPilot(seed: PilotSeed): PilotDef {
+  const person = veilPerson(seed.personId);
+  return {
+    id: seed.id,
+    personId: person.id,
+    // 表示名は人物名簿の値をそのまま使う (このファイルでは複製しない)
+    callsign: person.epithet,
+    name: person.name,
+    personality: seed.personality,
+    // 技量は戦闘級から一意に決まる
+    skill: skillFromGrade(person.grade),
+    preferredShip: seed.preferredShip,
+    bio: `${person.role}。${person.achievement}${seed.note}`,
+    portrait: seed.portrait,
+    // 肖像は人物単位で用意されているので、顔画像id は人物id をそのまま使う
+    faceId: person.id,
+  };
+}
+
+/** 飛行隊の名簿。 */
+export const PILOTS: PilotDef[] = PILOT_SEEDS.map(buildPilot);
 
 export function pilotDef(id: string): PilotDef {
   const p = PILOTS.find((x) => x.id === id);
@@ -213,12 +249,26 @@ export function pilotDef(id: string): PilotDef {
   return p;
 }
 
+/** そのパイロットの人物名簿エントリ。 */
+export function pilotPerson(id: string): VeilPerson {
+  return veilPerson(pilotDef(id).personId);
+}
+
+/**
+ * 顔画像に使う id。
+ * TODO(T2-6): 新人物の肖像を用意したら、この暫定マッピングを外して id をそのまま使う。
+ */
+export function pilotFaceId(id: string): string {
+  const p = PILOTS.find((x) => x.id === id);
+  return p ? p.faceId : id;
+}
+
 export function personalityOf(id: string): Personality {
   return PERSONALITIES[pilotDef(id).personality];
 }
 
 /** 出撃可能な初期メンバー (キャンペーン開始時の飛行隊) */
-export const STARTING_SQUADRON = ['spirit', 'maniac', 'angel', 'tinman', 'padre'];
+export const STARTING_SQUADRON = ['sable', 'tempest', 'orion', 'aster', 'vesper'];
 
 /** 補充で来る候補 (戦死者が出たときに順に配属される) */
-export const REPLACEMENT_POOL = ['cricket', 'slate', 'nomad'];
+export const REPLACEMENT_POOL = ['nova', 'raven', 'solace'];

@@ -47,7 +47,7 @@ describe('武器拡張', () => {
   it('新ミサイルの倍率はシールドと装甲へ別々に適用される', () => {
     const world = new World();
     const target = spawnShip(world, {
-      def: shipDef('dralthi'),
+      def: shipDef('kf03-greyhaul'),
       faction: 'kilrathi',
       pos: new Vector3(),
       speed: 0,

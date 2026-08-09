@@ -6,7 +6,7 @@ import {
   resetSettings,
   settings,
   updateSettings,
-} from '../src/app/settings';
+} from '../../src/app/settings';
 
 describe('settings', () => {
   const storage = new Map<string, string>();

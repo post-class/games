@@ -3,6 +3,7 @@ import { clamp, clamp01, forwardOf, leadPoint } from '../core/math';
 import { bus } from '../core/events';
 import { rng } from '../core/rng';
 import { isHostile } from '../content/factions';
+import type { Faction } from '../content/ships';
 import { gunDef, missileDef } from '../content/weapons';
 import type { AiRuntime, Entity, WingmanOrder } from '../world/entity';
 import type { World } from '../world/world';
@@ -24,6 +25,8 @@ const _axis = new Vector3();
 const _invQ = new Quaternion();
 const _tmp = new Vector3();
 const _formation = new Vector3();
+/** 学習した群体が進入をずらすための横方向ベクトル (第6章) */
+const _swarmSide = new Vector3();
 
 /** 交戦を開始する距離 */
 const ENGAGE_RANGE = 9000;
@@ -33,6 +36,232 @@ const TOO_CLOSE_BASE = 180;
 /** 目標のサイズに応じた「近すぎる」距離。艦艇に突っ込んで自爆しないための余裕。 */
 function tooCloseFor(self: Entity, target: Entity): number {
   return TOO_CLOSE_BASE + self.radius + target.radius * 2.4;
+}
+
+/**
+ * 決闘規約 (第5章 T6-5 のラギティカ)。
+ *
+ * ■ なぜ AI 個体のフィールドではなく、このモジュールのミッション単位の状態にしたか
+ * 1. `AiRuntime` (`world/entity.ts`) にフィールドを足すと、AI を持つ全機体の
+ *    生成・複製経路に手が入る。決闘は「その作戦にひと組だけ存在する取り決め」なので、
+ *    T6-3 の `mineSensors` / T6-4 の重力井戸と同じくモジュール単位の規則として持つ。
+ * 2. 陣営関係 (`MissionDef.factionStances`) では表現できない。誓約を守る側 (ラギティカ) と
+ *    破る側 (急進派) は**同じ `kilrathi` 陣営**なので、陣営単位の関係表では
+ *    「一方とは停戦、他方とは敵対」を書き分けられない (第8章で記録済みの限界)。
+ *    そのため決闘は entity id 単位の規則としてここに置く。
+ *
+ * `MissionRunner.build()` が必ず `resetDuel()` を呼ぶので、
+ * 宣言の無いミッションでは AI は一切従来どおり動く。
+ * **技量 (skill) と難易度補正には触らない。変えるのは狙い方だけ。**
+ */
+export interface DuelRules {
+  /** 誓約を守る側 (決闘の当事者) の entity id */
+  duellistId: number;
+  /** 決闘の相手 (通常は自機) の entity id */
+  opponentId: number;
+  /** 相手のハル率がこれ以下なら引き金を引かない (撃墜を狙わない) */
+  spareHullRatio: number;
+  /** 相手の癖を測るために保つ距離 (m) */
+  measureRange: number;
+}
+
+interface DuelState {
+  rules?: DuelRules;
+  /** 誓約が破られたか (急進派の介入) */
+  broken: boolean;
+  /** 誓約を破った側の entity id。破られた後はこちらへ機首を向ける */
+  breakerIds: Set<number>;
+}
+
+const duel: DuelState = { broken: false, breakerIds: new Set<number>() };
+
+/** 決闘規約を捨てる。ミッション開始ごとに呼ぶ (既定は「決闘なし」) */
+export function resetDuel(): void {
+  duel.rules = undefined;
+  duel.broken = false;
+  duel.breakerIds.clear();
+}
+
+/** 決闘規約を宣言する */
+export function configureDuel(r: {
+  duellistId: number;
+  opponentId: number;
+  spareHullRatio?: number;
+  measureRange?: number;
+}): void {
+  duel.rules = {
+    duellistId: r.duellistId,
+    opponentId: r.opponentId,
+    spareHullRatio: Math.min(0.95, Math.max(0, r.spareHullRatio ?? 0.35)),
+    measureRange: Math.max(120, r.measureRange ?? 900),
+  };
+  duel.broken = false;
+  duel.breakerIds.clear();
+}
+
+/**
+ * 誓約が破られた (急進派が決闘空域へ入った)。
+ * 以後、決闘の当事者は相手を測るのをやめ、**同じ陣営であっても**
+ * 誓約を破った側へ機首を向ける (敵味方の線と誓約の線がずれる)。
+ */
+export function breakDuel(breakerIds: readonly number[]): void {
+  if (!duel.rules) return;
+  duel.broken = true;
+  for (const id of breakerIds) duel.breakerIds.add(id);
+}
+
+/** 決闘が成立中か (宣言があり、まだ破られていない) */
+export function duelActive(): boolean {
+  return !!duel.rules && !duel.broken;
+}
+
+/** 現在の決闘規約 (テストと表示用の読み取り) */
+export function duelState(): Readonly<{
+  rules?: DuelRules;
+  broken: boolean;
+  breakerIds: ReadonlySet<number>;
+}> {
+  return duel;
+}
+
+/** e から見て f が「誓約を破った側」か (射線の味方判定から外す) */
+function isDuelBreaker(e: Entity, f: Entity): boolean {
+  return duel.broken && duel.rules?.duellistId === e.id && duel.breakerIds.has(f.id);
+}
+
+// ───────── 学習する群体 (第6章 T6-6) ─────────
+
+/**
+ * 撃墜された数に応じて戦い方を変える群体ドローン（第6章）。
+ *
+ * ■ 何を変えて、何を変えないか（この線引きは崩さない）
+ * 変えるのは**振る舞いだけ**:
+ *   - 隊形（同じ射線に重ならないよう、進入を横へずらす）
+ *   - 同時に自機へ張り付く機数（`maxAttackersOnPlayer` への上乗せ）
+ *   - 回避の入れ方（回避機動を挟む間隔と、脅威が無くても入れる振り）
+ *   - 包み込む距離（追尾から攻撃へ移る距離）
+ * **変えないもの**: HP・攻撃力・弾速・命中補正。
+ * `ship.def`（ハル/装甲/シールド）、`gunDef`（威力と弾速）、`ai.skill`、
+ * `aimJitter`（命中のばらつき）には一切触れていない。
+ * 「撃墜されるほど硬くなる／痛くなる」のは難易度の書き換えであって学習ではない。
+ *
+ * ■ 上限を設ける理由（無限に強くならない）
+ * 個体を潰しても群体は痛みを感じない相手なので、撃つほど不利になる設計だが、
+ * 上限が無いと「一定数を撃った時点で回避不能」になり、
+ * 撃たずに抜ける選択肢（第6章の静脈路）を選ばなかった者に対して
+ * 詰みを作ってしまう。段階は `MAX_SWARM_LEVEL = 3` で止める。
+ * これは 4機撃墜ごとに1段階（`LOSSES_PER_LEVEL`）で、
+ * 第6章に配置されたドローン21機のうち12機を落とした時点で頭打ちになる数値。
+ * 上限では「同時に張り付く数 2→5」「回避間隔 約0.64倍」に留まり、
+ * 一機のラピアーIIでも振り切れる範囲に収まる。
+ *
+ * ■ なぜモジュール単位の状態か
+ * `src/sim/obstacles.ts` の熱紋機雷（T6-3）と同じ流儀。学習は個体の属性ではなく
+ * 「その作戦の群体全体が共有する記憶」なので、`AiRuntime` を増やさない。
+ * `MissionRunner.build()` が必ず `resetSwarmLearning()` を呼ぶので、
+ * 宣言のないミッションの AI は完全に従来どおり動く。
+ */
+export const MAX_SWARM_LEVEL = 3;
+/** 1段階の学習に必要な撃墜数 */
+export const LOSSES_PER_SWARM_LEVEL = 4;
+
+export interface SwarmProfile {
+  /** 学習段階 0..MAX_SWARM_LEVEL */
+  level: number;
+  /** 自機へ同時に張り付ける機数の上乗せ */
+  attackerBonus: number;
+  /** 攻撃進入を横へずらす距離 (m)。隊形が扇形に開く */
+  lateralSpread: number;
+  /** 回避機動を挟む間隔の倍率 (小さいほど頻繁に振る) */
+  maneuverCooldownScale: number;
+  /** 攻撃へ移る距離の倍率 (大きいほど遠くから包む) */
+  pursueRangeScale: number;
+}
+
+/** 学習していない相手のプロファイル（既定。これを返す限り挙動は従来どおり） */
+const NO_SWARM_LEARNING: SwarmProfile = {
+  level: 0,
+  attackerBonus: 0,
+  lateralSpread: 0,
+  maneuverCooldownScale: 1,
+  pursueRangeScale: 1,
+};
+
+interface SwarmState {
+  /** 学習する陣営 (未宣言なら undefined = 学習なし) */
+  faction?: Faction;
+  /** 学習に必要な1段階あたりの撃墜数 */
+  lossesPerLevel: number;
+  /** これまでに失った個体数 */
+  losses: number;
+  profile: SwarmProfile;
+}
+
+const swarm: SwarmState = {
+  lossesPerLevel: LOSSES_PER_SWARM_LEVEL,
+  losses: 0,
+  profile: NO_SWARM_LEARNING,
+};
+
+function swarmProfileFor(level: number): SwarmProfile {
+  const l = Math.max(0, Math.min(MAX_SWARM_LEVEL, level));
+  if (l === 0) return NO_SWARM_LEARNING;
+  return {
+    level: l,
+    // 同時に張り付く数: 既定2 に対して +1 ずつ (上限で5機)
+    attackerBonus: l,
+    // 隊形: 段階ごとに120m ずつ進入をずらす
+    lateralSpread: l * 120,
+    // 回避の入れ方: 段階ごとに12%短い間隔で振る (上限0.64倍)
+    maneuverCooldownScale: 1 - l * 0.12,
+    // 包み込む距離: 段階ごとに12%手前から攻撃へ移る
+    pursueRangeScale: 1 + l * 0.12,
+  };
+}
+
+/** 群体の学習を捨てる。ミッション開始ごとに呼ぶ (既定は「学習なし」) */
+export function resetSwarmLearning(): void {
+  swarm.faction = undefined;
+  swarm.lossesPerLevel = LOSSES_PER_SWARM_LEVEL;
+  swarm.losses = 0;
+  swarm.profile = NO_SWARM_LEARNING;
+}
+
+/** 学習する群体を宣言する */
+export function configureSwarmLearning(o: { faction: Faction; lossesPerLevel?: number }): void {
+  swarm.faction = o.faction;
+  swarm.lossesPerLevel = Math.max(1, Math.round(o.lossesPerLevel ?? LOSSES_PER_SWARM_LEVEL));
+  swarm.losses = 0;
+  swarm.profile = NO_SWARM_LEARNING;
+}
+
+/**
+ * 個体を1機失った。宣言された陣営以外は数えない。
+ * 「個体を潰しても群体は痛みを感じない」＝士気ではなく学習として蓄積する。
+ */
+export function recordSwarmLoss(faction: Faction): void {
+  if (!swarm.faction || faction !== swarm.faction) return;
+  swarm.losses += 1;
+  swarm.profile = swarmProfileFor(Math.floor(swarm.losses / swarm.lossesPerLevel));
+}
+
+/** 現在の学習段階 (0..MAX_SWARM_LEVEL)。テストと表示用 */
+export function swarmLearningLevel(): number {
+  return swarm.profile.level;
+}
+
+/** 現在の学習状態 (テストと表示用の読み取り) */
+export function swarmLearningState(): Readonly<{
+  faction?: Faction;
+  losses: number;
+  profile: SwarmProfile;
+}> {
+  return swarm;
+}
+
+/** その陣営に効いている学習プロファイル。宣言外の陣営は既定値 */
+export function swarmProfile(faction: Faction): SwarmProfile {
+  return swarm.faction && faction === swarm.faction ? swarm.profile : NO_SWARM_LEARNING;
 }
 
 export function newAi(skill: number, opts: Partial<AiRuntime> = {}): AiRuntime {
@@ -104,7 +333,14 @@ function updateOne(
   }
 
   updateMorale(world, e, dt);
-  const target = pickTarget(world, e, opts, attackersOnPlayer);
+
+  // 決闘規約 (第5章)。宣言が無ければこの行は素通りする。
+  // 士気の集計だけは通常どおり行い、狙い方だけを差し替える。
+  if (duel.rules && e.id === duel.rules.duellistId && updateDuellist(world, e, dt, opts)) return;
+
+  // 学習する群体 (第6章)。宣言が無ければ既定値なので、以下の計算はすべて従来と同値。
+  const learned = swarmProfile(e.faction);
+  const target = pickTarget(world, e, opts, attackersOnPlayer, learned.attackerBonus);
   ship.targetId = target?.id;
 
   // 士気が尽きたら離脱。十分に距離を取れれば立て直して戻ってくる。
@@ -150,13 +386,22 @@ function updateOne(
     const hullRatio = ship.hull / ship.def.hull;
     if (distance < tooCloseFor(e, target)) {
       // すれ違い直後は急旋回して背後を取りに行く (漫然と離れない)
-      startManeuver(ai, 'break', 1.0);
+      startManeuver(ai, 'break', 1.0, learned.maneuverCooldownScale);
     } else if (threat && ai.skill > 0.15) {
       // 技量が高いほど早く反応する。慎重なパイロットは長めに振る
       const caution = ai.personality?.caution ?? 0.5;
-      startManeuver(ai, threat.close ? 'break' : 'jink', (0.9 + (1 - ai.skill) * 0.8) * (0.7 + caution * 0.7));
+      startManeuver(
+        ai,
+        threat.close ? 'break' : 'jink',
+        (0.9 + (1 - ai.skill) * 0.8) * (0.7 + caution * 0.7),
+        learned.maneuverCooldownScale,
+      );
     } else if (hullRatio < 0.4 && ai.skill > 0.4 && rng.chance(dt * 0.5)) {
-      startManeuver(ai, 'roll', 1.0);
+      startManeuver(ai, 'roll', 1.0, learned.maneuverCooldownScale);
+    } else if (learned.level >= 2 && rng.chance(dt * 0.12 * learned.level)) {
+      // 学習した群体は、狙われていなくても振りを入れてくる (同じ攻め方が通らなくなる)。
+      // 技量も命中補正も変えていない。挟むタイミングだけが変わる。
+      startManeuver(ai, 'jink', 0.8, learned.maneuverCooldownScale);
     }
   }
 
@@ -166,14 +411,109 @@ function updateOne(
   }
 
   // 攻撃性が高いほど遠くから突っ込み、低いと近づくまで様子を見る
-  const pursueRange = 1400 * (1.5 - (ai.personality?.aggression ?? 0.5));
+  const pursueRange =
+    1400 * (1.5 - (ai.personality?.aggression ?? 0.5)) * learned.pursueRangeScale;
   if (distance > pursueRange) {
     ai.mode = 'pursue';
     doPursue(world, e, target, distance, dt);
   } else {
     ai.mode = 'attack';
-    doAttack(world, e, target, distance, dt, opts);
+    doAttack(world, e, target, distance, dt, opts, learned);
   }
+}
+
+// ───────── 決闘 (第5章) ─────────
+
+/**
+ * 決闘の当事者の思考。操縦を引き受けたら true を返す。
+ *
+ * - 誓約成立中: 相手を**撃墜せず**、距離を測りながら癖を見る。
+ * - 誓約が破られた後: 同じ陣営でも、誓約を破った側へ機首を向ける
+ *   (`AceOathRules.onBroken: 'defend-duel'`)。破った側が残っていなければ
+ *   false を返して通常の交戦へ戻す。
+ */
+function updateDuellist(world: World, e: Entity, dt: number, opts: AiOptions): boolean {
+  const rules = duel.rules!;
+  const ai = e.ai!;
+  const ship = e.ship!;
+
+  const target = duel.broken
+    ? nearestDuelBreaker(world, e)
+    : world.byId(rules.opponentId);
+  if (!target || target.kind !== 'ship' || !target.ship) return false;
+
+  ai.targetId = target.id;
+  ship.targetId = target.id;
+  ai.engagedFor += dt;
+
+  if (avoidCollision(world, e)) {
+    ai.mode = 'evade';
+    ai.maneuver = undefined;
+    ai.maneuverTimer = 0;
+    return true;
+  }
+
+  const distance = target.pos.distanceTo(e.pos);
+  if (!duel.broken) {
+    doDuelMeasure(world, e, target, distance);
+    return true;
+  }
+  // 誓約を破った側へは通常どおり撃つ (手加減しない)
+  if (distance > 1400) doPursue(world, e, target, distance, dt);
+  else doAttack(world, e, target, distance, dt, opts);
+  return true;
+}
+
+/** 誓約を破った側のうち、いちばん近い機体 */
+function nearestDuelBreaker(world: World, e: Entity): Entity | undefined {
+  let best: Entity | undefined;
+  let bestD = Infinity;
+  for (const id of duel.breakerIds) {
+    const t = world.byId(id);
+    if (!t || t.kind !== 'ship' || !t.ship) continue;
+    const d = t.pos.distanceToSquared(e.pos);
+    if (d < bestD) {
+      bestD = d;
+      best = t;
+    }
+  }
+  return best;
+}
+
+/**
+ * 「撃墜を狙わず、こちらの癖を測る」機動。
+ *
+ * 照準のばらつき (技量) と射撃判定は通常戦闘と同じものを使う。
+ * 変えるのは2点だけ:
+ *   - 相手のハルが `spareHullRatio` 以下になったら引き金を引かない (致命打を避ける)
+ *   - ミサイルを使わない (決闘は機動で測るもの)
+ * さらに `measureRange` 前後の距離を保ち、相手の機動に追随する。
+ */
+function doDuelMeasure(world: World, e: Entity, target: Entity, distance: number): void {
+  const ai = e.ai!;
+  const ship = e.ship!;
+  const input = e.input!;
+  const rules = duel.rules!;
+  const maxSpeed = ship.def.maxSpeed * Math.max(0.01, ship.speedScale);
+  const { speed } = gunProfile(e);
+
+  leadPoint(e.pos, target.pos, target.vel, speed, _lead);
+  _lead.add(aimJitter(e, world, distance, _tmp));
+  steerToPoint(e, _lead, 3.6, 0.45);
+
+  // 距離を測る: 近すぎれば絞り、離れれば詰める。相手の速度に合わせて追随する
+  const targetSpeed = target.vel.length();
+  const want =
+    distance < rules.measureRange
+      ? targetSpeed / maxSpeed - 0.25
+      : targetSpeed / maxSpeed + 0.3;
+  input.throttle = clamp01(Math.max(0.2, want));
+  input.afterburner = false;
+
+  const hullRatio = target.ship!.hull / Math.max(1, target.ship!.def.hull);
+  if (hullRatio > rules.spareHullRatio) tryFireGuns(world, e, target, distance);
+
+  ai.mode = 'attack';
 }
 
 // ───────── ターゲット選択 ─────────
@@ -183,9 +523,12 @@ function pickTarget(
   e: Entity,
   opts: AiOptions,
   attackersOnPlayer: number,
+  /** 学習した群体が自機へ同時に張り付ける機数の上乗せ (既定0 = 従来どおり) */
+  attackerBonus = 0,
 ): Entity | undefined {
   const ai = e.ai!;
   const current = world.byId(ai.targetId);
+  const attackerLimit = opts.maxAttackersOnPlayer + attackerBonus;
 
   // 僚機オーダー: リーダーの目標を攻撃
   if (ai.order === 'attack-my-target') {
@@ -203,7 +546,7 @@ function pickTarget(
     if (d < ENGAGE_RANGE * 1.4) {
       if (current.id !== world.playerId) return current;
       // プレイヤーを狙い続けてよいのは上限内のときだけ
-      if (attackersOnPlayer <= opts.maxAttackersOnPlayer) return current;
+      if (attackersOnPlayer <= attackerLimit) return current;
     }
   }
 
@@ -214,7 +557,7 @@ function pickTarget(
     if (!isHostile(e.faction, t.faction)) continue;
     const d = t.pos.distanceTo(e.pos);
     if (d > ENGAGE_RANGE) continue;
-    if (t.id === world.playerId && attackersOnPlayer >= opts.maxAttackersOnPlayer) continue;
+    if (t.id === world.playerId && attackersOnPlayer >= attackerLimit) continue;
     // 近い相手を優先し、脅威度の高い艦は少し優先度を上げる。
     // 係数を大きくすると全機が艦艇へ殺到してしまうので控えめにする
     let score = -d + t.ship.def.threat * 220;
@@ -324,6 +667,8 @@ function friendlyInLine(world: World, e: Entity, targetDistance: number): boolea
   for (const f of world.entities) {
     if (!f.alive || f.kind !== 'ship' || f.id === e.id) continue;
     if (isHostile(e.faction, f.faction)) continue;
+    // 誓約を破った側は同じ陣営でも庇わない (第5章。決闘の線と敵味方の線がずれる)
+    if (isDuelBreaker(e, f)) continue;
     _tmp.copy(f.pos).sub(e.pos);
     const d = _tmp.length();
     if (d > targetDistance || d < 1e-3) continue;
@@ -418,6 +763,8 @@ function doAttack(
   distance: number,
   dt: number,
   opts: AiOptions,
+  /** 学習した群体のプロファイル (既定は「学習なし」= 従来の攻め方) */
+  learned: SwarmProfile = NO_SWARM_LEARNING,
 ): void {
   void dt;
   const input = e.input!;
@@ -427,6 +774,15 @@ function doAttack(
   const { speed, range } = gunProfile(e);
 
   leadPoint(e.pos, target.pos, target.vel, speed, _lead);
+  // 隊形 (第6章の学習)。同じ射線に重ならないよう、機体ごとに一定方向へ進入をずらす。
+  // 命中のばらつき (aimJitter) とは別物で、こちらは「どこから入るか」しか変えない。
+  if (learned.lateralSpread > 0) {
+    _swarmSide
+      .set(e.id % 2 === 0 ? 1 : -1, ((e.id % 3) - 1) * 0.5, 0)
+      .applyQuaternion(e.quat)
+      .multiplyScalar(learned.lateralSpread);
+    _lead.add(_swarmSide);
+  }
   _lead.add(aimJitter(e, world, distance, _tmp));
   steerToPoint(e, _lead, 3.6, 0.45);
   void range;
@@ -595,12 +951,18 @@ function detectThreat(world: World, e: Entity): Threat | undefined {
   return undefined;
 }
 
-function startManeuver(ai: AiRuntime, kind: AiRuntime['maneuver'], duration: number): void {
+function startManeuver(
+  ai: AiRuntime,
+  kind: AiRuntime['maneuver'],
+  duration: number,
+  /** 回避を挟む間隔の倍率 (第6章の学習。既定1 = 従来どおり) */
+  cooldownScale = 1,
+): void {
   ai.maneuver = kind;
   ai.maneuverTimer = duration;
   ai.maneuverSign = rng.chance(0.5) ? -1 : 1;
   // 技量が高いほど短い間隔で機動を挟める
-  ai.maneuverCooldown = duration + 3.2 - ai.skill * 1.6;
+  ai.maneuverCooldown = (duration + 3.2 - ai.skill * 1.6) * cooldownScale;
 }
 
 function doManeuver(world: World, e: Entity, target: Entity, dt: number): void {

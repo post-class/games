@@ -1,0 +1,668 @@
+{
+  "note": "全体定数。出典は 07_ゲームシステム.html / 03_文明と進化.html / 30_実装手順書.md。数値リテラルをコードに書かず必ずここを参照する。",
+  "tickRate": 25,
+  "tickRateNote": "1 秒 = 25 tick（1 tick = 40ms）。手順書 §4.1 / 07§12",
+  "matchLengthSec": 1800,
+  "matchLengthSecNote": "約 30 分 = 45,000 tick。07§2。時間制限そのものは設けず、資源の枯渇で決着へ向かわせる目安値",
+  "matchPhases": [
+    {
+      "id": "buildup",
+      "name": "立ち上げ",
+      "fromSec": 0,
+      "toSec": 300,
+      "note": "村人だけを増やす時間。戦域は立たない。07§2"
+    },
+    {
+      "id": "contact",
+      "name": "初接触",
+      "fromSec": 300,
+      "toSec": 720,
+      "note": "斥候が出会い最初の戦域が 1 つ立つ。07§2"
+    },
+    {
+      "id": "split",
+      "name": "分割",
+      "fromSec": 720,
+      "toSec": 1200,
+      "note": "戦線が 2〜4 本に割れる。捨てる戦域を選び始める。07§2"
+    },
+    {
+      "id": "allout",
+      "name": "総力戦",
+      "fromSec": 1200,
+      "toSec": 1800,
+      "note": "戦域が最大 6 本。攻城戦で決着。07§2"
+    }
+  ],
+  "front": {
+    "note": "戦域の発生・成長・統合・分裂・消滅。07§3 / 手順書 §6.1",
+    "spawnRadiusTiles": 15,
+    "spawnMinUnits": 3,
+    "spawnEngageSec": 2,
+    "growBaseRadiusTiles": 15,
+    "growMaxRadiusTiles": 30,
+    "growUnitsPerRadiusTile": 4,
+    "growFormulaNote": "radius = clamp(growBaseRadiusTiles + floor(所属ユニット数 / growUnitsPerRadiusTile), growBaseRadiusTiles, growMaxRadiusTiles)。手順書 §6.1",
+    "mergeDistTiles": 20,
+    "splitDistTiles": 35,
+    "closeIdleSec": 15,
+    "warnThreshold": -0.3,
+    "advantageWindowSec": 10,
+    "advantageDamageWeight": 0.5,
+    "advantageStrengthWeight": 0.5,
+    "advantageFormulaNote": "advantage = 0.5*clamp((dealt-taken)/max(1,dealt+taken),-1,1) + 0.5*clamp(自軍残存兵力比-敵残存兵力比,-1,1)。手順書 §6.1",
+    "maxSlots": 6,
+    "maxSlotsNote": "同時に令を配れる本数の上限。上限超過の戦闘は起きるが令が届かない。07§3",
+    "enrollSkipManual": true,
+    "keepLastOrderOnClose": true,
+    "enemyFrontShowsRingOnly": true,
+    "enemyFrontShowsRingOnlyNote": "敵の戦域は輪の数と位置のみ可視。中身の兵種・数は見えない（囮の根拠）。07§7"
+  },
+  "order": {
+    "note": "令の遅延と切り替え。07§4 / 手順書 §6.2",
+    "baseDelaySec": 1.5,
+    "perTileSec": 0.02,
+    "delayMinSec": 0.5,
+    "delayMaxSec": 8.0,
+    "switchIntervalSec": 6.0,
+    "hayabaMul": 0.7,
+    "hayabaMulNote": "研究「早馬」は切り替え間隔を -30%（6.0 → 4.2 秒）。遅延ではなく間隔に掛かる",
+    "fukushoMul": 0.5,
+    "fukushoMulNote": "研究「復唱」で遅延 -50%（全体に乗算）",
+    "denreiFlatSec": -1.0,
+    "denreiFlatSecNote": "戦域内に伝令 1 体以上で -1.0 秒。重複しない",
+    "ekidenDistMul": 0,
+    "ekidenDistMulNote": "モンゴル「駅伝」は距離の項を 0 にする（常に 1.5 秒、復唱併用で 0.75 秒）",
+    "lowLoyaltyPenaltySec": 2.0,
+    "lowLoyaltyPenaltySecNote": "忠誠度 < 0.80 で +2.0 秒（乗算ではなく加算・丸め前）",
+    "calcOrderNote": "(baseDelaySec + dist*perTileSec) → 伝令加算 → 復唱の乗算 → 忠誠度の加算 → delayMin/Max でクランプ",
+    "checkExample": {
+      "distTiles": 200,
+      "denrei": true,
+      "fukusho": true,
+      "expectedSec": 2.25
+    },
+    "checkTable": [
+      {
+        "distTiles": 20,
+        "expectedSec": 1.9
+      },
+      {
+        "distTiles": 100,
+        "expectedSec": 3.5
+      },
+      {
+        "distTiles": 200,
+        "expectedSec": 5.5
+      },
+      {
+        "distTiles": 325,
+        "expectedSec": 8.0
+      }
+    ],
+    "doubleFlagUpperCount": 1,
+    "doubleFlagLowerCount": 1,
+    "doubleFlagNote": "上段 1 枚 + 下段 1 枚まで。同段の重ね掛けは入力段階で拒否。07§4",
+    "sourcesNote": "令の発信点 = 本陣 ∪ 自軍の城（モンゴルは大天幕・移動可）。本陣は八国とも不動"
+  },
+  "combat": {
+    "note": "与ダメージ = max(minDamage, atk - defEffective) * counter * terrain * formation。07§6 / 手順書 §6.4",
+    "minDamage": 1,
+    "counterGood": 1.5,
+    "counterBad": 0.7,
+    "counterNeutral": 1.0,
+    "pierceIgnoreDefRatio": 0.5,
+    "pierceIgnoreDefRatioNote": "貫通属性は防御の半分を無視（defEffective = floor(def/2)）",
+    "highGround": 1.15,
+    "lowGround": 0.9,
+    "denseAoeTaken": 1.4,
+    "friendlyFire": 0.5,
+    "forestRangedRange": -0.25,
+    "shallowCavSpeed": -0.3,
+    "looseSpeed": -0.15,
+    "unmultipliedNote": "forestRangedRange / shallowCavSpeed / looseSpeed は与ダメージ式には掛からず射程・速度に効く。07§6",
+    "meleeReachTiles": 1,
+    "meleeReachTilesNote": "近接の間合い（マス）。資料に数値なし・初期値。",
+    "healPerAction": 5,
+    "healPerActionNote": "祈祷師 1 回の治療で戻る HP。資料に数値なし・初期値（03§4「負傷兵の治療」）。",
+    "targetScanIntervalTicks": 12,
+    "targetScanIntervalTicksNote": "目標が見つからなかったユニットが再探索するまでの tick。0.5 秒相当（07§5 の判断間隔と同じ位相）。"
+  },
+  "morale": {
+    "note": "士気。0 で退却。07§6 士気 / 手順書 §6.5。減少速度・回復速度は資料に数値なし",
+    "start": 1.0,
+    "startNote": "資料に数値なし・初期値（0..1 で満タン開始）",
+    "isolationRadiusTiles": 5,
+    "isolationAllyCountMax": 0,
+    "isolationRadiusNote": "半径 5 マスに味方 0 で孤立。手順書 §6.5",
+    "deathShockWindowSec": 3,
+    "deathShockRadiusTiles": 6,
+    "deathShockCount": 3,
+    "priestRadiusTiles": 8,
+    "retreatSec": 10,
+    "retreatSecNote": "morale 0 で 10 秒間、最寄り拠点方向へ退却して回復し戻る。frontId は保持。07§6",
+    "keepFrontIdWhileRetreat": true,
+    "decayPerSecIsolated": 0.06,
+    "decayPerSecFrontWarned": 0.04,
+    "decayPerSecDeathShock": 0.1,
+    "decayPerSecOrderUndelivered": 0.03,
+    "regenPerSecDense": 0.05,
+    "regenPerSecPriest": 0.08,
+    "regenPerSecFrontAdvantage": 0.04,
+    "regenPerSecInsideOwnWalls": 0.03,
+    "regenPerSecRetreating": 0.12,
+    "ratesNote": "decayPerSec* / regenPerSec* はすべて資料に数値なし・初期値（要調整）。要因の有無だけが 07§6 に列挙されている",
+    "stackRatesNote": "複数要因は加算し、1 tick あたり (合計 / tickRate) を適用する想定。資料に数値なし・初期値",
+    "recoveredOnReturn": 0.5,
+    "recoveredOnReturnNote": "退却明けに戻る最低士気（0..1）。07§6「10 秒ほど後退して回復し、また戻ってくる」の回復量。資料に数値なし・初期値。",
+    "insideOwnWallsRadiusTiles": 6,
+    "insideOwnWallsRadiusTilesNote": "「自軍の建物・壁の内側」と見なす距離（マス）。資料に数値なし・初期値。"
+  },
+  "economy": {
+    "note": "実効収集速度 = 基礎速度 × 研究倍率 × 文明倍率 × (1 - 運搬損失)。07§8 / 手順書 §6.6",
+    "carryCapacity": 10,
+    "haulLossTilesPerStep": 4,
+    "haulLossPer4Tiles": 0.05,
+    "haulLossMax": 0.5,
+    "haulLossFormulaNote": "運搬損失 = min(haulLossMax, floor(片道距離マス / haulLossTilesPerStep) * haulLossPer4Tiles)。40 マスで上限 50%",
+    "dropOffBuildingsNote": "搬入点 = 町の中心・伐採所・採掘場・桟橋。07§8",
+    "farmYield": 400,
+    "farmRebuildCostRatio": 0.5,
+    "farmRebuildCostRatioNote": "枯れた農地は木材の半額で再建（自動再建オプションあり）",
+    "marketPriceUpPer100": 0.03,
+    "marketDecayPer30s": 0.01,
+    "marketPriceSharedByAllPlayers": true,
+    "tradeGoldPerTile": 0.5,
+    "tradeGoldPerTileNote": "金 = 片道距離 × 0.5 / 荷車 1 台の往復ごと。片道 100 マスで 50",
+    "tributeFeeRatio": 0.1,
+    "villagerFleeToTowerEnabled": true,
+    "villagerFleeToTowerEnabledNote": "攻撃された村人は最寄りの塔・櫓・城へ自動退避（設定で無効化可）。07§8",
+    "wellGatherPenaltyRatio": -0.2,
+    "wellGatherPenaltyRatioNote": "井戸を壊されると周囲の村人の採集速度 -20%。03§3 付属物",
+    "farmAutoRebuild": true,
+    "farmAutoRebuildNote": "枯れた農地を村人が自動で建て直すか（07§8「自動再建の設定も可」）。試合オプションで切替可にする想定。",
+    "marketBasePriceGold": 1.0,
+    "marketBasePriceGoldNote": "資源 1 単位の基準価格（金）。資料に数値なし・初期値。相場倍率 priceMul を掛けた値が実売買価格になる。",
+    "marketPriceUnitStep": 100,
+    "marketPriceUnitStepNote": "「100 単位買うごとに +3%」の 100（07§8）。",
+    "marketDecayIntervalSec": 30,
+    "marketDecayIntervalSecNote": "「30 秒ごとに 1% ずつ元に戻る」の 30（07§8）。",
+    "marketSellRatio": 1.0,
+    "marketSellRatioNote": "売却時の受取率。07§8 は売買の非対称性に触れていないため 1.0（要判断・ISSUES.md 参照）。",
+    "marketSellMovesPrice": false,
+    "marketSellMovesPriceNote": "売却で相場を下げるか。07§8 は「買われた資源ほど高くなる」とだけ書いており売却側の規定がないため false（要判断・ISSUES.md 参照）。"
+  },
+  "construction": {
+    "note": "建設・修理・壁。07§9 / 手順書 §6.7",
+    "villagerSpeedMulTable": {
+      "1": 1.0,
+      "2": 1.7,
+      "3": 2.3,
+      "4": 2.8,
+      "5": 3.3,
+      "6": 3.7,
+      "7": 4.2,
+      "8": 4.7
+    },
+    "villagerSpeedMulTableNote": "1 人 1.0 / 2 人 1.7 / 3 人 2.3 は 07§9 の明記値。4 人以上は逓減式 1 + 0.7*(n-1)^0.85 を小数第 1 位で整数テーブル化（資料に数値なし・初期値）",
+    "villagerSpeedMulMaxVillagers": 8,
+    "villagerSpeedMulMaxVillagersNote": "テーブル上限を超える人数は 8 人の値で打ち止め。資料に数値なし・初期値",
+    "repairCostRatioMax": 0.25,
+    "repairCostRatioMaxNote": "修理費は失った HP に比例、建設費の 1/4 が上限。07§9",
+    "wallRebuildTimeMul": 1.5,
+    "wallHolePermanent": true,
+    "wallHolePermanentNote": "壊れた壁の穴はその試合中ずっと通り道として残る。07§9",
+    "rubbleSec": 30,
+    "rubbleSecNote": "破壊跡地は「数十秒」残る（07§9）。具体値は資料に数値なし・初期値 30 秒",
+    "underConstructionHpRatio": 0.25,
+    "underConstructionHpRatioNote": "建設中の建物は体力が低い（07§9）。比率は資料に数値なし・初期値",
+    "refundOnDestroyedWhileBuilding": 0.0,
+    "gatePassableForAlliesOnly": true,
+    "siegePassesGateOrHoleOnly": true,
+    "towerGarrisonNote": "塔・砲塔は村人を収容でき、収容中の村人は矢を放つ。07§9",
+
+    "blockTilesForBuildings": false,
+    "blockTilesForBuildingsNote": "壁・門以外の建物も足跡のマスを封鎖するか。既定 false。true にすると町の中心などの足跡が通行不可になり、村人の搬入・修理（建物の代表点を目標にして寄っていく実装）が届かなくなるため（economy / movement 側が『建物の縁に着いたら到着』を実装したら true に戻す。M10 の申し送り）。壁・門は常に封鎖し、敷設物（isLinear で壁でないもの＝街道）と付属物は常に封鎖しない",
+    "wallTopElevation": 2,
+    "wallTopElevationNote": "完成した壁の上の高低（terrain.ts の elevation 2 = 城壁上）。combat.highGround ×1.15 の根拠。門は地上なので付けない",
+    "gateOpenRadiusTiles": 6,
+    "gateOpenRadiusTilesNote": "門が開く判定の半径。半径内に自軍・味方がいて敵がいなければ開く（=通行ビットの Blocked を下ろす）。通行ビットは所有者を持てないので「敵が近いと閉じる」で『自軍と味方だけが通れる』を表す。資料に数値なし・初期値",
+
+    "garrisonArrowDamage": 6,
+    "garrisonArrowDamageNote": "収容中の 1 名が放つ矢の攻撃力（07§9『収容中の村人は塔から矢を放つ』）。塔本体の 12 の半分。資料に数値なし・初期値",
+    "garrisonVolleySec": 2.0,
+    "garrisonVolleySecNote": "収容中の 1 名が矢を放つ間隔（秒）。塔の attackSec と同じ 2.0 に合わせた",
+    "attachmentOffsetTiles": 2,
+    "attachmentOffsetTilesNote": "付属物（井戸・種籾蔵）を親建物の代表点からどれだけずらして置くか（マス）",
+    "attachmentParentsPer": {
+      "well": 1,
+      "seed_store": 3
+    },
+    "attachmentParentsPerNote": "付属物 1 つが受け持つ親建物の数。井戸は『町の中心・家 1 か所につき 1 つ』、種籾蔵は『農地の数面ごとに 1 つ』（03§3）。3 面は資料に数値なし・初期値",
+
+    "ladderRadiusTiles": 3,
+    "ladderRadiusTilesNote": "井楼・攻城塔（壁を壊さない運搬兵器）が壁越えに運べる歩兵の半径。資料に数値なし・初期値",
+    "ladderCarryPerCross": 2,
+    "ladderCarryPerCrossNote": "1 回の壁越えで運べる人数。攻城塔は井楼の上位で『多く運べる』が、段の差は兵器 1 台の耐久で表しているのでここは共通値。資料に数値なし・初期値",
+    "ladderCrossSec": 2.0,
+    "ladderCrossSecNote": "壁越えの間隔（秒）。資料に数値なし・初期値",
+    "ladderMaxWallThickness": 3,
+    "ladderMaxWallThicknessNote": "越えられる壁の厚み（マス）。これより厚い封鎖は越えられない",
+
+    "moatTile": "shallow",
+    "moatTileNote": "堀は新しいタイル種別を足さず既存の『浅瀬』で表す。浅瀬の通行ビットは Land|Ship で Wheeled を含まないため『攻城兵器は橋を通るしかない』（01 決着は、城の前で）が地形だけで成立し、騎兵も水際で −30% になる",
+    "drawbridgeTile": "road",
+    "drawbridgeTileNote": "跳ね橋は『街道』タイルで表す（terrain.ts が Road を『街道・橋の路面』と定義している）。Road は Land|Wheeled なので橋の上だけ攻城兵器が通れる。橋を上げる＝そのマスの Blocked を立てる",
+
+    "siege": {
+      "note": "攻城兵器の『得意』『弱点』（03§6）を、兵器 ID ではなく attackClass と traits から引く倍率にしたもの。壁・門・建物への与ダメージに掛かる",
+      "wallCrosserVsStructureMul": 0.0,
+      "wallCrosserVsStructureMulNote": "井楼・攻城塔（traits に carry_units があり攻撃力 0）は壁を壊さない。退くと元に戻る（03§6）",
+      "ramVsGateMul": 1.5,
+      "ramVsBuildingMul": 1.25,
+      "ramVsWallMul": 0.5,
+      "ramMulNote": "破城槌（carry_units かつ攻撃力あり）は門と建物が得意、壁は苦手（03§6）",
+      "aoeVsWallMul": 1.5,
+      "aoeVsWallMulNote": "投石系（範囲攻撃）は壁を崩す（01・03§6『壁を確実に崩す』）",
+      "directVsStructureMul": 0.2,
+      "directVsStructureMulNote": "バリスタ・床子弩（直射・貫通・範囲 0）は建物にほとんど効かない（03§6）",
+      "antiBuildingVsWallMul": 0.0,
+      "antiBuildingVsBuildingMul": 1.35,
+      "antiBuildingMulNote": "焼き討ち隊（traits anti_building）は火矢で建物を焼くが壁は壊せない（03§6）",
+      "targetBonusWall": 0.5,
+      "targetBonusGate": 0.75,
+      "targetBonusBuilding": 0.5,
+      "targetBonusNote": "『包囲』の令で兵器がどの構造物を優先して狙うかの加点（unitDecision の targetPriority への上乗せ。上の倍率が 0 の相手には加点しない）"
+    }
+  },
+  "population": {
+    "note": "人口。03§1 / 07§8",
+    "defaultCap": 200,
+    "housePop": 5,
+    "townCenterPop": 10,
+    "siegePop": 3,
+    "elephantPop": 2
+  },
+  "loyalty": {
+    "note": "忠誠度 0..1。07§10 / 手順書 §6.8",
+    "start": 1.0,
+    "regenPer30s": 0.01,
+    "regenPeriodSec": 30,
+    "regenPeriodSecNote": "自然回復 +1% の周期。07§10 の『+1% / 30 秒』の 30 秒側（キー名に埋まっていた値をコードから読めるように明示した）",
+    "breakLaw": -0.25,
+    "lawPenalties": {
+      "monolithIsleEngage": -0.25,
+      "wellDestroyed": -0.25,
+      "seedStoreDestroyed": -0.25,
+      "fleeingVillagerAttacked": -0.25
+    },
+    "lawPenaltyKeyByLawId": {
+      "law1": "monolithIsleEngage",
+      "law2": "wellDestroyed",
+      "law3": "seedStoreDestroyed",
+      "law5": "fleeingVillagerAttacked"
+    },
+    "lawPenaltyKeyByLawIdNote": "掟 ID（buildings.json の lawViolationOnDestroy と同じ語彙）→ lawPenalties のキー。掟四（休戦の季）は罰が無いので載せない。02 戦の作法 / 07§10",
+    "fleeingVillagerWindowSec": 30,
+    "fleeingVillagerWindowSecNote": "落城地点から逃げる村人を 30 秒以内に攻撃すると掟五が成立。07§10",
+    "loseTownCenter": -0.05,
+    "abandonFronts": -0.1,
+    "abandonCountThreshold": 3,
+    "abandonIdleSec": 60,
+    "abandonExcludesRetreatOrder": true,
+    "truceKept": 0.15,
+    "thresholdDelayPenalty": 0.8,
+    "thresholdDelayPenaltySec": 2.0,
+    "thresholdDefect": 0.5,
+    "thresholdDefeat": 0.0,
+    "defectSlotSelection": "maxSlot",
+    "defectSlotSelectionNote": "離反対象の戦域は slot 番号が最大のもの（乱数を使わない）。手順書 §6.8",
+    "minValue": 0.0,
+    "maxValue": 1.0,
+    "clampNote": "上下限は 0..1。資料に明記なし・初期値",
+    "fleeingVillagerCount": 3,
+    "fleeingVillagerCountNote": "落城 1 回で出る逃亡村人の数。資料に数値なし・初期値（数体）",
+    "fleeingVillagerSpacingTiles": 1.5,
+    "fleeingVillagerSpacingTilesNote": "逃亡村人を並べる間隔（マス）。資料に数値なし・初期値",
+    "blameRadiusTiles": 12,
+    "blameRadiusTilesNote": "掟破りの犯人を探す半径（マス）。Entities に『最後に殴った者』の列が無いため、この半径内で最も近い敵の攻撃者を犯人とする。遠隔の最大射程（櫓 10）より広く取る。資料に数値なし・初期値",
+    "defectRecoversAboveThreshold": true,
+    "defectRecoversAboveThresholdNote": "忠誠度が離反閾値まで戻ったら離反も解ける。07§10 に解除条件の記述が無いため既定 true（02『旗を戻した国はいくつもある』）"
+  },
+  "ages": [
+    {
+      "id": "reimei",
+      "name": "黎明の世",
+      "slots": 1,
+      "note": "開始時代。八国とも同じ兵しか持たない。03§2"
+    },
+    {
+      "id": "seido",
+      "name": "青銅の世",
+      "slots": 2,
+      "cost": {
+        "food": 500
+      },
+      "researchSec": 130,
+      "requireBuildingsOfPrevAge": 2,
+      "note": "文明ごとの兵種系統が枝分かれする。03§2"
+    },
+    {
+      "id": "tekki",
+      "name": "鉄器の世",
+      "slots": 3,
+      "cost": {
+        "food": 800,
+        "gold": 200
+      },
+      "researchSec": 160,
+      "requireBuildingsOfPrevAge": 2,
+      "note": "各系統が第 2 段へ。攻城が解禁。騎兵は多くの文明がここから。03§2"
+    },
+    {
+      "id": "teikoku",
+      "name": "帝国の世",
+      "slots": 4,
+      "cost": {
+        "food": 1000,
+        "gold": 800
+      },
+      "researchSec": 190,
+      "requireBuildingsOfPrevAge": 2,
+      "note": "各系統が最終段へ。硝石を持つ文明だけ火器が出る。03§2"
+    }
+  ],
+  "slotBonus": {
+    "note": "戦域スロットは時代 + 城 + 研究「旗竿」。合計上限 6。03§2 / 07§3",
+    "perCastle": 1,
+    "techHatazao": 1,
+    "hardMax": 6,
+    "perCastleNote": "参考値。実際の加算は buildings.json の castle / great_tent の frontSlotBonus が担う（効果はデータ側に一本化。ここは資料 03§2 の記述の記録）。",
+    "techHatazaoNote": "参考値。実際の加算は techs.json の hatazao の effects[frontSlot] が担う。"
+  },
+  "victory": {
+    "note": "勝敗。03§10 / 07 / 手順書 §6.9",
+    "monumentHoldSec": 360,
+    "monumentHoldSecNote": "碑の写しを 6 分（9,000 tick）守り切る",
+    "monumentCost": {
+      "wood": 1000,
+      "stone": 1000,
+      "gold": 1000
+    },
+    "monumentRequiresAge": "teikoku",
+    "monumentRevealsPositionToAll": true,
+    "conquestRequiresAllTownCentersDestroyed": true,
+    "defeatOnLoyaltyZero": true,
+    "defeatOnAllTownCentersLost": true,
+    "zeroFrontsIsNotDefeat": true
+  },
+  "orderEffects": {
+    "note": "固有令のフラグ（orders.json の flags）を適用するときの、令ごとに変える必要がない部分。倍率そのものが令ごとに違うもの（damageTakenMul / buildingDamageMul / killIncomeRatio / holdIncome）は orders.json 側に置く。読む場所は sim/core/orderEffects.ts",
+    "waterAssaultDamageMul": 1.2,
+    "waterAssaultDamageMulNote": "上陸（waterAssault）: 浅瀬・湿地に足を置いて攻めるときの与ダメージ倍率。資料に数値なし・初期値。01 の『水辺の戦域に強襲をかける』の『強襲』を、水際に立ったときの攻撃補正として実装した",
+    "waterAssaultIgnoresLowGround": true,
+    "waterAssaultIgnoresLowGroundNote": "上陸: 07§6 の『低所 → 高所 = 0.9』を打ち消すか。岸へ攻め上がる不利を消すのが『上陸』の意味なので true。高所からの有利（1.15）は伸ばさない",
+    "killIncomeIncludesBuildings": false,
+    "killIncomeIncludesBuildingsNote": "奉納（killIncomeRatio）が建物の撃破も資源に変えるか。建物のコストは兵の 10 倍以上あり、既定で含めると下段の令としては強すぎるので false。資料に規定なし"
+  },
+  "traits": {
+    "note": "units.json の traits（03§8『輪をどう破るか』の列）の数値。すべて資料に数値なし・初期値。効果を適用するのは sim/systems/combat.ts。armor_pierce は units.json の pierce: true でデータ側に表現済みなのでここには無い",
+    "antiEliteAtkMul": 1.75,
+    "antiEliteAtkMulNote": "武士（anti_elite）: 相手が line = elite の兵のときの与ダメージ倍率。『他国のエリートに対して攻撃が大きく上がる』。atk 13 → 実効 22.75 で、他のエリート（hp 65〜100）を 3〜5 発で落とせる = 『名指しで殺す』が成立する値",
+    "antiInfantryAtkMul": 1.6,
+    "antiInfantryAtkMulNote": "ジャガー戦士（anti_infantry）: 相手が近接歩兵 role のときの与ダメージ倍率。『他の近接歩兵に対する攻撃が非常に高い』。相性の有利（1.5）より少し上に置き、相性の輪の外から歩兵戦を割る役だと分かるようにした",
+    "antiInfantryRoles": ["spear", "sword"],
+    "antiInfantryRolesNote": "『近接歩兵』とみなす role。03§7 の輪の『槍・長槍』と『刀剣系近接』。役割で判定し兵の名前では判定しない",
+    "antiBuildingDamageMul": 2.0,
+    "antiBuildingDamageMulNote": "火矢兵（anti_building）: 建物への与ダメージ倍率。03§5『火矢で建物を焼く』。壁を壊せない制約は未実装（申し送り）",
+    "formationDefenseRadiusTiles": 2,
+    "formationDefenseArmorPerAlly": 1,
+    "formationDefenseMaxAllies": 4,
+    "formationDefenseNote": "レギオン（formation_defense）: 半径 2 マス内の同種の味方 1 体につき装甲 +1、最大 4 体。『隣に同じレギオンが並ぶほど防御が上がる』。素の pierceDef 4 が最大 8 になり、遠隔（atk 6〜9）の与ダメージが最低保証近くまで落ちる = 『遠隔に溶かされない』",
+    "multiShotArrows": 3,
+    "multiShotArrowsNote": "連弩兵（multi_shot）: 1 回の射撃で放つ矢の本数。射程内の別々の敵に 1 本ずつ配る（同じ敵に重ねない）。敵が多いほど強い = 『密集した近接歩兵を一方的に処理する』",
+    "selfHealHpPerSec": 1.5,
+    "selfHealHpPerSecNote": "ベルセルク（self_heal）: 毎秒回復する HP。祈祷師（5 HP / 2 秒 = 2.5）より遅く置き、『祈祷師の代わりにはならないが補給がなくても粘れる』量にした",
+    "knockbackTiles": 0.35,
+    "knockbackTilesNote": "戦象・親衛象（knockback）: 命中した敵ユニットを着弾点から遠ざける距離（マス）。1 マス未満にしてあるのは、押し出しで敵を戦域外へ飛ばして優勢度を壊さないため。押し出し先が通れないタイルなら押さない",
+    "movingShotCooldownMul": 1.5,
+    "movingShotCooldownMulNote": "遠隔兵が『移動しながら撃った』ときの次弾までの倍率。move_and_shoot（親衛弓騎兵）を持つ兵はこの倍率を受けない = 『移動しながら射撃でき、減速しない』"
+  },
+  "counterMatrixNote": "counterMatrix は 攻撃側 role → 防御側 role → good（×counterGood）/ bad（×counterBad）。行の中に note を混ぜないこと（キーは必ず role ID）。書かれていない組み合わせは neutral（×counterNeutral）。出典 03§7 の表",
+  "counterMatrix": {
+    "spear": {
+      "cavalry": "good",
+      "beast": "good",
+      "ranged": "bad",
+      "siege": "bad"
+    },
+    "sword": {
+      "spear": "good",
+      "building": "good",
+      "ranged": "bad"
+    },
+    "ranged": {
+      "spear": "good",
+      "sword": "good",
+      "cavalry": "bad",
+      "siege": "bad"
+    },
+    "cavalry": {
+      "ranged": "good",
+      "siege": "good",
+      "villager": "good",
+      "spear": "bad",
+      "camel": "bad"
+    },
+    "camel": {
+      "cavalry": "good",
+      "ranged": "good",
+      "siege": "good",
+      "villager": "good",
+      "spear": "bad"
+    },
+    "beast": {
+      "spear": "good",
+      "sword": "good",
+      "gunpowder": "bad",
+      "siege": "bad"
+    },
+    "siege": {
+      "building": "good",
+      "spear": "good",
+      "sword": "good",
+      "cavalry": "bad"
+    },
+    "gunpowder": {
+      "sword": "good",
+      "beast": "good",
+      "cavalry": "bad"
+    },
+    "ship": {},
+    "villager": {},
+    "support": {
+      "spear": "bad",
+      "sword": "bad",
+      "ranged": "bad",
+      "cavalry": "bad",
+      "camel": "bad",
+      "beast": "bad",
+      "siege": "bad",
+      "gunpowder": "bad",
+      "ship": "bad",
+      "villager": "bad",
+      "support": "bad",
+      "building": "bad"
+    },
+    "building": {}
+  },
+  "counterMatrixRowNotes": {
+    "spear": "槍・長槍: 強い = 騎兵・獣兵 / 弱い = 遠隔・投石系(siege)。03§7",
+    "sword": "刀剣系近接: 強い = 槍・建物 / 弱い = 遠隔。03§7",
+    "ranged": "遠隔: 強い = 近接歩兵全般(spear, sword) / 弱い = 騎兵・攻城兵器。03§7",
+    "cavalry": "騎兵: 強い = 遠隔・攻城兵器・村人 / 弱い = 槍・長槍・駱駝騎兵。03§7",
+    "camel": "03§7 の表に camel の行はない。README のとおり「騎兵に強い騎兵」として cavalry 行に cavalry: good を足した。資料に数値なし・初期値",
+    "beast": "獣兵（ペルシアのみ）: 強い = 槍の壁・密集歩兵(sword) / 弱い = 火器・大型弩砲(siege)。03§7",
+    "siege": "攻城兵器: 強い = 建物・壁・密集歩兵(spear, sword) / 弱い = 騎兵・近接全般。近接全般のうち sword/spear は siege 側から見て good なので相互 good（撃ち合いは相性表ではなく射程差で決まる）。03§7",
+    "gunpowder": "火器: 強い = 重装甲の兵(sword)・獣兵 / 弱い = 騎兵（連射が遅い）。03§7",
+    "ship": "03§7 の表に ship の行はない。すべて neutral。資料に数値なし・初期値",
+    "villager": "03§7 の表に villager の行はない。すべて neutral。資料に数値なし・初期値",
+    "support": "祈祷師: 強い相手なし（治療）・弱い相手はすべて。03§7",
+    "building": "塔・砲塔などの反撃。03§7 の表に building の行はない。すべて neutral。資料に数値なし・初期値"
+  },
+  "vision": {
+    "note": "視界・霧。07§7 / 手順書 §7.2",
+    "updateIntervalTicks": 5,
+    "states": [
+      "unexplored",
+      "known",
+      "visible"
+    ],
+    "knownShowsTerrainAndBuildingShapeOnly": true,
+    "knownHidesHpAndDestroyed": true,
+    "ownEngagedFrontVisibleOutsideVision": true,
+    "monumentAlwaysVisible": true
+  },
+  "matchOptionsNote": "matchOptions は対戦設定で切り替えられるオプション 7 種。キーはオプション ID のみ（note を混ぜない）。07§14",
+  "matchOptions": {
+    "truceSeason": {
+      "name": "休戦の季",
+      "default": false,
+      "startSec": 900,
+      "startSecNote": "「試合の 15 分前後」を 900 秒に固定（資料は「前後」表記・初期値）",
+      "durationSec": 60,
+      "blocksNewFronts": true,
+      "existingFrontsHoldOrders": true,
+      "existingFrontsStopEngaging": true,
+      "loyaltyBonusOnKept": 0.15
+    },
+    "startAge": {
+      "name": "開始時代",
+      "default": "reimei",
+      "allowed": [
+        "reimei",
+        "seido",
+        "tekki",
+        "teikoku"
+      ],
+      "note": "上げると内政フェーズを飛ばせる。戦域スロットも初めからその時代の数になる"
+    },
+    "startResources": {
+      "name": "開始資源",
+      "default": "standard",
+      "presets": {
+        "low": {
+          "food": 100,
+          "wood": 100,
+          "stone": 50,
+          "gold": 0
+        },
+        "standard": {
+          "food": 200,
+          "wood": 200,
+          "stone": 100,
+          "gold": 50
+        },
+        "high": {
+          "food": 600,
+          "wood": 600,
+          "stone": 300,
+          "gold": 200
+        }
+      },
+      "note": "多くすると最初の戦域が 5 分より早く立つ（07§14）。各プリセットの具体量は資料に数値なし・初期値"
+    },
+    "gameSpeed": {
+      "name": "ゲーム速度",
+      "default": 1.0,
+      "min": 0.5,
+      "max": 1.5,
+      "step": 0.1,
+      "stepNote": "刻み幅は資料に数値なし・初期値",
+      "note": "tick レートは変えず tickBudget で調整する（手順書 §4.1）。AI も同じ速度なので難易度は変わらない。オンラインは全員一致が必要"
+    },
+    "frontSlotCap": {
+      "name": "戦域スロット上限",
+      "default": 6,
+      "min": 2,
+      "max": 6,
+      "note": "少なくすると「捨てる判断」が強く出る競技寄りのルールになる"
+    },
+    "resourceDepletion": {
+      "name": "資源の枯渇",
+      "default": true,
+      "note": "無効にすると森と鉱脈が無限になり決着が長引く"
+    },
+    "lawsEnabled": {
+      "name": "掟の適用",
+      "default": true,
+      "note": "無効にすると忠誠度の仕組みが働かず、井戸や種籾も自由に壊せる。掟五つのうち休戦の季だけが別オプション"
+    }
+  },
+  "mapgen": {
+    "note": "マップ生成のパラメータ（07§13）。生成順序は 開始位置 → 初期資源 → 争点 → 地形 → 通行検査。資料に数値がない項目は実装時の初期値で、すべて調整可。",
+    "tileCost": {
+      "note": "経路探索の 1 マスあたり移動コスト（整数）。0 = 通行不可。平地 10 を基準にした相対値。資料に数値なし・初期値。",
+      "grass": 10,
+      "forest": 16,
+      "hill": 14,
+      "water": 10,
+      "shallow": 18,
+      "road": 7,
+      "rubble": 12,
+      "cliff": 0
+    },
+    "startRingRatio": 0.36,
+    "startRingRatioNote": "開始位置を置く円の半径（マップ幅に対する比）。07§13「円周上に等間隔」。",
+    "startClearTiles": 6,
+    "startClearTilesNote": "拠点周囲の平地を確保する半径（マス）。地形描画で壊さない保護域。",
+    "contestBoxRatio": 0.3,
+    "contestBoxRatioNote": "争点を置く中央領域の一辺（マップ幅に対する比）。07§13「中央寄りに集める」。",
+    "contestRingRatio": 0.08,
+    "contestGoldCount": 4,
+    "contestForestSide": 3,
+    "richMul": 2,
+    "richMulNote": "争点の資源ノードの埋蔵量倍率（他より豊かな森・追加の金鉱）。",
+    "maxAttempts": 20,
+    "maxAttemptsNote": "通行検査に失敗したときの再生成回数の上限。超えたら平野型にフォールバック（手順書 §6.10）。",
+    "noiseCellTiles": 12,
+    "riverWidthTiles": 3,
+    "streamWidthTiles": 2,
+    "bridgeWidthTiles": 3,
+    "shallowFringeChance": 0.7,
+    "defileWallThickness": 3,
+    "defileGapTiles": 6,
+    "islandClearTiles": 16
+  },
+  "pathfind": {
+    "note": "経路探索（手順書 §6.10 / T-M3-07）。8×8 マスのセクタ粗経路 → セクタ内 A* の 2 段構成。資料に数値なし・初期値。",
+    "maxNodes": 4000,
+    "maxNodesNote": "1 回の A* で展開するノード数の上限。超えたら部分経路を返す（長距離での破裂を防ぐ）。",
+    "goalSearchRadiusTiles": 12,
+    "corridorDilateSectors": 1,
+    "horizonSectors": 6,
+    "horizonSectorsNote": "細経路を作る範囲（手前 N セクタ）。残りは粗経路のまま進み、近づいてから細経路を引き直す。"
+  },
+  "movement": {
+    "note": "経路追従と押し出し（T-M3-07 の movement）。資料に数値なし・初期値。",
+    "maxWaypoints": 12,
+    "repathBudgetPerTick": 4,
+    "repathBudgetPerTickNote": "1 tick に経路を引き直せる体数の上限。全体の負荷を頭打ちにするため。",
+    "repathCooldownTicks": 12,
+    "arriveEpsTiles": 0.2,
+    "waypointEpsTiles": 0.35,
+    "separationTiles": 0.7,
+    "separationTilesNote": "ユニット同士の押し出しが働く距離（マス）。",
+    "maxPushTiles": 0.15,
+    "maxPathFails": 2,
+    "maxPathFailsNote": "経路探索に連続で失敗したら目標を放棄して待機する回数。",
+    "fallbackSpeedTilesPerSec": 0.9
+  },
+  "projectile": {
+    "note": "投射物の飛翔（T-M7-01）。飛翔時間は持つが命中は確定（外れ判定がない＝乱数を使わない）。資料に数値なし・初期値。",
+    "arrowSpeedTilesPerSec": 12,
+    "boltSpeedTilesPerSec": 20,
+    "aoeSpeedTilesPerSec": 6,
+    "minFlightTicks": 1
+  }
+}

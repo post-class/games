@@ -62,11 +62,11 @@ describe('EASY プレイヤー攻撃補正', () => {
   });
 
   it('EASYの主砲だけは通常なら外れる軽いずれでも命中する', () => {
-    const targetOffset = shipDef('dralthi').radius * 1.4;
+    const targetOffset = shipDef('kf03-greyhaul').radius * 1.4;
 
     const normal = playerWorld();
     const normalTarget = spawnShip(normal.world, {
-      def: shipDef('dralthi'),
+      def: shipDef('kf03-greyhaul'),
       faction: 'kilrathi',
       pos: new Vector3(targetOffset, 0, -100),
       speed: 0,
@@ -82,7 +82,7 @@ describe('EASY プレイヤー攻撃補正', () => {
 
     const easy = playerWorld();
     const easyTarget = spawnShip(easy.world, {
-      def: shipDef('dralthi'),
+      def: shipDef('kf03-greyhaul'),
       faction: 'kilrathi',
       pos: new Vector3(targetOffset, 0, -100),
       speed: 0,
