@@ -82,7 +82,7 @@
       .meta span + span { padding-left: 8px; border-left: 1px solid var(--line); }
       .record { min-height: 38px; margin-bottom: 8px; color: #cfdbed; font-size: 12px; line-height: 1.45; }
       .level { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 7px; color: var(--muted); font: 10px var(--mono); }
-      .level-bar { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; }
+      .level-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; }
       .level-bar i { height: 5px; background: #253752; }
       .level-bar i.on { background: var(--cyan); }
       .person.ace .level-bar i.on { background: var(--gold); }
@@ -105,7 +105,7 @@
       .dialog-visuals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
       .dialog-visual { margin: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: #07101e; }
       .dialog-visual img { display: block; width: 100%; height: 300px; object-fit: contain; object-position: center top; background: #07101e; cursor: zoom-in; }
-      .dialog-visual figcaption { padding: 7px 9px; color: var(--muted); font-size: 11px; }
+      .dialog-visual figcaption { min-height: 42px; padding: 8px 10px; color: var(--muted); font-size: 12px; line-height: 1.55; }
       .dialog-visual figcaption strong { display: block; color: var(--text); font-size: 12px; }
       .image-dialog { width: min(90vw, 1100px); max-width: none; max-height: 92vh; padding: 44px 18px 18px; border: 1px solid var(--cyan); border-radius: 14px; background: #050b16; }
       .image-dialog::backdrop { background: rgba(0, 0, 0, .88); }
@@ -114,7 +114,12 @@
       .profile-sections { display: grid; gap: 14px; }
       .profile-section { padding-top: 11px; border-top: 1px solid var(--line); }
       .profile-section h3 { margin-bottom: 4px; color: var(--cyan); font-size: 14px; }
-      .persona-copy { margin: 0; color: #d8e4f4; font-size: 15px; line-height: 1.8; white-space: pre-wrap; }
+      .persona-copy { margin: 0 0 9px; color: #d8e4f4; font-size: 15px; line-height: 1.8; white-space: pre-wrap; }
+      .persona-copy:last-child { margin-bottom: 0; }
+      .timeline { display: grid; gap: 11px; margin: 0; padding: 0; list-style: none; }
+      .timeline li { padding: 10px 12px; border-left: 3px solid var(--cyan); border-radius: 0 7px 7px 0; background: rgba(13, 32, 54, .52); }
+      .timeline time { display: block; margin-bottom: 3px; color: var(--gold); font: 700 12px var(--mono); }
+      .timeline p { margin: 0; color: #d8e4f4; font-size: 14px; line-height: 1.7; }
       .persona-count { margin-top: 12px; color: var(--dim); font: 11px var(--mono); }
       .level-guide, .rank-guide { display: grid; gap: 7px; }
       .level-row, .rank-row { display: grid; grid-template-columns: 54px 190px 1fr; gap: 12px; align-items: center; padding: 9px 11px; border: 1px solid rgba(109, 141, 186, .22); border-radius: 7px; background: rgba(7, 13, 26, .48); }
@@ -128,6 +133,19 @@
       .hobby-row strong { color: var(--gold); font: 700 13px var(--mono); }
       .hobby-row b { color: var(--text); font-size: 13px; }
       .hobby-row span { color: var(--muted); font-size: 12px; line-height: 1.45; }
+      .epithet { display: -webkit-box; overflow: hidden; margin: -2px 0 7px; color: #e7c887; font-size: 12px; font-weight: 700; line-height: 1.3; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+      .relation-tabs { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 12px; }
+      .relation-tabs button { padding: 7px 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: #0c1728; cursor: pointer; font: 12px var(--mono); }
+      .relation-tabs button.active, .relation-tabs button:hover { border-color: var(--cyan); color: var(--cyan); }
+      .relation-legend { display: flex; flex-wrap: wrap; gap: 7px 14px; margin: 0 0 10px; color: var(--muted); font-size: 12px; }
+      .relation-legend i { display: inline-block; width: 22px; height: 0; margin-right: 5px; border-top: 3px solid var(--cyan); vertical-align: middle; }
+      .relation-legend .kin { border-color: #ffb07d; } .relation-legend .love { border-color: #ff7da7; border-top-style: dashed; } .relation-legend .rival { border-color: #ffdf75; border-top-style: dotted; } .relation-legend .friend { border-color: #73d7ff; }
+      .relation-chart-wrap { overflow-x: auto; padding-bottom: 5px; border: 1px solid var(--line); border-radius: 10px; background: radial-gradient(ellipse at 50% 0%, rgba(40, 75, 119, .22), transparent 60%), #07101e; }
+      .relation-chart { display: block; min-width: 1080px; width: 100%; height: auto; }
+      .relation-chart .edge { fill: none; stroke-width: 2.3; opacity: .8; } .relation-chart .edge.kin { stroke: #ffb07d; } .relation-chart .edge.love { stroke: #ff7da7; stroke-dasharray: 7 5; } .relation-chart .edge.rival { stroke: #ffdf75; stroke-dasharray: 2 5; } .relation-chart .edge.friend { stroke: #73d7ff; }
+      .relation-chart .faction-frame { fill: rgba(13, 28, 48, .6); stroke-width: 1.5; } .relation-chart .faction-frame.external-frame { opacity: .58; stroke-dasharray: 5 5; }
+      .relation-chart .faction-label { fill: #dbeaff; font: 700 13px var(--mono); letter-spacing: .04em; } .relation-chart .faction-count { fill: #91a7c5; font: 11px var(--mono); }
+      .relation-chart .node { cursor: pointer; } .relation-chart .node rect { fill: #12233c; stroke: #426890; stroke-width: 1.2; } .relation-chart .node.external { opacity: .58; } .relation-chart .node:hover rect, .relation-chart .node:focus rect { fill: #1b4261; stroke: var(--cyan); stroke-width: 2; } .relation-chart .node text { pointer-events: none; fill: #edf4ff; font-size: 12px; font-weight: 700; } .relation-chart .node .node-epithet { fill: #ffd27d; font-size: 10px; font-weight: 400; }
       .filterbar { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin: 0 0 18px; }
       .filterbar button { padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: rgba(15, 25, 43, .9); cursor: pointer; font: 12px var(--mono); }
       .filterbar button:hover, .filterbar button.active { border-color: var(--cyan); color: var(--cyan); background: rgba(115, 215, 255, .1); }
@@ -157,13 +175,13 @@
         <div class="metric"><strong>76</strong><span>総登場人物</span></div>
         <div class="metric"><strong>36 + 4 × 10</strong><span>人類＋非人類4勢力</span></div>
         <div class="metric"><strong>36</strong><span>主人公候補（人類から選択）</span></div>
-        <div class="metric"><strong>1〜10</strong><span>戦闘レベルの共通尺度</span></div>
+        <div class="metric"><strong>C〜SS級</strong><span>戦闘能力の共通尺度</span></div>
       </section>
 
       <section id="levels">
-        <div class="section-head"><div><div class="kicker">Combat scale / rank systems</div><h2>戦闘レベルと階級</h2></div><p>戦闘レベルは個人の操縦・戦術・危機判断を合わせた実戦評価。階級は所属勢力の制度上の権限であり、戦闘レベルとは別に決まる。</p></div>
+        <div class="section-head"><div><div class="kicker">Combat grade / rank systems</div><h2>戦闘級と階級</h2></div><p>戦闘級は個人の操縦・戦術・危機判断を合わせた実戦評価。階級は所属勢力の制度上の権限であり、戦闘級とは別に決まる。</p></div>
         <div class="panel">
-          <h3>10段階の戦闘レベル</h3>
+          <h3>5段階の戦闘級</h3>
           <div id="level-guide" class="level-guide"></div>
         </div>
         <div class="panel" style="margin-top:14px">
@@ -178,42 +196,40 @@
       </section>
 
       <section id="directory">
-        <div class="section-head"><div><div class="kicker">Index / Read the roster</div><h2>人物を絞り込む</h2></div><p>戦闘レベル10は「その人物が強い」だけでなく、戦場で判断を変えられるレベル。エースは撃墜数ではなく、戦況を変えた実績を持つ人物とする。</p></div>
-        <div class="filterbar" role="group" aria-label="人物フィルター"><button class="active" data-filter="all">全員</button><button data-filter="ace">エース級のみ</button><button data-filter="young">若年層（36歳以下）</button><button data-filter="high">戦闘レベル8以上</button><span class="hint" id="filter-count">60人を表示中</span></div>
+        <div class="section-head"><div><div class="kicker">Index / Read the roster</div><h2>人物を絞り込む</h2></div><p>S級以上は、単なる強さではなく戦場の判断そのものを変えられる戦闘級。エースは撃墜数ではなく、戦況を変えた実績を持つ人物とする。</p></div>
+        <div class="filterbar" role="group" aria-label="人物フィルター"><button class="active" data-filter="all">全員</button><button data-filter="ace">エース級のみ</button><button data-filter="young">若年層（36歳以下）</button><button data-filter="high">S級以上</button><span class="hint" id="filter-count">76人を表示中</span></div>
       </section>
 
       <div id="roster" aria-live="polite"></div>
 
       <div class="scope"><strong style="color:var(--gold)">人物設計の基準：</strong> 人類36名は、日本・イギリス・イタリア・ガーナ・ケニア・レバノン・エジプト・タイ・韓国・ナイジェリア・エチオピアの各文化圏から配置。主人公は固定せず、この中から選択する。非人類は獣人、宇宙人、アンドロイド・ロボット系、エネルギー・不定体系に分類し、各勢力10名・最高権力者を左上に配置する。</div>
 
+      <section id="relationships">
+        <div class="section-head"><div><div class="kicker">Relationship atlas / interactive</div><h2>人物相関関連図</h2></div><p>勢力ごとの枠内に、肖像・名前・二つ名を表示する。線は親子・兄弟姉妹、恋人・伴侶、友人・同期、ライバルを示す。ノードをクリックすると人物詳細を開く。</p></div>
+        <div class="panel"><div id="relationship-tabs" class="relation-tabs" role="tablist" aria-label="相関図の表示範囲"></div><div class="relation-legend"><span><i class="kin"></i>親子・兄弟姉妹</span><span><i class="love"></i>恋人・伴侶</span><span><i class="friend"></i>友人・同期・師弟</span><span><i class="rival"></i>ライバル</span></div><div class="relation-chart-wrap"><svg id="relationship-chart" class="relation-chart" viewBox="0 0 1312 640" role="img" aria-label="人物相関関連図"></svg></div></div>
+      </section>
+
       <dialog id="persona-dialog" aria-labelledby="dialog-title">
         <div class="dialog-head"><div><div class="kicker" id="dialog-faction"></div><h2 id="dialog-title"></h2><p id="dialog-callsign"></p></div><button class="dialog-close" type="button" aria-label="詳細を閉じる">閉じる</button></div>
-        <div class="dialog-body"><div id="dialog-grid" class="dialog-grid"></div><div class="dialog-visuals"><figure class="dialog-visual"><img id="dialog-portrait" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt=""><figcaption><strong>肖像</strong>クリックで拡大</figcaption></figure><figure class="dialog-visual"><img id="dialog-hobby" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt=""><figcaption><strong>趣味の時間</strong>軍服ではない私服姿・クリックで拡大</figcaption></figure></div><div id="dialog-persona" class="profile-sections"></div><div id="dialog-count" class="persona-count"></div></div>
+        <div class="dialog-body"><div id="dialog-grid" class="dialog-grid"></div><div class="dialog-visuals"><figure class="dialog-visual"><img id="dialog-portrait" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt=""><figcaption aria-hidden="true"></figcaption></figure><figure class="dialog-visual"><img id="dialog-hobby" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt=""><figcaption id="dialog-hobby-caption"></figcaption></figure></div><div id="dialog-persona" class="profile-sections"></div><div id="dialog-count" class="persona-count"></div></div>
       </dialog>
       <dialog id="image-dialog" class="image-dialog" aria-label="画像拡大表示"><button id="image-dialog-close" class="dialog-close image-dialog-close" type="button" aria-label="拡大画像を閉じる">閉じる</button><img id="image-viewer" alt="拡大画像"></dialog>
       <footer>Multi Commander / 登場人物・人物名鑑 / 統合暦2312時点　｜　人物画像は各人物のペルソナと外見条件を個別に反映してGPT Imageで生成。</footer>
     </main>
     <script>
-      const combatLevels = [
-        ['候補生', '実戦経験はないが、基本操作と安全手順を守れる。'],
-        ['初任戦闘員', '単独戦闘を任せられる。危機時は指示を必要とする。'],
-        ['正規戦闘員', '標準任務を安定して完遂できる。'],
-        ['熟練戦闘員', '不利な状況でも生還手順を組み立てられる。'],
-        ['戦列の職人', '機体や役割を選ばず、編隊の穴を埋められる。'],
-        ['上級戦術員', '敵の意図を読み、僚機を含めた戦術を変えられる。'],
-        ['戦術指揮員', '小隊規模の判断で戦域の流れを変えられる。'],
-        ['エース候補', '特定の戦術領域で、敵の標準を上回る実績を持つ。'],
-        ['エース', '単独または編隊で、戦況を反転させる判断力を持つ。'],
-        ['戦域級エース', '一人の選択が艦隊・航路・停戦線の結果を変える。']
+      const combatGrades = [
+        ['C級', '基礎戦闘者', '実戦の基本手順を守り、指示下で役割を果たせる。'],
+        ['B級', '正規戦闘者', '標準任務を安定して完遂し、不利な局面でも生還手順を組み立てられる。'],
+        ['A級', '上級戦術者', '役割や機体を問わず編隊の穴を埋め、僚機を含めた戦術を変えられる。'],
+        ['S級', '戦況転換者', '小隊規模から艦隊の局面まで、戦況を反転させる判断と実績を持つ。'],
+        ['SS級', '戦域級エース', '一人の選択が艦隊・航路・停戦線の結果を変える、戦域級の存在。']
       ];
+      function combatGradeFor(level) { return Math.min(4, Math.floor((level - 1) / 2)); }
 
-      const rankNames = {
-        confed: ['訓練兵', '少尉', '中尉', '大尉', '少佐', '中佐', '大佐', '航空団司令', '戦隊司令', '提督'],
-        kilrashi: ['爪前', '血誓兵', '狩人', '群爪長', '戦牙', '旗爪長', '家門将', '灰冠将', '上級戦王', '大牙王'],
-        serecion: ['新唱', '航唱', '護唱', '隊唱', '雲航長', '船団長', '嵐長', '航路守', '大合唱長', '古唱母'],
-        ordo: ['芽晶', '初脈', '支脈核', '戦脈核', '地層官', '重力官', '封鎖核', '深層司令核', '記憶地層代表', '祖層核'],
-        neurowm: ['種子体', '作業体', '観測体', '中継体', '戦闘体', '指令体', '巣脈核', '主幹核', '古巣核', '原初核'],
-      };
+      // 階級は勢力を問わず共通の公用体系を使用する。役割・称号と混同しないよう、
+      // 種族固有の呼称は役割欄に残し、階級欄は全員で統一する。
+      const commonRankNames = ['訓練兵', '少尉', '中尉', '大尉', '少佐', '中佐', '大佐', '航空団司令', '戦隊司令', '提督'];
+      const rankNames = Object.fromEntries(['confed', 'kilrashi', 'serecion', 'ordo', 'neurowm'].map((id) => [id, commonRankNames]));
 
       const factions = [
         {
@@ -334,7 +350,7 @@
         ...japaneseHumanCandidates,
         ['Oliver Grant（オリヴァー・グラント）','Crown','男 / 32歳','航宙艦長',8,'辺境宙域の救難艦隊を率い、民間船団を無傷で帰投させた。'],
         ['Matteo Vieri（マッテオ・ヴィエリ）','Lynx','男 / 29歳','戦術飛行士',7,'不利な編隊戦で敵の補給線を見抜き、撤退路を確保した。'],
-        ['Kwame Adeyemi（クワメ・アデイェミ）','Bastion','男 / 35歳','陸戦隊指揮官',8,'前進基地の防衛線を組み直し、避難時間を生み出した。'],
+        ['Kwame Adeyemi（クワメ・アデイェミ）','Bastion','男 / 58歳','連邦艦隊司令・アウレリア連邦最高指揮官',8,'前進基地の防衛線を組み直し、避難時間を生み出した。連邦艦隊の全作戦指揮を担う。','leader'],
         ['Malik Njoroge（マリク・ンジョロゲ）','Sirocco','男 / 27歳','長距離偵察官',6,'観測不能域を越えて敵艦隊の接近を最初に報告した。'],
         ['Rami Haddad（ラミ・ハッダード）','Dune','男 / 31歳','交渉護衛士官',7,'停戦監視団を護衛し、武力衝突を避けて交渉を成立させた。'],
         ['Zayd Al-Masri（ザイド・アルマスリ）','Cedar','男 / 28歳','暗号解析官',6,'敵の偽装通信を解読し、味方の誤射を未然に防いだ。'],
@@ -349,6 +365,82 @@
         ['Suda Kittisak（スダ・キティサック）','Lotus','女 / 25歳','補給戦術官',6,'不足物資の輸送計画を組み替え、前線の稼働を維持した。'],
         ['Minseo Kang（ミンソ・カン）','Aegis','女 / 27歳','基地防衛官',7,'防衛ドローン網を再構築し、民間区画を守り抜いた。']
       ];
+
+      // 戦闘値は画面表示の5級へ均等配分する。元の値が低い人物から順に割り当てるため、
+      // 各勢力内での相対的な強弱の傾向を保つ。36名の人類は5で割り切れないため、
+      // 中央のA級のみ8名、他級は7名として人数差を最大1名に抑える。
+      const gradeRepresentativeValues = [1, 3, 5, 7, 9];
+      const humanCultureByIndex = [
+        '日本','日本','日本','日本','日本','日本','日本','日本','日本','日本',
+        '日本','日本','日本','日本','日本','日本','日本','日本','日本','日本',
+        '欧州系','欧州系','アフリカ系','アフリカ系','アラブ系','アラブ系','アジア系','アジア系',
+        '欧州系','欧州系','アフリカ系','アフリカ系','アラブ系','アラブ系','アジア系','アジア系'
+      ];
+      const humanCultureGradePlan = {
+        // 日本20名は各級4名。残る4文化圏は、全員の平均がA級になるように配分する。
+        '日本': [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4],
+        '欧州系': [1, 2, 2, 3],
+        'アフリカ系': [0, 1, 3, 4],
+        'アラブ系': [0, 2, 2, 4],
+        'アジア系': [0, 1, 3, 4]
+      };
+      function rebalanceCombatGrades() {
+        factions.forEach((faction) => {
+          if (faction.id === 'confed') {
+            Object.entries(humanCultureGradePlan).forEach(([culture, gradePlan]) => {
+              const peopleByPreviousStrength = faction.people
+                .map((person, index) => ({ person, index, level: person[4] }))
+                .filter(({ index }) => humanCultureByIndex[index] === culture)
+                .sort((left, right) => left.level - right.level || left.index - right.index);
+              if (peopleByPreviousStrength.length !== gradePlan.length) throw new Error(`${culture}の人物数と戦闘級配分が一致しません。`);
+              peopleByPreviousStrength.forEach(({ person }, order) => { person[4] = gradeRepresentativeValues[gradePlan[order]]; });
+            });
+            return;
+          }
+          const peopleByPreviousStrength = faction.people
+            .map((person, index) => ({ person, index, level: person[4] }))
+            .sort((left, right) => left.level - right.level || left.index - right.index);
+          const basePerGrade = Math.floor(faction.people.length / combatGrades.length);
+          const remainder = faction.people.length % combatGrades.length;
+          const quotas = Array(combatGrades.length).fill(basePerGrade);
+          // 余りは中間評価のA級へ置き、低・高評価のどちらにも偏らせない。
+          quotas[2] += remainder;
+          let gradeIndex = 0;
+          let assignedInGrade = 0;
+          peopleByPreviousStrength.forEach(({ person }) => {
+            while (assignedInGrade >= quotas[gradeIndex]) {
+              gradeIndex += 1;
+              assignedInGrade = 0;
+            }
+            person[4] = gradeRepresentativeValues[gradeIndex];
+            assignedInGrade += 1;
+          });
+        });
+      }
+      function assertBalancedCombatGrades() {
+        factions.forEach((faction) => {
+          const minimum = Math.floor(faction.people.length / combatGrades.length);
+          const maximum = Math.ceil(faction.people.length / combatGrades.length);
+          const counts = Array(combatGrades.length).fill(0);
+          faction.people.forEach((person) => { counts[combatGradeFor(person[4])] += 1; });
+          if (!counts.every((count) => count >= minimum && count <= maximum) || Math.max(...counts) - Math.min(...counts) > 1) {
+            throw new Error(`${faction.name} の戦闘級配分が不均等です: ${counts.join(', ')}`);
+          }
+        });
+        const human = factions.find((faction) => faction.id === 'confed');
+        const cultureAverages = {};
+        human.people.forEach((person, index) => {
+          const culture = humanCultureByIndex[index];
+          cultureAverages[culture] ||= { total: 0, count: 0 };
+          cultureAverages[culture].total += combatGradeFor(person[4]);
+          cultureAverages[culture].count += 1;
+        });
+        if (!Object.values(cultureAverages).every(({ total, count }) => total / count === 2)) {
+          throw new Error('人類の文化圏ごとの戦闘級平均がA級に揃っていません。');
+        }
+      }
+      rebalanceCombatGrades();
+      assertBalancedCombatGrades();
 
       const factionLabels = { confed: '人類', kilrashi: 'キルラシー（獣人）', serecion: 'セレシオン（エネルギー、不定体系）', ordo: 'オルド（宇宙人）', neurowm: 'ニューロウム（アンドロイド、ロボット系）' };
       const humanEthnicities = ['日本', 'イギリス', 'イタリア', 'ガーナ', 'ケニア', 'レバノン', 'エジプト', 'タイ', '韓国', 'ナイジェリア', 'エチオピア'];
@@ -384,11 +476,23 @@
         ,['neurowm-0', 'neurowm-8', '親子個体。クラウンはミミックの設計親でもあり、旧式の知覚体系を守るよう教育した。']
         ,['neurowm-7', 'neurowm-9', 'ライバル個体。サイレンスとグラフトは隠密性と自己修復効率の記録を競い、相手の更新ログを常に分析している。']
       ];
+      const relationshipKind = (description) => /親子|兄妹|姉妹|兄弟|家門|親核/.test(description) ? 'kin' : /恋人|伴侶|誓約/.test(description) ? 'love' : /ライバル|競い/.test(description) ? 'rival' : 'friend';
+      const relationshipKindLabel = { kin: '親子・兄弟姉妹', love: '恋人・伴侶', friend: '友人・同期・師弟', rival: 'ライバル' };
+      const relationshipEdges = relationshipPairs.map(([left, right, description]) => ({ left, right, description, kind: relationshipKind(description) }));
       const relationshipMap = {};
-      relationshipPairs.forEach(([left, right, description]) => {
-        relationshipMap[left] = description;
-        relationshipMap[right] = description;
+      relationshipEdges.forEach((edge) => {
+        relationshipMap[edge.left] ||= [];
+        relationshipMap[edge.right] ||= [];
+        relationshipMap[edge.left].push({ ...edge, other: edge.right });
+        relationshipMap[edge.right].push({ ...edge, other: edge.left });
       });
+      const epithetCatalog = {
+        confed: ['暁の航路士','ガラスの砲火','静かな稲妻','真昼の交渉者','蒼刃の盾','残響の解析者','白波の灯台','雲海の目','燃料星の守り手','逆潮の羅針盤','遠雷の狩人','無音の暗号士','突破口の彗星','夜明けの囮','鉄雨の管制者','帰還の手','群青の試験官','整備庫の巨人','停戦線の影','初陣の教師','青い王冠','二つの海の帆','黒曜の防壁','裂風の伝令','杉の鍵','砂嵐の筆記者','港の凧','北風の回廊','重力嵐の白鳥','救難星の帆','黒曜の布陣','通信暁光','香辛料の検証者','オアシスの翼','蓮花の補給線','北壁の盾'],
+        kilrashi: ['金鬣の裁定者','銀背の追跡者','月牙の誓女','灰熊の帰還者','紅尾の近衛','鉄鬣の突撃者','枝角の伝令','斑日の旋回者','夜梟の針','沼鉄の教官'],
+        serecion: ['最初の地平','昼歌の舵手','青息の航海者','紫電の護唱','正午の鐘','霧の独唱者','緑流の舵','磁場の翻訳者','雲歩きの子','温暖前線の盾'],
+        ordo: ['根層の王','深度の計量者','澄んだ断層','古熱の証人','黒層の封鎖者','火花床の探査者','薄層の通訳者','灰重の装甲者','真珠潮の中継者','赤錆の地図師'],
+        neurowm: ['冠状シナプス','最初の接続','硝子顎の斥候','借りた空','赤脈の守衛','万脚の工匠','滴核の建設者','静寂の遮断者','模倣する眼','継ぎ木の再生者']
+      };
       const sheetRoot = 'assets/characters/';
 
       function escapeHtml(value) {
@@ -441,10 +545,20 @@
       }
 
       function rankFor(factionId, index, person) {
-        // 階級は戦闘レベルから算出しない。各勢力の人事制度と職責で独立して決める。
-        if (person?.[6] === 'leader') return rankNames[factionId][9];
-        const rankIndex = Math.min(9, Math.floor(index / 2));
-        return rankNames[factionId][rankIndex];
+        // 階級は戦闘級・配列順から算出しない。年齢（非人類は活動年数）を基準にし、
+        // 最高権力者だけを提督に固定する。種族ごとの寿命差は閾値で補正する。
+        if (person?.[6] === 'leader') return commonRankNames[9];
+        const experience = Number(person?.[2]?.match(/(\d+)(?:歳|季|年)/)?.[1] || 0);
+        const thresholds = {
+          confed: [0, 22, 23, 26, 31, 37, 45, 56, 66],
+          kilrashi: [0, 22, 25, 27, 33, 38, 45, 56, 70],
+          serecion: [0, 18, 23, 29, 35, 42, 50, 60, 80],
+          ordo: [0, 24, 38, 54, 68, 92, 145, 185, 260],
+          neurowm: [0, 3, 5, 8, 12, 18, 30, 45, 70]
+        }[factionId];
+        let rankIndex = 0;
+        thresholds.forEach((minimum, candidate) => { if (experience >= minimum) rankIndex = candidate; });
+        return commonRankNames[Math.min(8, rankIndex)];
       }
 
       const personaAngles = [
@@ -567,10 +681,91 @@
         return { gender, age: ageMatch ? `${ageMatch[1]}歳` : meta.split('/').slice(1).join('/').trim(), ethnicity, category: speciesCategories[faction.id] };
       }
 
+      function personById(id) {
+        const [factionId, rawIndex] = id.split('-');
+        const faction = factions.find((item) => item.id === factionId);
+        return faction ? { id, faction, index: Number(rawIndex), person: faction.people[Number(rawIndex)] } : null;
+      }
+
+      function expandedRelationshipText(id) {
+        const links = relationshipMap[id] || [];
+        if (!links.length) return '現時点で名鑑内に明示された血縁・恋愛・競争関係はない。';
+        return links.map((link) => {
+          const other = personById(link.other);
+          return `【${relationshipKindLabel[link.kind]}】【：${other?.person?.[0] || link.other}】${link.description}`;
+        }).join('\n\n');
+      }
+
+      function profileExtras(person, faction, index) {
+        const [name, callsign, , role, , record] = person;
+        const epithet = epithetCatalog[faction.id][index];
+        const origin = `「${epithet}」の呼び名は、${record}という記録で広まった。${role}として${faction.name}の慣習を守りながらも、危機では既存の手順に縛られず、帰還者と航路を残す判断を選んだことが由来である。本人は名声よりも、次の任務で同じ損失を出さないことを重んじる。`;
+        const anecdotePatterns = [
+          `${name}は出撃前、必ず装備点検の最後に仲間の呼び名を一人ずつ口にする。作業記録には残らない小さな習慣だが、緊張した新人ほどその声で呼吸を整えるという。`,
+          `${name}が一度だけ持ち帰った破損品は、任務の失敗ではなく、救助された子どもが渡した小さな記念品だった。今も私室の端に置かれ、迷った時の判断基準になっている。`,
+          `悪天候の任務後、${name}は自分の戦果報告より先に整備班と救護班の名を読み上げた。そのため記録係の間では「功績を分ける人」として知られている。`,
+          `${name}は趣味の競技会で敗れた夜も、優勝者の手順を最後まで見届ける。翌朝には改善案をまとめており、その粘り強さが任務中の冷静さにもつながっている。`,
+          `通信が完全に途絶した際、${name}は即興の目印と短い手信号だけで仲間を集め、予定外の帰還路を成立させた。この一件は今も訓練教材の余白に手書きで残る。`,
+          `${name}は休暇中でも、基地の食堂で一番孤立している者の隣に座る。会話は多くないが、その席から新しいチームが生まれた例は少なくない。`
+        ];
+        return { epithet, origin, anecdote: anecdotePatterns[index % anecdotePatterns.length], callsign };
+      }
+
+      function hobbyNarrative(hobby, faction, index) {
+        const humanGoals = [
+          '星系コンクールの優勝を目指し、毎朝三時間の基礎練習と週末の公開審査に取り組む。',
+          '星系選手権の表彰台を目標に、任務前の早朝から反復練習を欠かさない。',
+          '年に一度の招待大会での入賞を狙い、記録映像を見返して技術を磨いている。',
+          '専門家による本選への出場を目標に、休暇のたびに新しい表現と基礎体力を鍛える。'
+        ];
+        const nonhumanGoals = [
+          '種族固有の競技会で首位を目指し、任務の合間にも感覚と技術の調律を続ける。',
+          '共同体の代表選抜に備え、毎周期の鍛錬記録を見直して精度を上げている。',
+          '次の公開競技での上位入賞を狙い、仲間との比較試技を欠かさない。',
+          '文化的な最高賞への推薦を目標に、静かな時間を使って技能を磨き続けている。'
+        ];
+        const goals = faction.id === 'confed' ? humanGoals : nonhumanGoals;
+        return `趣味は${hobby[0]}。${goals[index % goals.length]}`;
+      }
+
+      function historyTimelineFor(person, faction, index, identity, birth, record, role) {
+        const age = Number(identity.age.match(/\d+/)?.[0] || 1);
+        if (faction.id === 'confed') {
+          const birthYear = 2312 - age;
+          const schoolAge = Math.max(12, Math.min(16, age - 9));
+          const trainingAge = Math.max(schoolAge + 2, age - 6);
+          const turningAge = Math.max(trainingAge + 1, age - 2);
+          return [
+            { date: `統合暦${birthYear}年（0歳）：誕生`, body: `${identity.ethnicity}の文化圏に生まれる。${birth}` },
+            { date: `統合暦${birthYear + schoolAge}年（${schoolAge}歳）：基礎教育と適性訓練`, body: '航路・安全判断・共同作業の基礎を学び、周囲からは観察力と粘り強さを評価された。' },
+            { date: `統合暦${birthYear + trainingAge}年（${trainingAge}歳）：専門課程への進路決定`, body: `${role}につながる専門訓練を選び、初めて自分の判断が他者の帰還を左右する現場を経験した。` },
+            { date: `統合暦${birthYear + turningAge}年（${turningAge}歳）：初期の転機`, body: `${record} この経験を経て、現在の役職と任務観を形づくった。` }
+          ];
+        }
+        const calendars = {
+          kilrashi: ['血誓暦', '年', '家門の庇護と誓約教育'],
+          serecion: ['漂泊暦', '季', '船団の記憶と航路教育'],
+          ordo: ['層歴', '年', '地層記憶と合議の基礎教育'],
+          neurowm: ['起動暦', '年', '初期人格と接続規約の学習']
+        };
+        const [calendar, unit, upbringing] = calendars[faction.id];
+        const foundation = Math.max(2, Math.floor(age * .18));
+        const training = Math.max(foundation + 1, Math.floor(age * .48));
+        const turning = Math.max(training + 1, Math.floor(age * .78));
+        return [
+          { date: `${calendar}0${unit}（誕生・起動）：個体の始まり`, body: `${identity.category}として${faction.name}に迎えられる。${birth}` },
+          { date: `${calendar}${foundation}${unit}：${upbringing}`, body: '共同体の慣習、他者との協調、危機時の判断手順を学び、固有の知覚と身体特性を役割へ結びつけた。' },
+          { date: `${calendar}${training}${unit}：専門任務への移行`, body: `${role}に関わる専門課程を終え、共同体の外で初めて責任ある任務を引き受けた。` },
+          { date: `${calendar}${turning}${unit}：現在へつながる転機`, body: `${record} この記録が現在の立場と任務観の基礎になっている。` }
+        ];
+      }
+
       function profileFor(person, faction, index) {
         const [name, callsign, meta, role, level, record] = person;
         const identity = identityFor(meta, faction, index);
-        const relationship = relationshipMap[`${faction.id}-${index}`] || '現時点で名鑑内に設定された家族・恋愛関係はない。';
+        const id = `${faction.id}-${index}`;
+        const relationship = expandedRelationshipText(id);
+        const extras = profileExtras(person, faction, index);
         const ageNumber = Number(identity.age.match(/\d+/)?.[0] || 0);
         const birth = ageNumber ? `統合暦${2312 - ageNumber}年前後に生まれた${identity.ethnicity ? `、${identity.ethnicity}の文化圏に属する` : ''}。幼少期は${faction.id === 'confed' ? '前進基地と民間航路のあいだ' : '所属共同体の生活圏'}で過ごし、早い時期から自分の判断が他者の生存に影響する環境に置かれた。` : `${identity.age}という時間単位で成長を記録される${identity.category}の個体であり、誕生時から${faction.name}の記憶と役割に接続されている。`;
         const trait = person?.[7] || '';
@@ -581,11 +776,13 @@
         const angle = personaAngles[index % personaAngles.length];
         const family = faction.id === 'confed' ? '家族は血縁だけでなく、同じ船団・基地で暮らした仲間まで含む。家族には本人の危険な職務を心配する者と、本人の判断を信頼して送り出す者がいる。' : faction.id === 'kilrashi' ? '家門と誓約でつながる親族がいる。功績は家族の名誉を高める一方、敗北や誓約違反は本人だけでなく家門全体へ返る。' : faction.id === 'serecion' ? '家族は同じ船団の記憶を共有する群体であり、季節ごとに構成が変わる。離れていても歌と記録で互いの状態を確認する。' : faction.id === 'ordo' ? '家族に相当するのは同じ地層から分岐した結晶核と、長く記憶を交換してきた層である。個体の死は断絶ではなく記録の再配置として扱われる。' : '家族は固定した血縁ではなく、同じ巣脈へ接続された個体群である。接続が変わるたび、本人の役割と親密さも変化する。';
         const personality = `${angle} ${factionPersonaContext[faction.id]} 人前では${index % 2 ? '短く要点だけを話す' : '相手の反応を確かめながら話す'}が、信頼した相手には自分の恐れや迷いも隠さない。失敗を消去して完璧に見せるより、記録に残して次の人が判断材料にできる状態を選ぶ。`;
-        const history = `${birth} ${role}を選んだきっかけは、${record}という出来事だった。訓練や初任務では自分の能力不足を痛感したが、そこで得たのは一人で勝つ方法ではなく、誰かが帰還できる余地を作る方法だった。現在は${faction.name}の制度と仲間の期待を背負い、任務のたびに自分の役割を更新している。`;
-        const battle = `${record} 戦闘では戦闘レベル${level}「${combatLevels[level - 1][0]}」に相当する操縦・戦術・危機判断を示す。ただし、階級「${rankFor(faction.id, index, person)}」は人事制度上の権限であり、戦闘能力とは別に付与されている。本人は戦績を勲章の数ではなく、帰還者、維持された航路、救われた記録の数で評価する。`;
+        const timeline = historyTimelineFor(person, faction, index, identity, birth, record, role);
+        const history = timeline.map((entry) => `${entry.date}\n${entry.body}`).join('\n\n');
+        const grade = combatGrades[combatGradeFor(level)];
+        const battle = `${record} 戦闘能力は「${grade[0]}」に相当し、${grade[2]} 階級「${rankFor(faction.id, index, person)}」は人事制度上の権限であり、戦闘能力とは別に付与されている。本人は戦績を勲章の数ではなく、帰還者、維持された航路、救われた記録の数で評価する。`;
         const motive = `今の目的は、${faction.name}が守るべき原則を現場で証明し、次の世代が同じ犠牲を払わずに済む判断材料を残すことだ。対立相手にも事情があると考えるため、勝利後の処遇や記録の残し方まで任務に含めている。`;
-        const hobbyText = `${hobby[0]}。${hobby[1]}`;
-        return { identity, birth, history, battle, hobby: hobbyText, hobbyName: hobby[0], hobbyDescription: hobby[1], hobbyImageCue, trait, traitCue, family, relationship, personality, motive, fullText: [birth, history, battle, trait ? `個体属性は${trait}` : '', `趣味は${hobbyText}`, family, `登場人物との関係：${relationship}`, personality, motive].filter(Boolean).join(' ') };
+        const hobbyText = hobbyNarrative(hobby, faction, index);
+        return { identity, birth, timeline, history, battle, hobby: hobbyText, hobbyName: hobby[0], hobbyDescription: hobby[1], hobbyImageCue, trait, traitCue, family, relationship, personality, motive, ...extras, fullText: [extras.epithet, extras.origin, extras.anecdote, birth, history, battle, trait ? `個体属性は${trait}` : '', hobbyText, family, `登場人物との関係：${relationship}`, personality, motive].filter(Boolean).join(' ') };
       }
 
       function personaFor(person, faction, index) {
@@ -620,21 +817,22 @@
         const ageMatch = meta.match(/(\d+)歳/);
         const age = ageMatch ? Number(ageMatch[1]) : 0;
         const image = portraitData(faction.id, index);
-        const levelInfo = combatLevels[level - 1];
+        const gradeIndex = combatGradeFor(level);
+        const gradeInfo = combatGrades[gradeIndex];
         const rank = rankFor(faction.id, index, person);
         const profile = profileFor(person, faction, index);
-        const cells = Array.from({ length: 10 }, (_, i) => `<i class="${i < level ? 'on' : ''}"></i>`).join('');
-        return `<article class="person ${isAce ? 'ace' : ''}" tabindex="0" role="button" data-person-id="${faction.id}-${index}" data-ace="${isAce}" data-young="${age > 0 && age <= 36}" data-high="${level >= 8}">
+        const cells = Array.from({ length: 5 }, (_, i) => `<i class="${i <= gradeIndex ? 'on' : ''}"></i>`).join('');
+        return `<article class="person ${isAce ? 'ace' : ''}" tabindex="0" role="button" data-person-id="${faction.id}-${index}" data-ace="${isAce}" data-young="${age > 0 && age <= 36}" data-high="${level >= 7}">
           <div class="portrait"><img src="${image.portrait}" alt="${escapeHtml(name)}の肖像" loading="eager"><span class="portrait-id">${faction.code} / ${String(index + 1).padStart(2, '0')}</span></div>
-          <div class="person-body"><div class="person-top"><div><h3>${escapeHtml(name)}</h3><div class="callsign">${escapeHtml(callsign)}</div></div><div>${isAce ? '<span class="ace-label">ACE</span>' : ''}</div></div>
+          <div class="person-body"><div class="person-top"><div><h3>${escapeHtml(name)}</h3><div class="callsign">${escapeHtml(callsign)}</div><div class="epithet">${escapeHtml(profile.epithet)}</div></div><div>${isAce ? '<span class="ace-label">ACE</span>' : ''}</div></div>
             <div class="meta"><span>${escapeHtml(meta)}</span><span>${escapeHtml(role)}</span></div><div class="meta"><span class="rank"><small class="field-label">階級</small>${escapeHtml(rank)}</span><span><small class="field-label">分類</small>${escapeHtml(speciesCategories[faction.id])}</span>${profile.trait ? `<span><small class="field-label">個体属性</small>${escapeHtml(profile.trait)}</span>` : ''}</div><div class="card-summary">${escapeHtml(record)}</div>
-            <div class="level"><span><small class="field-label">戦闘レベル</small><span class="level-name">${escapeHtml(levelInfo[0])}</span></span><div class="level-bar">${cells}</div><strong>${level}/10</strong></div>
+            <div class="level"><span><small class="field-label">戦闘級</small><span class="level-name">${escapeHtml(gradeInfo[0])}</span></span><div class="level-bar">${cells}</div><strong>${escapeHtml(gradeInfo[0])}</strong></div>
           </div>
         </article>`;
       }
 
-      document.getElementById('level-guide').innerHTML = combatLevels.map((level, index) => `<div class="level-row"><strong>Lv.${index + 1}</strong><b>${escapeHtml(level[0])}</b><span>${escapeHtml(level[1])}</span></div>`).join('');
-      document.getElementById('rank-guide').innerHTML = Object.entries(rankNames).map(([id, ranks]) => `<div class="rank-row"><strong>${escapeHtml(factionLabels[id])}</strong><span>${ranks.map((rank, index) => `${index + 1}. ${escapeHtml(rank)}`).join('　/　')}</span></div>`).join('');
+      document.getElementById('level-guide').innerHTML = combatGrades.map((grade) => `<div class="level-row"><strong>${escapeHtml(grade[0])}</strong><b>${escapeHtml(grade[1])}</b><span>${escapeHtml(grade[2])}</span></div>`).join('');
+      document.getElementById('rank-guide').innerHTML = `<div class="rank-row"><strong>全勢力共通</strong><span>${commonRankNames.map((rank, index) => `${index + 1}. ${escapeHtml(rank)}`).join('　/　')}</span></div>`;
       document.getElementById('hobby-guide').innerHTML = hobbies.map(([name, description], index) => `<div class="hobby-row"><strong>${String(index + 1).padStart(2, '0')}</strong><b>${escapeHtml(name)}</b><span>${escapeHtml(description)}</span></div>`).join('') + Object.entries(speciesHobbies).map(([id, list]) => `<div class="hobby-row"><strong>${escapeHtml(factionLabels[id])}</strong><b>種族固有</b><span>${list.map(([name, description]) => `${name}：${description}`).join('　')}</span></div>`).join('');
 
       function renderRoster() {
@@ -657,6 +855,83 @@
       renderRoster();
       document.querySelectorAll('.filterbar button').forEach((button) => button.addEventListener('click', () => applyFilter(button.dataset.filter)));
 
+      function shortName(name) { return name.replace(/（.*?）/g, '').replace(/\(.+?\)/g, '').trim(); }
+      function relationshipScope(scope) {
+        const base = scope === 'all' ? relationshipEdges.flatMap((edge) => [edge.left, edge.right]) : factions.find((faction) => faction.id === scope).people.map((_, index) => `${scope}-${index}`);
+        const edges = scope === 'all' ? relationshipEdges : relationshipEdges.filter((edge) => edge.left.startsWith(`${scope}-`) || edge.right.startsWith(`${scope}-`));
+        const external = scope === 'all' ? [] : edges.flatMap((edge) => [edge.left, edge.right]).filter((id) => !id.startsWith(`${scope}-`));
+        return { ids: [...new Set([...base, ...external])], edges, external: new Set(external) };
+      }
+      function relationshipGroupLayout(ids, scope, external) {
+        const grouped = new Map(factions.map((faction) => [faction.id, []]));
+        ids.forEach((id) => grouped.get(id.split('-')[0])?.push(id));
+        const groups = scope === 'all'
+          ? factions.filter((faction) => grouped.get(faction.id).length).map((faction) => ({ faction, ids: grouped.get(faction.id), external: false }))
+          : [
+              { faction: factions.find((faction) => faction.id === scope), ids: grouped.get(scope) || [], external: false },
+              ...factions.filter((faction) => faction.id !== scope && grouped.get(faction.id).length).map((faction) => ({ faction, ids: grouped.get(faction.id), external: true }))
+            ];
+        const nodeWidth = 190;
+        const nodeHeight = 58;
+        const gapX = 12;
+        const gapY = 12;
+        const framePadding = 14;
+        const columns = scope === 'all' ? 3 : 6;
+        const plans = [];
+        let rowY = 22;
+        for (let start = 0; start < groups.length; start += scope === 'all' ? 2 : 1) {
+          const row = groups.slice(start, start + (scope === 'all' ? 2 : 1));
+          const rowPlans = row.map((group, column) => {
+            const x = scope === 'all' ? 22 + column * 646 : 22;
+            const width = scope === 'all' ? 622 : 1268;
+            const rows = Math.max(1, Math.ceil(group.ids.length / columns));
+            const height = 47 + rows * (nodeHeight + gapY) + 10;
+            return { ...group, x, y: rowY, width, height, columns };
+          });
+          plans.push(...rowPlans);
+          rowY += Math.max(...rowPlans.map((plan) => plan.height)) + 18;
+        }
+        const positions = new Map();
+        plans.forEach((plan) => plan.ids.forEach((id, index) => {
+          positions.set(id, {
+            x: plan.x + framePadding + (index % plan.columns) * (nodeWidth + gapX),
+            y: plan.y + 37 + Math.floor(index / plan.columns) * (nodeHeight + gapY)
+          });
+        }));
+        return { plans, positions, width: 1312, height: Math.max(360, rowY + 4), nodeWidth, nodeHeight };
+      }
+      function renderRelationshipAtlas(scope = 'all') {
+        const tabs = document.getElementById('relationship-tabs');
+        const chart = document.getElementById('relationship-chart');
+        const { ids, edges, external } = relationshipScope(scope);
+        const labels = [['all', '全体（関係者中心）'], ...factions.map((faction) => [faction.id, faction.name])];
+        tabs.innerHTML = labels.map(([id, label]) => `<button type="button" class="${id === scope ? 'active' : ''}" data-relation-scope="${id}">${escapeHtml(label)}</button>`).join('');
+        tabs.querySelectorAll('button').forEach((button) => button.addEventListener('click', () => renderRelationshipAtlas(button.dataset.relationScope)));
+        const layout = relationshipGroupLayout(ids, scope, external);
+        chart.setAttribute('viewBox', `0 0 ${layout.width} ${layout.height}`);
+        chart.setAttribute('height', String(layout.height));
+        const frameMarkup = layout.plans.map((plan) => `<g class="faction-group"><rect class="faction-frame ${plan.external ? 'external-frame' : ''}" x="${plan.x}" y="${plan.y}" width="${plan.width}" height="${plan.height}" rx="11" style="stroke:${plan.faction.color}"></rect><text class="faction-label" x="${plan.x + 14}" y="${plan.y + 22}">${escapeHtml(plan.external ? `外部関係者：${plan.faction.name}` : plan.faction.name)}</text><text class="faction-count" x="${plan.x + plan.width - 15}" y="${plan.y + 22}" text-anchor="end">${plan.ids.length} PERSONS</text></g>`).join('');
+        const edgeMarkup = edges.map((edge) => {
+          const a = layout.positions.get(edge.left); const b = layout.positions.get(edge.right);
+          if (!a || !b) return '';
+          return `<path class="edge ${edge.kind}" d="M ${a.x + layout.nodeWidth / 2} ${a.y + layout.nodeHeight / 2} L ${b.x + layout.nodeWidth / 2} ${b.y + layout.nodeHeight / 2}"><title>${escapeHtml(`${relationshipKindLabel[edge.kind]}：${edge.description}`)}</title></path>`;
+        }).join('');
+        const nodeMarkup = ids.map((id) => {
+          const item = personById(id); const pos = layout.positions.get(id); if (!item || !pos) return '';
+          const profile = profileFor(item.person, item.faction, item.index);
+          const color = item.faction.color;
+          const image = portraitData(item.faction.id, item.index).portrait;
+          return `<g class="node ${external.has(id) ? 'external' : ''}" tabindex="0" role="button" aria-label="${escapeHtml(`${item.person[0]}の詳細を開く`)}" data-relation-person="${id}"><rect x="${pos.x}" y="${pos.y}" width="${layout.nodeWidth}" height="${layout.nodeHeight}" rx="7" style="stroke:${color}"></rect><image href="${escapeHtml(image)}" x="${pos.x + 6}" y="${pos.y + 7}" width="42" height="42" preserveAspectRatio="xMidYMid slice"></image><text x="${pos.x + 57}" y="${pos.y + 23}">${escapeHtml(shortName(item.person[0]).slice(0, 17))}</text><text class="node-epithet" x="${pos.x + 57}" y="${pos.y + 40}">${escapeHtml(profile.epithet.slice(0, 17))}</text><title>${escapeHtml(`${item.person[0]}｜${profile.epithet}`)}</title></g>`;
+        }).join('');
+        chart.innerHTML = `<rect width="${layout.width}" height="${layout.height}" fill="transparent"></rect>${frameMarkup}${edgeMarkup}${nodeMarkup}`;
+        chart.querySelectorAll('[data-relation-person]').forEach((node) => {
+          const open = () => document.querySelector(`[data-person-id="${node.dataset.relationPerson}"]`)?.click();
+          node.addEventListener('click', open);
+          node.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } });
+        });
+      }
+      renderRelationshipAtlas();
+
       const dialog = document.getElementById('persona-dialog');
       const dialogTitle = document.getElementById('dialog-title');
       const dialogFaction = document.getElementById('dialog-faction');
@@ -666,8 +941,36 @@
       const dialogCount = document.getElementById('dialog-count');
       const dialogPortrait = document.getElementById('dialog-portrait');
       const dialogHobby = document.getElementById('dialog-hobby');
+      const dialogHobbyCaption = document.getElementById('dialog-hobby-caption');
       const imageDialog = document.getElementById('image-dialog');
       const imageViewer = document.getElementById('image-viewer');
+      function proseMarkup(value) {
+        return String(value).split(/\n+/).filter(Boolean).flatMap((block) => {
+          const sentences = block.match(/[^。！？]+[。！？]?/g) || [block];
+          const paragraphs = [];
+          for (let index = 0; index < sentences.length; index += 2) paragraphs.push(sentences.slice(index, index + 2).join(''));
+          return paragraphs;
+        }).map((paragraph) => `<p class="persona-copy">${escapeHtml(paragraph)}</p>`).join('');
+      }
+      function profileSectionsMarkup(profile) {
+        const sections = [
+          ['二つ名と由来', `「${profile.epithet}」\n${profile.origin}`],
+          ['逸話', profile.anecdote],
+          ['生まれてからの来歴', profile.timeline],
+          ['戦績・実戦評価', profile.battle],
+          ['趣味', profile.hobby],
+          ['家族構成', profile.family],
+          ['登場人物との関係', profile.relationship],
+          ['性格', profile.personality],
+          ['現在の動機', profile.motive]
+        ];
+        return sections.map(([label, value]) => {
+          const content = Array.isArray(value)
+            ? `<ol class="timeline">${value.map((entry) => `<li><time>${escapeHtml(entry.date)}</time><p>${escapeHtml(entry.body)}</p></li>`).join('')}</ol>`
+            : proseMarkup(value);
+          return `<section class="profile-section"><h3>${escapeHtml(label)}</h3>${content}</section>`;
+        }).join('');
+      }
       function openPersona(card) {
         const [factionId, rawIndex] = card.dataset.personId.split('-');
         const faction = factions.find((item) => item.id === factionId);
@@ -680,13 +983,14 @@
         dialogTitle.textContent = name;
         dialogFaction.textContent = `${faction.code} / ${faction.name}`;
         dialogCallsign.textContent = callsign;
-        dialogGrid.innerHTML = [['所属', faction.name], ['年齢', profile.identity.age], ['性別・形態', profile.identity.gender], ['文化・種族分類', profile.identity.ethnicity || profile.identity.category], ...(profile.trait ? [['個体属性', profile.trait]] : []), ['役割', role], ['階級', rank], ['戦闘レベル', `Lv.${level} ${combatLevels[level - 1][0]}`]].map(([label, value]) => `<div class="dialog-stat"><span class="field-label">${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></div>`).join('');
+        const grade = combatGrades[combatGradeFor(level)];
+        dialogGrid.innerHTML = [['所属', faction.name], ['年齢', profile.identity.age], ['性別・形態', profile.identity.gender], ['文化・種族分類', profile.identity.ethnicity || profile.identity.category], ...(profile.trait ? [['個体属性', profile.trait]] : []), ['役割', role], ['階級', rank], ['戦闘級', grade[0]]].map(([label, value]) => `<div class="dialog-stat"><span class="field-label">${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></div>`).join('');
         dialogPortrait.src = images.portrait;
         dialogHobby.src = images.hobby;
         dialogPortrait.alt = `${name}の肖像`;
         dialogHobby.alt = `${name}が趣味を楽しむ姿`;
-        const sections = [['生まれてからの来歴', profile.history], ['戦績・実戦評価', profile.battle], ['趣味', profile.hobby], ['家族構成', profile.family], ['登場人物との関係', profile.relationship], ['性格', profile.personality], ['現在の動機', profile.motive]];
-        dialogPersona.innerHTML = sections.map(([label, value]) => `<section class="profile-section"><h3>${escapeHtml(label)}</h3><p class="persona-copy">${escapeHtml(value)}</p></section>`).join('');
+        dialogHobbyCaption.textContent = profile.hobby;
+        dialogPersona.innerHTML = profileSectionsMarkup(profile);
         dialogCount.textContent = `人物記事：約${profile.fullText.length}文字　｜　年齢・性別固定条件で画像生成　｜　クリックまたはEnterで開く`;
         dialog.showModal();
       }
