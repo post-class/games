@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Taktika ゲームシステム — 中で何が起きているか</title>
+<style>
+  :root {
+    --bg: #14100c;
+    --bg2: #1d1811;
+    --panel: #26200f;
+    --line: #4a3a1e;
+    --gold: #e0b34a;
+    --gold-dim: #a88530;
+    --text: #e8ded0;
+    --text-dim: #a89b89;
+    --danger: #c0562f;
+    --green: #7cb342;
+    --blue: #4a7fb5;
+    --yellow: #d8a326;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    padding: 0 20px 80px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+    font-size: 16px;
+    line-height: 1.8;
+  }
+  a { color: var(--gold); }
+
+  header {
+    display: flex; flex-wrap: wrap; align-items: baseline;
+    gap: 4px 16px; padding: 14px 0;
+    border-bottom: 2px solid var(--line);
+    margin-bottom: 28px;
+  }
+  header .logo { font-size: 20px; font-weight: 700; letter-spacing: .08em; color: var(--gold); }
+  header .tag { font-size: 14px; color: var(--text-dim); }
+  header .meta { margin-left: auto; font-size: 13px; color: var(--text-dim); }
+
+  section { margin: 0 0 56px; }
+  h2 {
+    font-size: 22px; margin: 0 0 6px; color: var(--gold);
+    border-left: 5px solid var(--gold-dim); padding-left: 12px; line-height: 1.4;
+  }
+  h2 .en { display: block; font-size: 12px; letter-spacing: .18em; color: var(--text-dim); font-weight: 400; }
+  h3 { font-size: 17px; margin: 30px 0 6px; color: var(--gold); }
+  h4 { font-size: 15px; margin: 18px 0 4px; color: #f0e7d8; }
+  p { margin: 0 0 14px; }
+  section > p, .note, ul.plain, ol.steps { max-width: 100ch; }
+  .lead { font-size: 18px; }
+  .dim { color: var(--text-dim); font-size: 14px; }
+
+  .hero { margin-bottom: 48px; }
+  .hero-copy {
+    font-size: clamp(24px, 4vw, 46px); font-weight: 700; line-height: 1.35;
+    margin: 0 0 12px; color: #fff;
+  }
+  .hero-copy em { font-style: normal; color: var(--gold); }
+  .hero-sub { max-width: 74ch; }
+  .toc { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; margin: 0; padding: 0; list-style: none; }
+
+  /* ---------- table ---------- */
+  .tw { overflow-x: auto; margin: 12px 0 0; }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 15px; }
+  th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--panel); color: var(--gold); font-weight: 700; white-space: nowrap; }
+  tbody tr:nth-child(odd) { background: rgba(255,255,255,.02); }
+  td b { color: #f4ecdd; }
+  td.n { white-space: nowrap; }
+
+  /* ---------- cards ---------- */
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .card {
+    background: var(--bg2); border: 1px solid var(--line);
+    border-radius: 3px; padding: 14px 16px;
+  }
+  .card h4 { margin-top: 0; }
+  .card p:last-child, .card ul:last-child { margin-bottom: 0; }
+  .card.accent { border-color: var(--gold-dim); background: #241d10; }
+
+  ul.plain { padding-left: 1.3em; margin: 0 0 14px; }
+  ul.plain li { margin-bottom: 4px; }
+
+  .note {
+    border-left: 3px solid var(--gold-dim); background: var(--bg2);
+    padding: 10px 14px; margin: 16px 0 0; font-size: 15px;
+  }
+  .note.warn { border-left-color: var(--danger); }
+
+  /* ---------- 式（フォーミュラ） ---------- */
+  .fx {
+    margin: 14px 0 0;
+    padding: 14px 16px;
+    background: #0e0b07;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--gold);
+    border-radius: 3px;
+    font-size: 16px;
+    line-height: 2.1;
+    overflow-x: auto;
+  }
+  .fx .eq { color: #f6efdf; font-weight: 700; white-space: nowrap; }
+  .fx .t { color: var(--gold); }
+  .fx .op { color: var(--text-dim); padding: 0 4px; }
+  .fx .cm { display: block; font-size: 13px; color: var(--text-dim); font-weight: 400; white-space: normal; }
+
+  /* ---------- タイムライン ---------- */
+  .tl { display: flex; flex-wrap: wrap; gap: 4px; margin: 16px 0 0; }
+  .tl .ph {
+    flex: 1 1 160px; min-width: 160px;
+    border: 1px solid var(--line);
+    border-top: 4px solid var(--gold-dim);
+    background: var(--bg2);
+    padding: 10px 12px;
+    font-size: 14px; line-height: 1.65;
+  }
+  .tl .ph > b:first-of-type { display: block; color: var(--gold); font-size: 15px; }
+  .tl .ph .tm { display: block; font-size: 12px; color: var(--text-dim); letter-spacing: .06em; }
+  .tl .ph.p1 { border-top-color: #6c7420; }
+  .tl .ph.p2 { border-top-color: #7a6020; }
+  .tl .ph.p3 { border-top-color: #55595c; }
+  .tl .ph.p4 { border-top-color: var(--danger); }
+
+  /* ---------- ライフサイクル図 ---------- */
+  .cyc { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin: 16px 0 0; }
+  .cyc .st {
+    flex: 1 1 150px; min-width: 150px;
+    background: var(--bg2); border: 1px solid var(--line);
+    border-radius: 3px; padding: 10px 12px; font-size: 14px; line-height: 1.6;
+  }
+  .cyc .st > b:first-child { display: block; color: var(--gold); font-size: 15px; }
+  .cyc .ar { align-self: center; color: var(--gold-dim); font-size: 20px; flex: 0 0 auto; }
+
+  /* ---------- メーター ---------- */
+  .meter { margin: 16px 0 0; }
+  .meter .bar {
+    position: relative; height: 30px;
+    border: 1px solid var(--line); border-radius: 3px;
+    background: linear-gradient(90deg, #6b2418 0%, #7a4a18 25%, #6c6a20 50%, #4f6c20 100%);
+    overflow: hidden;
+  }
+  .meter .tick {
+    position: absolute; top: 0; bottom: 0;
+    border-left: 2px dashed rgba(20,16,12,.85);
+  }
+  .meter .labels {
+    position: relative; height: 44px; margin-top: 4px; font-size: 12px; color: var(--text-dim);
+  }
+  .meter .labels span {
+    position: absolute; transform: translateX(-50%);
+    text-align: center; width: 130px; line-height: 1.4;
+  }
+  .meter .scale { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+  /* ---------- 距離と遅延の図 ---------- */
+  .rng { margin: 16px 0 0; }
+  .rng .row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; font-size: 14px; }
+  .rng .lbl { flex: 0 0 130px; color: var(--text-dim); }
+  .rng .track { flex: 1 1 auto; height: 16px; background: #0e0b07; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .rng .fill { display: block; height: 100%; background: linear-gradient(90deg, var(--gold-dim), var(--gold)); }
+  .rng .val { flex: 0 0 110px; text-align: right; color: #f4ecdd; font-weight: 700; }
+
+  ol.steps { padding-left: 0; margin: 14px 0 0; list-style: none; counter-reset: st; }
+  ol.steps li {
+    counter-increment: st; position: relative;
+    padding: 8px 0 8px 44px; border-top: 1px solid var(--line);
+  }
+  ol.steps li:last-child { border-bottom: 1px solid var(--line); }
+  ol.steps li::before {
+    content: counter(st);
+    position: absolute; left: 6px; top: 10px;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--gold-dim); color: #14100c;
+    font-size: 13px; font-weight: 700; line-height: 26px; text-align: center;
+  }
+
+  kbd {
+    display: inline-block; min-width: 24px; padding: 0 6px; margin: 0 1px;
+    border: 1px solid var(--line); border-bottom-width: 3px; border-radius: 4px;
+    background: #2a2418; color: #f4ecdd; font-family: inherit; font-size: 13px; font-weight: 700;
+  }
+  .tag {
+    display: inline-block; font-size: 12px; padding: 0 7px; border-radius: 3px;
+    border: 1px solid var(--line); color: var(--text-dim); margin-left: 6px; vertical-align: 2px;
+  }
+  .tag.opt { border-color: #55595c; }
+
+  footer {
+    border-top: 2px solid var(--line); padding-top: 14px;
+    font-size: 13px; color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">MULTI-TAKTIKA</span>
+  <span class="tag" style="border:none;margin:0;color:var(--text-dim);font-size:14px">ゲームシステム解説 ― 中で何が起きているか</span>
+  <span class="meta"><a href="02_世界観.html">世界観</a> / <a href="03_文明と進化.html">文明と進化</a> / <a href="05_画面説明.html">画面説明</a> / <a href="06_操作方法.html">操作方法</a> / 2026-08</span>
+</header>
+
+<section class="hero">
+  <p class="hero-copy">なぜ <em>放っておいても</em> 戦えるのか。<br>その仕組みの話。</p>
+  <p class="lead hero-sub">
+    Multi-Taktika は、あなたが見ていない戦線でも部隊が戦い続けます。
+    この資料は <b>その裏側で回っている規則</b> ―― 戦域はどう生まれて消えるのか、令はいつ届くのか、
+    ダメージはどう決まるのか、村人は何を基準に働くのか ―― をまとめた解説書です。
+  </p>
+  <ul class="toc dim">
+    <li><a href="#s1">1. この資料の範囲</a></li>
+    <li><a href="#s2">2. 試合の流れ</a></li>
+    <li><a href="#s3">3. 戦域の仕組み</a></li>
+    <li><a href="#s4">4. 令が届くまで</a></li>
+    <li><a href="#s5">5. 部隊の判断</a></li>
+    <li><a href="#s6">6. 戦闘計算</a></li>
+    <li><a href="#s7">7. 視界と情報</a></li>
+    <li><a href="#s8">8. 経済の仕組み</a></li>
+    <li><a href="#s9">9. 建物・壁・修理</a></li>
+    <li><a href="#s10">10. 忠誠と離反</a></li>
+    <li><a href="#s11">11. AI と難易度</a></li>
+    <li><a href="#s12">12. 対戦とリプレイの仕組み</a></li>
+    <li><a href="#s13">13. マップ生成</a></li>
+    <li><a href="#s14">14. 試合オプション</a></li>
+  </ul>
+</section>
+
+<section id="s1">
+  <h2>1. この資料の範囲<span class="en">SCOPE</span></h2>
+  <p>
+    内容が重ならないように、資料を役割で分けています。<b>「何があるか」ではなく「どう動くか」</b>だけをここに書きます。
+  </p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>知りたいこと</th><th>読む資料</th></tr></thead>
+      <tbody>
+        <tr><td>世界の設定、八国の風土、戦の掟、服属という考え方</td><td><a href="02_世界観.html">02 世界観</a></td></tr>
+        <tr><td>資源・建物・ユニット・研究・攻城兵器・相性・勝敗条件の <b>一覧と数値</b></td><td><a href="03_文明と進化.html">03 文明と進化</a></td></tr>
+        <tr><td>画面のどこに何が表示されているか、色とアイコンの意味</td><td><a href="05_画面説明.html">05 画面説明</a></td></tr>
+        <tr><td>マウスとキーの操作、練習の順番</td><td><a href="06_操作方法.html">06 操作方法</a></td></tr>
+        <tr><td><b>それらが内部でどう処理されるか</b>（この資料）</td><td>07 ゲームシステム</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="dim" style="margin-top:16px">※ 本資料の数値は設計時の想定値です。1 マス＝村人 1 体分の幅、時間は実時間（ゲーム速度 1.0）で表記します。</p>
+</section>
+
+<section id="s2">
+  <h2>2. 試合の流れ<span class="en">MATCH TEMPO</span></h2>
+  <p>
+    1 試合は <b>約 30 分</b>。試合時間そのものを設計対象にしていて、
+    「内政だけの時間」「戦線が 1 本の時間」「戦線が割れる時間」「総力戦」が必ず順番に来るように、
+    進化コストと兵の解禁時期を調整しています。
+  </p>
+
+  <div class="tl">
+    <div class="ph p1"><span class="tm">0 〜 5 分</span><b>立ち上げ</b>村人だけを増やす時間。戦域は立ちません。ここでの配分が後半の兵力差になります。</div>
+    <div class="ph p2"><span class="tm">5 〜 12 分</span><b>初接触</b>斥候が出会い、最初の戦域が 1 つ立ちます。攻めるか、進化を通すかの最初の分岐。</div>
+    <div class="ph p3"><span class="tm">12 〜 20 分</span><b>分割</b>戦線が 2〜4 本に割れます。<b>捨てる戦域を選び始める</b>のがこの区間です。</div>
+    <div class="ph p4"><span class="tm">20 〜 30 分</span><b>総力戦</b>戦域が最大 6 本。囮と本命を使い分けて、攻城戦で決着します。</div>
+  </div>
+
+  <div class="note">
+    <b>試合が長引いたとき：</b>20 分を過ぎると資源の総量が減り始めます（森と鉱脈が枯れる）。
+    枯れた後は <b>農地と交易だけが収入源</b> になるため、内政の形が変わり、自然に決着へ向かいます。
+    引き分けを避けるための仕掛けで、時間制限そのものは設けていません。
+  </div>
+</section>
+
+<section id="s3">
+  <h2>3. 戦域の仕組み<span class="en">HOW FRONTS WORK</span></h2>
+  <p>
+    戦域はプレイヤーが作るものではなく、<b>戦闘が起きた結果として自動で生まれます</b>。
+    プレイヤーは生まれた戦域に令を渡すだけです。ここが本作でいちばん独自の部分なので、規則を細かく書きます。
+  </p>
+
+  <h3>発生と消滅</h3>
+  <div class="cyc">
+    <div class="st"><b>発生</b>敵味方の戦闘ユニットが <b>半径 15 マス内にそれぞれ 3 体以上</b>いて、交戦が 2 秒続いたら戦域化。</div>
+    <span class="ar">▶</span>
+    <div class="st"><b>成長</b>中の兵数に応じて半径が <b>最大 30 マス</b>まで広がります。半径に入った自軍は自動でその令に従います。</div>
+    <span class="ar">▶</span>
+    <div class="st"><b>統合／分裂</b>中心が 20 マス以内に近づいた戦域は<b>統合</b>。中の部隊が 35 マス以上に離れると<b>分裂</b>。</div>
+    <span class="ar">▶</span>
+    <div class="st"><b>消滅</b>交戦が <b>15 秒</b>起きなければ閉じ、スロットが空きます。閉じた瞬間、部隊は最後の令を保持したまま待機します。</div>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>できごと</th><th>内部の処理</th><th>画面で分かること</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="n"><b>統合</b></td>
+          <td>番号の小さい戦域が大きい方を吸収し、<b>吸収した側の令が全体に適用</b>されます。スロットが 1 つ空きます。</td>
+          <td>2 つの輪が 1 つに融け、片方のスロットが消灯</td>
+        </tr>
+        <tr>
+          <td class="n"><b>分裂</b></td>
+          <td>空きスロットがあれば新しい戦域として独立（令は元の戦域を引き継ぐ）。空きがなければ遠い側は <b>戦域外</b>になります。</td>
+          <td>輪が 2 つに分かれ、新しいスロットが点灯</td>
+        </tr>
+        <tr>
+          <td class="n"><b>スロット不足</b></td>
+          <td>新しい戦闘は戦域になりません。その場の部隊は <b>最後に受けた令を続ける</b>か、なければ「近くの敵に応戦する」既定行動を取ります。</td>
+          <td>輪が付かない戦闘が起きる。ミニマップでは赤点だけが見える</td>
+        </tr>
+        <tr>
+          <td class="n"><b>増援の合流</b></td>
+          <td>半径に入った自軍ユニットは <b>自動でその戦域に編入</b>されます。ただし手動で選択中の部隊は編入されません。</td>
+          <td>足元の輪がその戦域の色に変わる</td>
+        </tr>
+        <tr>
+          <td class="n"><b>優勢・劣勢</b></td>
+          <td>「直近 10 秒の与被ダメージ収支」と「残存兵力比」の合成値。<b>−30% を下回ると警告</b>（点滅）になります。</td>
+          <td>輪の太さ＝優勢度。点滅＝崩れかけ</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note">
+    <b>スロット数の意味：</b>使えるスロット数は時代と城の数で決まります（数値は <a href="03_文明と進化.html">03</a>）。
+    システムとして重要なのは <b>スロットは「同時に方針を配れる本数」の上限であって、戦闘できる場所の上限ではない</b>という点です。
+    上限を超えた戦闘は起きますが、<b>そこには令が届きません</b>。
+  </div>
+</section>
+
+<section id="s4">
+  <h2>4. 令が届くまで<span class="en">ORDER LATENCY</span></h2>
+  <p>
+    令は押した瞬間には効きません。本陣から戦域までの <b>距離ぶんの遅延</b>があり、これは仕様です（世界観上の理由は <a href="02_世界観.html">02</a>）。
+  </p>
+
+  <div class="fx">
+    <span class="eq"><span class="t">遅延</span><span class="op">=</span>1.5 秒<span class="op">+</span>（本陣から戦域中心までの距離 マス<span class="op">×</span>0.02 秒）<span class="op">−</span>短縮</span>
+    <span class="cm">上限 8 秒。下限 0.5 秒。距離は直線距離で、地形は考慮しません。</span>
+    <span class="eq"><span class="t">切り替え間隔</span><span class="op">=</span>6 秒<span class="op">（</span>同じ戦域に次の令を出せるまで<span class="op">）</span></span>
+    <span class="cm">連打しても最短 6 秒。研究「早馬」で 4.2 秒。</span>
+  </div>
+
+  <h3>距離ごとの実際の遅延</h3>
+  <div class="rng">
+    <div class="row"><span class="lbl">本陣のすぐ隣（20）</span><span class="track"><span class="fill" style="width:24%"></span></span><span class="val">1.9 秒</span></div>
+    <div class="row"><span class="lbl">中距離（100）</span><span class="track"><span class="fill" style="width:44%"></span></span><span class="val">3.5 秒</span></div>
+    <div class="row"><span class="lbl">遠い戦線（200）</span><span class="track"><span class="fill" style="width:69%"></span></span><span class="val">5.5 秒</span></div>
+    <div class="row"><span class="lbl">反対側（325 以上）</span><span class="track"><span class="fill" style="width:100%"></span></span><span class="val">8.0 秒（上限）</span></div>
+  </div>
+
+  <h3>短縮の手段と、重ねたときの計算</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>手段</th><th>効果</th><th>かかる場所</th></tr></thead>
+      <tbody>
+        <tr><td class="n">研究「復唱」</td><td>遅延を <b>−50%</b></td><td>全体（乗算）</td></tr>
+        <tr><td class="n">研究「早馬」</td><td>切り替え間隔を <b>−30%</b></td><td>遅延ではなく間隔</td></tr>
+        <tr><td class="n">ユニット「伝令」</td><td>その戦域の遅延を <b>−1.0 秒</b></td><td>戦域内に 1 体いれば適用（重複しない）</td></tr>
+        <tr><td class="n">モンゴル「駅伝」</td><td>距離の項を <b>0</b> にする</td><td>常に 1.5 秒（復唱と併用で 0.75 秒）</td></tr>
+        <tr><td class="n">本陣を近づける</td><td>距離そのものを短縮</td><td>本陣は動きませんが、城を建てると <b>そこも令の発信点</b>になります</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="fx">
+    <span class="eq"><span class="t">計算順</span><span class="op">:</span>（1.5<span class="op">+</span>距離×0.02）<span class="op">−</span>伝令 1.0<span class="op">→</span>復唱で ×0.5<span class="op">→</span>上下限で丸め</span>
+    <span class="cm">例：距離 200、伝令あり、復唱あり ＝ (1.5 + 4.0 − 1.0) × 0.5 ＝ <b>2.25 秒</b>。</span>
+  </div>
+
+  <div class="note warn">
+    <b>令を重ねたとき（研究「二重旗」）：</b>2 枚は競合しません。
+    <b>上段が移動の方針</b>（どこへ行くか・下がるか）、<b>下段が攻撃目標の優先</b>（何を狙うか）を担当します。
+    「後退＋略奪」なら、下がりながら道中の村人だけを狙う挙動になります。
+  </div>
+</section>
+
+<section id="s5">
+  <h2>5. 部隊の判断<span class="en">UNIT DECISIONS</span></h2>
+  <p>
+    令は命令書ではなく <b>評価の重み</b>です。各ユニットは <b>0.5 秒ごとに</b>目標を選び直しており、
+    令はその選び直しの基準を入れ替えます。だから令を渡した戦域は放っておいてもそれらしく戦います。
+  </p>
+
+  <h4>ユニットが毎回見ているもの</h4>
+  <ol class="steps">
+    <li><b>自分は攻撃されているか</b> ―― 受けている攻撃の方向と相手の種類</li>
+    <li><b>射程内に何がいるか</b> ―― 相性で有利な相手を優先（相性表は <a href="03_文明と進化.html">03</a>）</li>
+    <li><b>令の重み</b> ―― 前進の強さ／持ち場を守る強さ／狙う対象の種類／護衛すべき味方</li>
+    <li><b>隊列</b> ―― 近くの味方との間隔。密集するか散開するか</li>
+    <li><b>体力と士気</b> ―― 下がるべきかどうか</li>
+  </ol>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>令</th><th>重みの入れ替え方</th><th>結果として起きる挙動</th></tr></thead>
+      <tbody>
+        <tr><td class="n">突撃</td><td>前進 <b>最大</b>／持ち場 0／対象は「最も近い敵」</td><td>止まらない。射程の有利を捨てて距離を詰めます</td></tr>
+        <tr><td class="n">包囲</td><td>攻城兵器の前進を優先し、歩兵の「護衛」重みを最大</td><td>兵器が前、歩兵が周囲。兵器が下がると歩兵も下がります</td></tr>
+        <tr><td class="n">死守</td><td>持ち場 <b>最大</b>／前進 0／隊列は密集</td><td>指定地点から離れず、射程内に来た敵だけを撃ちます</td></tr>
+        <tr><td class="n">略奪</td><td>対象の優先を「村人 → 資源施設 → 家」に変更</td><td>戦闘ユニットを避けて回り込みます</td></tr>
+        <tr><td class="n">建設</td><td>村人の「建てる」重みを最大、兵は村人の護衛</td><td>前線が壁と塔で押し上がっていきます</td></tr>
+        <tr><td class="n">後退</td><td>前進を負の値にし、被弾回避を最大</td><td>戦いながら最寄りの拠点まで下がります</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note">
+    <b>手動で選ぶと、その部隊だけ判断が止まります。</b>選択された部隊は評価をやめてプレイヤーの指示だけを実行します
+    （戻し方は <a href="06_操作方法.html">06</a>）。<b>同じ戦域の他の部隊は令のまま動き続けます</b>ので、
+    「一部だけ手で動かす」が成立します。
+  </div>
+</section>
+
+<section id="s6">
+  <h2>6. 戦闘計算<span class="en">COMBAT MATH</span></h2>
+  <p>数値の一覧は <a href="03_文明と進化.html">03</a> にあります。ここでは <b>それらがどう掛け合わされるか</b>だけを扱います。</p>
+
+  <div class="fx">
+    <span class="eq"><span class="t">与ダメージ</span><span class="op">=</span>max(1, 攻撃力<span class="op">−</span>防御力)<span class="op">×</span>相性<span class="op">×</span>地形<span class="op">×</span>隊列</span>
+    <span class="cm">攻撃力・防御力は研究と文明ボーナスを加算した後の値。最低保証は 1 なので、硬い相手にも必ず通ります。</span>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>係数</th><th>値</th><th>説明</th></tr></thead>
+      <tbody>
+        <tr><td class="n">相性（有利）</td><td><b>×1.5</b></td><td>役割の輪で有利な組み合わせ。名前ではなく役割で判定します</td></tr>
+        <tr><td class="n">相性（不利）</td><td><b>×0.7</b></td><td>不利でも無力ではなく、数で押せば通ります</td></tr>
+        <tr><td class="n">貫通（属性）</td><td>防御の <b>半分を無視</b></td><td>火器と一部の弓。重装甲を無効化する役割</td></tr>
+        <tr><td class="n">高所</td><td><b>×1.15</b></td><td>丘や城壁の上から下へ。逆は ×0.9</td></tr>
+        <tr><td class="n">森の中の遠隔</td><td>射程 <b>−25%</b></td><td>森は遠隔を弱め、近接を通しやすくします</td></tr>
+        <tr><td class="n">水際の騎兵</td><td>速度 <b>−30%</b></td><td>浅瀬と湿地は騎兵の突入を鈍らせます</td></tr>
+        <tr><td class="n">密集隊列</td><td>範囲攻撃の被害 <b>×1.4</b></td><td>死守は密集するので、投石系に狙われやすくなります</td></tr>
+        <tr><td class="n">散開隊列</td><td>移動速度 <b>−15%</b></td><td>遊撃・後退は散開します</td></tr>
+        <tr><td class="n">友軍被害</td><td>範囲攻撃の <b>50%</b></td><td>投石系は味方も削ります。包囲の令は射線を避けて配置します</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>士気 ―― 全滅させないための仕組み</h3>
+  <p>
+    兵は <b>体力 0 で死ぬ前に、士気 0 で退きます</b>。士気は隣接する味方の数、指揮下の戦域が優勢かどうか、
+    祈祷師の存在で保たれます。士気 0 になった部隊は 10 秒ほど後退して回復し、また戻ってきます。
+  </p>
+  <div class="grid">
+    <div class="card">
+      <h4>士気が下がる要因</h4>
+      <ul class="plain">
+        <li>周囲に味方がいない（孤立）</li>
+        <li>戦域が劣勢（警告状態）</li>
+        <li>目の前で味方が短時間に多数倒れた</li>
+        <li>本陣からの令が届いていない</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>士気が保たれる要因</h4>
+      <ul class="plain">
+        <li>密集隊列（死守）</li>
+        <li>祈祷師が近くにいる</li>
+        <li>戦域が優勢</li>
+        <li>自軍の建物・壁の内側にいる</li>
+      </ul>
+    </div>
+    <div class="card accent">
+      <h4>だから「捨てる」が成立する</h4>
+      <p>後退の令を渡した戦域は、士気の低い兵から順に下がって生き残ります。
+      <b>戦力を全損せずに畳める</b>ため、戦域を捨てる判断が現実的な選択肢になります。</p>
+    </div>
+  </div>
+</section>
+
+<section id="s7">
+  <h2>7. 視界と情報<span class="en">VISION &amp; FOG</span></h2>
+  <p>
+    地形の明暗が何を意味するかは <a href="05_画面説明.html">05</a> に書きました。ここではその判定規則です。
+  </p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>状態</th><th>見えるもの</th><th>見えないもの</th></tr></thead>
+      <tbody>
+        <tr><td class="n"><b>視界内</b></td><td>敵の位置・種類・体力、建設中の建物、資源の残量</td><td>―</td></tr>
+        <tr><td class="n"><b>既知（暗い）</b></td><td>最後に見た時点の地形と建物の <b>形</b></td><td>今そこにいる敵、建物の体力、破壊されたかどうか</td></tr>
+        <tr><td class="n"><b>未探索（真っ暗）</b></td><td>―</td><td>地形も資源も分かりません</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid" style="margin-top:16px">
+    <div class="card">
+      <h4>戦域は視界の外でも分かる</h4>
+      <p>自軍が交戦している場所は、視界と無関係に <b>戦域としてミニマップに出ます</b>。
+      「見ていないから気づかない」を無くすための例外規則です。</p>
+    </div>
+    <div class="card">
+      <h4>だから囮が効く</h4>
+      <p>相手は <b>戦域の輪の数と位置</b>しか見えません。
+      少数の兵で戦域を立てるだけで「攻められている」と誤認させられます。</p>
+    </div>
+    <div class="card">
+      <h4>建物は嘘をつく</h4>
+      <p>既知の範囲に見えている建物は、実際には壊れている場合があります。
+      斥候を通して更新しない限り、古い情報が残り続けます。</p>
+    </div>
+    <div class="card">
+      <h4>記念碑だけは例外</h4>
+      <p>「碑の写し」の建設は全プレイヤーに位置が公開されます（勝利条件は <a href="03_文明と進化.html">03</a>）。
+      情報を隠せない唯一の行動です。</p>
+    </div>
+  </div>
+</section>
+
+<section id="s8">
+  <h2>8. 経済の仕組み<span class="en">ECONOMY RULES</span></h2>
+  <p>資源の種類と用途は <a href="03_文明と進化.html">03</a>。ここでは <b>採れる速さが何で決まるか</b>です。</p>
+
+  <div class="fx">
+    <span class="eq"><span class="t">実効収集速度</span><span class="op">=</span>基礎速度<span class="op">×</span>研究倍率<span class="op">×</span>(1<span class="op">−</span>運搬損失)</span>
+    <span class="cm">村人は資源を 10 単位持つと搬入点へ歩きます。運搬損失は片道距離 4 マスごとに約 5%（上限 50%）。</span>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>仕組み</th><th>規則</th><th>プレイ上の意味</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="n"><b>搬入距離</b></td>
+          <td>搬入点（町の中心・伐採所・採掘場・桟橋）までの距離が短いほど効率が上がります</td>
+          <td>資源のそばに搬入用の建物を建てるのが最優先の内政行動</td>
+        </tr>
+        <tr>
+          <td class="n"><b>資源の総量</b></td>
+          <td>森・鉱脈・農地には埋蔵量があり、採り切ると消えます（農地 1 面＝食料 400）</td>
+          <td>20 分以降は資源が枯れ、収入源が農地と交易に寄っていきます</td>
+        </tr>
+        <tr>
+          <td class="n"><b>農地の再建</b></td>
+          <td>枯れた農地は木材の <b>半額</b>で建て直せます。自動再建の設定も可</td>
+          <td>食料は「維持コストのかかる資源」として設計しています</td>
+        </tr>
+        <tr>
+          <td class="n"><b>市場の相場</b></td>
+          <td>ある資源を 100 単位買うごとに価格 <b>+3%</b>。30 秒ごとに <b>1%</b> ずつ元に戻ります</td>
+          <td>一気に買うほど損。相場は全プレイヤー共通なので、値動きが相手の行動を漏らします</td>
+        </tr>
+        <tr>
+          <td class="n"><b>交易収入</b></td>
+          <td>金 ＝ <b>片道距離 × 0.5</b>。荷車 1 台の往復ごとに入ります</td>
+          <td>遠い相手と繋ぐほど儲かる。ただし交易路が戦域に重なると狙われます</td>
+        </tr>
+        <tr>
+          <td class="n"><b>村人の被害</b></td>
+          <td>攻撃された村人は自動で最寄りの塔・櫓・城へ退避します（設定で無効化可）</td>
+          <td>略奪の令を受けても壊滅はしませんが、その間の収入は止まります</td>
+        </tr>
+        <tr>
+          <td class="n"><b>人口</b></td>
+          <td>上限に達すると生産ボタンが止まります。攻城兵器は 1 台で 3、戦象は 2 を占めます</td>
+          <td>戦域を増やすほど兵が要るので、家の建て遅れが「令を配れない」に直結します</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="s9">
+  <h2>9. 建物・壁・修理<span class="en">STRUCTURES</span></h2>
+  <div class="tw">
+    <table>
+      <thead><tr><th>規則</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td class="n"><b>建設</b></td><td>村人が多いほど速くなります（2 人で約 1.7 倍、3 人で約 2.3 倍と逓減）。前線でも建てられます</td></tr>
+        <tr><td class="n"><b>修理</b></td><td>村人が修理できます。費用は失った体力に比例し、<b>建設費の 1/4 が上限</b></td></tr>
+        <tr><td class="n"><b>壁の穴</b></td><td>破壊された壁は <b>その試合の間ずっと通り道として残ります</b>。建て直せますが、同じ場所は建設時間が 1.5 倍</td></tr>
+        <tr><td class="n"><b>門</b></td><td>自軍と味方だけが通れます。攻城兵器は門か穴しか通れないため、門前が必ず激戦地になります</td></tr>
+        <tr><td class="n"><b>塔と砲塔</b></td><td>視界が広く、村人を収容できます。収容中の村人は塔から矢を放ちます</td></tr>
+        <tr><td class="n"><b>城</b></td><td>戦域スロット +1 に加えて、<b>令の発信点</b>になります。遠い戦線を抱えるなら城を前に出すのが有効です</td></tr>
+        <tr><td class="n"><b>建設中の建物</b></td><td>体力が低く、壊されると資源は戻りません。前線での建設は「建設」の令で兵に護衛させるのが基本</td></tr>
+        <tr><td class="n"><b>跡地</b></td><td>破壊された建物の跡は数十秒残り、その間は同じ場所に建てられません</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="s10">
+  <h2>10. 忠誠と離反<span class="en">LOYALTY</span></h2>
+  <p>
+    八国の軍は諸侯の集まりで、総大将が持っているのは指揮権ではなく「方針を配る権利」だけです（背景は <a href="02_世界観.html">02</a>）。
+    これはゲーム上 <b>忠誠度</b> という 1 本のメーターで表現されます。
+  </p>
+
+  <div class="meter">
+    <div class="bar">
+      <span class="tick" style="left:25%"></span>
+      <span class="tick" style="left:50%"></span>
+      <span class="tick" style="left:80%"></span>
+    </div>
+    <div class="scale"><span>0%</span><span>100%</span></div>
+    <div class="labels">
+      <span style="left:12%">敗北判定<br>令が 1 つも届かない</span>
+      <span style="left:37%">戦域 1 つが<br>令を無視する</span>
+      <span style="left:65%">令の遅延<br>+2 秒</span>
+      <span style="left:90%">正常</span>
+    </div>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>できごと</th><th>忠誠度</th><th>備考</th></tr></thead>
+      <tbody>
+        <tr><td>戦の掟を破る（井戸を埋める・種籾を焼く・碑の島で戦う など）</td><td class="n"><b>−25%</b> / 回</td><td>掟の一覧は <a href="02_世界観.html">02</a></td></tr>
+        <tr><td>自軍の建物を大量に失う</td><td class="n"><b>−5%</b></td><td>町の中心 1 つにつき</td></tr>
+        <tr><td>戦域を 3 つ以上同時に見捨てる</td><td class="n"><b>−10%</b></td><td>後退の令で畳んだ場合は対象外</td></tr>
+        <tr><td>時間経過</td><td class="n"><b>+1%</b> / 30 秒</td><td>自然回復</td></tr>
+        <tr><td>休戦の季を守り切る</td><td class="n"><b>+15%</b></td><td>下のオプションが有効なときのみ</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note warn">
+    <b>離反は「兵が消える」ではありません。</b>令を無視する戦域が出る、という形で現れます。
+    その戦域の部隊は既定行動（近くの敵に応戦）だけを取り、カードを差し替えても反応しません。
+    <b>この世界で最も重い罰は、指揮できなくなることです。</b>
+  </div>
+</section>
+
+<section id="s11">
+  <h2>11. AI と難易度<span class="en">AI</span></h2>
+  <p>
+    AI は 5 段階です。<b>難易度を上げてもズル（視界の透視・資源の増量）はしません</b>。
+    上げているのは判断の速さと、使える仕組みの範囲です。
+  </p>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>段階</th><th>使う仕組み</th><th>判断間隔</th><th>相手として</th></tr></thead>
+      <tbody>
+        <tr><td class="n">1 素人</td><td>内政のみ。攻めてきません</td><td>8 秒</td><td>操作の練習台</td></tr>
+        <tr><td class="n">2 見習い</td><td>戦域 1 つ。突撃と死守だけ</td><td>6 秒</td><td>初めての対戦</td></tr>
+        <tr><td class="n">3 諸侯</td><td>戦域 2〜3。令を 4 種使い、時代進化も進めます</td><td>4 秒</td><td>標準</td></tr>
+        <tr><td class="n">4 将軍</td><td>戦域を上限まで使い、囮を立てます</td><td>2 秒</td><td>手応えあり</td></tr>
+        <tr><td class="n">5 総大将</td><td><b>固有令・二重旗・攻城まで使用。令の遅延もプレイヤーと同条件</b></td><td>1 秒</td><td>上級者向け</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note">
+    AI も <b>令を通じて部隊を動かします</b>。プレイヤーと同じ遅延・同じ切り替え間隔を受けるので、
+    AI の隙の作り方（令を切り替えた直後の 6 秒）はプレイヤー相手と同じように狙えます。
+  </div>
+</section>
+
+<section id="s12">
+  <h2>12. 対戦とリプレイの仕組み<span class="en">NETWORK &amp; REPLAY</span></h2>
+  <p>
+    ゲームロジックは <b>決定論</b>で実装されています。同じ入力を同じ順序で与えれば、どの端末でも必ず同じ試合になります。
+    この性質ひとつで、対戦同期・リプレイ・観戦をすべて同じ仕組みで扱っています。
+  </p>
+
+  <div class="grid">
+    <div class="card">
+      <h4>送っているのは入力だけ</h4>
+      <p>1 秒を 25 フレームに区切り、各フレームの入力（クリック座標と令の番号）だけを交換します。
+      ユニットの座標は送らないので、<b>通信量は人数に関係なくごく小さい</b>です。</p>
+    </div>
+    <div class="card">
+      <h4>ロックステップ</h4>
+      <p>全員の入力が揃ってから次のフレームを進めます。誰かの回線が遅いと全員が同じだけ待つ方式で、
+      <b>「自分だけ有利／不利」が起きません</b>。</p>
+    </div>
+    <div class="card">
+      <h4>切断したとき</h4>
+      <p>席は <b>120 秒</b>保持され、その間は AI が代行します（令は最後の状態を維持）。
+      戻れば操作を引き継げます。戻らなければ AI がそのまま続けます。</p>
+    </div>
+    <div class="card">
+      <h4>リプレイの中身</h4>
+      <p>保存されているのは映像ではなく <b>入力の記録</b>です。だから容量が小さく、
+      再生時に別プレイヤーの視点へ切り替えたり、令の履歴を後から集計したりできます。</p>
+    </div>
+    <div class="card">
+      <h4>取り消せない理由</h4>
+      <p>入力を記録として確定させてから進むため、<b>アンドゥは存在しません</b>。
+      誤った令は、正しい令で上書きして直します（<a href="06_操作方法.html">06</a>）。</p>
+    </div>
+    <div class="card">
+      <h4>観戦</h4>
+      <p>観戦者は入力を送らないので、何人増えても試合に影響しません。
+      全プレイヤーの視界と全戦域の令の履歴を同時に見られます。</p>
+    </div>
+  </div>
+</section>
+
+<section id="s13">
+  <h2>13. マップ生成<span class="en">MAP GENERATION</span></h2>
+  <p>
+    マップは毎回生成されますが、<b>公平性を先に決めて、そのあとに地形を作る</b>順序にしています。
+  </p>
+  <ol class="steps">
+    <li><b>開始位置を先に置く</b> ―― 人数に応じて円周上に等間隔で配置します。距離は必ず同一。</li>
+    <li><b>初期資源を等距離で配る</b> ―― 各拠点から同じ距離・同じ量の 森／石／金／食料 を置きます。</li>
+    <li><b>争点を中央に置く</b> ―― 追加の金鉱と、他より豊かな森は中央寄りに集めます。<b>取り合いが起きる場所を意図的に作る</b>ためです。</li>
+    <li><b>地形を描く</b> ―― 川・森・丘・水域を、上で決めた位置を壊さないように配置します。</li>
+    <li><b>通り道を検査する</b> ―― どの拠点からどの拠点へも到達できるか、隘路が 1 本だけになっていないかを自動で確認し、条件を満たさなければ作り直します。</li>
+  </ol>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>マップの型</th><th>水域</th><th>戦域の立ち方</th></tr></thead>
+      <tbody>
+        <tr><td class="n">内海</td><td>中央に大きな水域</td><td>沿岸に長い戦線が 2〜3 本。港と船が効きます</td></tr>
+        <tr><td class="n">平野</td><td>ほぼ無し</td><td>正面衝突が 1〜2 本に集中。騎兵が強い</td></tr>
+        <tr><td class="n">河川</td><td>数本の川と橋</td><td>橋の数だけ戦域が立ちます。死守が効きます</td></tr>
+        <tr><td class="n">列島</td><td>水域が過半</td><td>上陸戦。輸送船と港が前提になります</td></tr>
+        <tr><td class="n">隘路</td><td>無し</td><td>戦域が 1 本に固定されやすく、攻城戦になりがち</td></tr>
+        <tr><td class="n">草原</td><td>無し</td><td>視界が広く、戦域が短時間で発生・消滅を繰り返します</td></tr>
+        <tr><td class="n">密林</td><td>小川のみ</td><td>視界が狭く、戦域の発見が遅れます。囮が刺さります</td></tr>
+        <tr><td class="n">碑の島</td><td>中央に島</td><td>島では戦えない（掟）ため、周囲の岸に戦域が並びます</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="s14">
+  <h2>14. 試合オプション<span class="en">MATCH OPTIONS</span></h2>
+  <p>対戦設定で切り替えられる、システムに影響するオプションです。</p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>オプション</th><th>既定</th><th>変えると起きること</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="n"><b>休戦の季</b><span class="tag opt">任意</span></td>
+          <td>無効</td>
+          <td>試合の 15 分前後に <b>60 秒間</b>、新しい戦域が発生しなくなります。既存の戦域は令を維持したまま交戦をやめて睨み合い、
+              守り切ると忠誠度 +15%。長期戦向けのルールです</td>
+        </tr>
+        <tr>
+          <td class="n"><b>開始時代</b></td>
+          <td>黎明の世</td>
+          <td>上げると内政フェーズを飛ばせます。<b>戦域スロットも初めからその時代の数</b>になるため、令の練習に向きます</td>
+        </tr>
+        <tr>
+          <td class="n"><b>開始資源</b></td>
+          <td>標準</td>
+          <td>多くすると立ち上げが速くなり、最初の戦域が 5 分より早く立ちます</td>
+        </tr>
+        <tr>
+          <td class="n"><b>ゲーム速度</b></td>
+          <td>1.0</td>
+          <td>0.5〜1.5。<b>AI も同じ速度になる</b>ので難易度は変わりません（オンラインでは全員一致が必要）</td>
+        </tr>
+        <tr>
+          <td class="n"><b>戦域スロット上限</b></td>
+          <td>6</td>
+          <td>2〜6 に制限できます。少なくすると「捨てる判断」が強く出る競技寄りのルールになります</td>
+        </tr>
+        <tr>
+          <td class="n"><b>資源の枯渇</b></td>
+          <td>有効</td>
+          <td>無効にすると森と鉱脈が無限になり、決着が長引きます</td>
+        </tr>
+        <tr>
+          <td class="n"><b>掟の適用</b></td>
+          <td>有効</td>
+          <td>無効にすると忠誠度の仕組みが働かなくなり、井戸や種籾も自由に壊せます</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="dim" style="margin-top:24px">
+    ※ 本資料の数値・式はすべて設計時の想定値で、実装時のバランス調整で変わります。
+    要素の一覧は <a href="03_文明と進化.html">文明と進化</a>、画面の読み方は <a href="05_画面説明.html">画面説明</a>、
+    操作は <a href="06_操作方法.html">操作方法</a> を参照してください。
+  </p>
+</section>
+
+<footer>
+  Multi-Taktika ― ゲームシステム解説。
+  <a href="01_ゲーム宣伝.html">ゲーム紹介</a> /
+  <a href="02_世界観.html">世界観設定</a> /
+  <a href="03_文明と進化.html">文明と進化</a> /
+  <a href="05_画面説明.html">画面説明</a> /
+  <a href="06_操作方法.html">操作方法</a>
+</footer>
+</body>
+</html>

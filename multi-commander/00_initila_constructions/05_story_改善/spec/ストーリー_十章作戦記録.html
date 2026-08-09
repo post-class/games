@@ -46,7 +46,7 @@
       <footer>Multi Commander / ストーリー・十章作戦記録 / 統合暦2312時点　｜　キービジュアルは GPT Image で生成。既存の世界観・人物・機体・兵装名鑑に整合するストーリー仕様。</footer>
     </main>
     <style>
-      .chapter-image{position:relative;margin:0 0 16px;overflow:hidden;border:1px solid color-mix(in srgb,var(--accent) 42%,#fff 0%);border-radius:9px;background:#07101d}.chapter-image:after{position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(3,9,18,.1),transparent 50%,rgba(3,9,18,.24));content:""}.chapter-image img{display:block;width:100%;aspect-ratio:16/7;object-fit:cover}
+      .chapter-image{position:relative;margin:0 0 16px;overflow:hidden;border:1px solid color-mix(in srgb,var(--accent) 42%,#fff 0%);border-radius:9px;background:#07101d}.chapter-image:after{position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(3,9,18,.1),transparent 50%,rgba(3,9,18,.24));content:""}.chapter-image img{display:block;width:100%;aspect-ratio:16/7;object-fit:cover}.chapter-map{position:relative;overflow:hidden;width:100%;margin:0 0 20px;border:1px solid color-mix(in srgb,var(--accent) 55%,#fff 0%);border-radius:9px;background:#07101d}.chapter-map img{display:block;width:100%;aspect-ratio:16/8;object-fit:cover}.chapter-map:after{position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(3,9,18,.38),transparent 44%,rgba(3,9,18,.12));content:""}.chapter-map figcaption{position:absolute;z-index:1;left:14px;bottom:13px;max-width:min(470px,calc(100% - 28px));padding:8px 10px;border:1px solid rgba(114,217,255,.42);border-radius:6px;background:rgba(3,10,20,.84);box-shadow:0 8px 24px rgba(0,0,0,.32)}.chapter-map b{display:block;color:var(--accent);font:700 11px var(--mono);letter-spacing:.11em}.chapter-map span{display:block;margin-top:3px;color:#e0ebf7;font-size:12px;line-height:1.45}.chapter-map em{display:block;margin-top:5px;color:#9bb1ca;font:10px var(--mono);font-style:normal;letter-spacing:.04em}.map-label{position:absolute;z-index:2;padding:4px 7px;border:1px solid currentColor;border-radius:5px;background:rgba(3,10,20,.88);box-shadow:0 3px 12px rgba(0,0,0,.45);font:700 11px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans",sans-serif;white-space:nowrap}.map-label:after{position:absolute;width:26px;height:1px;background:currentColor;content:""}.map-label.rescue{left:42%;top:54%;color:#72d9ff}.map-label.rescue:after{right:100%;bottom:-6px;transform:rotate(32deg);transform-origin:right}.map-label.enemy{right:8%;top:13%;color:#ff808d}.map-label.enemy:after{left:-17px;bottom:-13px;transform:rotate(58deg);transform-origin:left}.map-label.target{right:5%;top:45%;color:#f5c879}.map-label.target:after{left:-20px;top:18px;transform:rotate(-26deg);transform-origin:left}@media(max-width:680px){.chapter-map figcaption{left:10px;bottom:10px;padding:7px 8px}.chapter-map span{font-size:11px}.chapter-map em{display:none}.map-label{padding:3px 5px;font-size:9px}}
     </style>
     <script>
       const chapterVisuals = {
@@ -61,10 +61,27 @@
         ch9:['assets/story/ch09/20260809_133946_generate_001.png','位相迷路の奥へ暖色の航路をたどる戦闘機'],
         ch10:['assets/story/ch10/20260809_133944_generate_001.png','ヴェガ門の前で帰還船団を見守る五勢力の艦隊']
       };
+      const chapterMaps = {
+        ch1:['assets/story/map3-ch01/20260809_140518_generate_001.png','オリオン港救難宙域','港から救難艇を経由して、損傷した輸送船へ向かう救出経路'],
+        ch2:['assets/story/map2-ch02/20260809_135247_generate_001.png','ヴェガ門異常圏','漂流艦への救難航路が三つに分岐する、偽装信号の接近経路'],
+        ch3:['assets/story/map2-ch03/20260809_135159_generate_001.png','静穏海避難回廊','緑の安全回廊を通る船団と、機雷帯の外で拾う救難ルート'],
+        ch4:['assets/story/map2-ch04/20260809_135152_generate_001.png','深層採掘帯','拘束船・重力アンカー・証拠回収地点のどれを優先するか'],
+        ch5:['assets/story/map2-ch05/20260809_135154_generate_001.png','灰冠決闘圏','二機の進入経路が、艦隊の外側に設定された誓約境界で交わる'],
+        ch6:['assets/story/map2-ch06/20260809_135149_generate_001.png','ハイヴ静脈網','中継塔の間を抜ける侵入経路と、ドローン巡回の危険領域'],
+        ch7:['assets/story/map2-ch07/20260809_135200_generate_001.png','鏡面都市搬送路','単独輸送機が公証ノードへ走る主経路と、哨戒を避ける退避路'],
+        ch8:['assets/story/map2-ch08/20260809_135146_generate_001.png','停戦灯台配置','三基の灯台を結ぶ共同防衛線と、外周から来る急進派の襲撃'],
+        ch9:['assets/story/map2-ch09/20260809_135200_generate_001.png','位相迷路','中央の錨へ入る正解の航路と、行き止まりへ誘う反射経路'],
+        ch10:['assets/story/map2-ch10/20260809_135144_generate_001.png','ヴェガ門・最終配置','五勢力の共同進入路、避難船団、そして門制御を巡る三本の経路']
+      };
       Object.entries(chapterVisuals).forEach(([id,[src,alt]]) => {
         const tagline = document.querySelector(`#${id} .tagline`);
         if (tagline) tagline.insertAdjacentHTML('afterend', `<figure class="chapter-image"><img src="${src}" alt="${alt}" loading="lazy"></figure>`);
       });
+      Object.entries(chapterMaps).forEach(([id,[src,title,description]]) => {
+        const image = document.querySelector(`#${id} .chapter-image`);
+        if (image) image.insertAdjacentHTML('afterend', `<figure class="chapter-map"><img src="${src}" alt="${title}の戦術マップ" loading="lazy"><figcaption><b>TACTICAL MAP / ${id.toUpperCase()}</b><span>${description}</span><em>CYAN / PLAYER ROUTE　AMBER / OBJECTIVE　RED / THREAT</em></figcaption></figure>`);
+      });
+      document.querySelector('#ch1 .chapter-map')?.insertAdjacentHTML('beforeend', '<span class="map-label rescue">救難艇群</span><span class="map-label enemy">敵先遣隊・接近</span><span class="map-label target">損傷輸送船</span>');
     </script>
   </body>
 </html>
