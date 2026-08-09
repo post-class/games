@@ -1,0 +1,782 @@
+/*
+ * styles/screens.css — 試合前の画面（タイトル / 対戦設定 / 文明選択。T-M12-09,10,11）
+ *
+ * 規約（`AI_CODING.md` / 手順書 §8.2）:
+ *   - 左右の余白 20px。**固定幅にしない**（ウィンドウを広げたら領域も広がる）
+ *   - 本文 16px を基準。ヘッダは 1 行 + 補足 1 行に留め、本体の領域を狭めない
+ *   - 色は `index.html` の :root 変数（--gold / --line / --text …）を使う
+ *   - `05§15` の共通ルール: **金の縁 = 今これが選ばれている / 押せる**、
+ *     **暗い = できない（理由を title 属性で出す）**
+ *
+ * クラス名は `mt-` 接頭辞。HUD（hud.css）と衝突しないよう、
+ * 画面固有のものは `mt-scr-*` / `mt-title-*` / `mt-setup-*` / `mt-civ-*` にしている。
+ */
+
+/* ---------------------------------------------------------------- 画面の骨格 */
+
+.mt-scr {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 20px 16px; /* 左右 20px */
+  overflow: auto;
+  background: var(--bg, #14100c);
+  color: var(--text, #e8ded0);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.mt-scr-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--line, #4a3a1e);
+  padding-bottom: 8px;
+}
+
+/* ヘッダを大きくしすぎない（本文 16px の 1.25 倍まで） */
+.mt-scr-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--gold, #e0b34a);
+}
+
+.mt-scr-sub {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-dim, #a89b89);
+}
+
+.mt-scr-h {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--gold-dim, #a88530);
+}
+
+.mt-scr-body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.mt-scr-foot {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--line, #4a3a1e);
+  padding-top: 10px;
+}
+
+/* ---------------------------------------------------------------- 共通の部品 */
+
+.mt-btn {
+  font: inherit;
+  font-size: 16px;
+  color: var(--text, #e8ded0);
+  background: var(--panel, #26200f);
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 3px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+.mt-btn:hover:not(:disabled) {
+  border-color: var(--gold, #e0b34a);
+}
+
+.mt-btn-primary {
+  border-color: var(--gold, #e0b34a);
+  color: var(--gold, #e0b34a);
+  font-weight: 700;
+}
+
+.mt-btn-ready.is-ready {
+  border-color: var(--gold, #e0b34a);
+  background: rgba(224, 179, 74, 0.22);
+  color: var(--gold, #e0b34a);
+}
+
+/* 暗い = できない（`05§15`） */
+.mt-btn.is-off,
+.mt-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
+.mt-select,
+.mt-input {
+  font: inherit;
+  font-size: 15px;
+  color: var(--text, #e8ded0);
+  background: #1b1710;
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 3px;
+  padding: 5px 8px;
+  max-width: 100%;
+}
+
+.mt-field {
+  display: grid;
+  grid-template-columns: 8em minmax(6em, 14em) 1fr;
+  gap: 8px 10px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.mt-field-label {
+  color: var(--text-dim, #a89b89);
+}
+
+.mt-field-hint {
+  font-size: 13px;
+  color: var(--text-dim, #a89b89);
+}
+
+/* ---------------------------------------------------------------- 紋章（プレースホルダ） */
+
+.mt-emblem {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  background: radial-gradient(circle at 35% 30%, #3a3018, #1a1509);
+  border: 2px solid var(--gold-dim, #a88530);
+  border-radius: 6px;
+  color: var(--gold, #e0b34a);
+  font-weight: 700;
+  overflow: hidden;
+}
+
+.mt-emblem-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.mt-emblem-random {
+  border-style: dashed;
+}
+
+/* セーブデータが無いときの無地の紋章（`05§2-1`） */
+.mt-emblem-blank {
+  width: 64px;
+  height: 64px;
+  background: #221c12;
+  border-color: #554427;
+}
+
+/* ---------------------------------------------------------------- タイトル */
+
+.mt-title-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.mt-title-sun {
+  position: absolute;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  transform: translate(-50%, 50%);
+  transition:
+    left 1s linear,
+    bottom 1s linear;
+}
+
+.mt-title-sea {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 38%;
+}
+
+/* 中央の島（環海の中心）と碑 */
+.mt-title-isle {
+  position: absolute;
+  left: 50%;
+  bottom: 30%;
+  width: 26%;
+  height: 12%;
+  transform: translateX(-50%);
+  border-radius: 50% 50% 6% 6% / 90% 90% 10% 10%;
+}
+
+.mt-title-stone {
+  position: absolute;
+  left: 50%;
+  bottom: 60%;
+  width: 12px;
+  height: 90px;
+  transform: translateX(-50%) skewX(-2deg);
+  border-radius: 3px 3px 0 0;
+}
+
+.mt-title-clock {
+  position: absolute;
+  right: 20px;
+  bottom: 14px;
+  z-index: 2;
+  margin: 0;
+  font-size: 14px;
+  color: rgba(232, 222, 208, 0.72);
+}
+
+.mt-title-logo {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 6vh;
+}
+
+.mt-title-name {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--gold, #e0b34a);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+}
+
+.mt-title-tag {
+  margin: 2px 0 0;
+  font-size: 15px;
+  color: rgba(232, 222, 208, 0.85);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+}
+
+.mt-title-menu {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4vh;
+  max-width: 640px;
+}
+
+.mt-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mt-menu-btn {
+  font: inherit;
+  font-size: 18px;
+  min-width: 13em;
+  text-align: left;
+  padding: 9px 16px;
+  color: var(--text, #e8ded0);
+  background: rgba(20, 16, 12, 0.62);
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.mt-menu-btn:hover:not(:disabled) {
+  border-color: var(--gold, #e0b34a);
+  background: rgba(40, 32, 16, 0.8);
+}
+
+/* 初回起動時は最上段が光る（`05§2` 図注） */
+.mt-menu-btn.is-first {
+  border-color: var(--gold, #e0b34a);
+  box-shadow: 0 0 12px rgba(224, 179, 74, 0.45);
+  color: var(--gold, #e0b34a);
+}
+
+.mt-menu-btn:disabled {
+  opacity: 0.4;
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
+.mt-menu-note {
+  font-size: 14px;
+  color: rgba(232, 222, 208, 0.68);
+}
+
+.mt-menu-row.is-off .mt-menu-note {
+  color: #c0562f;
+}
+
+.mt-title-sub {
+  position: relative;
+  z-index: 1;
+  margin-top: auto;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.mt-title-sub-note {
+  font-size: 13px;
+  color: rgba(232, 222, 208, 0.6);
+}
+
+.mt-credits {
+  position: relative;
+  z-index: 1;
+  display: none;
+  max-width: 720px;
+  padding: 12px 16px;
+  background: rgba(18, 16, 12, 0.9);
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 4px;
+}
+
+.mt-credits.is-shown {
+  display: block;
+}
+
+.mt-credits p {
+  margin: 4px 0;
+  font-size: 15px;
+}
+
+.mt-credits-note {
+  color: var(--text-dim, #a89b89);
+}
+
+/* ---------------------------------------------------------------- 対戦設定 */
+
+.mt-setup-body {
+  display: grid;
+  /* 左（マップ）と右（参加者）。**固定幅にしない**（minmax + 1fr） */
+  grid-template-columns: minmax(320px, 34%) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .mt-setup-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.mt-setup-left,
+.mt-setup-right {
+  min-width: 0;
+}
+
+.mt-preview {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  background: #0d1420;
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 4px;
+  image-rendering: pixelated;
+}
+
+.mt-preview-info {
+  margin: 6px 0 8px;
+  font-size: 14px;
+  color: var(--text-dim, #a89b89);
+}
+
+.mt-map-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.mt-map-btn {
+  font: inherit;
+  font-size: 14px;
+  padding: 5px 10px;
+  color: var(--text, #e8ded0);
+  background: var(--panel, #26200f);
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.mt-map-btn.is-selected {
+  border-color: var(--gold, #e0b34a);
+  color: var(--gold, #e0b34a);
+}
+
+.mt-options {
+  padding-top: 8px;
+  border-top: 1px solid var(--line, #4a3a1e);
+}
+
+/* ---- 参加者スロット ---- */
+
+.mt-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mt-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  background: rgba(30, 26, 18, 0.7);
+  border: 1px solid var(--line, #4a3a1e);
+  border-left: 5px solid var(--slot-color, #5b5347);
+  border-radius: 3px;
+}
+
+/* 準備完了のスロットは金色（`05§3-7`） */
+.mt-slot.is-ready {
+  border-color: var(--gold, #e0b34a);
+  background: rgba(224, 179, 74, 0.14);
+}
+
+.mt-slot-empty {
+  border-style: dashed;
+  opacity: 0.85;
+}
+
+.mt-slot-no {
+  width: 1.6em;
+  text-align: center;
+  color: var(--text-dim, #a89b89);
+}
+
+.mt-slot-kind {
+  font: inherit;
+  width: 2.2em;
+  padding: 4px 0;
+  color: var(--text, #e8ded0);
+  background: #1b1710;
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.mt-slot-civ {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 14px;
+  padding: 3px 8px 3px 3px;
+  color: var(--text, #e8ded0);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.mt-slot-civ:hover {
+  border-color: var(--gold, #e0b34a);
+}
+
+.mt-slot-name {
+  font: inherit;
+  font-size: 15px;
+  width: 9em;
+  min-width: 6em;
+  color: var(--text, #e8ded0);
+  background: #1b1710;
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 3px;
+  padding: 4px 6px;
+}
+
+.mt-slot-ai-note,
+.mt-slot-neighbor {
+  font-size: 13px;
+  color: var(--text-dim, #a89b89);
+}
+
+.mt-slot-neighbor {
+  margin-left: auto;
+}
+
+.mt-slot-remove {
+  font: inherit;
+  color: var(--text-dim, #a89b89);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 2px 8px;
+}
+
+.mt-slot-remove:hover {
+  color: #c0562f;
+  border-color: #c0562f;
+}
+
+.mt-btn-add {
+  font-size: 14px;
+  padding: 4px 10px;
+}
+
+.mt-slot-empty-text {
+  color: var(--text-dim, #a89b89);
+}
+
+.mt-issues {
+  margin: 10px 0 0;
+  padding-left: 1.2em;
+}
+
+.mt-issue {
+  font-size: 14px;
+  color: #c0562f;
+}
+
+.mt-issue-wait {
+  color: var(--gold-dim, #a88530);
+}
+
+.mt-share-url {
+  flex: 0 0 auto;
+  display: none;
+  margin: 0;
+  font-size: 13px;
+  color: var(--gold, #e0b34a);
+  word-break: break-all;
+}
+
+.mt-share-url.is-shown {
+  display: block;
+}
+
+/* ---------------------------------------------------------------- 文明選択 */
+
+.mt-civ-body {
+  display: grid;
+  grid-template-columns: minmax(300px, 32%) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .mt-civ-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.mt-civ-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mt-civ-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text, #e8ded0);
+  background: rgba(30, 26, 18, 0.75);
+  border: 2px solid var(--line, #4a3a1e);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.mt-civ-cell:hover {
+  border-color: var(--gold-dim, #a88530);
+}
+
+/* 選択中は金枠で光る（`05§4-2`） */
+.mt-civ-cell.is-selected {
+  border-color: var(--gold, #e0b34a);
+  box-shadow: 0 0 14px rgba(224, 179, 74, 0.5);
+}
+
+.mt-civ-cell-name {
+  color: inherit;
+}
+
+.mt-civ-detail-inner {
+  display: grid;
+  grid-template-columns: minmax(180px, 30%) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .mt-civ-detail-inner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.mt-portrait {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  background: linear-gradient(180deg, #2a2318, #16120b);
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 4px;
+}
+
+.mt-portrait-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.mt-portrait-ph {
+  font-size: 56px;
+  font-weight: 700;
+  color: var(--gold-dim, #a88530);
+}
+
+.mt-portrait-ph-note {
+  font-size: 13px;
+  color: var(--text-dim, #a89b89);
+}
+
+.mt-civ-general-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.mt-civ-elite {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--text-dim, #a89b89);
+}
+
+.mt-civ-thumbs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.mt-civ-thumb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  background: rgba(30, 26, 18, 0.7);
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 4px;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* 持たない役割は枠を暗くする（`05§4-5`） */
+.mt-civ-thumb.is-off {
+  opacity: 0.38;
+  border-style: dashed;
+}
+
+.mt-civ-thumb-pic {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #191409;
+  border-radius: 3px;
+}
+
+.mt-civ-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.mt-civ-thumb-ph {
+  font-size: 18px;
+  color: var(--gold-dim, #a88530);
+}
+
+.mt-civ-thumb-role {
+  color: var(--text-dim, #a89b89);
+  font-size: 13px;
+}
+
+.mt-civ-thumb-name {
+  font-size: 14px;
+}
+
+.mt-civ-h {
+  margin: 0 0 4px;
+  font-size: 15px;
+  color: var(--gold-dim, #a88530);
+}
+
+.mt-civ-bonus-text {
+  margin: 0 0 12px;
+}
+
+/* 固有令は金の縁（`05§8-8` / `05§15`） */
+.mt-order-card {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 12em;
+  padding: 10px 14px;
+  background: linear-gradient(180deg, #2e2612, #1a1509);
+  border: 2px solid var(--gold, #e0b34a);
+  border-radius: 5px;
+}
+
+.mt-order-card-key {
+  font-size: 12px;
+  color: var(--gold-dim, #a88530);
+}
+
+.mt-order-card-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--gold, #e0b34a);
+}
+
+.mt-order-card-meta {
+  font-size: 13px;
+  color: var(--text-dim, #a89b89);
+}
+
+.mt-civ-random {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 20px;
+  border: 2px dashed var(--gold-dim, #a88530);
+  border-radius: 5px;
+}
+
+.mt-civ-random-mark {
+  font-size: 64px;
+  color: var(--gold, #e0b34a);
+}
+
+.mt-civ-random-note {
+  margin: 0;
+  color: var(--text-dim, #a89b89);
+  text-align: center;
+}

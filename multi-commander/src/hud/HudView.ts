@@ -130,6 +130,8 @@ export class HudView {
   private shieldParts: Record<string, SVGElement> = {};
   private radarBlips: SVGCircleElement[] = [];
   private radarG: SVGGElement;
+  /** レーダー上の目的地マーカー（現在向かっている Nav）。機体の点と混ざらないよう菱形にする */
+  private radarNav!: SVGPathElement;
   private radarBox!: HTMLElement;
   private radarNoise = 1;
 
@@ -271,8 +273,9 @@ export class HudView {
     this.radarBox = radarBox;
     const rl = el('div', 'mc-boxlabel');
     rl.textContent = 'RADAR';
-    const { svg, g } = radarSvg();
+    const { svg, g, nav } = radarSvg();
     this.radarG = g;
+    this.radarNav = nav;
     radarBox.append(svg, rl);
 
     center.append(gauges, shieldBox, radarBox);
@@ -732,12 +735,9 @@ export class HudView {
         this.tmpV.z += Math.sin(t * 0.87 + 2) * j;
         this.tmpV.normalize();
       }
-      // 機首 (-Z) を中心、真後ろを外周に
-      const angle = Math.acos(Math.max(-1, Math.min(1, -this.tmpV.z)));
-      const r = (angle / Math.PI) * 44;
-      const az = Math.atan2(this.tmpV.x, this.tmpV.y);
-      blip.setAttribute('cx', (r * Math.sin(az)).toFixed(2));
-      blip.setAttribute('cy', (-r * Math.cos(az)).toFixed(2));
+      const p = radarPoint(this.tmpV);
+      blip.setAttribute('cx', p.x.toFixed(2));
+      blip.setAttribute('cy', p.y.toFixed(2));
       blip.setAttribute('visibility', 'visible');
       let color: string;
       if (e.kind === 'rock') color = '#9a8f7d';
@@ -761,6 +761,28 @@ export class HudView {
               : '2.6',
       );
     }
+
+    this.renderRadarNav(f, player, quality);
+  }
+
+  /**
+   * レーダーに目的地（現在向かっている Nav）を出す。
+   *
+   * 機体は円なので Nav は菱形にして区別する。Nav は数キロ〜数十キロ先にあり
+   * 機体の探知範囲（`MARKER_RANGE`）より遠いことが多いので、**距離では間引かず
+   * 必ず表示する**。「どこへ向かえばいいか」を示すのがこのマーカーの役目なので、
+   * 遠いほど外周へ寄る（真後ろが外周）という向きの情報だけで十分に用を果たす。
+   */
+  private renderRadarNav(f: HudFrame, player: Entity, quality: number): void {
+    const nav = f.nav;
+    if (!nav || !nav.alive || quality <= 0) {
+      this.radarNav.setAttribute('visibility', 'hidden');
+      return;
+    }
+    this.tmpV.copy(nav.pos).sub(player.pos).applyQuaternion(this.tmpQ).normalize();
+    const p = radarPoint(this.tmpV);
+    this.radarNav.setAttribute('transform', `translate(${p.x.toFixed(2)} ${p.y.toFixed(2)})`);
+    this.radarNav.setAttribute('visibility', 'visible');
   }
 
   /** 左 VDU は常に自機の状態を表示する (本家の systems / damage display)。 */
@@ -1176,7 +1198,25 @@ function leadSvg(): SVGSVGElement {
   return svg;
 }
 
-function radarSvg(): { svg: SVGSVGElement; g: SVGGElement } {
+/** レーダーの外周半径（SVG 座標） */
+const RADAR_RADIUS = 44;
+
+/**
+ * 自機から見た方向ベクトルを、レーダー面の座標へ写す。
+ *
+ * 機首 (-Z) が中心、真後ろが外周。機体の点と目的地マーカーで同じ写し方を使うため、
+ * ここに1本化する（別々に書くと片方だけ直して食い違う）。
+ *
+ * @param dir 自機の姿勢を打ち消した後の方向ベクトル（正規化済み）
+ */
+export function radarPoint(dir: { x: number; y: number; z: number }): { x: number; y: number } {
+  const angle = Math.acos(Math.max(-1, Math.min(1, -dir.z)));
+  const r = (angle / Math.PI) * RADAR_RADIUS;
+  const az = Math.atan2(dir.x, dir.y);
+  return { x: r * Math.sin(az), y: -r * Math.cos(az) };
+}
+
+function radarSvg(): { svg: SVGSVGElement; g: SVGGElement; nav: SVGPathElement } {
   const svg = svgEl('svg') as SVGSVGElement;
   svg.setAttribute('viewBox', '-50 -50 100 100');
   const bg = svgEl('g');
@@ -1188,5 +1228,14 @@ function radarSvg(): { svg: SVGSVGElement; g: SVGGElement } {
   svg.appendChild(bg);
   const g = svgEl('g') as SVGGElement;
   svg.appendChild(g);
-  return { svg, g };
+  // 目的地マーカー。機体は円なので、Nav は菱形にして一目で区別できるようにする。
+  // 機体の点より後ろに描くと隠れるので、g の後（＝最前面）に置く。
+  const nav = svgEl('path') as SVGPathElement;
+  nav.setAttribute('d', 'M 0 -4 L 3.4 0 L 0 4 L -3.4 0 Z');
+  nav.setAttribute('fill', 'none');
+  nav.setAttribute('stroke', '#eaf7ff');
+  nav.setAttribute('stroke-width', '1.2');
+  nav.setAttribute('visibility', 'hidden');
+  svg.appendChild(nav);
+  return { svg, g, nav };
 }

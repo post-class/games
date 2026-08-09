@@ -27,7 +27,7 @@
 
 import '@/styles/hud.css';
 
-import type { CivId, PlayerId } from '@/shared/types';
+import type { CivId, MapTypeId, PlayerId } from '@/shared/types';
 import type { Command } from '@/sim/command';
 import { TICK_MS, createMatch, stepWorld } from '@/sim';
 import { FX_ONE } from '@/sim/core/fx';
@@ -44,6 +44,8 @@ import { Selection } from '@/input/selection';
 import { tileToFx } from '@/input/context';
 import type { InputContext } from '@/input/env';
 import { Hud, type HudContext } from '@/ui';
+import { ScreenRouter, type Screen, type ScreenParams } from '@/ui/screens/router';
+import { registerScreens } from '@/ui/screens/register';
 
 /** 1 フレームで進める tick の上限（手順書 §4.1）。 */
 const MAX_STEPS_PER_FRAME = 5;
@@ -85,22 +87,51 @@ function stressSpawn(world: ReturnType<typeof createMatch>['world'], raw: string
   }
 }
 
-function main(): void {
+/**
+ * 対戦画面（`05§6`）。**13 画面のうち唯一「常に表示されている」画面**で、
+ * 他のパネルはこの上に重なるオーバーレイ（`ui/hud/*`）。
+ *
+ * ここが `stepWorld` を回す唯一の場所。ルータの `frame` から毎フレーム呼ばれる。
+ */
+function createMatchScreen(): Screen {
+  let stop: (() => void) | null = null;
+  let onFrame: ((nowMs: number) => void) | null = null;
+  return {
+    mount(root, _nav, params) {
+      const r = startMatch(root, params);
+      stop = r.stop;
+      onFrame = r.frame;
+    },
+    unmount() {
+      stop?.();
+      stop = null;
+      onFrame = null;
+    },
+    frame(nowMs) {
+      onFrame?.(nowMs);
+    },
+  };
+}
+
+/** 対戦画面の起動。戻り値でフレーム処理と後片付けを返す。 */
+function startMatch(
+  overlay: HTMLElement,
+  params: ScreenParams,
+): { frame: (nowMs: number) => void; stop: () => void } {
   const canvas = document.getElementById('field') as HTMLCanvasElement | null;
-  const overlay = document.getElementById('overlay');
   const boot = document.getElementById('boot');
-  if (canvas === null || overlay === null) {
-    throw new Error('main: #field / #overlay が見つからない');
+  if (canvas === null) {
+    throw new Error('main: #field が見つからない');
   }
   const ctx2d = canvas.getContext('2d');
   if (ctx2d === null) throw new Error('main: 2d コンテキストが取れない');
 
   // ---------------------------------------------------------------- 試合を作る
   const { world } = createMatch({
-    seed: 20260809,
-    playerCount: 2,
-    civs: CIVS,
-    mapType: 'plain',
+    seed: typeof params['seed'] === 'number' ? params['seed'] : DEFAULT_SEED,
+    playerCount: typeof params['playerCount'] === 'number' ? params['playerCount'] : 2,
+    civs: Array.isArray(params['civs']) ? (params['civs'] as CivId[]) : [...CIVS],
+    mapType: typeof params['mapType'] === 'string' ? (params['mapType'] as MapTypeId) : 'plain',
   });
   const viewer: PlayerId = 0;
 
@@ -150,8 +181,9 @@ function main(): void {
     return true;
   };
 
-  mouse.attach(canvas);
-  keys.attach(window);
+  // `attach` は購読解除の関数を返す（画面を離れるときに呼ぶ）。
+  const detachMouse = mouse.attach(canvas);
+  const detachKeys = keys.attach(window);
 
   // ---------------------------------------------------------------- HUD
   const hudCtx: HudContext = {
@@ -215,7 +247,9 @@ function main(): void {
   let fpsCount = 0;
   let fpsSinceMs = lastMs;
 
+  let running = true;
   const frame = (nowMs: number): void => {
+    if (!running) return;
     const frameStart = performance.now();
     const dtMs = Math.min(250, nowMs - lastMs); // タブ復帰時の巨大な dt を切る
     lastMs = nowMs;
@@ -265,9 +299,44 @@ function main(): void {
       fpsCount = 0;
       fpsSinceMs = nowMs;
     }
-    requestAnimationFrame(frame);
   };
-  requestAnimationFrame(frame);
+
+  return {
+    frame,
+    stop: () => {
+      running = false;
+      window.removeEventListener('resize', resize);
+      detachMouse();
+      detachKeys();
+    },
+  };
+}
+
+/** 既定のシード（`?seed=` で上書き）。 */
+const DEFAULT_SEED = 20260809;
+
+function main(): void {
+  const overlay = document.getElementById('overlay');
+  if (overlay === null) throw new Error('main: #overlay が見つからない');
+
+  const router = new ScreenRouter(overlay);
+  router.register('match', createMatchScreen());
+  registerScreens(router);
+
+  // 起動先: 既定はタイトル（`05§1` の遷移）。
+  // `?dev=match` で対戦画面へ直接入る（開発中の確認用。M5 の通し確認がこれ）。
+  const q = new URLSearchParams(location.search);
+  const dev = q.get('dev');
+  const seedRaw = q.get('seed');
+  const seed = seedRaw === null ? DEFAULT_SEED : Number.parseInt(seedRaw, 10);
+  const startAt = dev === 'match' || !router.has('title') ? 'match' : 'title';
+  router.go(startAt, { seed: Number.isFinite(seed) ? seed : DEFAULT_SEED });
+
+  const loop = (nowMs: number): void => {
+    router.frame(nowMs);
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
 }
 
 main();

@@ -1,0 +1,510 @@
+/*
+ * styles/frontCommand.css — 戦域指令ビュー / 令カードパネル / 警告システム
+ *   （T-M12-03 / 04 / 08。`05§7` / `05§8` / `05§15` / `06§12`）
+ *
+ * hud.css とは**別ファイル**（HUD 本体と並行して実装するため）。
+ * 依存は `index.html` の :root 変数（--panel / --line / --gold / --text / --red …）だけ。
+ *
+ * 規約（`AI_CODING.md` / 手順書 §8.2）:
+ *   - 左右の余白 20px。幅は固定しない（ウィンドウを広げたら領域も広がる）
+ *   - 本文 16px を基準。ヘッダは最小限（俯瞰図の領域を狭めない）
+ *   - 位置は固定（`05§1` / 手順書 §16-10）:
+ *       戦域指令ビュー = 全面のオーバーレイ（**試合は止まらない**）
+ *       令カードパネル = 右端の戦域スロット列（20 + 190px）の左隣・下端の上
+ *       警告バッジ     = 画面左端の中央（他の 3 辺は資源 / 戦域 / コマンドで埋まっている）
+ */
+
+/* =======================================================================
+ * 戦域指令ビュー（T-M12-03）
+ * ===================================================================== */
+
+.mt-fcv {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  /* 戦場が透けて見える暗幕。試合は止まっていないので完全に隠さない */
+  background: rgba(12, 10, 8, 0.86);
+  color: var(--text, #e8ded0);
+  font-size: 16px;
+  z-index: 20;
+}
+
+.mt-fcv[hidden] {
+  display: none;
+}
+
+.mt-fcv button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* ヘッダは最小限（1 行だけ） */
+.mt-fcv-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--line, #4a3a1e);
+}
+
+.mt-fcv-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--gold, #e0b34a);
+  letter-spacing: 0.06em;
+}
+
+.mt-fcv-hint {
+  font-size: 14px;
+  color: var(--text-dim, #a89b89);
+}
+
+.mt-fcv-close {
+  margin-left: auto;
+  padding: 6px 12px;
+  background: rgba(38, 32, 15, 0.9);
+  border: 1px solid var(--gold-dim, #a88530);
+  border-radius: 4px;
+}
+
+.mt-fcv-body {
+  flex: 1 1 auto;
+  display: flex;
+  gap: 20px;
+  /* 左右の余白 20px */
+  padding: 12px 20px 20px;
+  min-height: 0;
+}
+
+/* 俯瞰図（残り全部を使う。固定幅にしない） */
+.mt-fcv-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 4px;
+  background: rgba(20, 16, 12, 0.6);
+  overflow: hidden;
+}
+
+.mt-fcv-map {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.mt-fcv-chips {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* 令スロット（俯瞰図の輪に添えるチップ）。色 + 形 + 番号の 3 重（`06§12`） */
+.mt-fcv-chip {
+  position: absolute;
+  transform: translate(-50%, 0);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-auto-rows: auto;
+  column-gap: 6px;
+  padding: 3px 8px;
+  max-width: 240px;
+  background: rgba(18, 16, 12, 0.92);
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: left;
+  white-space: nowrap;
+  pointer-events: auto;
+}
+
+.mt-fcv-chip-flag {
+  grid-row: 1 / span 2;
+  align-self: center;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.mt-fcv-chip-upper,
+.mt-fcv-chip-lower {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 二重旗のとき下段が現れる（`05§10`） */
+.mt-fcv-chip-lower {
+  color: var(--text-dim, #a89b89);
+  border-top: 1px dashed var(--line, #4a3a1e);
+}
+
+.mt-fcv-chip-selected {
+  box-shadow: 0 0 0 2px var(--gold, #e0b34a);
+}
+
+.mt-fcv-chip-warn {
+  border-color: var(--red, #c0562f);
+}
+
+/* 右の列: 6 スロットの一覧 */
+.mt-fcv-side {
+  flex: 0 0 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+}
+
+.mt-fcv-row {
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  column-gap: 8px;
+  padding: 6px 10px;
+  background: rgba(18, 16, 12, 0.8);
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 4px;
+  text-align: left;
+}
+
+.mt-fcv-row-flag {
+  grid-row: 1 / span 3;
+  align-self: center;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.mt-fcv-row-upper {
+  font-size: 16px;
+}
+
+.mt-fcv-row-lower,
+.mt-fcv-row-state {
+  font-size: 13px;
+  color: var(--text-dim, #a89b89);
+}
+
+.mt-fcv-row-active {
+  background: rgba(38, 32, 15, 0.9);
+}
+
+.mt-fcv-row-selected {
+  box-shadow: 0 0 0 2px var(--gold, #e0b34a);
+}
+
+/* 崩れかけの戦域（`05§7-3`）。canvas の輪と同じ意味を DOM 側にも出す */
+.mt-fcv-row-warn {
+  border-color: var(--red, #c0562f);
+  animation: mt-warn-blink 0.9s steps(1, end) infinite;
+}
+
+/* 空き / 未解禁は暗く（`05§15` の「暗いボタン」と同じ意味） */
+.mt-fcv-row-locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.mt-fcv-legend {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-dim, #a89b89);
+}
+
+/* =======================================================================
+ * 令カードパネル（T-M12-04）
+ * ===================================================================== */
+
+.mt-cards {
+  position: absolute;
+  /* 右端の戦域スロット列（20px 余白 + 190px）の左隣。位置は動かさない（`05§1`） */
+  right: 230px;
+  bottom: 150px;
+  width: 560px;
+  max-width: calc(100vw - 260px);
+  padding: 10px 12px 12px;
+  background: rgba(26, 22, 14, 0.94);
+  border: 1px solid var(--gold-dim, #a88530);
+  border-radius: 5px;
+  color: var(--text, #e8ded0);
+  font-size: 16px;
+  z-index: 25;
+}
+
+.mt-cards[hidden] {
+  display: none;
+}
+
+.mt-cards button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.mt-cards-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.mt-cards-flag {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.mt-cards-title {
+  font-size: 16px;
+  color: var(--gold, #e0b34a);
+}
+
+.mt-cards-close {
+  margin-left: auto;
+  padding: 2px 10px;
+  background: transparent;
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+/* 令スロット。二重旗（研究後）で上下 2 段に割れる（`05§10`） */
+.mt-cards-tiers {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+  padding: 4px 8px;
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 4px;
+  background: rgba(18, 16, 12, 0.6);
+  font-size: 14px;
+}
+
+.mt-cards-dual .mt-cards-tier + .mt-cards-tier {
+  border-top: 1px dashed var(--line, #4a3a1e);
+  padding-top: 2px;
+}
+
+.mt-cards-tier-empty {
+  color: var(--text-dim, #a89b89);
+}
+
+/* 砂時計（`05§10`「カード切り替え時の砂時計」） */
+.mt-cards-hourglass {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: var(--text-dim, #a89b89);
+}
+
+.mt-cards-hourglass[hidden] {
+  display: none;
+}
+
+.mt-cards-hourglass-mark {
+  grid-row: 1 / span 2;
+  font-size: 20px;
+  color: var(--gold, #e0b34a);
+  animation: mt-hourglass-tip 1.2s ease-in-out infinite;
+}
+
+.mt-cards-hourglass-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.mt-cards-hourglass-fill {
+  height: 100%;
+  width: 0;
+  background: var(--text-dim, #a89b89);
+}
+
+/* 令が流れている間（遅延）は金。切り替え待ちは淡い色で区別する */
+.mt-cards-hourglass-delay .mt-cards-hourglass-fill {
+  background: var(--gold, #e0b34a);
+}
+
+@keyframes mt-hourglass-tip {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(180deg);
+  }
+}
+
+/* カード 7 枚（基本 6 + 文明固有 1）。キー番号と並びが一対一 */
+.mt-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mt-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  background: rgba(18, 16, 12, 0.85);
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 4px;
+  text-align: left;
+  transition:
+    transform 0.12s ease-out,
+    box-shadow 0.12s ease-out;
+}
+
+/* 名前プレート。文明固有はここに金の縁（`05§8-8`） */
+.mt-card-plate {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 4px;
+  border: 2px solid transparent;
+  border-radius: 3px;
+  background: rgba(38, 32, 15, 0.8);
+}
+
+.mt-card-key {
+  font-size: 13px;
+  color: var(--text-dim, #a89b89);
+  font-variant-numeric: tabular-nums;
+}
+
+.mt-card-name {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.mt-card-tier {
+  font-size: 12px;
+  color: var(--text-dim, #a89b89);
+}
+
+.mt-card-note {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-dim, #a89b89);
+}
+
+.mt-card-state {
+  font-size: 12px;
+  color: var(--gold, #e0b34a);
+  min-height: 1em;
+}
+
+/* 選択中のカードは光って前に出る（`05§8-7`） */
+.mt-card-selected {
+  background: rgba(58, 48, 22, 0.95);
+  box-shadow: 0 0 12px 2px rgba(224, 179, 74, 0.55);
+  transform: translateY(-4px);
+}
+
+/* 伝達中（まだ届いていない）。**選択中とは別の見え方にする**（`06§4`） */
+.mt-card-pending {
+  border-style: dashed;
+  border-color: var(--gold-dim, #a88530);
+}
+
+.mt-card-disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+/* =======================================================================
+ * 警告システム（T-M12-08）
+ * ===================================================================== */
+
+/* 画面の縁（3 重通知の「縁のバッジ」の“縁”。赤のときだけはっきり出る） */
+.mt-warn-frame {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 15;
+  transition: opacity 0.1s linear;
+}
+
+/* バッジ列: 画面左端の中央（他の 3 辺は HUD が使っている。位置は固定） */
+.mt-warn {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 30;
+  pointer-events: none;
+}
+
+.mt-warn-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.mt-warn-badge {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 8px;
+  align-items: center;
+  padding: 5px 10px;
+  max-width: 260px;
+  background: rgba(18, 16, 12, 0.92);
+  border: 2px solid var(--red, #c0562f);
+  border-radius: 4px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--red, #c0562f);
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.mt-warn-mark {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.mt-warn-text {
+  color: var(--text, #e8ded0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 赤（戦域が崩れかけ）だけは背景も強くする */
+.mt-warn-red {
+  background: rgba(60, 20, 14, 0.92);
+}
+
+/*
+ * CSS 側の点滅は「保険」。実際の速さは JS が opacity を書く
+ * （放置時間で周期が変わるのを CSS では表現できないため）。
+ */
+@keyframes mt-warn-blink {
+  0%,
+  49% {
+    box-shadow: 0 0 0 0 rgba(192, 86, 47, 0);
+  }
+  50%,
+  100% {
+    box-shadow: 0 0 8px 2px rgba(192, 86, 47, 0.8);
+  }
+}
+
+/* 動きを減らす設定（OS 側）を尊重する。点滅は縁の色だけに落とす */
+@media (prefers-reduced-motion: reduce) {
+  .mt-fcv-row-warn,
+  .mt-cards-hourglass-mark {
+    animation: none;
+  }
+}
