@@ -22,14 +22,12 @@
 
 import buildingsJson from '@/data/buildings.json' with { type: 'json' };
 import type { PlayerId } from '@/shared/types';
-import { EntityKind, NEUTRAL_OWNER } from '@/shared/types';
+import { NEUTRAL_OWNER } from '@/shared/types';
 import { cfgBool, cfgFx, cfgInt, cfgNum, cfgObject, cfgStr, cfgTicks, TICK_RATE } from './config';
-import { BUILDING_DEFS, buildingDef, unitDef } from './defs';
-import type { Entities } from './entity';
+import { BUILDING_DEFS, buildingDef } from './defs';
 import type { Fx } from './fx';
 import { FX_ONE, fx, fxClamp } from './fx';
-import { queryCircle } from './grid';
-import { areAllies, getPlayer, type MapState, type World } from './world';
+import { getPlayer, type MapState, type World } from './world';
 
 // ---------------------------------------------------------------------------
 // 掟の ID

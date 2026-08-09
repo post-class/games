@@ -383,7 +383,9 @@ function trackFleeingVillagers(w: World, s: LoyaltyStore, charge: boolean): void
     if (dead || hp < fv.prevHp) {
       // 攻撃された（または撃ち殺された）。30 秒以内なら掟五が成立する。
       if (charge && w.tick - fv.spawnTick <= window) {
-        const culprit = blameNearestEnemy(w, fv.owner, e.x[idx]!, e.y[idx]!);
+        // 犯人は「最後に実際に殴った者」。近傍推定では
+        // 近くにいるだけの無関係なプレイヤーが罰されてしまう。
+        const culprit = blameLastDamager(w, idx);
         if (culprit >= 0) addLoyalty(w, culprit, lawPenalty(LAW_FLEEING_VILLAGER));
       }
       fv.done = true;

@@ -161,10 +161,13 @@ describe('T-M11-02: 掟一 碑の島で戦うと -25%', () => {
 });
 
 describe('T-M11-02: 掟二・三 井戸と種籾蔵を壊すと -25%', () => {
-  it('井戸を壊した側（近くの敵の攻撃者）が -25%', () => {
+  it('井戸を壊した側（最後に実際に殴った者）が -25%', () => {
     const w = makeWorld();
     const well = putBuilding(w, 'well', 0, 50, 50);
-    putUnit(w, 'clubman', 1, 51, 50);
+    // 犯人は「最後にダメージを与えた者」の記録で決まる（combat.dealDamage が書く）。
+    // 近くにいるかどうかは関係ない。
+    w.entities.lastDamagedBy[well] = 1;
+    w.entities.lastDamagedTick[well] = 9;
     w.tick = 10;
     markDeadIndex(w.entities, well);
     loyalty(w);
@@ -176,14 +179,15 @@ describe('T-M11-02: 掟二・三 井戸と種籾蔵を壊すと -25%', () => {
   it('種籾蔵を壊した側が -25%', () => {
     const w = makeWorld();
     const store = putBuilding(w, 'seed_store', 0, 50, 50);
-    putUnit(w, 'clubman', 1, 51, 50);
+    w.entities.lastDamagedBy[store] = 1;
+    w.entities.lastDamagedTick[store] = 9;
     w.tick = 10;
     markDeadIndex(w.entities, store);
     loyalty(w);
     expect(w.players[1]!.loyalty).toBe(FX_ONE + fx(-0.25));
   });
 
-  it('近くに敵の攻撃者がいなければ誰も罰されない（自壊・味方の巻き込み）', () => {
+  it('殴られた記録が無ければ誰も罰されない（自壊・スクリプトによる消滅）', () => {
     const w = makeWorld();
     const well = putBuilding(w, 'well', 0, 50, 50);
     w.tick = 10;
@@ -243,18 +247,13 @@ describe('T-M11-02: 掟五 降った城の民（逃亡村人）', () => {
       }
     }
     expect(vi).toBeGreaterThanOrEqual(0);
-    spawnEntity(e, {
-      kind: EntityKind.Unit,
-      owner: 1,
-      typeId: unitDefById('clubman').index,
-      x: e.x[vi]! + FX_ONE,
-      y: e.y[vi]!,
-      hpMax: unitDefById('clubman').hp,
-    });
-    rebuildGrid(w.grid, w.entities, w.tick);
 
     w.tick = 60; // 落城から 10 tick（30 秒以内）
+    // 攻撃を再現する。犯人は `lastDamagedBy` の記録で決まる（combat.dealDamage が書く）ので、
+    // 近くに兵を置くのではなく記録を入れる。
     e.hp[vi] = e.hp[vi]! - fx(5);
+    e.lastDamagedBy[vi] = 1;
+    e.lastDamagedTick[vi] = w.tick;
     loyalty(w);
     expect(w.players[1]!.loyalty).toBe(FX_ONE + fx(-0.25));
     // 成立した村人は追跡から外れる（同じ村人で二重に課さない）。

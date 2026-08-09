@@ -14,13 +14,15 @@ import type { PlayerId } from '@/shared/types';
 import type { World } from '@/sim/core/world';
 import type { Ctx2D } from './ctx';
 import { drawFog, drawRememberedBuildings } from './fogLayer';
+import { FogCache } from './fogCache';
+import { TerrainCache } from './terrainCache';
 import { drawFronts } from './frontLayer';
 import { MotionBuffer } from './interp';
 import type { Camera } from './iso';
 import { GOLD } from './palette';
 import { PlaceholderSpriteProvider, type SpriteProvider } from './placeholder';
 import { SpriteLayer, type SpriteStats } from './spriteLayer';
-import { clearField, drawTerrainTiles, type TerrainStats } from './terrainLayer';
+import { clearField, emptyTerrainStats, type TerrainStats } from './terrainLayer';
 import { VisionBuffer } from './vision';
 
 /** 画面に出す範囲選択の矩形（画面座標 px）。 */
@@ -68,9 +70,19 @@ export class Renderer {
   readonly sprites: SpriteProvider;
   private readonly spriteLayer: SpriteLayer;
   private readonly ctx: Ctx2D;
+  /**
+   * 地形のオフスクリーンキャッシュ（手順書 §7.1）。
+   * カメラが動かなければ焼き直さず、毎フレームは `drawImage` だけで済む。
+   */
+  private readonly terrainCache = new TerrainCache();
+  /**
+   * 霧のマスクキャッシュ。1 マス = 1 px の小さな画像に塗って拡大して重ねる。
+   * 視界は 5 tick ごとしか変わらないので、変わったときだけ作り直す。
+   */
+  private readonly fogCache = new FogCache();
   /** 直近フレームの実績（HUD のデバッグ行が読む）。 */
   last: RenderStats = {
-    terrain: { tiles: 0, fills: 0 },
+    terrain: emptyTerrainStats(),
     sprites: { sorted: 0, drawn: 0, culled: 0 },
     ms: 0,
     layers: { clear: 0, terrain: 0, remembered: 0, fog: 0, sprites: 0, fronts: 0 },
@@ -126,13 +138,15 @@ export class Renderer {
     clearField(ctx, this.cam);
     layers.clear = elapsed(tl);
     tl = now();
-    const terrain = drawTerrainTiles(ctx, this.cam, w.map);
+    const terrain = this.terrainCache.draw(ctx, this.cam, w.map);
     layers.terrain = elapsed(tl);
     tl = now();
     drawRememberedBuildings(ctx, this.cam, w.map, this.vision);
     layers.remembered = elapsed(tl);
     tl = now();
-    drawFog(ctx, this.cam, w.map, this.vision);
+    // キャッシュで貼れなければ（OffscreenCanvas が無い環境など）マス塗りに落ちる。
+    const fogStats = this.fogCache.draw(ctx, this.cam, this.vision);
+    if (fogStats.blits === 0) drawFog(ctx, this.cam, w.map, this.vision);
     layers.fog = elapsed(tl);
     tl = now();
     const sprites = this.spriteLayer.draw(ctx, {

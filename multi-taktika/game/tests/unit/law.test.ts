@@ -19,7 +19,7 @@ import {
   LAW_SEED_STORE,
   LAW_WELL,
   addLoyalty,
-  blameNearestEnemy,
+  blameLastDamager,
   buildingLawViolation,
   buildingRevealsToAll,
   configureMatchRules,
@@ -48,10 +48,10 @@ import { createWorld, type World } from '@/sim/core/world';
 
 const MAP = 100;
 
-function makeWorld(): World {
+function makeWorld(playerCount = 2): World {
   return createWorld({
     seed: 11,
-    playerCount: 2,
+    playerCount,
     mapWidthTiles: MAP,
     mapHeightTiles: MAP,
     entityCapacity: 256,
@@ -130,88 +130,90 @@ describe('T-M11-02: 掟一の領域は円で判定される', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 犯人の特定（乱数を使わない全順序）
+// 犯人の特定（事実で決める。近傍推定は使わない）
 // ---------------------------------------------------------------------------
 
-describe('T-M11-02: 掟破りの犯人は「近い → index が小さい」で一意に決まる', () => {
-  it('近くにいる敵の攻撃者を犯人にする', () => {
-    const w = makeWorld();
-    const spear = unitDefById('clubman');
-    // 被害者（p0）の位置 (50,50)。p1 の兵を 2 体、距離を変えて置く。
-    const far = entityIndex(
+describe('T-M11-02: 掟破りの犯人は「最後に実際に殴った者」で決まる', () => {
+  /** 被害者を 1 体置いて index を返す（p0 の所有物）。 */
+  function putVictim(w: ReturnType<typeof makeWorld>): number {
+    const def = unitDefById('villager');
+    return entityIndex(
       spawnEntity(w.entities, {
         kind: EntityKind.Unit,
-        owner: 1,
-        typeId: spear.index,
-        x: fxFromInt(56),
+        owner: 0,
+        typeId: def.index,
+        x: fxFromInt(50),
         y: fxFromInt(50),
-        hpMax: spear.hp,
-      })
+        hpMax: def.hp,
+      }),
     );
+  }
+
+  it('記録があればその者が犯人', () => {
+    const w = makeWorld();
+    const v = putVictim(w);
+    w.entities.lastDamagedBy[v] = 1;
+    w.entities.lastDamagedTick[v] = w.tick;
+    expect(blameLastDamager(w, v)).toBe(1);
+  });
+
+  it('**近くにいるだけの無関係なプレイヤーは罰されない**（近傍推定の誤りの再発防止）', () => {
+    // これが `lastDamagedBy` を導入した理由。以前は「周囲でいちばん近い敵の攻撃者」を
+    // 犯人にしていたため、通りすがりの第三者が井戸を割った罪を負っていた。
+    // 3 人対戦にして「隣にいる p1」と「実際に殴った p2」を分ける。
+    const w = makeWorld(3);
+    const v = putVictim(w);
+    const clubman = unitDefById('clubman');
+    // p1 の兵をすぐ隣に置く（近傍推定ならこれが犯人にされていた）
     spawnEntity(w.entities, {
       kind: EntityKind.Unit,
       owner: 1,
-      typeId: spear.index,
+      typeId: clubman.index,
       x: fxFromInt(51),
       y: fxFromInt(50),
-      hpMax: spear.hp,
+      hpMax: clubman.hp,
     });
     rebuildGrid(w.grid, w.entities, w.tick);
-    expect(blameNearestEnemy(w, 0, fxFromInt(50), fxFromInt(50))).toBe(1);
-    expect(far).toBeGreaterThanOrEqual(0);
+    // 実際に殴ったのは p2（遠くにいる。投石や矢でもよい）
+    w.entities.lastDamagedBy[v] = 2;
+    w.entities.lastDamagedTick[v] = w.tick;
+    expect(blameLastDamager(w, v)).toBe(2);
   });
 
-  it('攻撃力を持たないもの（伝令・荷車）は犯人にならない', () => {
+  it('記録が無ければ誰も罰されない（自壊・スクリプトによる消滅）', () => {
     const w = makeWorld();
-    const herald = unitDefById('herald');
-    expect(herald.atk).toBe(0);
+    const v = putVictim(w);
+    // 近くに敵を置いても、殴られた記録が無いなら犯人はいない
+    const clubman = unitDefById('clubman');
     spawnEntity(w.entities, {
       kind: EntityKind.Unit,
       owner: 1,
-      typeId: herald.index,
+      typeId: clubman.index,
       x: fxFromInt(51),
       y: fxFromInt(50),
-      hpMax: herald.hp,
+      hpMax: clubman.hp,
     });
     rebuildGrid(w.grid, w.entities, w.tick);
-    expect(blameNearestEnemy(w, 0, fxFromInt(50), fxFromInt(50))).toBe(-1);
+    expect(blameLastDamager(w, v)).toBe(-1);
   });
 
-  it('自分（味方）だけしか近くにいなければ犯人なし', () => {
-    const w = makeWorld();
-    const spear = unitDefById('clubman');
-    spawnEntity(w.entities, {
-      kind: EntityKind.Unit,
-      owner: 0,
-      typeId: spear.index,
-      x: fxFromInt(51),
-      y: fxFromInt(50),
-      hpMax: spear.hp,
-    });
-    rebuildGrid(w.grid, w.entities, w.tick);
-    expect(blameNearestEnemy(w, 0, fxFromInt(50), fxFromInt(50))).toBe(-1);
+  it('参加していないプレイヤー番号は犯人にしない', () => {
+    const w = makeWorld(); // 2 人対戦
+    const v = putVictim(w);
+    w.entities.lastDamagedBy[v] = 7; // 存在しないプレイヤー
+    w.entities.lastDamagedTick[v] = w.tick;
+    expect(blameLastDamager(w, v)).toBe(-1);
   });
 
-  it('砲台建物も犯人になれる', () => {
+  it('自分で壊した場合は自分が罰される（友軍被害も記録するため）', () => {
+    // 自分の投石で自分の井戸を割ったら、掟を破ったのは自分。
     const w = makeWorld();
-    const tower = buildingDefById('watch_tower');
-    spawnEntity(w.entities, {
-      kind: EntityKind.Building,
-      owner: 1,
-      typeId: tower.index,
-      x: fxFromInt(52),
-      y: fxFromInt(50),
-      hpMax: tower.hp,
-    });
-    rebuildGrid(w.grid, w.entities, w.tick);
-    expect(blameNearestEnemy(w, 0, fxFromInt(50), fxFromInt(50))).toBe(1);
-    expect(tower.attackDamage).toBeGreaterThan(0);
+    const v = putVictim(w);
+    w.entities.lastDamagedBy[v] = 0;
+    w.entities.lastDamagedTick[v] = w.tick;
+    expect(blameLastDamager(w, v)).toBe(0);
   });
 });
-
-// ---------------------------------------------------------------------------
-// 忠誠度のクランプ
-// ---------------------------------------------------------------------------
 
 describe('T-M11-01: 忠誠度は 0..1 でクランプされる', () => {
   it('上限 100% を超えない / 下限 0% を割らない', () => {

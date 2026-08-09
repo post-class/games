@@ -31,6 +31,9 @@ import type { CivId, PlayerId } from '@/shared/types';
 import type { Command } from '@/sim/command';
 import { TICK_MS, createMatch, stepWorld } from '@/sim';
 import { FX_ONE } from '@/sim/core/fx';
+import { EntityKind } from '@/shared/types';
+import { spawnEntity } from '@/sim/core/entity';
+import { unitDefById } from '@/sim/core/defs';
 import { Renderer } from '@/render/Renderer';
 import { PlaceholderSpriteProvider } from '@/render/placeholder';
 import type { VisibilityQuery } from '@/render/spriteLayer';
@@ -51,6 +54,37 @@ const SPEED_MUL = 1;
 /** M5 の通し確認で使う対戦カード。 */
 const CIVS: readonly CivId[] = ['yamato', 'mongol'];
 
+/**
+ * 負荷試験用にユニットを撒く（`?stress=400`）。
+ *
+ * 完了条件が「400 体で 60fps」なので、**実機で数えられる入口**が必要。
+ * 兵を両軍に半分ずつ、拠点の周りに格子状に置く。
+ * sim の状態を直接触るのは通常なら層違反だが、これは試合前の初期配置と同じ扱い
+ * （`createMatch` がやっていることと同じ）で、tick が進む前に 1 回だけ行う。
+ */
+function stressSpawn(world: ReturnType<typeof createMatch>['world'], raw: string | null): void {
+  if (raw === null) return;
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || n <= 0) return;
+  const ids = ['y-nagae', 'g-heavy'] as const;
+  for (let k = 0; k < n; k++) {
+    const owner = (k % 2) as PlayerId;
+    const def = unitDefById(ids[owner]!);
+    const side = Math.ceil(Math.sqrt(n));
+    const ox = (k % side) - side / 2;
+    const oy = Math.floor(k / side) - side / 2;
+    spawnEntity(world.entities, {
+      kind: EntityKind.Unit,
+      owner,
+      typeId: def.index,
+      x: world.map.starts[0]! + Math.round(ox * FX_ONE),
+      y: world.map.starts[1]! + Math.round(oy * FX_ONE),
+      hpMax: def.hp,
+      morale: FX_ONE,
+    });
+  }
+}
+
 function main(): void {
   const canvas = document.getElementById('field') as HTMLCanvasElement | null;
   const overlay = document.getElementById('overlay');
@@ -69,6 +103,10 @@ function main(): void {
     mapType: 'plain',
   });
   const viewer: PlayerId = 0;
+
+  // 負荷試験: `?stress=400` で兵を N 体足す（手順書 §1.2「400 体 60fps」の実測用）。
+  // 描画の予算はユニット数で決まるので、実機で数えられる入口を用意しておく。
+  stressSpawn(world, new URLSearchParams(location.search).get('stress'));
 
   // ---------------------------------------------------------------- 描画
   const renderer = new Renderer(ctx2d, world, new PlaceholderSpriteProvider());
