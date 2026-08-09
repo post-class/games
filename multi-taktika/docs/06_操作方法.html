@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Taktika 操作方法 — マウス 3 つとキー 3 種</title>
+<style>
+  :root {
+    --bg: #14100c;
+    --bg2: #1d1811;
+    --panel: #26200f;
+    --line: #4a3a1e;
+    --gold: #e0b34a;
+    --gold-dim: #a88530;
+    --text: #e8ded0;
+    --text-dim: #a89b89;
+    --danger: #c0562f;
+    --c-front: #4a7fb5;   /* 戦域 */
+    --c-order: #e0b34a;   /* 令 */
+    --c-grid: #7cb342;    /* コマンドグリッド */
+    --c-view: #9a7bb5;    /* 視点 */
+    --c-info: #c98b3f;    /* 情報 */
+    --c-sys: #8a8579;     /* システム */
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    padding: 0 20px 80px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+    font-size: 16px;
+    line-height: 1.8;
+  }
+  a { color: var(--gold); }
+
+  /* ---------- header（最低限） ---------- */
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 16px;
+    padding: 14px 0;
+    border-bottom: 2px solid var(--line);
+    margin-bottom: 28px;
+  }
+  header .logo { font-size: 20px; font-weight: 700; letter-spacing: .08em; color: var(--gold); }
+  header .tag { font-size: 14px; color: var(--text-dim); }
+  header .meta { margin-left: auto; font-size: 13px; color: var(--text-dim); }
+
+  section { margin: 0 0 56px; }
+  h2 {
+    font-size: 22px;
+    margin: 0 0 6px;
+    color: var(--gold);
+    border-left: 5px solid var(--gold-dim);
+    padding-left: 12px;
+    line-height: 1.4;
+  }
+  h2 .en {
+    display: block;
+    font-size: 12px;
+    letter-spacing: .18em;
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+  h3 { font-size: 17px; margin: 30px 0 6px; color: var(--gold); }
+  h4 { font-size: 15px; margin: 18px 0 4px; color: #f0e7d8; }
+  p { margin: 0 0 14px; }
+  section > p, .note, ol.steps, ul.plain { max-width: 100ch; }
+  .lead { font-size: 18px; }
+  .dim { color: var(--text-dim); font-size: 14px; }
+
+  .hero { margin-bottom: 48px; }
+  .hero-copy {
+    font-size: clamp(24px, 4vw, 46px);
+    font-weight: 700;
+    line-height: 1.35;
+    margin: 0 0 12px;
+    color: #fff;
+  }
+  .hero-copy em { font-style: normal; color: var(--gold); }
+  .hero-sub { max-width: 74ch; }
+  .toc { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; margin: 0; padding: 0; list-style: none; }
+
+  /* ---------- キー表示 ---------- */
+  kbd {
+    display: inline-block;
+    min-width: 26px;
+    padding: 1px 7px;
+    margin: 0 1px;
+    border: 1px solid var(--line);
+    border-bottom-width: 3px;
+    border-radius: 4px;
+    background: #2a2418;
+    color: #f4ecdd;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.7;
+    text-align: center;
+    white-space: nowrap;
+  }
+  kbd.f { border-color: #35516d; background: #1a2733; color: #b9d6ef; }
+  kbd.o { border-color: #6d5a24; background: #2f2711; color: #f0d79a; }
+  kbd.g { border-color: #46601f; background: #1e2a12; color: #cbe6ab; }
+  kbd.v { border-color: #4f3f61; background: #241c2c; color: #dcc8ec; }
+  kbd.i { border-color: #6b4a20; background: #291f10; color: #eec89a; }
+
+  /* ---------- キーボード図 ---------- */
+  .kb {
+    margin: 16px 0 0;
+    padding: 14px 14px 16px;
+    background: var(--bg2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    overflow-x: auto;
+  }
+  .kb-row { display: flex; gap: 5px; margin-bottom: 5px; min-width: 700px; }
+  .kb-row:last-child { margin-bottom: 0; }
+  .key {
+    flex: 0 0 auto;
+    width: 44px; height: 42px;
+    border: 1px solid var(--line);
+    border-bottom-width: 3px;
+    border-radius: 5px;
+    background: #221c13;
+    color: var(--text-dim);
+    font-size: 12px;
+    font-weight: 700;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    line-height: 1.25;
+    transition: transform .1s ease, box-shadow .1s ease;
+  }
+  .key .sub { font-size: 9px; font-weight: 400; opacity: .85; }
+  .key.w60 { width: 60px; }
+  .key.w80 { width: 80px; }
+  .key.w120 { width: 120px; }
+  .key.w200 { width: 200px; }
+  .key.spacer { border: none; background: none; }
+  .key[data-role] { color: #f4ecdd; }
+  .key[data-role="front"] { border-color: #35516d; background: #16222c; }
+  .key[data-role="order"] { border-color: #6d5a24; background: #2b2410; }
+  .key[data-role="grid"]  { border-color: #46601f; background: #1b2611; }
+  .key[data-role="view"]  { border-color: #4f3f61; background: #211a29; }
+  .key[data-role="info"]  { border-color: #6b4a20; background: #291f10; }
+  .key[data-role="sys"]   { border-color: #4a463d; background: #21201c; }
+  .key.hi {
+    transform: translateY(-3px);
+    box-shadow: 0 0 0 2px var(--gold), 0 6px 10px rgba(0,0,0,.6);
+    color: #fff;
+  }
+  .kb-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 12px 0 0; font-size: 13px; color: var(--text-dim); }
+  .kb-legend span::before {
+    content: "";
+    display: inline-block;
+    width: 11px; height: 11px;
+    margin-right: 6px;
+    border-radius: 2px;
+    vertical-align: -1px;
+  }
+  .kb-legend .l-front::before { background: #35516d; }
+  .kb-legend .l-order::before { background: #6d5a24; }
+  .kb-legend .l-grid::before  { background: #46601f; }
+  .kb-legend .l-view::before  { background: #4f3f61; }
+  .kb-legend .l-info::before  { background: #6b4a20; }
+  .kb-legend .l-sys::before   { background: #4a463d; }
+
+  /* ---------- table ---------- */
+  .tw { overflow-x: auto; margin: 12px 0 0; }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 15px; }
+  th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--panel); color: var(--gold); font-weight: 700; white-space: nowrap; }
+  tbody tr:nth-child(odd) { background: rgba(255,255,255,.02); }
+  tbody tr[data-key]:hover { background: #2a2317; cursor: default; }
+  td b { color: #f4ecdd; }
+  td.k { white-space: nowrap; }
+
+  /* ---------- カード ---------- */
+  .grid {
+    display: grid; gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 14px 16px;
+  }
+  .card h4 { margin-top: 0; }
+  .card p:last-child, .card ul:last-child { margin-bottom: 0; }
+  .card.accent { border-color: var(--gold-dim); background: #241d10; }
+
+  ul.plain { padding-left: 1.3em; margin: 0 0 14px; }
+  ul.plain li { margin-bottom: 4px; }
+
+  ol.steps { padding-left: 0; margin: 14px 0 0; list-style: none; counter-reset: st; }
+  ol.steps li {
+    counter-increment: st;
+    position: relative;
+    padding: 8px 0 8px 44px;
+    border-top: 1px solid var(--line);
+  }
+  ol.steps li:last-child { border-bottom: 1px solid var(--line); }
+  ol.steps li::before {
+    content: counter(st);
+    position: absolute; left: 6px; top: 10px;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--gold-dim);
+    color: #14100c;
+    font-size: 13px; font-weight: 700;
+    line-height: 26px; text-align: center;
+  }
+
+  .note {
+    border-left: 3px solid var(--gold-dim);
+    background: var(--bg2);
+    padding: 10px 14px;
+    margin: 16px 0 0;
+    font-size: 15px;
+  }
+  .note.warn { border-left-color: var(--danger); }
+
+  /* ---------- マウス図 ---------- */
+  .mouse-wrap {
+    display: flex; flex-wrap: wrap; gap: 24px;
+    align-items: flex-start; margin: 16px 0 0;
+  }
+  .mouse-wrap svg { flex: 0 0 auto; }
+  .mouse-list { flex: 1 1 320px; min-width: 300px; }
+  .mouse-list dl { margin: 0; }
+  .mouse-list dt { color: #f4ecdd; font-weight: 700; margin-top: 10px; }
+  .mouse-list dt:first-child { margin-top: 0; }
+  .mouse-list dd { margin: 0 0 0 0; color: var(--text); font-size: 15px; }
+
+  footer {
+    border-top: 2px solid var(--line);
+    padding-top: 14px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">MULTI-TAKTIKA</span>
+  <span class="tag">操作方法資料 ― マウス 3 つとキー 3 種</span>
+  <span class="meta"><a href="01_ゲーム宣伝.html">ゲーム紹介</a> / <a href="02_世界観.html">世界観</a> / <a href="03_文明と進化.html">文明と進化</a> / <a href="05_画面説明.html">画面説明</a> / 2026-08</span>
+</header>
+
+<section class="hero">
+  <p class="hero-copy">最低限は <em>3 つ</em>。<br>あとは全部、後で覚えていい。</p>
+  <p class="lead hero-sub">
+    Multi-Taktika は「手の速さ」で勝つゲームにしないと決めているので、操作も同じ方針で設計しています。
+    まず覚えるのは <kbd class="f">Tab</kbd>（俯瞰）、<kbd class="f">1</kbd>〜<kbd class="f">6</kbd>（戦域を選ぶ）、
+    <kbd class="o">Shift</kbd>+<kbd class="o">1</kbd>〜<kbd class="o">6</kbd>（令を渡す）の 3 種類だけ。
+    これだけで 6 つの戦線を同時に指揮できます。残りは効率を上げるための道具です。
+  </p>
+  <ul class="toc dim">
+    <li><a href="#s1">1. 最小操作セット</a></li>
+    <li><a href="#s2">2. マウス操作</a></li>
+    <li><a href="#s3">3. キーボード全体図</a></li>
+    <li><a href="#s4">4. 戦域と令</a></li>
+    <li><a href="#s5">5. 選択と編成</a></li>
+    <li><a href="#s6">6. 内政と生産</a></li>
+    <li><a href="#s7">7. 視点操作</a></li>
+    <li><a href="#s8">8. 情報を出す</a></li>
+    <li><a href="#s9">9. 令と直接操作の使い分け</a></li>
+    <li><a href="#s10">10. リプレイ・観戦</a></li>
+    <li><a href="#s11">11. システム・チャット</a></li>
+    <li><a href="#s12">12. カスタマイズと配慮</a></li>
+    <li><a href="#s13">13. 練習メニュー</a></li>
+    <li><a href="#s14">14. 全キー一覧</a></li>
+  </ul>
+</section>
+
+<section id="s1">
+  <h2>1. 最小操作セット<span class="en">THE THREE KEYS</span></h2>
+  <p>
+    まずこの 3 つだけで 1 試合を通せます。<b>ここに載っていない操作は、慣れてから足せば十分</b>です。
+  </p>
+
+  <div class="grid">
+    <div class="card accent">
+      <h4><kbd class="f">Tab</kbd> 全戦線を見る</h4>
+      <p>対戦画面と <b>戦域指令ビュー</b> を行き来します。押している間だけ俯瞰する「のぞき見」もできます（設定で切替）。</p>
+    </div>
+    <div class="card accent">
+      <h4><kbd class="f">1</kbd>〜<kbd class="f">6</kbd> 戦域を選ぶ</h4>
+      <p>右端の戦域スロットに対応。押すとその戦線へ視点が飛び、選択状態になります。空きスロットの番号は反応しません。</p>
+    </div>
+    <div class="card accent">
+      <h4><kbd class="o">Shift</kbd>+<kbd class="o">1</kbd>〜<kbd class="o">6</kbd> 令を渡す</h4>
+      <p>選択中の戦域に令をセット。<b>1 突撃 / 2 包囲 / 3 死守 / 4 略奪 / 5 建設 / 6 後退</b>。あとは部隊が自律的に戦います。</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>例：右が押されている。左の攻めは止めたくない。</b><br>
+    <kbd class="f">Tab</kbd> で俯瞰 → 右の戦域が点滅している → <kbd class="f">3</kbd> で選択 →
+    <kbd class="o">Shift</kbd>+<kbd class="o">3</kbd>（死守）で足止め → <kbd class="f">1</kbd> で左の戦域 →
+    <kbd class="o">Shift</kbd>+<kbd class="o">1</kbd>（突撃）で押し切る。<b>キー 6 打</b>で 2 つの戦線の方針が決まります。
+  </div>
+</section>
+
+<section id="s2">
+  <h2>2. マウス操作<span class="en">MOUSE</span></h2>
+  <p>操作の中心はマウスです。<b>左は「選ぶ」、右は「やらせる」</b>の 2 役に固定していて、右クリックの意味は対象で自動的に変わります。</p>
+
+  <div class="mouse-wrap">
+    <svg width="220" height="300" viewBox="0 0 220 300" role="img" aria-label="マウスのボタン割り当て図">
+      <defs>
+        <linearGradient id="mg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#2b2418"/>
+          <stop offset="100%" stop-color="#191509"/>
+        </linearGradient>
+      </defs>
+      <clipPath id="mbody"><rect x="30" y="20" width="160" height="260" rx="76"/></clipPath>
+      <rect x="30" y="20" width="160" height="260" rx="76" fill="url(#mg)" stroke="#4a3a1e" stroke-width="2"/>
+      <g clip-path="url(#mbody)">
+        <rect x="30" y="20" width="74" height="105" fill="#1f2c38"/>
+        <rect x="116" y="20" width="74" height="105" fill="#2f2711"/>
+        <rect x="30" y="121" width="160" height="4" fill="#4a3a1e"/>
+        <rect x="104" y="20" width="12" height="105" fill="#191509"/>
+        <rect x="101" y="34" width="18" height="58" rx="9" fill="#2d2338" stroke="#4f3f61" stroke-width="2"/>
+      </g>
+      <text x="66" y="86" fill="#b9d6ef" font-size="14" font-family="sans-serif" text-anchor="middle">左</text>
+      <text x="154" y="86" fill="#f0d79a" font-size="14" font-family="sans-serif" text-anchor="middle">右</text>
+      <text x="110" y="112" fill="#dcc8ec" font-size="10" font-family="sans-serif" text-anchor="middle">中</text>
+      <text x="110" y="200" fill="#a89b89" font-size="12" font-family="sans-serif" text-anchor="middle">選ぶ / やらせる</text>
+      <text x="110" y="222" fill="#a89b89" font-size="12" font-family="sans-serif" text-anchor="middle">の 2 役だけ</text>
+    </svg>
+
+    <div class="mouse-list">
+      <dl>
+        <dt>左クリック</dt>
+        <dd>選択。建物・ユニット・戦域スロット・ミニマップの地点、すべて左で選びます。</dd>
+        <dt>左ドラッグ</dt>
+        <dd>範囲選択。<kbd>Alt</kbd>+ドラッグで <b>村人を除いて</b>戦闘ユニットだけを選びます。</dd>
+        <dt>左ダブルクリック</dt>
+        <dd>画面内の同種すべてを選択。<kbd>Ctrl</kbd>+クリックならマップ全体の同種。</dd>
+        <dt><kbd>Shift</kbd>+左クリック</dt>
+        <dd>選択に追加／すでに入っていれば除外。</dd>
+        <dt>右クリック</dt>
+        <dd>文脈で決まる指示 ―― 地面なら移動、敵なら攻撃、資源なら採集、味方の建物なら修理、船なら乗り込み。</dd>
+        <dt><kbd>Shift</kbd>+右クリック</dt>
+        <dd>指示を予約（連続指示）。伐採 → 搬入 → 建設のように順番に並べられます。</dd>
+        <dt>中ドラッグ</dt>
+        <dd>視点のスクロール。</dd>
+        <dt>ホイール</dt>
+        <dd>ズーム。戦域指令ビューでは俯瞰の高さが変わります。</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>右クリックの意味を覚える必要はありません。</b>カーソルの形が「何が起きるか」を先に見せます（剣＝攻撃、手＝採集、槌＝修理、足＝移動）。
+  </div>
+</section>
+
+<section id="s3">
+  <h2>3. キーボード全体図<span class="en">KEY MAP</span></h2>
+  <p>
+    使うキーは左手側にまとめてあります。<b>色は役割</b>です。下の表の行にカーソルを乗せると、対応するキーが図の上で光ります。
+  </p>
+
+  <div class="kb" id="kb">
+    <div class="kb-row">
+      <div class="key w60" data-k="Esc" data-role="sys">Esc</div>
+      <div class="key spacer" style="width:14px"></div>
+      <div class="key" data-k="F1" data-role="view">F1</div>
+      <div class="key" data-k="F2" data-role="view">F2</div>
+      <div class="key" data-k="F3" data-role="view">F3</div>
+      <div class="key" data-k="F4" data-role="view">F4</div>
+      <div class="key spacer" style="width:14px"></div>
+      <div class="key" data-k="F10" data-role="sys">F10</div>
+      <div class="key" data-k="F11" data-role="sys">F11</div>
+      <div class="key" data-k="F12" data-role="sys">F12</div>
+    </div>
+    <div class="kb-row">
+      <div class="key" data-k="1" data-role="front">1<span class="sub">戦域</span></div>
+      <div class="key" data-k="2" data-role="front">2<span class="sub">戦域</span></div>
+      <div class="key" data-k="3" data-role="front">3<span class="sub">戦域</span></div>
+      <div class="key" data-k="4" data-role="front">4<span class="sub">戦域</span></div>
+      <div class="key" data-k="5" data-role="front">5<span class="sub">戦域</span></div>
+      <div class="key" data-k="6" data-role="front">6<span class="sub">戦域</span></div>
+      <div class="key" data-k="7" data-role="sys">7<span class="sub">部隊</span></div>
+      <div class="key" data-k="8" data-role="sys">8<span class="sub">部隊</span></div>
+      <div class="key" data-k="9" data-role="sys">9<span class="sub">部隊</span></div>
+      <div class="key" data-k="0" data-role="sys">0<span class="sub">部隊</span></div>
+    </div>
+    <div class="kb-row">
+      <div class="key w80" data-k="Tab" data-role="front">Tab<span class="sub">俯瞰</span></div>
+      <div class="key" data-k="Q" data-role="grid">Q</div>
+      <div class="key" data-k="W" data-role="grid">W</div>
+      <div class="key" data-k="E" data-role="grid">E</div>
+      <div class="key" data-k="R" data-role="grid">R</div>
+      <div class="key" data-k="T" data-role="info">T<span class="sub">市場</span></div>
+      <div class="key" data-k="Y" data-role="info">Y</div>
+      <div class="key" data-k="U" data-role="info">U</div>
+      <div class="key" data-k="I" data-role="info">I</div>
+      <div class="key" data-k="O" data-role="info">O</div>
+      <div class="key" data-k="P" data-role="info">P</div>
+    </div>
+    <div class="kb-row">
+      <div class="key w120" data-k="Ctrl" data-role="sys">Ctrl</div>
+      <div class="key" data-k="A" data-role="grid">A</div>
+      <div class="key" data-k="S" data-role="grid">S</div>
+      <div class="key" data-k="D" data-role="grid">D</div>
+      <div class="key" data-k="F" data-role="grid">F</div>
+      <div class="key" data-k="G" data-role="info">G</div>
+      <div class="key" data-k="H" data-role="view">H<span class="sub">拠点</span></div>
+      <div class="key" data-k="J" data-role="info">J</div>
+      <div class="key" data-k="K" data-role="info">K<span class="sub">学舎</span></div>
+      <div class="key" data-k="L" data-role="info">L<span class="sub">戦績</span></div>
+    </div>
+    <div class="kb-row">
+      <div class="key w120" data-k="Shift" data-role="order">Shift<span class="sub">令</span></div>
+      <div class="key" data-k="Z" data-role="grid">Z</div>
+      <div class="key" data-k="X" data-role="grid">X</div>
+      <div class="key" data-k="C" data-role="grid">C</div>
+      <div class="key" data-k="V" data-role="grid">V</div>
+      <div class="key" data-k="B" data-role="grid">B<span class="sub">建設</span></div>
+      <div class="key" data-k="N" data-role="info">N</div>
+      <div class="key" data-k="M" data-role="view">M<span class="sub">地図</span></div>
+      <div class="key" data-k="," data-role="view">,</div>
+      <div class="key" data-k="." data-role="view">.<span class="sub">遊休</span></div>
+    </div>
+    <div class="kb-row">
+      <div class="key w120" data-k="Alt" data-role="order">Alt</div>
+      <div class="key w200" data-k="Space" data-role="front">Space<span class="sub">次の警告へ</span></div>
+      <div class="key w80" data-k="Backspace" data-role="view">戻る</div>
+      <div class="key spacer" style="width:14px"></div>
+      <div class="key" data-k="Arrows" data-role="view">↑↓<span class="sub">←→</span></div>
+    </div>
+    <div class="kb-legend">
+      <span class="l-front">戦域の切り替え</span>
+      <span class="l-order">令（作戦カード）</span>
+      <span class="l-grid">コマンドグリッド</span>
+      <span class="l-view">視点・ジャンプ</span>
+      <span class="l-info">情報パネル</span>
+      <span class="l-sys">選択・システム</span>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>数字キーの役割分担：</b><kbd class="f">1</kbd>〜<kbd class="f">6</kbd> は戦域専用にしてあります（戦域スロットの最大数が 6 なので）。
+    部隊の編成グループはぶつからないように <kbd>7</kbd>〜<kbd>0</kbd> に置いています。
+  </div>
+</section>
+
+<section id="s4">
+  <h2>4. 戦域と令の操作<span class="en">FRONTS &amp; ORDERS</span></h2>
+  <p>本作固有の操作はここだけです。<b>令は「渡す」もので、部隊を動かすものではありません</b>。渡したら手を離して構いません。</p>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>操作</th><th>すること</th><th>補足</th></tr></thead>
+      <tbody>
+        <tr data-key="Tab"><td class="k"><kbd class="f">Tab</kbd></td><td>戦域指令ビューの開閉</td><td>試合は止まりません。長押しで「のぞき見」に切替可（設定）</td></tr>
+        <tr data-key="1"><td class="k"><kbd class="f">1</kbd>〜<kbd class="f">6</kbd></td><td>戦域 1〜6 を選択し、視点を移動</td><td>空きスロットの番号は無反応</td></tr>
+        <tr data-key="Alt"><td class="k"><kbd class="o">Alt</kbd>+<kbd class="f">1</kbd>〜<kbd class="f">6</kbd></td><td><b>視点を動かさず</b>戦域を選択</td><td>俯瞰のまま次々に令を配るとき</td></tr>
+        <tr data-key="Shift"><td class="k"><kbd class="o">Shift</kbd>+<kbd class="o">1</kbd>〜<kbd class="o">6</kbd></td><td>選択中の戦域に令をセット</td><td>1 突撃 / 2 包囲 / 3 死守 / 4 略奪 / 5 建設 / 6 後退</td></tr>
+        <tr data-key="Shift"><td class="k"><kbd class="o">Shift</kbd>+<kbd class="o">7</kbd></td><td>文明固有の令をセット</td><td>モンゴル「遊撃」、ローマ「方陣」など</td></tr>
+        <tr data-key="Shift"><td class="k"><kbd class="o">Shift</kbd> 長押し</td><td>令の一覧を表示したまま選ぶ</td><td>マウスでカードをクリックしても同じ</td></tr>
+        <tr data-key="Space"><td class="k"><kbd class="f">Space</kbd></td><td>次の警告地点へジャンプ</td><td>赤＝戦域が崩れかけ／橙＝村人が被害／黄＝人口上限</td></tr>
+        <tr data-key="Backspace"><td class="k"><kbd class="v">Backspace</kbd></td><td>直前に見ていた場所へ戻る</td><td>警告を見て、元の作業に帰るための往復用</td></tr>
+        <tr data-key="Esc"><td class="k"><kbd>Esc</kbd></td><td>手動操作を解除して令に戻す</td><td>手で動かした部隊を、また自律に任せます</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>令を重ねる（帝国の世）</h3>
+  <p>
+    研究「二重旗」を取ると 1 つの戦域に令を 2 枚まで重ねられます。操作は <b>2 枚目を <kbd class="o">Shift</kbd> でもう一度セットするだけ</b>。
+    スロットが上下 2 段に割れ、両方の方針が同時に走ります（例：包囲＋死守）。
+  </p>
+
+  <div class="note warn">
+    <b>令は即座に届きません。</b>本陣から遠い戦域ほど遅延があります（点線が実線になった時点で発効）。
+    研究「復唱」「早馬」、ユニット「伝令」、モンゴルの「駅伝」で短縮できます。<b>操作の失敗ではないので、連打しないでください。</b>
+  </div>
+</section>
+
+<section id="s5">
+  <h2>5. 選択と編成<span class="en">SELECTION</span></h2>
+  <div class="tw">
+    <table>
+      <thead><tr><th>操作</th><th>すること</th><th>補足</th></tr></thead>
+      <tbody>
+        <tr data-key="Ctrl"><td class="k"><kbd>Ctrl</kbd>+<kbd>A</kbd></td><td>全戦闘ユニットを選択</td><td>村人は含みません</td></tr>
+        <tr data-key="7"><td class="k"><kbd>Ctrl</kbd>+<kbd>7</kbd>〜<kbd>0</kbd></td><td>選択中の部隊をグループに登録</td><td>4 グループまで</td></tr>
+        <tr data-key="7"><td class="k"><kbd>7</kbd>〜<kbd>0</kbd></td><td>グループを呼び出す</td><td>2 回続けて押すとその部隊へ視点が飛びます</td></tr>
+        <tr data-key="Shift"><td class="k"><kbd>Shift</kbd>+<kbd>7</kbd>〜<kbd>0</kbd></td><td>グループに追加</td><td>増援を後から合流させるとき</td></tr>
+        <tr data-key="Alt"><td class="k"><kbd>Alt</kbd>+ドラッグ</td><td>村人を除いて範囲選択</td><td>前線で村人を巻き込まないため</td></tr>
+        <tr><td class="k">選択パネルのアイコンをクリック</td><td>種類ごとに絞り込む</td><td>「槍兵だけを抜き出す」等。<kbd>Ctrl</kbd>+クリックでその種類を除外</td></tr>
+        <tr data-key="."><td class="k"><kbd class="v">.</kbd> / <kbd class="v">,</kbd></td><td>遊休の村人へ次々にジャンプ</td><td>手が空いた村人を拾う。序盤の生命線</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">
+    部隊を選択すると、<b>その部隊はその瞬間に令から外れて手動</b>になります。放したいときは <kbd>Esc</kbd>。
+    「気づかないうちに手動になっていた」を避けるため、手動の部隊は足元の輪が白くなります。
+  </div>
+</section>
+
+<section id="s6">
+  <h2>6. 内政と生産<span class="en">ECONOMY</span></h2>
+  <p>
+    画面下端のコマンドグリッドは <b>並びとキーが一対一で対応</b> しています。建物ごとにキーを覚える必要はありません。
+  </p>
+
+  <div class="kb" style="min-width:0">
+    <div class="kb-row" style="min-width:0">
+      <div class="key" data-role="grid">Q</div><div class="key" data-role="grid">W</div>
+      <div class="key" data-role="grid">E</div><div class="key" data-role="grid">R</div>
+      <div class="key spacer" style="width:20px"></div>
+      <div class="key spacer" style="width:auto;color:#a89b89;font-size:12px;font-weight:400">← グリッド上段</div>
+    </div>
+    <div class="kb-row" style="min-width:0">
+      <div class="key" data-role="grid">A</div><div class="key" data-role="grid">S</div>
+      <div class="key" data-role="grid">D</div><div class="key" data-role="grid">F</div>
+      <div class="key spacer" style="width:20px"></div>
+      <div class="key spacer" style="width:auto;color:#a89b89;font-size:12px;font-weight:400">← 中段</div>
+    </div>
+    <div class="kb-row" style="min-width:0">
+      <div class="key" data-role="grid">Z</div><div class="key" data-role="grid">X</div>
+      <div class="key" data-role="grid">C</div><div class="key" data-role="grid">V</div>
+      <div class="key spacer" style="width:20px"></div>
+      <div class="key spacer" style="width:auto;color:#a89b89;font-size:12px;font-weight:400">← 下段</div>
+    </div>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>操作</th><th>すること</th><th>補足</th></tr></thead>
+      <tbody>
+        <tr data-key="H"><td class="k"><kbd class="v">H</kbd></td><td>町の中心を選択</td><td>2 回押すと次の町の中心へ</td></tr>
+        <tr data-key="Q"><td class="k">グリッドのキー</td><td>選択中の対象のコマンドを実行</td><td>村人なら建設、兵舎なら生産、町の中心なら村人と時代進化</td></tr>
+        <tr data-key="B"><td class="k"><kbd class="g">B</kbd></td><td>建設メニューを開く</td><td>村人を選んでいなければ、最も近い村人が自動で選ばれます</td></tr>
+        <tr><td class="k">建設中に <kbd>Shift</kbd>+左クリック</td><td>同じ建物を連続で置く</td><td>家や壁をまとめて並べるとき</td></tr>
+        <tr><td class="k">壁の建設中にドラッグ</td><td>壁を線で引く</td><td>木柵・石壁・街道は始点から終点までまとめて</td></tr>
+        <tr><td class="k">生産ボタンを <kbd>Shift</kbd>+クリック</td><td>5 体まとめてキューに入れる</td><td><kbd>Ctrl</kbd>+クリックでキューが埋まるまで</td></tr>
+        <tr><td class="k">キューを右クリック</td><td>取り消し</td><td>資源は全額戻ります</td></tr>
+        <tr data-key="K"><td class="k"><kbd class="i">K</kbd></td><td>学舎（研究）を開く</td><td>建てていなければ開きません</td></tr>
+        <tr data-key="T"><td class="k"><kbd class="i">T</kbd></td><td>市場（資源交換・交易）を開く</td><td>足りない資源を買う逃げ道</td></tr>
+        <tr><td class="k">建物を選んで <kbd>Ctrl</kbd>+右クリック</td><td>集合地点を設定</td><td>そこで生産された兵が自動で向かいます。前線に置くと増援が速い</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="s7">
+  <h2>7. 視点操作<span class="en">CAMERA</span></h2>
+  <div class="tw">
+    <table>
+      <thead><tr><th>操作</th><th>すること</th><th>補足</th></tr></thead>
+      <tbody>
+        <tr data-key="Arrows"><td class="k">矢印キー / 画面端 / 中ドラッグ</td><td>スクロール</td><td>速度は設定で変更。画面端スクロールは無効にもできます</td></tr>
+        <tr><td class="k">ホイール</td><td>ズーム</td><td>4 段階。最も引くと戦域の輪が全部見えます</td></tr>
+        <tr><td class="k">ミニマップを左クリック</td><td>その地点へジャンプ</td><td>右クリックならその地点への指示</td></tr>
+        <tr data-key="M"><td class="k"><kbd class="v">M</kbd></td><td>ミニマップの拡大表示</td><td>全戦域と交易路をまとめて確認</td></tr>
+        <tr data-key="H"><td class="k"><kbd class="v">H</kbd></td><td>自拠点へ戻る</td><td>迷ったらこれ</td></tr>
+        <tr data-key="F1"><td class="k"><kbd class="v">F1</kbd>〜<kbd class="v">F4</kbd></td><td>記憶した視点を呼び出す</td><td><kbd>Ctrl</kbd>+<kbd class="v">F1</kbd>〜<kbd class="v">F4</kbd> で現在の視点を記憶</td></tr>
+        <tr data-key="Backspace"><td class="k"><kbd class="v">Backspace</kbd></td><td>直前の視点へ戻る</td><td>連続で押すと履歴を遡ります</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">
+    <b>視点は「戦域単位」で動かすのが基本です。</b>マップをなぞって探すのではなく、
+    <kbd class="f">1</kbd>〜<kbd class="f">6</kbd> と <kbd class="f">Space</kbd> で必要な場所にだけ飛ぶ設計になっています。
+  </div>
+</section>
+
+<section id="s8">
+  <h2>8. 情報を出す<span class="en">INFORMATION</span></h2>
+  <div class="tw">
+    <table>
+      <thead><tr><th>操作</th><th>すること</th><th>補足</th></tr></thead>
+      <tbody>
+        <tr data-key="Alt"><td class="k"><kbd>Alt</kbd> 長押し</td><td>全ユニットの体力バーと所属戦域の色を表示</td><td>乱戦で「どれが令で動いているか」を確認</td></tr>
+        <tr data-key="L"><td class="k"><kbd class="i">L</kbd></td><td>戦績パネル（試合中のスコア）</td><td>相手の人口と時代の推定値も出ます</td></tr>
+        <tr data-key="G"><td class="k"><kbd class="i">G</kbd></td><td>資源の残量を地形に重ねて表示</td><td>森・鉱脈の残りが色で分かります</td></tr>
+        <tr data-key="N"><td class="k"><kbd class="i">N</kbd></td><td>時代進化の条件パネル</td><td>あと何が足りないかだけを表示</td></tr>
+        <tr data-key="Y"><td class="k"><kbd class="i">Y</kbd></td><td>令の履歴（この試合で出した令）</td><td>試合後のリプレイと同じ形式</td></tr>
+        <tr><td class="k">対象にカーソルを乗せる</td><td>性能と相性を表示</td><td>「この兵は何に強いか」が役割で出ます</td></tr>
+        <tr><td class="k">暗いボタンにカーソルを乗せる</td><td>できない理由を表示</td><td>時代不足／資源不足／その文明が持てない の 3 種</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="s9">
+  <h2>9. 令と直接操作の使い分け<span class="en">WHEN TO TOUCH</span></h2>
+  <p>
+    どちらが正しいということはありません。<b>令は「広く・遅く」、直接操作は「狭く・速く」</b>。
+    腕前の差が「疲労」ではなく「思考」に出るように、両方を混ぜられる設計にしています。
+  </p>
+
+  <div class="grid">
+    <div class="card">
+      <h4>令に任せるべき場面</h4>
+      <ul class="plain">
+        <li>戦線が 3 つ以上ある</li>
+        <li>攻城のように手数の多い動き（包囲 1 枚で完結）</li>
+        <li>捨てると決めた戦域（後退を渡して放置）</li>
+        <li>内政に手を戻したいとき</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>自分で手を入れるべき場面</h4>
+      <ul class="plain">
+        <li>相性の悪い兵だけを狙い撃ちたい（弓兵を騎兵で狩る）</li>
+        <li>攻城兵器を 1 台だけ下げたい</li>
+        <li>祈祷師で特定の兵を治療したい</li>
+        <li>決着の一押し</li>
+      </ul>
+    </div>
+    <div class="card accent">
+      <h4>混ぜ方の型</h4>
+      <p>戦域に <b>死守</b> を渡して足場を固定 → その戦域で騎兵グループだけを <kbd>7</kbd> で呼び出して手動で回り込み → 終わったら <kbd>Esc</kbd> で令に返す。
+      <b>手動にした部隊以外は令のまま動き続けます</b>。</p>
+    </div>
+  </div>
+</section>
+
+<section id="s10">
+  <h2>10. リプレイ・観戦の操作<span class="en">REPLAY</span></h2>
+  <p>キーの意味が試合中と少し変わります。<b><kbd>Space</kbd> は「再生／一時停止」</b>になります。</p>
+  <div class="tw">
+    <table>
+      <thead><tr><th>操作</th><th>すること</th></tr></thead>
+      <tbody>
+        <tr data-key="Space"><td class="k"><kbd class="f">Space</kbd></td><td>再生／一時停止</td></tr>
+        <tr data-key="Arrows"><td class="k"><kbd class="v">←</kbd> <kbd class="v">→</kbd></td><td>前後の「令を出した瞬間」へジャンプ</td></tr>
+        <tr data-key="Arrows"><td class="k"><kbd>Shift</kbd>+<kbd class="v">←</kbd> <kbd class="v">→</kbd></td><td>10 秒ずつ移動</td></tr>
+        <tr data-key="1"><td class="k"><kbd class="f">1</kbd>〜<kbd class="f">6</kbd></td><td>その戦域レーンを追いかける</td></tr>
+        <tr><td class="k"><kbd>+</kbd> <kbd>-</kbd></td><td>倍速（0.5〜8 倍）</td></tr>
+        <tr><td class="k">レーン上のカードをクリック</td><td>その令を出した瞬間から再生</td></tr>
+        <tr data-key="Tab"><td class="k"><kbd class="f">Tab</kbd></td><td>プレイヤーの視界を切り替える（観戦時）</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="s11">
+  <h2>11. システム・チャット<span class="en">SYSTEM</span></h2>
+  <div class="tw">
+    <table>
+      <thead><tr><th>操作</th><th>すること</th><th>補足</th></tr></thead>
+      <tbody>
+        <tr><td class="k"><kbd>Enter</kbd></td><td>全体チャット</td><td><kbd>Shift</kbd>+<kbd>Enter</kbd> で味方のみ</td></tr>
+        <tr><td class="k"><kbd>Alt</kbd>+左クリック（味方に）</td><td>合図を送る</td><td>「ここに来て」「ここを攻めて」が地図上に出ます</td></tr>
+        <tr data-key="F10"><td class="k"><kbd>F10</kbd></td><td>メニュー（設定・投了・退出）</td><td>投了＝服属。キャンペーンでは分岐に進みます</td></tr>
+        <tr data-key="F11"><td class="k"><kbd>F11</kbd></td><td>全画面表示の切り替え</td><td>ブラウザの全画面をそのまま使います</td></tr>
+        <tr data-key="F12"><td class="k"><kbd>F12</kbd></td><td>スクリーンショット</td><td>HUD を消して撮るオプションあり</td></tr>
+        <tr><td class="k"><kbd>Pause</kbd></td><td>一時停止</td><td><b>キャンペーンとスカーミッシュのみ</b>。オンラインでは効きません</td></tr>
+        <tr data-key="Esc"><td class="k"><kbd>Esc</kbd></td><td>パネルを閉じる／選択を解除</td><td>何も開いていなければメニュー</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">
+    通信は入力だけを送るロックステップ同期なので、<b>操作の取り消し（アンドゥ）はありません</b>。
+    誤って出した令は、正しい令を上書きして直します。
+  </div>
+</section>
+
+<section id="s12">
+  <h2>12. カスタマイズと配慮<span class="en">CUSTOMIZE &amp; ACCESSIBILITY</span></h2>
+  <div class="grid">
+    <div class="card">
+      <h4>キーの再割り当て</h4>
+      <p>全キー変更可能。プリセットは <b>標準</b> / <b>WASD 移動</b> / <b>左手だけ</b> / <b>他社 RTS 互換</b> の 4 つ。設定は URL に紐づかず端末に保存されます。</p>
+    </div>
+    <div class="card">
+      <h4>長押しを使わない設定</h4>
+      <p><kbd class="f">Tab</kbd> の「のぞき見」と <kbd>Alt</kbd> の情報表示は、<b>トグル（押すたび切替）に変更</b>できます。押し続ける操作を無くせます。</p>
+    </div>
+    <div class="card">
+      <h4>片手・マウスのみ</h4>
+      <p>戦域スロットと令カードは画面上のクリックだけで完結します。<b>キーボードを一切使わずに 6 戦線を運用できる</b>ことを設計要件にしています。</p>
+    </div>
+    <div class="card">
+      <h4>色以外の手がかり</h4>
+      <p>戦域の識別は色に加えて <b>旗の形と番号</b>でも示します。警告は点滅＋音＋縁のバッジの 3 重で通知します。</p>
+    </div>
+    <div class="card">
+      <h4>速度</h4>
+      <p>キャンペーンとスカーミッシュはゲーム速度を 0.5〜1.5 倍に変更可能。<b>遅くしても難易度は上がりません</b>（AI も同じ速度）。</p>
+    </div>
+    <div class="card">
+      <h4>操作量の目安</h4>
+      <p>1 試合（約 30 分）の想定操作量は <b>毎分 20〜40 操作</b>。他の RTS の 1/3 程度で成立するよう調整しています。</p>
+    </div>
+  </div>
+</section>
+
+<section id="s13">
+  <h2>13. 練習メニュー<span class="en">PRACTICE</span></h2>
+  <p>キャンペーン第 1 章の 5 ミッションが、そのままこの順番のチュートリアルになっています。</p>
+
+  <ol class="steps">
+    <li><b>最初の 5 分（第 1 話）</b> ―― <kbd class="v">H</kbd> で町の中心、グリッドで村人を出し続ける。<kbd class="v">.</kbd> で遊休村人を拾う。戦闘はまだ出てきません。</li>
+    <li><b>戦域が 1 つ立つ（第 2 話）</b> ―― <kbd class="f">Tab</kbd> で俯瞰し、<kbd class="f">1</kbd> で戦域を選び、<kbd class="o">Shift</kbd>+<kbd class="o">1</kbd>（突撃）を渡すだけ。<b>この 3 手が本作の基本形</b>です。</li>
+    <li><b>2 つ目が立つ（第 3 話）</b> ―― 片方に <b>死守</b>、片方に <b>突撃</b>。「両方を勝たせようとしない」練習をします。</li>
+    <li><b>捨てる判断（第 4 話）</b> ―― わざと守り切れない状況が来ます。<b>後退</b> を渡して戦域を畳み、残った戦力を別の戦域に足す流れを覚えます。</li>
+    <li><b>攻城（第 5 話）</b> ―― 反対側に <b>略奪</b> で囮の戦域を立て、本命の門前に <b>包囲</b>。ここまでできれば操作面は終わりです。</li>
+  </ol>
+
+  <div class="note">
+    <b>覚える順番の指針：</b>
+    ① 戦域と令（<kbd class="f">Tab</kbd>／数字／<kbd class="o">Shift</kbd>+数字）→
+    ② 内政の巡回（<kbd class="v">H</kbd>／<kbd class="v">.</kbd>／グリッド）→
+    ③ 警告への往復（<kbd class="f">Space</kbd>／<kbd class="v">Backspace</kbd>）→
+    ④ 部隊グループ（<kbd>7</kbd>〜<kbd>0</kbd>）。<br>
+    ④まで来ると、他の RTS の操作感に近い細かい戦い方もできるようになります。
+  </div>
+</section>
+
+<section id="s14">
+  <h2>14. 全キー一覧<span class="en">FULL LIST</span></h2>
+  <div class="tw">
+    <table>
+      <thead><tr><th>分類</th><th>キー</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr data-key="Tab"><td>戦域</td><td class="k"><kbd class="f">Tab</kbd></td><td>戦域指令ビューの開閉／観戦時は視界の切り替え</td></tr>
+        <tr data-key="1"><td>戦域</td><td class="k"><kbd class="f">1</kbd>〜<kbd class="f">6</kbd></td><td>戦域を選択して視点移動</td></tr>
+        <tr data-key="Alt"><td>戦域</td><td class="k"><kbd class="o">Alt</kbd>+<kbd class="f">1</kbd>〜<kbd class="f">6</kbd></td><td>視点を動かさず戦域を選択</td></tr>
+        <tr data-key="Space"><td>戦域</td><td class="k"><kbd class="f">Space</kbd></td><td>次の警告へジャンプ（リプレイでは再生／一時停止）</td></tr>
+        <tr data-key="Shift"><td>令</td><td class="k"><kbd class="o">Shift</kbd>+<kbd class="o">1</kbd>〜<kbd class="o">6</kbd></td><td>令をセット（突撃／包囲／死守／略奪／建設／後退）</td></tr>
+        <tr data-key="Shift"><td>令</td><td class="k"><kbd class="o">Shift</kbd>+<kbd class="o">7</kbd></td><td>文明固有の令をセット</td></tr>
+        <tr data-key="Esc"><td>令</td><td class="k"><kbd>Esc</kbd></td><td>手動操作を解除して令に戻す／パネルを閉じる</td></tr>
+        <tr data-key="Q"><td>コマンド</td><td class="k"><kbd class="g">Q</kbd><kbd class="g">W</kbd><kbd class="g">E</kbd><kbd class="g">R</kbd> / <kbd class="g">A</kbd><kbd class="g">S</kbd><kbd class="g">D</kbd><kbd class="g">F</kbd> / <kbd class="g">Z</kbd><kbd class="g">X</kbd><kbd class="g">C</kbd><kbd class="g">V</kbd></td><td>コマンドグリッドの 12 ボタンに対応</td></tr>
+        <tr data-key="B"><td>コマンド</td><td class="k"><kbd class="g">B</kbd></td><td>建設メニュー</td></tr>
+        <tr data-key="Ctrl"><td>選択</td><td class="k"><kbd>Ctrl</kbd>+<kbd>A</kbd></td><td>全戦闘ユニット</td></tr>
+        <tr data-key="7"><td>選択</td><td class="k"><kbd>7</kbd>〜<kbd>0</kbd> / <kbd>Ctrl</kbd>+<kbd>7</kbd>〜<kbd>0</kbd></td><td>部隊グループの呼び出し／登録</td></tr>
+        <tr data-key="."><td>選択</td><td class="k"><kbd class="v">.</kbd> / <kbd class="v">,</kbd></td><td>遊休の村人へ次／前へジャンプ</td></tr>
+        <tr data-key="H"><td>視点</td><td class="k"><kbd class="v">H</kbd></td><td>町の中心を選択して視点移動</td></tr>
+        <tr data-key="M"><td>視点</td><td class="k"><kbd class="v">M</kbd></td><td>ミニマップの拡大</td></tr>
+        <tr data-key="F1"><td>視点</td><td class="k"><kbd class="v">F1</kbd>〜<kbd class="v">F4</kbd></td><td>視点の呼び出し（<kbd>Ctrl</kbd>+同キーで記憶）</td></tr>
+        <tr data-key="Backspace"><td>視点</td><td class="k"><kbd class="v">Backspace</kbd></td><td>直前の視点へ戻る</td></tr>
+        <tr data-key="Arrows"><td>視点</td><td class="k">矢印キー</td><td>スクロール</td></tr>
+        <tr data-key="Alt"><td>情報</td><td class="k"><kbd>Alt</kbd> 長押し</td><td>体力バーと所属戦域色を全表示</td></tr>
+        <tr data-key="L"><td>情報</td><td class="k"><kbd class="i">L</kbd></td><td>戦績パネル</td></tr>
+        <tr data-key="G"><td>情報</td><td class="k"><kbd class="i">G</kbd></td><td>資源の残量表示</td></tr>
+        <tr data-key="N"><td>情報</td><td class="k"><kbd class="i">N</kbd></td><td>時代進化の条件</td></tr>
+        <tr data-key="Y"><td>情報</td><td class="k"><kbd class="i">Y</kbd></td><td>令の履歴</td></tr>
+        <tr data-key="K"><td>パネル</td><td class="k"><kbd class="i">K</kbd></td><td>学舎（研究）</td></tr>
+        <tr data-key="T"><td>パネル</td><td class="k"><kbd class="i">T</kbd></td><td>市場（資源交換・交易）</td></tr>
+        <tr data-key="F10"><td>システム</td><td class="k"><kbd>F10</kbd> / <kbd>F11</kbd> / <kbd>F12</kbd></td><td>メニュー／全画面／スクリーンショット</td></tr>
+        <tr><td>システム</td><td class="k"><kbd>Enter</kbd> / <kbd>Shift</kbd>+<kbd>Enter</kbd></td><td>全体チャット／味方チャット</td></tr>
+        <tr><td>システム</td><td class="k"><kbd>Pause</kbd></td><td>一時停止（オンラインを除く）</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="dim" style="margin-top:24px">
+    ※ キー割り当ては設計時の想定値で、実装時のテストで変わることがあります。すべて再割り当て可能です。
+    画面の名称と読み方は <a href="05_画面説明.html">画面説明資料</a>、ゲーム内容は <a href="03_文明と進化.html">文明と進化</a> を参照してください。
+  </p>
+</section>
+
+<footer>
+  Multi-Taktika ― 操作方法資料。
+  <a href="01_ゲーム宣伝.html">ゲーム紹介</a> /
+  <a href="02_世界観.html">世界観設定</a> /
+  <a href="03_文明と進化.html">文明と進化</a> /
+  <a href="05_画面説明.html">画面説明</a>
+</footer>
+
+<script>
+  // 表の行にカーソルを乗せると、キーボード図の該当キーが光る
+  (function () {
+    var kb = document.getElementById('kb');
+    if (!kb) return;
+    var map = {};
+    kb.querySelectorAll('.key[data-k]').forEach(function (el) { map[el.dataset.k] = el; });
+    document.querySelectorAll('tr[data-key]').forEach(function (tr) {
+      var el = map[tr.dataset.key];
+      if (!el) return;
+      tr.addEventListener('mouseenter', function () { el.classList.add('hi'); });
+      tr.addEventListener('mouseleave', function () { el.classList.remove('hi'); });
+    });
+  })();
+</script>
+</body>
+</html>

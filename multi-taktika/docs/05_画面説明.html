@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Taktika 画面説明 — 全画面と、その見方</title>
+<style>
+  :root {
+    --bg: #14100c;
+    --bg2: #1d1811;
+    --panel: #26200f;
+    --line: #4a3a1e;
+    --gold: #e0b34a;
+    --gold-dim: #a88530;
+    --text: #e8ded0;
+    --text-dim: #a89b89;
+    --danger: #c0562f;
+    --front-r: #c0562f;
+    --front-b: #4a7fb5;
+    --front-y: #d8a326;
+    --green: #7cb342;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    padding: 0 20px 80px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+    font-size: 16px;
+    line-height: 1.8;
+  }
+
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 2px solid var(--line);
+    border-radius: 2px;
+    background: #000;
+  }
+
+  a { color: var(--gold); }
+
+  /* ---------- header（最低限） ---------- */
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 16px;
+    padding: 14px 0;
+    border-bottom: 2px solid var(--line);
+    margin-bottom: 28px;
+  }
+  header .logo { font-size: 20px; font-weight: 700; letter-spacing: .08em; color: var(--gold); }
+  header .tag { font-size: 14px; color: var(--text-dim); }
+  header .meta { margin-left: auto; font-size: 13px; color: var(--text-dim); }
+
+  section { margin: 0 0 56px; }
+
+  h2 {
+    font-size: 22px;
+    margin: 0 0 6px;
+    color: var(--gold);
+    border-left: 5px solid var(--gold-dim);
+    padding-left: 12px;
+    line-height: 1.4;
+  }
+  h2 .en {
+    display: block;
+    font-size: 12px;
+    letter-spacing: .18em;
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+  h3 { font-size: 17px; margin: 30px 0 6px; color: var(--gold); }
+  h4 { font-size: 15px; margin: 20px 0 4px; color: #f0e7d8; }
+  p { margin: 0 0 14px; }
+  section > p, .legend, .note { max-width: 100ch; }
+  .lead { font-size: 18px; }
+  .dim { color: var(--text-dim); font-size: 14px; }
+  .ruby { font-size: .82em; color: var(--text-dim); }
+
+  /* ---------- hero ---------- */
+  .hero { margin-bottom: 48px; }
+  .hero-copy {
+    font-size: clamp(24px, 4vw, 46px);
+    font-weight: 700;
+    line-height: 1.35;
+    margin: 0 0 12px;
+    color: #fff;
+  }
+  .hero-copy em { font-style: normal; color: var(--gold); }
+  .hero-sub { max-width: 72ch; }
+
+  figure { margin: 0; }
+  figcaption { font-size: 13px; color: var(--text-dim); margin-top: 8px; }
+
+  /* ---------- 注釈付きスクリーンショット ---------- */
+  .shot { position: relative; margin: 18px 0 0; }
+  .shot-img { position: relative; line-height: 0; }
+  .shot.narrow .shot-img { max-width: 820px; margin: 0 auto; }
+  .pin {
+    position: absolute;
+    left: var(--x); top: var(--y);
+    transform: translate(-50%, -50%);
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--gold);
+    color: #14100c;
+    border: 2px solid #14100c;
+    box-shadow: 0 0 0 1px rgba(224,179,74,.6), 0 2px 6px rgba(0,0,0,.7);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 22px;
+    text-align: center;
+    letter-spacing: 0;
+    cursor: default;
+    transition: transform .12s ease, background .12s ease;
+    z-index: 2;
+  }
+  .pin.on {
+    background: #fff;
+    transform: translate(-50%, -50%) scale(1.45);
+    z-index: 3;
+  }
+  .shot-hint { font-size: 13px; color: var(--text-dim); margin: 8px 0 0; }
+
+  ol.legend {
+    list-style: none;
+    counter-reset: pin;
+    margin: 14px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 2px;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  }
+  ol.legend li {
+    counter-increment: pin;
+    position: relative;
+    padding: 7px 10px 7px 42px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  ol.legend li::before {
+    content: counter(pin);
+    position: absolute;
+    left: 8px; top: 8px;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--gold-dim);
+    color: #14100c;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 24px;
+    text-align: center;
+  }
+  ol.legend li:hover {
+    background: var(--bg2);
+    border-color: var(--line);
+  }
+  ol.legend li:hover::before { background: var(--gold); }
+  ol.legend li b { color: #f4ecdd; }
+  ol.legend li .k { color: var(--text-dim); font-size: 13px; }
+
+  /* ---------- カード・グリッド ---------- */
+  .grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 14px 16px;
+  }
+  .card h4 { margin-top: 0; }
+  .card p:last-child { margin-bottom: 0; }
+
+  /* ---------- table ---------- */
+  .tw { overflow-x: auto; margin: 12px 0 0; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 640px;
+    font-size: 15px;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--panel);
+    color: var(--gold);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  tbody tr:nth-child(odd) { background: rgba(255,255,255,.02); }
+  td b { color: #f4ecdd; }
+
+  /* ---------- 画面遷移図 ---------- */
+  .flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 10px;
+    margin: 16px 0 0;
+  }
+  .flow .box {
+    flex: 1 1 150px;
+    min-width: 150px;
+    background: var(--bg2);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 10px 12px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .flow .box b { display: block; color: var(--gold); font-size: 15px; }
+  .flow .box.main { border-color: var(--gold-dim); background: #241d10; }
+  .flow .arrow {
+    align-self: center;
+    color: var(--gold-dim);
+    font-size: 20px;
+    flex: 0 0 auto;
+  }
+
+  /* ---------- swatch ---------- */
+  .sw {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border-radius: 2px;
+    border: 1px solid rgba(0,0,0,.6);
+    margin-right: 6px;
+    vertical-align: -1px;
+  }
+  .note {
+    border-left: 3px solid var(--gold-dim);
+    background: var(--bg2);
+    padding: 10px 14px;
+    margin: 16px 0 0;
+    font-size: 15px;
+  }
+  footer {
+    border-top: 2px solid var(--line);
+    padding-top: 14px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .toc {
+    display: flex; flex-wrap: wrap; gap: 6px 14px;
+    font-size: 14px; margin: 0 0 8px; padding: 0; list-style: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">MULTI-TAKTIKA</span>
+  <span class="tag">画面説明資料 ― 全画面と、その見方</span>
+  <span class="meta"><a href="01_ゲーム宣伝.html">ゲーム紹介</a> / <a href="02_世界観.html">世界観</a> / <a href="03_文明と進化.html">文明と進化</a> / <a href="06_操作方法.html">操作方法</a> / 2026-08</span>
+</header>
+
+<section class="hero">
+  <p class="hero-copy">画面は <em>13 枚</em>。<br>覚えることは <em>3 か所</em> だけ。</p>
+  <p class="lead hero-sub">
+    Multi-Taktika の画面は、上端の <b>資源</b>、右端の <b>戦域スロット</b>、下端の <b>コマンド</b> の 3 か所を見るだけで成立します。
+    残りの画面は、その 3 か所に入れる中身を決めるための画面です。
+    この資料では、起動から試合後の振り返りまで全 13 画面を並べ、番号ごとに「そこが何を意味するか」を説明します。
+  </p>
+  <ul class="toc dim">
+    <li><a href="#s1">1. 画面の全体像</a></li>
+    <li><a href="#s2">2. タイトル</a></li>
+    <li><a href="#s3">3. 対戦設定</a></li>
+    <li><a href="#s4">4. 文明選択</a></li>
+    <li><a href="#s5">5. キャンペーン</a></li>
+    <li><a href="#s6">6. 対戦画面（本編）</a></li>
+    <li><a href="#s7">7. 戦域指令ビュー</a></li>
+    <li><a href="#s8">8. 令カードパネル</a></li>
+    <li><a href="#s9">9. 生産・建設パネル</a></li>
+    <li><a href="#s10">10. 学舎（研究）</a></li>
+    <li><a href="#s11">11. 市場（資源交換）</a></li>
+    <li><a href="#s12">12. 前線ズーム</a></li>
+    <li><a href="#s13">13. 結果</a></li>
+    <li><a href="#s14">14. リプレイ・観戦</a></li>
+    <li><a href="#s15">15. 色とアイコンの共通ルール</a></li>
+  </ul>
+</section>
+
+<section id="s1">
+  <h2>1. 画面の全体像<span class="en">SCREEN MAP</span></h2>
+  <p>
+    画面は <b>試合前（4 枚）</b>・<b>試合中（7 枚）</b>・<b>試合後（2 枚）</b> に分かれます。
+    試合中の 7 枚のうち、常に表示されているのは <b>対戦画面</b> だけで、
+    残りは対戦画面の上に重なるパネル（オーバーレイ）です。<b>どのパネルを開いても試合は止まりません</b>。
+  </p>
+
+  <h3>試合前</h3>
+  <div class="flow">
+    <div class="box"><b>タイトル</b>遊び方を選ぶ</div>
+    <span class="arrow">▶</span>
+    <div class="box"><b>対戦設定</b>マップ・人数・AI</div>
+    <span class="arrow">▶</span>
+    <div class="box"><b>文明選択</b>8 文明から 1 つ</div>
+    <span class="arrow">▶</span>
+    <div class="box"><b>キャンペーン</b>章とミッション選択</div>
+  </div>
+
+  <h3>試合中</h3>
+  <div class="flow">
+    <div class="box main"><b>対戦画面</b>常時表示。ここが本体</div>
+    <span class="arrow">⇄</span>
+    <div class="box"><b>戦域指令ビュー</b>全戦線の俯瞰</div>
+    <span class="arrow">⇄</span>
+    <div class="box"><b>令カードパネル</b>戦域に方針を渡す</div>
+  </div>
+  <div class="flow" style="margin-top:10px">
+    <div class="box"><b>生産・建設パネル</b>対象を選ぶと下端に出る</div>
+    <span class="arrow">⇄</span>
+    <div class="box"><b>学舎</b>研究ツリー</div>
+    <span class="arrow">⇄</span>
+    <div class="box"><b>市場</b>資源交換・交易</div>
+    <span class="arrow">⇄</span>
+    <div class="box"><b>前線ズーム</b>直接操作する時の見え方</div>
+  </div>
+
+  <h3>試合後</h3>
+  <div class="flow">
+    <div class="box"><b>結果</b>勝敗と戦績</div>
+    <span class="arrow">▶</span>
+    <div class="box"><b>リプレイ・観戦</b>戦域単位の振り返り</div>
+  </div>
+
+  <div class="note">
+    <b>設計方針：</b>HUD の位置は全画面で固定です。資源は必ず上端左、戦域スロットは必ず右端、選択対象とコマンドは必ず下端。
+    「複数の戦線を同時に見る」ゲームなので、<b>目線の移動先を毎回同じにする</b> ことを最優先にしています。
+  </div>
+</section>
+
+<section id="s2">
+  <h2>2. タイトル画面<span class="en">TITLE</span></h2>
+  <p>起動直後の画面です。背景は <b>環海<span class="ruby">（かんかい）</span></b> と、中央の島に立つ <b>碑<span class="ruby">（いしぶみ）</span></b>。この世界の技術進歩の源であり、時代進化の演出にも出てきます。</p>
+
+  <figure class="shot" data-shot="title">
+    <div class="shot-img">
+      <img src="assets/img/screens/title.webp" alt="タイトル画面のイメージ">
+      <span class="pin" style="--x:50%;--y:20%">1</span>
+      <span class="pin" style="--x:49%;--y:53%">2</span>
+      <span class="pin" style="--x:50%;--y:70%">3</span>
+      <span class="pin" style="--x:86%;--y:93%">4</span>
+    </div>
+    <figcaption>▲ タイトル画面。メニューは 4 項目に絞り、初回起動時は最上段が光ります。</figcaption>
+  </figure>
+  <ol class="legend" data-shot="title">
+    <li><b>ロゴ</b> — 紋章は前回選んだ文明のものに変わります。<span class="k">セーブデータがない場合は無地。</span></li>
+    <li><b>碑と環海</b> — 背景は静止画ではなく、時刻とともに空の色が変わります。<span class="k">世界観の導入も兼ねています。</span></li>
+    <li><b>メニュー</b> — 上から キャンペーン／スカーミッシュ／オンライン／リプレイ。<span class="k">続きがある場合は最上段が「つづきから」に変わります。</span></li>
+    <li><b>補助ボタン</b> — 設定（音量・言語・キー割当）とクレジット。<span class="k">アカウント登録は不要なので、ログイン項目はありません。</span></li>
+  </ol>
+</section>
+
+<section id="s3">
+  <h2>3. 対戦設定画面<span class="en">MATCH SETUP</span></h2>
+  <p>スカーミッシュとオンライン対戦で共通の画面です。URL を共有するだけで他の人がこの画面に入ってきます。</p>
+
+  <figure class="shot" data-shot="setup">
+    <div class="shot-img">
+      <img src="assets/img/screens/match-setup.webp" alt="対戦設定画面のイメージ">
+      <span class="pin" style="--x:29%;--y:35%">1</span>
+      <span class="pin" style="--x:16%;--y:30%">2</span>
+      <span class="pin" style="--x:75%;--y:15%">3</span>
+      <span class="pin" style="--x:64%;--y:15%">4</span>
+      <span class="pin" style="--x:58%;--y:73%">5</span>
+      <span class="pin" style="--x:29%;--y:78%">6</span>
+      <span class="pin" style="--x:76%;--y:85%">7</span>
+    </div>
+    <figcaption>▲ 対戦設定画面。左がマップ、右が参加者。最大 8 人（1 対 1 〜 4 対 4）。</figcaption>
+  </figure>
+  <ol class="legend" data-shot="setup">
+    <li><b>マップ preview</b> — 地形の縮図。水域が広いマップほど港と船の価値が上がります。</li>
+    <li><b>開始位置</b> — 色付きの点が各プレイヤーの初期拠点。<span class="k">隣が誰かで、序盤に立つ戦域の場所が決まります。</span></li>
+    <li><b>参加者スロット</b> — 名前・チーム色・選んだ文明の紋章が並びます。</li>
+    <li><b>種別アイコン</b> — 人型は人間、兜は AI。AI は 5 段階で、最上位はプレイヤーと同じく戦域指令で戦ってきます。</li>
+    <li><b>空きスロット</b> — 「＋」で AI を追加、または他の人の参加を待ちます。</li>
+    <li><b>試合設定</b> — 開始時代・開始資源・ゲーム速度・人口上限。<span class="k">開始時代を上げると内政フェーズを飛ばして戦域指令の練習ができます。</span></li>
+    <li><b>準備完了</b> — 全員が押すと開始。押した人のスロットが金色になります。</li>
+  </ol>
+</section>
+
+<section id="s4">
+  <h2>4. 文明選択画面<span class="en">CIVILIZATION SELECT</span></h2>
+  <p>
+    文明は見た目替えではなく、<b>固有ユニット・内政ボーナス・固有の令</b> の 3 点セットです。
+    さらに <b>持っていない兵種</b> があるので、ここでの選択がそのまま勝ち筋の選択になります（詳細は <a href="03_文明と進化.html">文明と進化</a>）。
+  </p>
+
+  <figure class="shot" data-shot="civ">
+    <div class="shot-img">
+      <img src="assets/img/screens/civ-select.webp" alt="文明選択画面のイメージ">
+      <span class="pin" style="--x:29%;--y:52%">1</span>
+      <span class="pin" style="--x:51%;--y:25%">2</span>
+      <span class="pin" style="--x:55%;--y:80%">3</span>
+      <span class="pin" style="--x:83%;--y:33%">4</span>
+      <span class="pin" style="--x:81%;--y:70%">5</span>
+      <span class="pin" style="--x:81%;--y:86%">6</span>
+    </div>
+    <figcaption>▲ 文明選択画面。紋章を選ぶと右側が総大将と主力兵に差し替わります。</figcaption>
+  </figure>
+  <ol class="legend" data-shot="civ">
+    <li><b>紋章グリッド</b> — 8 文明。左上から ヤマト／唐／ローマ／ヴァイキング／マリ／アステカ／ペルシア／モンゴル。</li>
+    <li><b>選択中の紋章</b> — 金枠で光ります。オンラインでは他の人が選んだ紋章に相手のチーム色が付きます。</li>
+    <li><b>ランダム枠</b> — 最後の枠は無作為選択。<span class="k">相手に読ませないための枠です。</span></li>
+    <li><b>総大将</b> — 選んだ文明の見た目の確認用。この時代の装備をそのまま着ています。</li>
+    <li><b>主力兵サムネイル</b> — 近接・遠隔・騎兵の代表。<b>枠が暗いものはその文明が持たない役割</b>です（例：アステカとヴァイキングの騎兵）。</li>
+    <li><b>ボーナスと固有令</b> — 内政ボーナス 1 行と、戦域指令のスロットに追加される固有令 1 枚。</li>
+  </ol>
+</section>
+
+<section id="s5">
+  <h2>5. キャンペーン章選択画面<span class="en">CAMPAIGN</span></h2>
+  <p>全 4 章・各 5 ミッション。<b>負けてもゲームオーバーにならず</b>、服属した状態から始まる分岐ルートに進みます。そこで勝てば旗を戻して本線に復帰できます。</p>
+
+  <figure class="shot" data-shot="camp">
+    <div class="shot-img">
+      <img src="assets/img/screens/campaign-map.webp" alt="キャンペーン章選択画面のイメージ">
+      <span class="pin" style="--x:19%;--y:28%">1</span>
+      <span class="pin" style="--x:59%;--y:29%">2</span>
+      <span class="pin" style="--x:57%;--y:69%">3</span>
+      <span class="pin" style="--x:45%;--y:44%">4</span>
+      <span class="pin" style="--x:39%;--y:41%">5</span>
+      <span class="pin" style="--x:85%;--y:33%">6</span>
+      <span class="pin" style="--x:85%;--y:78%">7</span>
+    </div>
+    <figcaption>▲ キャンペーン章選択。羊皮紙の環海図に、章のメダルが時代順に並びます。</figcaption>
+  </figure>
+  <ol class="legend" data-shot="camp">
+    <li><b>達成した章</b> — メダルが暗い金。分岐した側のルートも記録として残ります。</li>
+    <li><b>現在の章</b> — 明るく光っているメダル。章＝時代に対応します（黎明 → 青銅 → 鉄器 → 帝国）。</li>
+    <li><b>未開放の章</b> — 黒いメダル。前の章のミッションを 1 つ以上クリアすると開きます。</li>
+    <li><b>進路</b> — 点線。分岐に入ると点線が二股に分かれ、負けた側の道も描かれます。</li>
+    <li><b>碑の島</b> — 章が進むごとに碑の解読部分が増えていく演出が入ります。</li>
+    <li><b>ミッション一覧</b> — 5 枚のプレート。未挑戦・クリア・分岐後の再挑戦がアイコンで分かります。</li>
+    <li><b>出撃</b> — 封蝋のボタン。押すと対戦画面に入ります。</li>
+  </ol>
+</section>
+
+<section id="s6">
+  <h2>6. 対戦画面（本編）<span class="en">MAIN GAMEPLAY</span></h2>
+  <p class="lead">
+    試合中の 95% はこの画面です。<b>斜め見下ろしの高精細 2D</b>で、上端・右端・下端に HUD、中央が戦場。
+    ここだけは番号を多めに振ってあります。
+  </p>
+
+  <figure class="shot" data-shot="hud">
+    <div class="shot-img">
+      <img src="assets/img/screens/main-hud.webp" alt="対戦画面（メインHUD）のイメージ">
+      <span class="pin" style="--x:22%;--y:8%">1</span>
+      <span class="pin" style="--x:38.5%;--y:8%">2</span>
+      <span class="pin" style="--x:88%;--y:20%">3</span>
+      <span class="pin" style="--x:95%;--y:39%">4</span>
+      <span class="pin" style="--x:95%;--y:66%">5</span>
+      <span class="pin" style="--x:12%;--y:84%">6</span>
+      <span class="pin" style="--x:12%;--y:96%">7</span>
+      <span class="pin" style="--x:28%;--y:85%">8</span>
+      <span class="pin" style="--x:63%;--y:87%">9</span>
+      <span class="pin" style="--x:91%;--y:87%">10</span>
+      <span class="pin" style="--x:26%;--y:33%">11</span>
+      <span class="pin" style="--x:75%;--y:55%">12</span>
+    </div>
+    <figcaption>▲ 対戦画面。鉄器の世・戦域が 3 つ立っている状態。番号は下の一覧に対応します。</figcaption>
+    <p class="shot-hint">※ 下の一覧の項目にカーソルを乗せると、画像上の番号が光ります。</p>
+  </figure>
+  <ol class="legend" data-shot="hud">
+    <li><b>資源表示</b> — 左から 食料・木材・石材・金。<span class="k">数字の下に細い増減バーが出て、毎分の収入が分かります。</span></li>
+    <li><b>人口</b> — 現在／上限。家 1 軒で +5、町の中心で +10、上限 200。<span class="k">上限に当たると生産ボタンが赤くなります。</span></li>
+    <li><b>ミニマップ</b> — 自軍が明るい点、敵が赤、<b>戦域は色付きの輪</b>で出ます。クリックで視点移動。</li>
+    <li><b>戦域スロット（点灯）</b> — 進行中の戦域。<b>この列がこのゲームの心臓部</b>です。旗の色がミニマップと戦場の輪の色に対応します。</li>
+    <li><b>戦域スロット（空き）</b> — 使える枠数は時代で増えます（黎明 1 → 青銅 2 → 鉄器 4 → 帝国 6）。城 1 棟か研究「旗竿」で +1（上限 6）。</li>
+    <li><b>選択中の対象</b> — 建物やユニットの絵と名前。複数選択時は先頭の 1 体。</li>
+    <li><b>体力バー</b> — 緑→黄→赤。建物は修理で戻り、<b>石壁の穴だけは戻りません</b>。</li>
+    <li><b>選択一覧</b> — 複数選択したときの内訳。種類ごとにまとまるので、槍兵だけを抜き出す等ができます。</li>
+    <li><b>コマンドグリッド</b> — 選択対象にできること。村人なら建設一覧、兵舎なら生産一覧、町の中心なら村人と時代進化。<span class="k">条件を満たさないボタンは暗くなり、足りない資源のアイコンだけが赤く出ます。</span></li>
+    <li><b>生産キュー</b> — 最大 5 件。進捗はリングで表示。右クリックで取り消し（資源は全額戻ります）。</li>
+    <li><b>戦場ビュー</b> — 斜め見下ろし。地形の明暗が視界の有無を示し、<b>暗い場所は「以前見た情報」</b>です。</li>
+    <li><b>部隊</b> — 隊列を組んで表示されます。戦域に属している部隊は足元の輪がその戦域の色になり、<b>令に従って自律的に動きます</b>。</li>
+  </ol>
+
+  <div class="note">
+    <b>この画面の見方のコツ：</b>
+    左上（資源）は「次に何を作れるか」、右端（戦域スロット）は「今どこで戦っているか」、下端（コマンド）は「今選んでいる物に何ができるか」。
+    警告は画面の縁に赤いバッジで出るので、<b>戦場を見ていなくても押されていることに気づけます</b>。
+  </div>
+</section>
+
+<section id="s7">
+  <h2>7. 戦域指令ビュー<span class="en">MULTI-FRONT COMMAND</span></h2>
+  <p>
+    本作の中核画面です。キー 1 つで対戦画面から切り替わり、<b>全戦線を一枚に俯瞰</b>します。
+    ここでやることは操作ではなく判断だけ ―― <b>どの戦域を捨て、どの戦域に増援を送るか</b> です。
+  </p>
+
+  <figure class="shot" data-shot="front">
+    <div class="shot-img">
+      <img src="assets/img/screens/front-command.webp" alt="戦域指令ビューのイメージ">
+      <span class="pin" style="--x:26%;--y:45%">1</span>
+      <span class="pin" style="--x:64%;--y:48%">2</span>
+      <span class="pin" style="--x:43%;--y:68%">3</span>
+      <span class="pin" style="--x:47%;--y:28%">4</span>
+      <span class="pin" style="--x:38%;--y:46%">5</span>
+      <span class="pin" style="--x:88%;--y:17%">6</span>
+      <span class="pin" style="--x:88%;--y:55%">7</span>
+      <span class="pin" style="--x:52%;--y:17%">8</span>
+    </div>
+    <figcaption>▲ 戦域指令ビュー。3 つの戦域（赤・青・黄）が立ち、それぞれに令が 1 枚ずつセットされています。</figcaption>
+  </figure>
+  <ol class="legend" data-shot="front">
+    <li><b>戦域（赤）</b> — 戦闘が起きた場所は自動でマーキングされ、独立した小さな戦場として進行します。<span class="k">輪の太さが優勢・劣勢を表します。</span></li>
+    <li><b>戦域（青）</b> — 同時に最大 6 つまで発生。輪の中の兵は、渡した令に従って自律的に戦い続けます。</li>
+    <li><b>戦域（黄）</b> — 輪が点滅し始めたら「負け始めている」合図。増援か、後退か、捨てるかを決めます。</li>
+    <li><b>本陣</b> — 総大将のいる丘。ここは動きません。<b>本陣から遠い戦域は令が届くまで時間がかかります</b>。</li>
+    <li><b>令の伝達線</b> — 点線が本陣から各戦域へ伸びます。<span class="k">切り替え直後は線が流れ、届いた瞬間に実線になります。研究「復唱」「早馬」で短縮。</span></li>
+    <li><b>令スロット（セット済み）</b> — 各戦域に 1 枚。帝国の世の研究「二重旗」で 1 戦域に 2 枚まで重ねられます。</li>
+    <li><b>空きスロット</b> — 枠が余っていても、戦域が立っていなければ使えません。</li>
+    <li><b>敵拠点</b> — 攻め込む先。ここに戦域を立てると攻城戦になります。</li>
+  </ol>
+</section>
+
+<section id="s8">
+  <h2>8. 令カードパネル<span class="en">TAKTIKA CARDS</span></h2>
+  <p>
+    戦域を選ぶと開くパネルです。<b>令<span class="ruby">（れい）</span></b> はこの世界の総大将が戦線に渡せる唯一のもので、
+    短くて誤解のない方針が一語だけ。ゲーム上は 1 枚のカードです。
+  </p>
+
+  <figure class="shot" data-shot="cards">
+    <div class="shot-img">
+      <img src="assets/img/screens/order-cards.webp" alt="令カードパネルのイメージ">
+      <span class="pin" style="--x:8%;--y:52%">1</span>
+      <span class="pin" style="--x:21%;--y:47%">2</span>
+      <span class="pin" style="--x:39%;--y:42%">3</span>
+      <span class="pin" style="--x:57%;--y:42%">4</span>
+      <span class="pin" style="--x:74%;--y:47%">5</span>
+      <span class="pin" style="--x:88%;--y:51%">6</span>
+      <span class="pin" style="--x:39%;--y:22%">7</span>
+      <span class="pin" style="--x:50%;--y:67%">8</span>
+    </div>
+    <figcaption>▲ 令カードパネル。基本 6 枚＋文明固有 1 枚。キーボード 1〜6 に対応します。</figcaption>
+  </figure>
+  <ol class="legend" data-shot="cards">
+    <li><b>突撃</b> — 最も近い敵に向かって前進し続ける。<span class="k">数で押し切れると読んだとき。</span></li>
+    <li><b>包囲</b> — 攻城兵器を前に出し、歩兵で護衛する。<span class="k">城・塔を落としたいとき。直接操作なら 4〜5 手かかる動きが 1 枚で回り続けます。</span></li>
+    <li><b>死守</b> — 指定地点から離れず迎撃に専念する。<span class="k">時間を稼いで進化を通したいとき。</span></li>
+    <li><b>略奪</b> — 敵の村人と資源施設を優先して狙う。<span class="k">相手の内政を折る、または守備兵を引き剥がす囮に。</span></li>
+    <li><b>建設</b> — 村人が防壁・塔を前線に建て進める。<span class="k">戦線を押し上げて固定したいとき。</span></li>
+    <li><b>後退</b> — 損害を避けつつ最寄りの拠点まで下がる。<span class="k">捨てる戦域を決めたとき。</span></li>
+    <li><b>選択中のカード</b> — 光って前に出ます。切り替えは即時ではなく、本陣からの距離ぶんの遅延があります。</li>
+    <li><b>名前プレート</b> — 文明固有の令はここに金の縁が付きます（モンゴル「遊撃」、ローマ「方陣」など）。</li>
+  </ol>
+</section>
+
+<section id="s9">
+  <h2>9. 生産・建設パネル<span class="en">PRODUCTION PANEL</span></h2>
+  <p>対戦画面の下端そのものです。<b>何を選んでいるかでボタンが丸ごと入れ替わる</b>ため、この 1 か所が内政のすべてを担います。</p>
+
+  <figure class="shot" data-shot="prod">
+    <div class="shot-img">
+      <img src="assets/img/screens/production-panel.webp" alt="生産・建設パネルのイメージ">
+      <span class="pin" style="--x:10%;--y:31%">1</span>
+      <span class="pin" style="--x:10%;--y:62%">2</span>
+      <span class="pin" style="--x:10%;--y:74%">3</span>
+      <span class="pin" style="--x:47%;--y:22%">4</span>
+      <span class="pin" style="--x:47%;--y:49%">5</span>
+      <span class="pin" style="--x:82%;--y:31%">6</span>
+      <span class="pin" style="--x:28%;--y:80%">7</span>
+      <span class="pin" style="--x:65%;--y:80%">8</span>
+    </div>
+    <figcaption>▲ 町の中心を選んだ状態。村人と時代進化、そして黎明の世に建てられる建物が並びます。</figcaption>
+  </figure>
+  <ol class="legend" data-shot="prod">
+    <li><b>選択中の対象</b> — 絵・名前・その文明での呼び名。<span class="k">同じ「兵舎」でも文明ごとに見た目が変わります。</span></li>
+    <li><b>体力バー</b> — 建設中は建築の進捗を兼ねます。</li>
+    <li><b>属性アイコン</b> — 攻撃・防御・射程・視界。<span class="k">研究で伸びた分は金色で加算表示されます。</span></li>
+    <li><b>コマンドグリッド（上段）</b> — 村人・家・農地・伐採所・採掘場など、内政の建物。</li>
+    <li><b>コマンドグリッド（下段）</b> — 兵舎・射場・市場・鍛冶場など、時代が上がると解禁される建物。</li>
+    <li><b>暗いボタン</b> — 条件を満たしていない項目。<b>時代不足・資源不足・その文明が持てないもの</b>の 3 種類があり、理由がカーソルを乗せると出ます。<span class="k">例：ヴァイキングとモンゴルの厩は永久に暗いままです。</span></li>
+    <li><b>生産中</b> — リングが一周すると 1 体完成。<span class="k">前線の兵舎で作れば、増援がそのまま戦域に合流します。</span></li>
+    <li><b>生産キュー</b> — 最大 5 件。ローマの固有研究「軍団編成」だけ 10 件になります。</li>
+  </ol>
+</section>
+
+<section id="s10">
+  <h2>10. 学舎（研究）画面<span class="en">TECHNOLOGY</span></h2>
+  <p>
+    研究は 2 系統です。<b>鍛冶場が「兵の質」</b>、<b>学舎が「指揮の質」</b>。
+    後者は兵を強くせず、<b>令の通りを良くする</b> 研究で、本作でいちばん重要な枝です。
+  </p>
+
+  <figure class="shot" data-shot="tech">
+    <div class="shot-img">
+      <img src="assets/img/screens/research-tree.webp" alt="研究画面のイメージ">
+      <span class="pin" style="--x:12%;--y:40%">1</span>
+      <span class="pin" style="--x:22%;--y:38%">2</span>
+      <span class="pin" style="--x:37%;--y:56%">3</span>
+      <span class="pin" style="--x:53%;--y:39%">4</span>
+      <span class="pin" style="--x:83%;--y:22%">5</span>
+      <span class="pin" style="--x:30%;--y:29%">6</span>
+      <span class="pin" style="--x:37%;--y:79%">7</span>
+      <span class="pin" style="--x:75%;--y:83%">8</span>
+    </div>
+    <figcaption>▲ 研究画面。左のタブで系統を切り替え、右へ進むほど後の時代の研究になります。</figcaption>
+  </figure>
+  <ol class="legend" data-shot="tech">
+    <li><b>系統タブ</b> — 鍛冶場／学舎／採集（伐採所・採掘場・農地）／その他（市場・港・城）。</li>
+    <li><b>起点</b> — その系統の最初の研究。<span class="k">建物を建てていない系統のタブは暗く、開けません。</span></li>
+    <li><b>研究済み</b> — 金色に塗られたメダル。効果は累積するので、同じ枝の 2 段目・3 段目が重要になります。</li>
+    <li><b>研究可能</b> — 縁が光っているメダル。クリックすると即座に開始します。</li>
+    <li><b>未解禁</b> — 暗く、錠が付いたメダル。時代不足か、<b>その文明が研究できない項目</b>です（例：アステカの鉄鎧系）。</li>
+    <li><b>前提線</b> — 枝の親子関係。飛び越して研究することはできません。</li>
+    <li><b>説明プレート</b> — 効果と、それが効く場面。<span class="k">学舎の研究には「どの局面で効くか」を明記しています。</span></li>
+    <li><b>必要資源と時間</b> — 4 資源のアイコンと秒数。研究中も内政と戦闘は止まりません。</li>
+  </ol>
+
+  <h3>学舎で並ぶもの（抜粋）</h3>
+  <div class="tw">
+    <table>
+      <thead><tr><th>研究</th><th>効果</th><th>画面上での見え方</th></tr></thead>
+      <tbody>
+        <tr><td><b>旗竿</b></td><td>戦域スロット +1</td><td>右端の空きスロットが 1 つ増える</td></tr>
+        <tr><td><b>早馬</b></td><td>令の切り替え待ち −30%</td><td>カード切り替え時の砂時計が短くなる</td></tr>
+        <tr><td><b>復唱</b></td><td>令が届くまでの遅延 −50%</td><td>伝達線の点線が流れる時間が半分になる</td></tr>
+        <tr><td><b>二重旗</b></td><td>1 戦域に令を 2 枚</td><td>スロットが上下 2 段に割れる</td></tr>
+        <tr><td><b>徴兵令</b></td><td>全兵の生産速度 +25%</td><td>生産キューのリングが速く回る</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="s11">
+  <h2>11. 市場（資源交換）画面<span class="en">MARKET</span></h2>
+  <p>余った資源を足りない資源に替える窓口です。<b>「今どれが足りないか」がそのまま次の一手になる</b> 設計なので、この画面は詰まりを解消するための逃げ道として置いています。</p>
+
+  <figure class="shot narrow" data-shot="market">
+    <div class="shot-img">
+      <img src="assets/img/screens/market-trade.webp" alt="市場画面のイメージ">
+      <span class="pin" style="--x:16%;--y:35%">1</span>
+      <span class="pin" style="--x:81%;--y:35%">2</span>
+      <span class="pin" style="--x:23%;--y:48%">3</span>
+      <span class="pin" style="--x:23%;--y:59%">4</span>
+      <span class="pin" style="--x:23%;--y:68%">5</span>
+      <span class="pin" style="--x:38%;--y:88%">6</span>
+      <span class="pin" style="--x:75%;--y:88%">7</span>
+    </div>
+    <figcaption>▲ 市場画面。左 3 列が交換に出す資源、右端が金。相場は買われた資源ほど高くなります。</figcaption>
+  </figure>
+  <ol class="legend" data-shot="market">
+    <li><b>食料・木材・石材</b> — 売れば金になり、金を払えば買えます。</li>
+    <li><b>金</b> — 交換の基準になる資源。エリートユニット・上位研究・火器はここが切れると止まります。</li>
+    <li><b>交換比率</b> — 全プレイヤー共通の相場。<span class="k">同じ資源を買い続けると値が上がるので、一気に買うほど損をします。</span></li>
+    <li><b>相場の推移</b> — 直近の値動き。<span class="k">相手が石材を買い漁っていれば「城か壁を建てている」と読めます。</span></li>
+    <li><b>売買ボタン</b> — 100 単位ずつ。長押しで連続。</li>
+    <li><b>交易荷車</b> — 他国の市場との往復で金を得ます。<b>距離が遠いほど儲かる</b>ので、遠い相手と繋ぐのが基本です。</li>
+    <li><b>交易先の選択</b> — 相手の市場を選びます。<span class="k">交易路が戦域に重なると荷車が狙われます。マリの固有令「交易」は戦域を維持するだけで金が入ります。</span></li>
+  </ol>
+</section>
+
+<section id="s12">
+  <h2>12. 前線ズーム（直接操作）<span class="en">FRONT LINE</span></h2>
+  <p>
+    令に任せず自分で手を入れるときの見え方です。<b>令で回している戦域に直接操作を混ぜても構いません</b>。
+    上手い人はカードの切り替えと直接操作を混ぜてさらに伸ばせる、という設計です。
+  </p>
+
+  <figure class="shot" data-shot="siege">
+    <div class="shot-img">
+      <img src="assets/img/screens/siege-zoom.webp" alt="攻城戦の前線ズーム画面のイメージ">
+      <span class="pin" style="--x:7%;--y:12%">1</span>
+      <span class="pin" style="--x:30%;--y:4%">2</span>
+      <span class="pin" style="--x:70%;--y:42%">3</span>
+      <span class="pin" style="--x:58%;--y:86%">4</span>
+      <span class="pin" style="--x:63%;--y:93%">5</span>
+      <span class="pin" style="--x:47%;--y:47%">6</span>
+      <span class="pin" style="--x:57%;--y:57%">7</span>
+      <span class="pin" style="--x:77%;--y:17%">8</span>
+      <span class="pin" style="--x:22%;--y:35%">9</span>
+      <span class="pin" style="--x:89%;--y:86%">10</span>
+    </div>
+    <figcaption>▲ 帝国の世の攻城戦。橋の前が必ず激戦地になります。</figcaption>
+  </figure>
+  <ol class="legend" data-shot="siege">
+    <li><b>警告バッジ</b> — 画面の縁に出ます。赤＝戦域が崩れかけ、橙＝村人が攻撃されている、黄＝人口上限。クリックでその場所へ飛びます。</li>
+    <li><b>資源バー</b> — ズームしても位置は変わりません。</li>
+    <li><b>体力バー</b> — ユニットの頭上。<b>左端の小さな点が所属戦域の色</b>で、令で動いている兵かどうかが分かります。</li>
+    <li><b>選択円</b> — 自分で選んだ部隊。<span class="k">選択した瞬間、その部隊は令から外れて手動になります。</span></li>
+    <li><b>指示マーカー</b> — 手動で出した移動・攻撃先。数秒で消えます。</li>
+    <li><b>崩れた壁</b> — 一度空いた穴は、その試合の間ずっと通り道として残ります。</li>
+    <li><b>破城槌</b> — 単独では必ず死ぬので、歩兵の壁が前提。<b>これを自動でやるのが「包囲」の令</b>です。</li>
+    <li><b>投石機</b> — 壁に穴を空けられますが、射線に護衛がいないと真っ先に潰されます。</li>
+    <li><b>梯子</b> — 歩兵だけで壁を越えられますが、壁は壊れないので退くと元に戻ります。</li>
+    <li><b>ミニマップ</b> — ズーム中も他の戦域の輪が見えます。<span class="k">ここが点滅したら、俯瞰に戻る合図。</span></li>
+  </ol>
+</section>
+
+<section id="s13">
+  <h2>13. 結果画面<span class="en">RESULT</span></h2>
+  <p>勝敗は <b>制圧・碑の写し・服属</b> の 3 通り。この世界に滅亡はないので、キャンペーンでは負けても次の話に続きます。</p>
+
+  <figure class="shot" data-shot="result">
+    <div class="shot-img">
+      <img src="assets/img/screens/result.webp" alt="結果画面のイメージ">
+      <span class="pin" style="--x:50%;--y:16%">1</span>
+      <span class="pin" style="--x:18%;--y:34%">2</span>
+      <span class="pin" style="--x:22%;--y:34%">3</span>
+      <span class="pin" style="--x:37%;--y:34%">4</span>
+      <span class="pin" style="--x:68%;--y:34%">5</span>
+      <span class="pin" style="--x:39%;--y:80%">6</span>
+      <span class="pin" style="--x:75%;--y:80%">7</span>
+    </div>
+    <figcaption>▲ 結果画面。数字より先に「どこで差がついたか」が形で分かるようにしています。</figcaption>
+  </figure>
+  <ol class="legend" data-shot="result">
+    <li><b>勝敗の紋章</b> — 勝った文明の紋章に月桂。服属で終わった場合は旗を巻いた図に変わります。</li>
+    <li><b>順位</b> — チーム戦ではチーム単位で並びます。</li>
+    <li><b>陣営色と紋章</b> — 試合中の色と同じ。振り返るときに戦域の色と突き合わせられます。</li>
+    <li><b>内政の内訳</b> — 採集した 4 資源の量を積み上げバーで。<span class="k">緑が長いほど内政偏重、短いほど早い攻めです。</span></li>
+    <li><b>戦闘の内訳</b> — 撃破・損失・建物破壊。<span class="k">令ごとの成績も内訳で出ます（どのカードで勝ったか）。</span></li>
+    <li><b>資源推移グラフ</b> — 時間軸。<b>線が離れた瞬間が勝負の分かれ目</b>で、その時刻がリプレイの頭出しに使えます。</li>
+    <li><b>次へ</b> — リプレイを見る／再戦する／キャンペーンの次の話へ。</li>
+  </ol>
+</section>
+
+<section id="s14">
+  <h2>14. リプレイ・観戦画面<span class="en">REPLAY &amp; SPECTATE</span></h2>
+  <p>
+    <b>全戦域の指令履歴が残ります</b>。この画面の主役は盤面ではなく下半分のタイムラインで、
+    「どこで判断を間違えたか」を戦域単位で振り返るために作っています。
+  </p>
+
+  <figure class="shot" data-shot="replay">
+    <div class="shot-img">
+      <img src="assets/img/screens/replay-view.webp" alt="リプレイ・観戦画面のイメージ">
+      <span class="pin" style="--x:35%;--y:20%">1</span>
+      <span class="pin" style="--x:50%;--y:37%">2</span>
+      <span class="pin" style="--x:11%;--y:60%">3</span>
+      <span class="pin" style="--x:33%;--y:53%">4</span>
+      <span class="pin" style="--x:37%;--y:50%">5</span>
+      <span class="pin" style="--x:57%;--y:66%">6</span>
+      <span class="pin" style="--x:44%;--y:93%">7</span>
+    </div>
+    <figcaption>▲ リプレイ画面。レーン 1 本が戦域スロット 1 つに対応します（この試合では 5 つ立った）。</figcaption>
+  </figure>
+  <ol class="legend" data-shot="replay">
+    <li><b>盤面</b> — 俯瞰で再生されます。観戦時は全プレイヤーの視界を見られます。</li>
+    <li><b>倍速スライダー</b> — 0.5〜8 倍。</li>
+    <li><b>戦域レーン</b> — 上から戦域 1〜6。<b>レーンが伸びている時間 ＝ その戦域が立っていた時間</b>です。</li>
+    <li><b>令の変更点</b> — レーン上に置かれたカード。<span class="k">ここをクリックすると、その令を出した瞬間から再生します。</span></li>
+    <li><b>令が届いた時刻</b> — カードの少し右にある薄い印。<b>出した時刻と届いた時刻のずれ</b>が目で見えます。</li>
+    <li><b>再生ヘッド</b> — 現在位置。全レーンを縦に貫くので、同時刻に他の戦域で何が起きていたかが分かります。</li>
+    <li><b>再生コントロール</b> — 再生・一時停止・前後の令へジャンプ。</li>
+  </ol>
+
+  <div class="note">
+    レーンを縦に見ると、負け方の型が見えます。<b>1 本のレーンだけカードが何度も切り替わっている</b>なら、
+    その戦域に手を取られて他を放置していた、ということです。
+  </div>
+</section>
+
+<section id="s15">
+  <h2>15. 色とアイコンの共通ルール<span class="en">COMMON RULES</span></h2>
+  <p>全画面で意味が変わらないように、色と記号の役割を固定しています。</p>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>見えるもの</th><th>意味</th><th>出る場所</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="sw" style="background:#c0562f"></span><span class="sw" style="background:#4a7fb5"></span><span class="sw" style="background:#d8a326"></span> 戦域の色</td>
+          <td>戦域 1〜6 を識別する色。<b>陣営色とは別系統</b>で、ミニマップの輪・部隊の足元・スロットの旗・リプレイのレーンで一貫します。</td>
+          <td>対戦画面／俯瞰／リプレイ</td>
+        </tr>
+        <tr>
+          <td><span class="sw" style="background:#7cb342"></span> 緑のバー</td>
+          <td>体力。建物では修理と建設の進捗も兼ねます。</td>
+          <td>ユニット頭上／選択パネル</td>
+        </tr>
+        <tr>
+          <td><span class="sw" style="background:#c0562f"></span> 赤いバッジ</td>
+          <td>戦域が崩れかけている警告。放置すると点滅が速くなります。</td>
+          <td>画面の縁／スロット</td>
+        </tr>
+        <tr>
+          <td><span class="sw" style="background:#e0b34a"></span> 金の縁</td>
+          <td>「今これができる／これが選ばれている」。研究可能・選択中のカード・準備完了。</td>
+          <td>全画面</td>
+        </tr>
+        <tr>
+          <td>暗いボタン・錠</td>
+          <td>できないこと。理由は 時代不足／資源不足／<b>その文明が持てない</b> の 3 種で、カーソルを乗せると出ます。</td>
+          <td>コマンドグリッド／研究</td>
+        </tr>
+        <tr>
+          <td>点線</td>
+          <td>まだ届いていない令。実線になった時点で戦域が動き出します。</td>
+          <td>戦域指令ビュー</td>
+        </tr>
+        <tr>
+          <td>地形の暗がり</td>
+          <td>視界がない場所。表示されているのは<b>以前見た情報</b>で、今そこに何がいるかは分かりません。</td>
+          <td>対戦画面／ミニマップ</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>画面ごとの目的、ひとことで</h3>
+  <div class="grid">
+    <div class="card"><h4>資源（上端左）</h4><p>次に何を作れるか。序盤 5 分の配分が 20 分後の兵力差になります。</p></div>
+    <div class="card"><h4>戦域スロット（右端）</h4><p>今どこで戦っているか。ここが埋まるほど、判断の量が増えます。</p></div>
+    <div class="card"><h4>コマンド（下端）</h4><p>今選んでいる物に何ができるか。選択対象で丸ごと入れ替わります。</p></div>
+    <div class="card"><h4>俯瞰（キー切り替え）</h4><p>どこを捨て、どこに増援を送るか。クリック数ではなく判断で勝敗が決まる場所です。</p></div>
+  </div>
+
+  <p class="dim" style="margin-top:24px">
+    ※ 掲載している画面イメージはコンセプトを示すためのもので、実装中の画面とは異なります。
+    画面内の文字はイメージ画像のため省略しており、実際の画面には日本語のラベルが入ります。
+    キー割り当てと具体的な操作手順は <a href="06_操作方法.html">操作方法資料</a> で扱います。
+  </p>
+</section>
+
+<footer>
+  Multi-Taktika ― 画面説明資料。
+  <a href="01_ゲーム宣伝.html">ゲーム紹介</a> /
+  <a href="02_世界観.html">世界観設定</a> /
+  <a href="03_文明と進化.html">文明と進化</a> /
+  <a href="06_操作方法.html">操作方法</a>
+</footer>
+
+<script>
+  // 凡例のホバーで、画像上の該当ピンを光らせる
+  document.querySelectorAll('ol.legend').forEach(function (legend) {
+    var key = legend.dataset.shot;
+    var fig = document.querySelector('.shot[data-shot="' + key + '"]');
+    if (!fig) return;
+    var pins = fig.querySelectorAll('.pin');
+    Array.prototype.forEach.call(legend.children, function (li, i) {
+      var pin = pins[i];
+      if (!pin) return;
+      var on = function () { pin.classList.add('on'); };
+      var off = function () { pin.classList.remove('on'); };
+      li.addEventListener('mouseenter', on);
+      li.addEventListener('mouseleave', off);
+      li.addEventListener('focus', on);
+      li.addEventListener('blur', off);
+      pin.addEventListener('mouseenter', function () { li.style.background = 'var(--bg2)'; on(); });
+      pin.addEventListener('mouseleave', function () { li.style.background = ''; off(); });
+    });
+  });
+</script>
+</body>
+</html>
