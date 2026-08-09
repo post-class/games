@@ -46,8 +46,9 @@
       <footer>Multi Commander / ストーリー・十章作戦記録 / 統合暦2312時点　｜　キービジュアルは GPT Image で生成。既存の世界観・人物・機体・兵装名鑑に整合するストーリー仕様。</footer>
     </main>
     <style>
-      .chapter-image{position:relative;margin:0 0 16px;overflow:hidden;border:1px solid color-mix(in srgb,var(--accent) 42%,#fff 0%);border-radius:9px;background:#07101d}.chapter-image:after{position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(3,9,18,.1),transparent 50%,rgba(3,9,18,.24));content:""}.chapter-image img{display:block;width:100%;aspect-ratio:16/7;object-fit:cover}.chapter-map{position:relative;overflow:hidden;width:100%;margin:0 0 20px;border:1px solid color-mix(in srgb,var(--accent) 55%,#fff 0%);border-radius:9px;background:#07101d}.chapter-map img{display:block;width:100%;aspect-ratio:16/8;object-fit:cover}.chapter-map:after{position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(3,9,18,.38),transparent 44%,rgba(3,9,18,.12));content:""}.chapter-map figcaption{position:absolute;z-index:1;left:14px;bottom:13px;max-width:min(470px,calc(100% - 28px));padding:8px 10px;border:1px solid rgba(114,217,255,.42);border-radius:6px;background:rgba(3,10,20,.84);box-shadow:0 8px 24px rgba(0,0,0,.32)}.chapter-map b{display:block;color:var(--accent);font:700 11px var(--mono);letter-spacing:.11em}.chapter-map span{display:block;margin-top:3px;color:#e0ebf7;font-size:12px;line-height:1.45}.chapter-map em{display:block;margin-top:5px;color:#9bb1ca;font:10px var(--mono);font-style:normal;letter-spacing:.04em}.map-label{position:absolute;z-index:2;padding:4px 7px;border:1px solid currentColor;border-radius:5px;background:rgba(3,10,20,.88);box-shadow:0 3px 12px rgba(0,0,0,.45);font:700 11px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans",sans-serif;white-space:nowrap}.map-label:after{position:absolute;width:26px;height:1px;background:currentColor;content:""}.map-label.rescue{left:42%;top:54%;color:#72d9ff}.map-label.rescue:after{right:100%;bottom:-6px;transform:rotate(32deg);transform-origin:right}.map-label.enemy{right:8%;top:13%;color:#ff808d}.map-label.enemy:after{left:-17px;bottom:-13px;transform:rotate(58deg);transform-origin:left}.map-label.target{right:5%;top:45%;color:#f5c879}.map-label.target:after{left:-20px;top:18px;transform:rotate(-26deg);transform-origin:left}@media(max-width:680px){.chapter-map figcaption{left:10px;bottom:10px;padding:7px 8px}.chapter-map span{font-size:11px}.chapter-map em{display:none}.map-label{padding:3px 5px;font-size:9px}}
+      .chapter>div{min-width:0}.chapter-image{position:relative;margin:0 0 16px;overflow:hidden;border:1px solid color-mix(in srgb,var(--accent) 42%,#fff 0%);border-radius:9px;background:#07101d}.chapter-image:after{position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(3,9,18,.1),transparent 50%,rgba(3,9,18,.24));content:""}.chapter-image img{display:block;width:100%;aspect-ratio:16/7;object-fit:cover}.chapter-map{box-sizing:border-box;width:100%;max-width:100%;min-width:0;margin:0 0 20px;border:1px solid color-mix(in srgb,var(--accent) 55%,#fff 0%);border-radius:9px;background:#07101d}.diagram-map{overflow-x:auto;padding:13px;background:radial-gradient(circle at 50% 0,rgba(29,84,113,.26),transparent 55%),#07101d}.diagram-map figcaption{margin:0 0 7px;color:var(--accent);font:700 11px var(--mono);letter-spacing:.11em}.diagram-map figcaption span{margin-left:8px;color:#9db0c8;font:400 11px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans",sans-serif;letter-spacing:0}.diagram-map .mermaid{min-width:660px;padding:5px 4px}.diagram-map svg{max-width:none!important;background:transparent!important}.diagram-map .nodeLabel,.diagram-map .edgeLabel{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans",sans-serif!important;font-size:13px!important}.diagram-map .edgeLabel{background:#07101d!important;color:#dcecff!important}.diagram-map .cluster-label text{fill:#f5c879!important}@media(max-width:680px){.diagram-map{padding:10px}.diagram-map figcaption span{display:block;margin:4px 0 0}.diagram-map .mermaid{min-width:620px}}
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
     <script>
       const chapterVisuals = {
         ch1:['assets/story/ch01/20260809_133945_generate_001.png','オリオン港の救難船と避難ポッドへ向かう連邦戦闘機'],
@@ -62,26 +63,102 @@
         ch10:['assets/story/ch10/20260809_133944_generate_001.png','ヴェガ門の前で帰還船団を見守る五勢力の艦隊']
       };
       const chapterMaps = {
-        ch1:['assets/story/map3-ch01/20260809_140518_generate_001.png','オリオン港救難宙域','港から救難艇を経由して、損傷した輸送船へ向かう救出経路'],
-        ch2:['assets/story/map2-ch02/20260809_135247_generate_001.png','ヴェガ門異常圏','漂流艦への救難航路が三つに分岐する、偽装信号の接近経路'],
-        ch3:['assets/story/map2-ch03/20260809_135159_generate_001.png','静穏海避難回廊','緑の安全回廊を通る船団と、機雷帯の外で拾う救難ルート'],
-        ch4:['assets/story/map2-ch04/20260809_135152_generate_001.png','深層採掘帯','拘束船・重力アンカー・証拠回収地点のどれを優先するか'],
-        ch5:['assets/story/map2-ch05/20260809_135154_generate_001.png','灰冠決闘圏','二機の進入経路が、艦隊の外側に設定された誓約境界で交わる'],
-        ch6:['assets/story/map2-ch06/20260809_135149_generate_001.png','ハイヴ静脈網','中継塔の間を抜ける侵入経路と、ドローン巡回の危険領域'],
-        ch7:['assets/story/map2-ch07/20260809_135200_generate_001.png','鏡面都市搬送路','単独輸送機が公証ノードへ走る主経路と、哨戒を避ける退避路'],
-        ch8:['assets/story/map2-ch08/20260809_135146_generate_001.png','停戦灯台配置','三基の灯台を結ぶ共同防衛線と、外周から来る急進派の襲撃'],
-        ch9:['assets/story/map2-ch09/20260809_135200_generate_001.png','位相迷路','中央の錨へ入る正解の航路と、行き止まりへ誘う反射経路'],
-        ch10:['assets/story/map2-ch10/20260809_135144_generate_001.png','ヴェガ門・最終配置','五勢力の共同進入路、避難船団、そして門制御を巡る三本の経路']
+        ch1:['オリオン港救難宙域','救難ポッド回収と輸送船帰投を両立する初動作戦',`flowchart LR
+          A([タイガーズ・クロー<br/>発艦]) --> B[救難ポッド群<br/>回収]
+          B --> C[輸送船 アストラ・メイ<br/>帰投誘導]
+          D[キルラシー先遣隊<br/>3機] -.追撃.-> B
+          E[オリオン港<br/>防衛線] -.支援要請.-> A
+          classDef friendly fill:#0c3855,stroke:#72d9ff,color:#eff6ff,stroke-width:2px;
+          classDef objective fill:#45361d,stroke:#f5c879,color:#fff3d1,stroke-width:2px;
+          classDef threat fill:#481d2b,stroke:#ff808d,color:#ffe5e8,stroke-width:2px;
+          class A,B,E friendly; class C objective; class D threat;`],
+        ch2:['ヴェガ門異常圏','三つの証言と偽装信号を照合し、漂流者を回収する',`flowchart LR
+          A([哨戒編隊]) --> B{遅延を測定}
+          B --> C[帰還者 1]
+          B --> D[帰還者 2]
+          B --> E[帰還者 3]
+          F[偽装ドローン群] -.誤射誘導.-> B
+          C & D & E --> G[回収地点<br/>ヴェガ門外縁]
+          classDef friendly fill:#0c3855,stroke:#72d9ff,color:#eff6ff,stroke-width:2px; classDef objective fill:#45361d,stroke:#f5c879,color:#fff3d1,stroke-width:2px; classDef threat fill:#481d2b,stroke:#ff808d,color:#ffe5e8,stroke-width:2px; class A,B,C,D,E friendly; class G objective; class F threat;`],
+        ch3:['静穏海避難回廊','武装停止の安全窓で、避難船十八隻を機雷帯の外へ通す',`flowchart LR
+          A([護衛機<br/>武器管制停止]) --> B[共鳴パルス<br/>安全窓]
+          B --> C[避難船団<br/>18隻]
+          C --> D[中立回廊<br/>出口]
+          E[自力航行不能船] --> F[救難牽引]
+          F --> C
+          G[熱紋機雷帯] -.発砲で起動.-> B
+          classDef friendly fill:#0c3855,stroke:#72d9ff,color:#eff6ff,stroke-width:2px; classDef objective fill:#45361d,stroke:#f5c879,color:#fff3d1,stroke-width:2px; classDef threat fill:#481d2b,stroke:#ff808d,color:#ffe5e8,stroke-width:2px; class A,B,C,E,F friendly; class D objective; class G threat;`],
+        ch4:['深層採掘帯','拘束船の救助、核断片、境界維持の優先順位を選ぶ',`flowchart LR
+          A([進入編隊]) --> B{重力アンカー圏}
+          B --> C[拘束契約船<br/>残り19時間]
+          B --> D[採掘停止記録<br/>核断片]
+          C --> E[帰投航路]
+          D --> E
+          F[移動残骸帯] -.機動阻害.-> B
+          classDef friendly fill:#0c3855,stroke:#72d9ff,color:#eff6ff,stroke-width:2px; classDef objective fill:#45361d,stroke:#f5c879,color:#fff3d1,stroke-width:2px; classDef threat fill:#481d2b,stroke:#ff808d,color:#ffe5e8,stroke-width:2px; class A,B,E friendly; class C,D objective; class F threat;`],
+        ch5:['灰冠決闘圏','艦隊の砲火を止めた誓約境界で、単機決闘に臨む',`flowchart LR
+          A[連邦艦隊<br/>砲火停止] --> B([F-44A ラピアーII])
+          C[帝国艦隊<br/>砲火停止] --> D([KF03 グレイハウル])
+          B --> E{誓約境界<br/>単機決闘}
+          D --> E
+          E --> F[名と制御核の所在を問う]
+          G[協定違反の発砲] -.停戦破綻.-> E
+          classDef friendly fill:#0c3855,stroke:#72d9ff,color:#eff6ff,stroke-width:2px; classDef objective fill:#45361d,stroke:#f5c879,color:#fff3d1,stroke-width:2px; classDef threat fill:#481d2b,stroke:#ff808d,color:#ffe5e8,stroke-width:2px; class A,B,C,D friendly; class E,F objective; class G threat;`],
+        ch6:['ハイヴ静脈網','群体中継器の破壊か、接続の同意かを決める',`flowchart LR
+          A([侵入機]) --> B[外縁中継器]
+          B --> C[同期ログ<br/>観測層]
+          C --> D{限定接続<br/>同意}
+          D --> E[全航路の可視化]
+          F[自律ドローン群] -.学習・飽和.-> B
+          G[破壊命令] -.遮断.-> C
+          classDef friendly fill:#0c3855,stroke:#72d9ff,color:#eff6ff,stroke-width:2px; classDef objective fill:#45361d,stroke:#f5c879,color:#fff3d1,stroke-width:2px; classDef threat fill:#481d2b,stroke:#ff808d,color:#ffe5e8,stroke-width:2px; class A,B,C,E friendly; class D objective; class F,G threat;`],
+        ch7:['鏡面都市搬送路','告発データを公証ノードへ期限内に搬送する',`flowchart LR
+          A([タイガーズ・クロー]) --> B[告発データ<br/>制御核の証拠]
+          B --> C[鏡面都市<br/>公証ノード]
+          C --> D[七つ目の条項<br/>認証]
+          E[連邦哨戒機] -.足止め.-> B
+          F[帝国急進派] -.追跡.-> C
+          classDef friendly fill:#0c3855,stroke:#72d9ff,color:#eff6ff,stroke-width:2px; classDef objective fill:#45361d,stroke:#f5c879,color:#fff3d1,stroke-width:2px; classDef threat fill:#481d2b,stroke:#ff808d,color:#ffe5e8,stroke-width:2px; class A,B friendly; class C,D objective; class E,F threat;`],
+        ch8:['停戦灯台配置','三基の灯台を60秒間保持し、全勢力の承認を同期する',`flowchart TB
+          A([連邦防衛機]) --> B[通信灯台 α]
+          A --> C[通信灯台 β]
+          A --> D[通信灯台 γ]
+          B & C & D --> E[六勢力同時承認<br/>60秒]
+          F[急進派突撃群] -.襲撃.-> B
+          F -.襲撃.-> C
+          F -.襲撃.-> D
+          classDef friendly fill:#0c3855,stroke:#72d9ff,color:#eff6ff,stroke-width:2px; classDef objective fill:#45361d,stroke:#f5c879,color:#fff3d1,stroke-width:2px; classDef threat fill:#481d2b,stroke:#ff808d,color:#ffe5e8,stroke-width:2px; class A,B,C,D friendly; class E objective; class F threat;`],
+        ch9:['位相迷路','矛盾する記録を避け、現実側の錨へ帰投する',`flowchart LR
+          A([ヴェガ門 内部]) --> B{三つの記録}
+          B --> C[反射航路 A]
+          B --> D[反射航路 B]
+          B --> E[実航路<br/>航法ログ一致]
+          E --> F[現実側の錨<br/>信じる一人の声]
+          C -.帰投窓喪失.-> G[幻影]
+          D -.帰投窓喪失.-> G
+          classDef friendly fill:#0c3855,stroke:#72d9ff,color:#eff6ff,stroke-width:2px; classDef objective fill:#45361d,stroke:#f5c879,color:#fff3d1,stroke-width:2px; classDef threat fill:#481d2b,stroke:#ff808d,color:#ffe5e8,stroke-width:2px; class A,B,E,F friendly; class G threat; class C,D threat;`],
+        ch10:['ヴェガ門・最終配置','共同艦隊の援護を受け、門の管理方法を選択する',`flowchart TB
+          A[セレシオン<br/>避難船護衛] --> E{ヴェガ門<br/>最終制御}
+          B[オルド<br/>重力アンカー] --> E
+          C[ニューロウム<br/>識別同期] --> E
+          D[キルラシー<br/>旗艦護衛を分断] --> E
+          E --> F[永久閉鎖]
+          E --> G[限定開放]
+          E --> H[六者管理]
+          I[急進派旗艦] -.最後の突撃.-> E
+          classDef friendly fill:#0c3855,stroke:#72d9ff,color:#eff6ff,stroke-width:2px; classDef objective fill:#45361d,stroke:#f5c879,color:#fff3d1,stroke-width:2px; classDef threat fill:#481d2b,stroke:#ff808d,color:#ffe5e8,stroke-width:2px; class A,B,C,D friendly; class E,F,G,H objective; class I threat;`]
       };
       Object.entries(chapterVisuals).forEach(([id,[src,alt]]) => {
         const tagline = document.querySelector(`#${id} .tagline`);
         if (tagline) tagline.insertAdjacentHTML('afterend', `<figure class="chapter-image"><img src="${src}" alt="${alt}" loading="lazy"></figure>`);
       });
-      Object.entries(chapterMaps).forEach(([id,[src,title,description]]) => {
+      Object.entries(chapterMaps).forEach(([id,[title,description,diagram]]) => {
         const image = document.querySelector(`#${id} .chapter-image`);
-        if (image) image.insertAdjacentHTML('afterend', `<figure class="chapter-map"><img src="${src}" alt="${title}の戦術マップ" loading="lazy"><figcaption><b>TACTICAL MAP / ${id.toUpperCase()}</b><span>${description}</span><em>CYAN / PLAYER ROUTE　AMBER / OBJECTIVE　RED / THREAT</em></figcaption></figure>`);
+        if (image) image.insertAdjacentHTML('afterend', `<figure class="chapter-map diagram-map"><figcaption>TACTICAL MAP / ${id.toUpperCase()} <span>${description}</span></figcaption><div class="mermaid" id="mermaid-${id}"></div></figure>`);
+        const target = document.getElementById(`mermaid-${id}`); if (target) target.textContent = diagram;
       });
-      document.querySelector('#ch1 .chapter-map')?.insertAdjacentHTML('beforeend', '<span class="map-label rescue">救難艇群</span><span class="map-label enemy">敵先遣隊・接近</span><span class="map-label target">損傷輸送船</span>');
+      mermaid.initialize({startOnLoad:false,theme:'base',securityLevel:'loose',themeVariables:{background:'#07101d',primaryColor:'#0c3855',primaryTextColor:'#eff6ff',primaryBorderColor:'#72d9ff',lineColor:'#72d9ff',secondaryColor:'#45361d',tertiaryColor:'#481d2b',clusterBkg:'#0a1525',clusterBorder:'#294664',edgeLabelBackground:'#07101d',fontFamily:'-apple-system, BlinkMacSystemFont, Segoe UI, Hiragino Sans, sans-serif'}});
+      mermaid.run({querySelector:'.mermaid'}).catch(() => {});
     </script>
   </body>
 </html>
