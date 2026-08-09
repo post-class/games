@@ -1,0 +1,73 @@
+{
+  "_note": "T-M16-03 分岐。ch3_m1 に負けた側。測られた境がそのまま向こうの取り分になった年。",
+  "extends": "ch3_m1",
+  "id": "ch3_m1v",
+  "route": "vassal",
+  "title": "境を測る（服属の年）",
+  "brief": "測られた境がそのまま向こうの取り分になった年。三本立つのに渡せる兵は二本ぶんしかない。",
+  "hints": [
+    "三本立ちますが兵は二本ぶんです。一本は後退で畳んでください。",
+    "死守で止めてから、残った一本を突撃で押し切ります。",
+    "勝てば旗を戻して本線に復帰できます。"
+  ],
+  "setup": {
+    "startResources": "low",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-musha",
+        "count": 7,
+        "at": {
+          "player": 0,
+          "dx": 8,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-daikyu",
+        "count": 5,
+        "at": {
+          "player": 0,
+          "dx": 0,
+          "dy": 8
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-horo",
+        "count": 4,
+        "at": {
+          "player": 0,
+          "dx": -8,
+          "dy": 0
+        }
+      }
+    ]
+  },
+  "extraEvents": [
+    {
+      "atTick": 2400,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "t-keiki",
+          "count": 5
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": -24,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": -8,
+        "dy": 0
+      }
+    }
+  ],
+  "onVictory": "ch3_m2",
+  "onDefeat": "ch3_m2v"
+}

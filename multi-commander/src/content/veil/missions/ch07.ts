@@ -36,6 +36,13 @@ const NIA_NAME = speakerName('confed-11');
 /** 急進派の執行者。帰投線を狙う流儀のまま、こちらの識別票を読んで追ってくる */
 const DAKHAS_NAME = speakerName('kilrashi-04');
 
+/**
+ * 停止命令を執行する連邦の哨戒機の呼称。
+ * 無線の発信元と護衛対象の表示名で同じ文字列を使うため、ここに集約する。
+ */
+const RAM_1 = '連邦哨戒機〈ラム 1〉';
+const RAM_2 = '連邦哨戒機〈ラム 2〉';
+
 const scenery = theaterScenery('notary-relay');
 
 export const VEIL_CH07: MissionDef = {
@@ -77,7 +84,7 @@ export const VEIL_CH07: MissionDef = {
       pos: [-7000, 900, -19000],
       arriveRadius: 1600,
       onArrive: [
-        { speaker: '連邦哨戒機〈ラム 2〉', text: '保全境界だ。停止命令が出ている。撃ちたくはない。', tone: 'friendly' },
+        { speaker: RAM_2, text: '保全境界だ。停止命令が出ている。撃ちたくはない。', tone: 'friendly' },
       ],
     },
     {
@@ -101,10 +108,11 @@ export const VEIL_CH07: MissionDef = {
       offset: [-2600, 400, -3200],
       spread: 700,
       tag: TAG.escort,
+      displayName: RAM_1,
       cruiseToNav: 2,
       speed: 240,
       radio: [
-        { speaker: '連邦哨戒機〈ラム 1〉', text: '所属と行き先を言え。発艦記録が無い。', tone: 'friendly' },
+        { speaker: RAM_1, text: '所属と行き先を言え。発艦記録が無い。', tone: 'friendly' },
         { speaker: HART_NAME, text: '答えなくていい。抜けろ。', tone: 'command', after: 2 },
       ],
     },
@@ -117,6 +125,7 @@ export const VEIL_CH07: MissionDef = {
       delay: 3,
       offset: [1800, -500, -2400],
       tag: TAG.escort,
+      displayName: RAM_2,
       cruiseToNav: 2,
       speed: 220,
     },

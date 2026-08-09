@@ -1,0 +1,63 @@
+{
+  "_note": "T-M16-03 分岐。ch2_m5 に負けた側。第 2 章の終端（onVictory / onDefeat がどちらも null）。",
+  "extends": "ch2_m5",
+  "id": "ch2_m5v",
+  "route": "vassal",
+  "title": "岸を空ける（服属の年）",
+  "brief": "服属したまま浜を守らされる年。徴発されたぶん兵が足りない。止める側と押す側の割り振りだけが試される。",
+  "hints": [
+    "兵が足りません。片方は初めから捨てる前提で構いません。",
+    "押される側を死守で止め、もう片方に突撃を渡してください。",
+    "勝てば旗を戻して章を終えられます。負けても土地と民は残ります。"
+  ],
+  "setup": {
+    "startResources": "low",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-ashigaru",
+        "count": 9,
+        "at": {
+          "player": 0,
+          "dx": 10,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-yumiashigaru",
+        "count": 5,
+        "at": {
+          "player": 0,
+          "dx": 0,
+          "dy": 10
+        }
+      }
+    ]
+  },
+  "extraEvents": [
+    {
+      "atTick": 2400,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "v-javelin",
+          "count": 4
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 26,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 10,
+        "dy": 0
+      }
+    }
+  ],
+  "onVictory": null,
+  "onDefeat": null
+}

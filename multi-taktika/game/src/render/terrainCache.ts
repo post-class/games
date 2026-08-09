@@ -55,6 +55,7 @@
 import { hasTerrain } from '@/sim/core/terrain';
 import type { MapState } from '@/sim/core/world';
 import type { Ctx2D } from './ctx';
+import type { TerrainTextures } from './terrainTextures';
 import {
   type Camera,
   type TileBounds,
@@ -102,6 +103,8 @@ export class TerrainCache {
   private frame = 0;
   /** 面が 1 枚も作れなかった（= キャッシュ不可の環境）。 */
   private unavailable = false;
+  /** 前回焼いたときに読めていた模様の種類数（増えたら焼き直す）。 */
+  private texCount = 0;
 
   constructor(factory: SurfaceFactory = createSurface, scaleOf: () => number = devicePixelScale) {
     this.factory = factory;
@@ -129,11 +132,24 @@ export class TerrainCache {
    *
    * @returns 塗ったタイル数 / fill 回数 / 貼った回数 / 焼き直した枚数
    */
-  draw(ctx: Ctx2D, cam: Camera, map: MapState): TerrainStats {
+  draw(
+    ctx: Ctx2D,
+    cam: Camera,
+    map: MapState,
+    /** 地形の模様（M17）。null なら単色で塗る。 */
+    textures: TerrainTextures | null = null,
+  ): TerrainStats {
     if (!hasTerrain(map)) return emptyTerrainStats();
-    if (this.unavailable) return drawTerrainTiles(ctx, cam, map);
+    if (this.unavailable) return drawTerrainTiles(ctx, cam, map, undefined, textures);
 
     const scale = this.scaleOf();
+    // 模様は後から読み込まれる。読めた種類数が増えたら、
+    // **単色で焼いたチャンクを捨てて焼き直す**（そのままだと一部だけ模様なしになる）。
+    const texCount = textures?.loadedCount() ?? 0;
+    if (texCount !== this.texCount) {
+      this.dropAll();
+      this.texCount = texCount;
+    }
     if (cam.zoom !== this.zoom || scale !== this.scale) {
       this.dropAll();
       this.zoom = cam.zoom;
@@ -161,10 +177,10 @@ export class TerrainCache {
     ctx.imageSmoothingEnabled = false;
     for (let l = l0; l <= l1; l++) {
       for (let k = k0; k <= k1; k++) {
-        const chunk = this.acquire(k, l, map, cam.zoom, scale, stats);
+        const chunk = this.acquire(k, l, map, cam.zoom, scale, stats, textures);
         if (chunk === null) {
           // 面が作れない → 以降は直接描画（この 1 フレームは代替で埋める）
-          return drawTerrainTiles(ctx, cam, map);
+          return drawTerrainTiles(ctx, cam, map, undefined, textures);
         }
         if (!chunk.ready) continue;
         ctx.drawImage(
@@ -189,6 +205,7 @@ export class TerrainCache {
     zoom: number,
     scale: number,
     stats: TerrainStats,
+    textures: TerrainTextures | null,
   ): Chunk | null {
     const key = `${k},${l}`;
     let chunk = this.chunks.get(key);
@@ -211,7 +228,7 @@ export class TerrainCache {
     const hash = hashTileRect(map, chunk.bounds);
     if (chunk.ready && chunk.hash === hash) return chunk;
 
-    this.bake(chunk, k, l, map, zoom, scale, stats);
+    this.bake(chunk, k, l, map, zoom, scale, stats, textures);
     chunk.hash = hash;
     chunk.ready = true;
     stats.built++;
@@ -227,12 +244,13 @@ export class TerrainCache {
     zoom: number,
     scale: number,
     stats: TerrainStats,
+    textures: TerrainTextures | null,
   ): void {
     const sctx = chunk.surface.ctx;
     sctx.setTransform(scale, 0, 0, scale, 0, 0);
     sctx.clearRect(0, 0, CHUNK_CSS_PX, CHUNK_CSS_PX);
     const cam = chunkCamera(k, l, zoom);
-    const s = drawTerrainTiles(sctx, cam, map, chunk.bounds);
+    const s = drawTerrainTiles(sctx, cam, map, chunk.bounds, textures);
     stats.tiles += s.tiles;
     stats.fills += s.fills;
   }

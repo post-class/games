@@ -68,6 +68,31 @@ export interface AiLevelConfig {
   readonly allowSiege: boolean;
   readonly allowDecoy: boolean;
   readonly allowAdvanceAge: boolean;
+  /**
+   * 建設用に残しておく村人の数。**これを超えた村人は採集に就ける**。
+   *
+   * ここが無いと、生産された村人が全員「建設係」のまま手空きで立ち続ける
+   * （実測: 30 分で石材・金の採集量が 0、食料も設計値の 1/20 だった）。
+   */
+  readonly villagerBuilderCount: number;
+  /**
+   * 村人を何体まで出すか。**ここで止めて資源を貯める。**
+   *
+   * これが無いと、AI は入ってきた資源を全部その場で村人に変えてしまい、
+   * 手持ちが常に 0 付近に張り付く。実測（30 分）で食料が 0〜32 のまま推移し、
+   * 青銅の世の 500 に一度も届かなかった（＝文明ごとの兵種が出ない）。
+   * 人間も「村人を出し続ける時間」と「次の世に上がるために貯める時間」を
+   * 分けている（`07§2` の 0〜5 分 / 5〜12 分）。
+   */
+  readonly villagerTarget: number;
+  /**
+   * 村人がこの数に達したら、**次の世の費用が貯まるまで村人生産を止める**。
+   *
+   * `villagerTarget` まで出し切ってから貯め始めると間に合わない
+   * （入る食料をその場で村人に変え続けるので手持ちが 0 付近に張り付く）。
+   * 人間も「ある程度の採集人数を確保したら、次は進化の費用を貯める」順で遊ぶ。
+   */
+  readonly villagerBankFrom: number;
 }
 
 /** `ai.json` を level 昇順に並べた表。 */
@@ -95,6 +120,9 @@ function buildLevels(): AiLevelConfig[] {
       allowSiege: a['allowSiege'] === true,
       allowDecoy: a['allowDecoy'] === true,
       allowAdvanceAge: a['allowAdvanceAge'] === true,
+      villagerBuilderCount: int(a['villagerBuilderCount'], 2),
+      villagerTarget: int(a['villagerTarget'], 18),
+      villagerBankFrom: int(a['villagerBankFrom'], 12),
     });
   }
   // level 昇順（`Object.keys` の順に依存しない。§0.3）。
@@ -145,6 +173,13 @@ export interface AiMemory {
   readonly villagerRole: number[];
   /** その建設係が空くと見込まれる tick（建物の `buildTicks` から算出）。 */
   readonly villagerBusyUntil: number[];
+  /**
+   * 採集先を 4 資源に順番で割り当てるための通し番号（要素 1 個の配列）。
+   *
+   * 乱数を使わずに散らすための「何人目か」。`memGet`/`memSet` で持つのは
+   * 他の記憶と同じ寿命（AI の生存期間）にしたいだけで、意味は単なる整数。
+   */
+  readonly gatherAssignSeq: number[];
   /** その index の兵を送り出したときの EntityId。0 = 未派遣。 */
   readonly dispatched: number[];
   /**
@@ -174,6 +209,7 @@ function createMemory(): AiMemory {
     villagerKnownId: [],
     villagerRole: [],
     villagerBusyUntil: [],
+    gatherAssignSeq: [],
     dispatched: [],
     released: [],
     dispatchX: [],

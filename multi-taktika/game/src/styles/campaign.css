@@ -1,0 +1,363 @@
+/**
+ * styles/campaign.css — キャンペーン章選択画面（`T-M16-05` / `05§5`）専用
+ *
+ * ここに書くのはこの画面のためのクラス（`mt-cmp-*`）だけ。画面の外枠
+ * （`.mt-scr` / `.mt-scr-head` / `.mt-btn` …）は `screens.css` を使う。
+ *
+ * html コーディング規約:
+ *  - 左右の余白 20px は `.mt-scr` が持っている。ここでは足さない
+ *  - 本文 16px を基準にする（見出しでも 1.25 倍まで）
+ *  - 幅が広がったら領域も広がる（固定幅を置かず minmax + fr で組む）
+ *  - ヘッダは最小限（`.mt-scr-head` の 2 行だけ）
+ *
+ * 色の意味は `05§15` に合わせる: 金の縁 = いま選ばれている / 暗い = できない。
+ */
+
+/* ---------------------------------------------------------------- 全体の並び */
+
+/*
+ * 左（章と 5 枚のプレート）＋右（選んだ話の説明）の 2 段。
+ * 幅が狭いときは 1 段に落ちる（グリッドの auto-fit ではなく明示的に切り替える。
+ * 右側は読み物なので、細くなりすぎるより下に回った方が読める）。
+ */
+.mt-cmp-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .mt-cmp-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.mt-cmp-left,
+.mt-cmp-right {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* ---------------------------------------------------------------- 章のメダル */
+
+/* 章は時代順に横へ。幅が広がるほど 1 枚が広くなる（`05§5` の環海図の並び）。 */
+.mt-cmp-medals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.mt-cmp-medal {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  font: inherit;
+  font-size: 16px;
+  text-align: left;
+  color: var(--text, #e8ded0);
+  background: var(--panel, #26200f);
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 3px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.mt-cmp-medal-title {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.mt-cmp-medal-age {
+  font-size: 14px;
+  color: var(--text-dim, #a89b89);
+}
+
+/* 1 達成した章 = 暗い金 */
+.mt-cmp-medal.is-cleared {
+  color: var(--gold-dim, #a88530);
+  border-color: var(--gold-dim, #a88530);
+}
+
+/* 2 現在の章 = 明るく光る */
+.mt-cmp-medal.is-current {
+  color: var(--gold, #e0b34a);
+}
+
+/* 金の縁 = いまこれが選ばれている（`05§15`） */
+.mt-cmp-medal.is-selected {
+  border-color: var(--gold, #e0b34a);
+  box-shadow: 0 0 0 1px var(--gold, #e0b34a) inset;
+}
+
+.mt-cmp-medal:hover {
+  border-color: var(--gold, #e0b34a);
+}
+
+/* 5 碑の解読（読めた段の数だけ粒が点く） */
+.mt-cmp-stone {
+  display: flex;
+  gap: 3px;
+  margin-top: 2px;
+}
+
+.mt-cmp-stone-on,
+.mt-cmp-stone-off {
+  display: block;
+  width: 14px;
+  height: 5px;
+  border-radius: 1px;
+}
+
+.mt-cmp-stone-on {
+  background: var(--gold, #e0b34a);
+}
+
+.mt-cmp-stone-off {
+  background: var(--line, #4a3a1e);
+}
+
+.mt-cmp-hidden,
+.mt-cmp-sub {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-dim, #a89b89);
+}
+
+/* ---------------------------------------------------------------- 進路とプレート */
+
+/* 4 進路 = 点線。プレートを縦に並べて左端に点線を通す。 */
+.mt-cmp-road {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-left: 14px;
+  border-left: 1px dashed var(--line, #4a3a1e);
+}
+
+.mt-cmp-lane {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 6 ミッションプレート 5 枚 */
+.mt-cmp-plate {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+  font: inherit;
+  font-size: 16px;
+  text-align: left;
+  color: var(--text, #e8ded0);
+  background: var(--panel, #26200f);
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 3px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.mt-cmp-plate-no {
+  font-size: 14px;
+  color: var(--text-dim, #a89b89);
+  white-space: nowrap;
+}
+
+.mt-cmp-plate-title {
+  font-weight: 700;
+}
+
+.mt-cmp-plate-state {
+  font-size: 14px;
+  color: var(--text-dim, #a89b89);
+  white-space: nowrap;
+}
+
+.mt-cmp-plate.is-cleared .mt-cmp-plate-state {
+  color: var(--gold-dim, #a88530);
+}
+
+.mt-cmp-plate.is-current {
+  color: var(--gold, #e0b34a);
+}
+
+.mt-cmp-plate.is-current .mt-cmp-plate-state {
+  color: var(--gold, #e0b34a);
+}
+
+/* 暗い = できない（`05§15`） */
+.mt-cmp-plate.is-locked,
+.mt-cmp-plate:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
+.mt-cmp-plate.is-picked {
+  border-color: var(--gold, #e0b34a);
+  box-shadow: 0 0 0 1px var(--gold, #e0b34a) inset;
+}
+
+.mt-cmp-plate:hover:not(:disabled) {
+  border-color: var(--gold, #e0b34a);
+}
+
+/* 4 分岐に入った話は二股の点線を描く */
+.mt-cmp-branch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 18px;
+  font-size: 14px;
+  color: var(--gold-dim, #a88530);
+}
+
+.mt-cmp-branch-line {
+  display: block;
+  width: 24px;
+  border-bottom: 1px dashed var(--gold-dim, #a88530);
+}
+
+/* ---------------------------------------------------------------- 服属の記録 */
+
+.mt-cmp-records {
+  border-top: 1px solid var(--line, #4a3a1e);
+  padding-top: 10px;
+}
+
+.mt-cmp-records-empty {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-dim, #a89b89);
+}
+
+.mt-cmp-records-list {
+  margin: 0;
+  padding-left: 1.2em;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mt-cmp-records-item {
+  font-size: 14px;
+  color: var(--gold-dim, #a88530);
+}
+
+/* ---------------------------------------------------------------- 右: 話の説明 */
+
+.mt-cmp-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--panel, #26200f);
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 3px;
+  padding: 12px 14px;
+}
+
+.mt-cmp-detail-empty {
+  margin: 0;
+  color: var(--text-dim, #a89b89);
+}
+
+.mt-cmp-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mt-cmp-detail-names {
+  min-width: 0;
+}
+
+.mt-cmp-detail-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--gold, #e0b34a);
+}
+
+.mt-cmp-detail-where,
+.mt-cmp-detail-age {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-dim, #a89b89);
+}
+
+.mt-cmp-brief {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.mt-cmp-list-ul {
+  margin: 0;
+  padding-left: 1.2em;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mt-cmp-list-li {
+  font-size: 16px;
+}
+
+.mt-cmp-detail-last,
+.mt-cmp-detail-branch {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-dim, #a89b89);
+}
+
+.mt-cmp-detail-branch {
+  color: var(--gold-dim, #a88530);
+}
+
+/* ---------------------------------------------------------------- 下端 */
+
+/* 7 出撃 = 封蝋のボタン（丸い赤い蝋を模した縁） */
+.mt-cmp-seal {
+  border-width: 2px;
+  border-radius: 14px;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+/* セーブの消去。既定では確認の 2 つを隠しておく（消す前に必ず確認を取る）。 */
+.mt-cmp-wipe {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.mt-cmp-wipe-warn,
+.mt-cmp-wipe-yes,
+.mt-cmp-wipe .mt-btn:last-child {
+  display: none;
+}
+
+.mt-cmp-wipe.is-asking .mt-cmp-wipe-ask {
+  display: none;
+}
+
+.mt-cmp-wipe.is-asking .mt-cmp-wipe-warn,
+.mt-cmp-wipe.is-asking .mt-cmp-wipe-yes,
+.mt-cmp-wipe.is-asking .mt-btn:last-child {
+  display: inline-flex;
+}
+
+.mt-cmp-wipe-warn {
+  font-size: 14px;
+  color: var(--warn, #d08a3a);
+}
+
+.mt-cmp-wipe-yes {
+  border-color: var(--warn, #d08a3a);
+  color: var(--warn, #d08a3a);
+}

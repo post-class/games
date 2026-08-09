@@ -1,0 +1,74 @@
+{
+  "_note": "第 1 章 第 4 話（06§13「捨てる判断」）。守り切れない戦域が来る。後退で畳んで、残った戦力を別の戦域に足す。",
+  "id": "ch1_m4",
+  "chapter": 1,
+  "index": 4,
+  "route": "main",
+  "title": "捨てる判断",
+  "brief": "わざと守り切れない状況が来る。後退を渡して戦域を畳み、残った戦力を別の戦域に足す。",
+  "hints": [
+    "南の戦域は守り切れません。数を数えれば分かります。",
+    "後退を渡すと戦域が畳まれ、兵は最寄りの拠点へ下がります。",
+    "下がった兵はもう片方の戦域に足してください。捨てる判断も指揮です。"
+  ],
+  "setup": {
+    "map": "plain",
+    "seed": 10404,
+    "playerCount": 2,
+    "player": 0,
+    "civs": ["yamato", "tou"],
+    "teams": [0, 1],
+    "startAge": "seido",
+    "startResources": "standard",
+    "units": [
+      { "player": 0, "unit": "y-ashigaru", "count": 8, "at": { "player": 0, "dx": 10, "dy": 0 } },
+      { "player": 0, "unit": "y-ashigaru", "count": 5, "at": { "player": 0, "dx": 0, "dy": 10 } }
+    ]
+  },
+  "victory": [
+    { "type": "holdFrontsWithOrder", "player": "self", "order": "retreat", "count": 1, "ticks": 125 },
+    { "type": "holdFrontsWithOrder", "player": "self", "order": "charge", "count": 1, "ticks": 250 },
+    { "type": "surviveTicks", "ticks": 3000 }
+  ],
+  "defeat": [
+    { "type": "buildingCountAtMost", "player": "self", "building": "town_center", "count": 0 },
+    { "type": "loyaltyAtMostPercent", "player": "self", "percent": 0 }
+  ],
+  "events": [
+    { "atTick": 0, "type": "showHint", "text": "南に大軍が来ます。守り切れない戦域は畳んでよい。" },
+    {
+      "atTick": 250,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [{ "unit": "t-hosotsu", "count": 5 }],
+      "at": { "player": 0, "dx": 26, "dy": 0 },
+      "attackAt": { "player": 0, "dx": 10, "dy": 0 }
+    },
+    {
+      "atTick": 750,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        { "unit": "t-hosotsu", "count": 8 },
+        { "unit": "t-yumite", "count": 6 }
+      ],
+      "at": { "player": 0, "dx": 0, "dy": 26 },
+      "attackAt": { "player": 0, "dx": 0, "dy": 10 }
+    },
+    {
+      "atTick": 1250,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [{ "unit": "t-hosotsu", "count": 6 }],
+      "at": { "player": 0, "dx": 0, "dy": 26 },
+      "attackAt": { "player": 0, "dx": 0, "dy": 10 }
+    },
+    {
+      "when": { "type": "frontOpened", "count": 2 },
+      "type": "showHint",
+      "text": "南は数が違います。後退を渡して畳み、残った兵を東の戦域へ足してください。"
+    }
+  ],
+  "onVictory": "ch1_m5",
+  "onDefeat": "ch1_m4v"
+}

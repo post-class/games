@@ -664,5 +664,24 @@
     "boltSpeedTilesPerSec": 20,
     "aoeSpeedTilesPerSec": 6,
     "minFlightTicks": 1
+  },
+  "net": {
+    "note": "ロックステップ対戦（07§12 / 手順書 §11。M14）。ここの値は src/net が読む。サーバ側の既定値は server/relay.ts が持つ（welcome で配られる値を優先する）。",
+    "relayPort": 8787,
+    "relayPortNote": "中継サーバの既定ポート。共有 URL のホストと組み合わせて ws:// を作る。",
+    "inputDelayFrames": 3,
+    "inputDelayFramesNote": "07§12「入力遅延 3 フレーム（120ms）先の tick 宛に入力を送る」。welcome.inputDelayFrames が来たらそちらを使い、これは接続前の既定値。",
+    "turnTicks": 6,
+    "turnTicksNote": "入力を送る間隔（tick）。1 tick ごとに送ると 30 分で 3MB を超えるため、この tick 数ぶんをまとめて 1 通で送る（T-M14-04 の圧縮）。最短の入力遅延は inputDelayFrames のまま、まとめた端の分だけ最大 turnTicks-1 tick 遅れる。令の遅延が最短 0.5 秒あるので体感には出ない。",
+    "substituteAfterSec": 3,
+    "substituteAfterSecNote": "07§12「代行の開始は入力が 3 秒届かなかったフレーム番号で決まる」。時計ではなく tick 差で判定する（Date.now で判定すると端末ごとに違うフレームで代行が始まりデシンクする）。",
+    "seatHoldSec": 120,
+    "seatHoldSecNote": "07§12「席は 120 秒保持され、その間は AI が代行」。これも tick 差で判定する。",
+    "substituteAiLevel": 3,
+    "substituteAiLevelNote": "代行 AI の段階（ai.json の level）。全端末が同じ段階で同じ tick に think() を回すので決定論は崩れない。",
+    "rejoinPrefillTurns": 200,
+    "rejoinPrefillTurnsNote": "復帰した席が部屋を止めないよう、先に空入力を送っておく turn 数。中継サーバは同じ tick の二重送信を最初のもので固定するので、この空入力が後から邪魔をすることはない。",
+    "trafficBudgetBytes": 1048576,
+    "trafficBudgetBytesNote": "T-M14-04 の完了条件「8 人 30 分で通信量 1MB 以内」。tests/unit/net.lockstep.test.ts が実測して突き合わせる。"
   }
 }

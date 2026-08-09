@@ -1,0 +1,93 @@
+{
+  "_note": "T-M16-03 分岐。ch4_m2 に負けた側。大筒は三台しか回してもらえない。",
+  "extends": "ch4_m2",
+  "id": "ch4_m2v",
+  "route": "vassal",
+  "title": "星形の要塞（服属の年）",
+  "brief": "服属したまま星形の要塞に向かわされる。大筒は三台。角に取り付くしかない。",
+  "hints": [
+    "大筒は三台だけです。門前の戦域から外さないこと。",
+    "略奪で守兵を割ってから包囲を渡します。",
+    "勝てば旗を戻して本線に復帰できます。"
+  ],
+  "setup": {
+    "startResources": "standard",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-nagae",
+        "count": 10,
+        "at": {
+          "player": 1,
+          "dx": -12,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-ozutsu",
+        "count": 3,
+        "at": {
+          "player": 1,
+          "dx": -12,
+          "dy": 2
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-teppo",
+        "count": 6,
+        "at": {
+          "player": 1,
+          "dx": 0,
+          "dy": 12
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-kiba",
+        "count": 5,
+        "at": {
+          "player": 1,
+          "dx": 0,
+          "dy": -12
+        }
+      },
+      {
+        "player": 1,
+        "unit": "a-feather",
+        "count": 11,
+        "at": {
+          "player": 1,
+          "dx": -5,
+          "dy": 0
+        }
+      }
+    ]
+  },
+  "extraEvents": [
+    {
+      "atTick": 3000,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "a-atlatl",
+          "count": 5
+        }
+      ],
+      "at": {
+        "player": 1,
+        "dx": 6,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 1,
+        "dx": -7,
+        "dy": 0
+      }
+    }
+  ],
+  "onVictory": "ch4_m3",
+  "onDefeat": "ch4_m3v"
+}

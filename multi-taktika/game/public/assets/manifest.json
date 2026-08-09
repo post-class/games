@@ -1,0 +1,964 @@
+{
+  "version": 1,
+  "image": "atlas.webp",
+  "size": {
+    "w": 2048,
+    "h": 1718
+  },
+  "frames": {
+    "buildings/academy": {
+      "x": 1543,
+      "y": 635,
+      "w": 192,
+      "h": 172
+    },
+    "buildings/archery_range": {
+      "x": 1349,
+      "y": 635,
+      "w": 192,
+      "h": 173
+    },
+    "buildings/barracks": {
+      "x": 961,
+      "y": 635,
+      "w": 192,
+      "h": 178
+    },
+    "buildings/blacksmith": {
+      "x": 1032,
+      "y": 386,
+      "w": 188,
+      "h": 192
+    },
+    "buildings/boathouse": {
+      "x": 185,
+      "y": 635,
+      "w": 192,
+      "h": 189
+    },
+    "buildings/cannon_tower": {
+      "x": 588,
+      "y": 1626,
+      "w": 36,
+      "h": 64
+    },
+    "buildings/castle": {
+      "x": 0,
+      "y": 386,
+      "w": 256,
+      "h": 247
+    },
+    "buildings/dock": {
+      "x": 1155,
+      "y": 635,
+      "w": 192,
+      "h": 174
+    },
+    "buildings/farm": {
+      "x": 0,
+      "y": 829,
+      "w": 192,
+      "h": 145
+    },
+    "buildings/great_tent": {
+      "x": 516,
+      "y": 386,
+      "w": 256,
+      "h": 232
+    },
+    "buildings/gunpowder_workshop": {
+      "x": 1222,
+      "y": 386,
+      "w": 191,
+      "h": 192
+    },
+    "buildings/harbor": {
+      "x": 1415,
+      "y": 386,
+      "w": 176,
+      "h": 192
+    },
+    "buildings/house": {
+      "x": 194,
+      "y": 829,
+      "w": 125,
+      "h": 128
+    },
+    "buildings/kanrin": {
+      "x": 1593,
+      "y": 386,
+      "w": 170,
+      "h": 192
+    },
+    "buildings/lumber_camp": {
+      "x": 321,
+      "y": 829,
+      "w": 125,
+      "h": 128
+    },
+    "buildings/market": {
+      "x": 258,
+      "y": 386,
+      "w": 256,
+      "h": 244
+    },
+    "buildings/mining_camp": {
+      "x": 346,
+      "y": 1496,
+      "w": 128,
+      "h": 125
+    },
+    "buildings/monument": {
+      "x": 1765,
+      "y": 386,
+      "w": 122,
+      "h": 192
+    },
+    "buildings/palisade": {
+      "x": 626,
+      "y": 1626,
+      "w": 58,
+      "h": 64
+    },
+    "buildings/palisade_gate": {
+      "x": 448,
+      "y": 829,
+      "w": 111,
+      "h": 128
+    },
+    "buildings/qanat": {
+      "x": 476,
+      "y": 1496,
+      "w": 128,
+      "h": 120
+    },
+    "buildings/road": {
+      "x": 985,
+      "y": 1626,
+      "w": 64,
+      "h": 58
+    },
+    "buildings/salt_store": {
+      "x": 379,
+      "y": 635,
+      "w": 192,
+      "h": 182
+    },
+    "buildings/seed_store": {
+      "x": 686,
+      "y": 1626,
+      "w": 58,
+      "h": 64
+    },
+    "buildings/shrine": {
+      "x": 0,
+      "y": 635,
+      "w": 183,
+      "h": 192
+    },
+    "buildings/siege_workshop": {
+      "x": 767,
+      "y": 635,
+      "w": 192,
+      "h": 181
+    },
+    "buildings/stable": {
+      "x": 1737,
+      "y": 635,
+      "w": 192,
+      "h": 162
+    },
+    "buildings/stone_gate": {
+      "x": 561,
+      "y": 829,
+      "w": 104,
+      "h": 128
+    },
+    "buildings/stone_wall": {
+      "x": 746,
+      "y": 1626,
+      "w": 59,
+      "h": 64
+    },
+    "buildings/temple_platform": {
+      "x": 573,
+      "y": 635,
+      "w": 192,
+      "h": 182
+    },
+    "buildings/town_center": {
+      "x": 774,
+      "y": 386,
+      "w": 256,
+      "h": 222
+    },
+    "buildings/watch_hut": {
+      "x": 807,
+      "y": 1626,
+      "w": 38,
+      "h": 64
+    },
+    "buildings/watch_tower": {
+      "x": 847,
+      "y": 1626,
+      "w": 38,
+      "h": 64
+    },
+    "buildings/well": {
+      "x": 887,
+      "y": 1626,
+      "w": 54,
+      "h": 64
+    },
+    "buildings/yagura": {
+      "x": 943,
+      "y": 1626,
+      "w": 40,
+      "h": 64
+    },
+    "ui/commander_azteca": {
+      "x": 0,
+      "y": 0,
+      "w": 227,
+      "h": 384
+    },
+    "ui/commander_mali": {
+      "x": 229,
+      "y": 0,
+      "w": 251,
+      "h": 384
+    },
+    "ui/commander_mongol": {
+      "x": 482,
+      "y": 0,
+      "w": 261,
+      "h": 384
+    },
+    "ui/commander_persia": {
+      "x": 745,
+      "y": 0,
+      "w": 232,
+      "h": 384
+    },
+    "ui/commander_roma": {
+      "x": 979,
+      "y": 0,
+      "w": 249,
+      "h": 384
+    },
+    "ui/commander_tou": {
+      "x": 1230,
+      "y": 0,
+      "w": 240,
+      "h": 384
+    },
+    "ui/commander_viking": {
+      "x": 1472,
+      "y": 0,
+      "w": 261,
+      "h": 384
+    },
+    "ui/commander_yamato": {
+      "x": 1735,
+      "y": 0,
+      "w": 252,
+      "h": 384
+    },
+    "ui/emblem_azteca": {
+      "x": 606,
+      "y": 1496,
+      "w": 96,
+      "h": 96
+    },
+    "ui/emblem_mali": {
+      "x": 704,
+      "y": 1496,
+      "w": 96,
+      "h": 96
+    },
+    "ui/emblem_mongol": {
+      "x": 802,
+      "y": 1496,
+      "w": 93,
+      "h": 96
+    },
+    "ui/emblem_persia": {
+      "x": 897,
+      "y": 1496,
+      "w": 96,
+      "h": 96
+    },
+    "ui/emblem_roma": {
+      "x": 995,
+      "y": 1496,
+      "w": 96,
+      "h": 96
+    },
+    "ui/emblem_tou": {
+      "x": 1093,
+      "y": 1496,
+      "w": 96,
+      "h": 96
+    },
+    "ui/emblem_viking": {
+      "x": 1191,
+      "y": 1496,
+      "w": 96,
+      "h": 96
+    },
+    "ui/emblem_yamato": {
+      "x": 1289,
+      "y": 1496,
+      "w": 96,
+      "h": 96
+    },
+    "ui/order_assai": {
+      "x": 1387,
+      "y": 1496,
+      "w": 87,
+      "h": 96
+    },
+    "ui/order_build": {
+      "x": 0,
+      "y": 1626,
+      "w": 96,
+      "h": 92
+    },
+    "ui/order_charge": {
+      "x": 1906,
+      "y": 1496,
+      "w": 96,
+      "h": 95
+    },
+    "ui/order_hojin": {
+      "x": 1476,
+      "y": 1496,
+      "w": 85,
+      "h": 96
+    },
+    "ui/order_hold": {
+      "x": 1563,
+      "y": 1496,
+      "w": 91,
+      "h": 96
+    },
+    "ui/order_hounou": {
+      "x": 1656,
+      "y": 1496,
+      "w": 70,
+      "h": 96
+    },
+    "ui/order_jindate": {
+      "x": 294,
+      "y": 1626,
+      "w": 96,
+      "h": 87
+    },
+    "ui/order_jouriku": {
+      "x": 1051,
+      "y": 1626,
+      "w": 96,
+      "h": 55
+    },
+    "ui/order_kakei": {
+      "x": 196,
+      "y": 1626,
+      "w": 96,
+      "h": 88
+    },
+    "ui/order_koeki": {
+      "x": 392,
+      "y": 1626,
+      "w": 96,
+      "h": 84
+    },
+    "ui/order_raid": {
+      "x": 1728,
+      "y": 1496,
+      "w": 96,
+      "h": 96
+    },
+    "ui/order_retreat": {
+      "x": 1826,
+      "y": 1496,
+      "w": 78,
+      "h": 96
+    },
+    "ui/order_siege": {
+      "x": 490,
+      "y": 1626,
+      "w": 96,
+      "h": 79
+    },
+    "ui/order_yugeki": {
+      "x": 98,
+      "y": 1626,
+      "w": 96,
+      "h": 92
+    },
+    "units/a-atlatl": {
+      "x": 667,
+      "y": 829,
+      "w": 103,
+      "h": 128
+    },
+    "units/a-bigcatapult": {
+      "x": 772,
+      "y": 829,
+      "w": 89,
+      "h": 128
+    },
+    "units/a-blowgun": {
+      "x": 863,
+      "y": 829,
+      "w": 109,
+      "h": 128
+    },
+    "units/a-catapult": {
+      "x": 974,
+      "y": 829,
+      "w": 120,
+      "h": 128
+    },
+    "units/a-club": {
+      "x": 1096,
+      "y": 829,
+      "w": 107,
+      "h": 128
+    },
+    "units/a-feather": {
+      "x": 1205,
+      "y": 829,
+      "w": 54,
+      "h": 128
+    },
+    "units/a-jaguar": {
+      "x": 1261,
+      "y": 829,
+      "w": 108,
+      "h": 128
+    },
+    "units/a-obsidian": {
+      "x": 1371,
+      "y": 829,
+      "w": 76,
+      "h": 128
+    },
+    "units/clubman": {
+      "x": 1449,
+      "y": 829,
+      "w": 102,
+      "h": 128
+    },
+    "units/fire_ship": {
+      "x": 1553,
+      "y": 829,
+      "w": 125,
+      "h": 128
+    },
+    "units/fishing_boat": {
+      "x": 1680,
+      "y": 829,
+      "w": 128,
+      "h": 128
+    },
+    "units/g-archer": {
+      "x": 1810,
+      "y": 829,
+      "w": 101,
+      "h": 128
+    },
+    "units/g-catapult": {
+      "x": 1913,
+      "y": 829,
+      "w": 110,
+      "h": 128
+    },
+    "units/g-dismount": {
+      "x": 0,
+      "y": 976,
+      "w": 100,
+      "h": 128
+    },
+    "units/g-guard-horsearcher": {
+      "x": 102,
+      "y": 976,
+      "w": 110,
+      "h": 128
+    },
+    "units/g-heavy": {
+      "x": 214,
+      "y": 976,
+      "w": 100,
+      "h": 128
+    },
+    "units/g-light": {
+      "x": 316,
+      "y": 976,
+      "w": 116,
+      "h": 128
+    },
+    "units/herald": {
+      "x": 434,
+      "y": 976,
+      "w": 91,
+      "h": 128
+    },
+    "units/hunter": {
+      "x": 527,
+      "y": 976,
+      "w": 101,
+      "h": 128
+    },
+    "units/m-camel": {
+      "x": 630,
+      "y": 976,
+      "w": 115,
+      "h": 128
+    },
+    "units/m-camel-heavy": {
+      "x": 747,
+      "y": 976,
+      "w": 97,
+      "h": 128
+    },
+    "units/m-catapult": {
+      "x": 846,
+      "y": 976,
+      "w": 107,
+      "h": 128
+    },
+    "units/m-daikyu": {
+      "x": 955,
+      "y": 976,
+      "w": 119,
+      "h": 128
+    },
+    "units/m-guard-archer": {
+      "x": 1076,
+      "y": 976,
+      "w": 106,
+      "h": 128
+    },
+    "units/m-hinawa": {
+      "x": 1184,
+      "y": 976,
+      "w": 109,
+      "h": 128
+    },
+    "units/m-menko": {
+      "x": 1295,
+      "y": 976,
+      "w": 88,
+      "h": 128
+    },
+    "units/m-naga": {
+      "x": 1385,
+      "y": 976,
+      "w": 64,
+      "h": 128
+    },
+    "units/m-ram": {
+      "x": 1451,
+      "y": 976,
+      "w": 118,
+      "h": 128
+    },
+    "units/m-yarite": {
+      "x": 1571,
+      "y": 976,
+      "w": 59,
+      "h": 128
+    },
+    "units/m-yumi": {
+      "x": 1632,
+      "y": 976,
+      "w": 110,
+      "h": 128
+    },
+    "units/p-bow": {
+      "x": 1744,
+      "y": 976,
+      "w": 104,
+      "h": 128
+    },
+    "units/p-cannon": {
+      "x": 1850,
+      "y": 976,
+      "w": 107,
+      "h": 128
+    },
+    "units/p-cataphract": {
+      "x": 1959,
+      "y": 976,
+      "w": 87,
+      "h": 128
+    },
+    "units/p-cav": {
+      "x": 0,
+      "y": 1106,
+      "w": 110,
+      "h": 128
+    },
+    "units/p-daikyu": {
+      "x": 112,
+      "y": 1106,
+      "w": 115,
+      "h": 128
+    },
+    "units/p-elephant": {
+      "x": 229,
+      "y": 1106,
+      "w": 121,
+      "h": 128
+    },
+    "units/p-elephant-armored": {
+      "x": 352,
+      "y": 1106,
+      "w": 108,
+      "h": 128
+    },
+    "units/p-guard-elephant": {
+      "x": 462,
+      "y": 1106,
+      "w": 122,
+      "h": 128
+    },
+    "units/p-gun": {
+      "x": 586,
+      "y": 1106,
+      "w": 110,
+      "h": 128
+    },
+    "units/p-immortal": {
+      "x": 698,
+      "y": 1106,
+      "w": 56,
+      "h": 128
+    },
+    "units/p-naga": {
+      "x": 756,
+      "y": 1106,
+      "w": 58,
+      "h": 128
+    },
+    "units/p-shield": {
+      "x": 816,
+      "y": 1106,
+      "w": 89,
+      "h": 128
+    },
+    "units/p-tower": {
+      "x": 907,
+      "y": 1106,
+      "w": 108,
+      "h": 128
+    },
+    "units/priest": {
+      "x": 1017,
+      "y": 1106,
+      "w": 71,
+      "h": 128
+    },
+    "units/r-ballista": {
+      "x": 1090,
+      "y": 1106,
+      "w": 114,
+      "h": 128
+    },
+    "units/r-eq": {
+      "x": 1206,
+      "y": 1106,
+      "w": 107,
+      "h": 128
+    },
+    "units/r-eq-heavy": {
+      "x": 1315,
+      "y": 1106,
+      "w": 106,
+      "h": 128
+    },
+    "units/r-eq-light": {
+      "x": 1423,
+      "y": 1106,
+      "w": 102,
+      "h": 128
+    },
+    "units/r-handgun": {
+      "x": 1527,
+      "y": 1106,
+      "w": 114,
+      "h": 128
+    },
+    "units/r-hastati": {
+      "x": 1643,
+      "y": 1106,
+      "w": 61,
+      "h": 128
+    },
+    "units/r-legion": {
+      "x": 1706,
+      "y": 1106,
+      "w": 82,
+      "h": 128
+    },
+    "units/r-onager": {
+      "x": 1790,
+      "y": 1106,
+      "w": 106,
+      "h": 128
+    },
+    "units/r-principes": {
+      "x": 1898,
+      "y": 1106,
+      "w": 89,
+      "h": 128
+    },
+    "units/r-ram": {
+      "x": 0,
+      "y": 1236,
+      "w": 108,
+      "h": 128
+    },
+    "units/r-scorpio": {
+      "x": 110,
+      "y": 1236,
+      "w": 110,
+      "h": 128
+    },
+    "units/r-slinger": {
+      "x": 222,
+      "y": 1236,
+      "w": 104,
+      "h": 128
+    },
+    "units/r-triarii": {
+      "x": 328,
+      "y": 1236,
+      "w": 66,
+      "h": 128
+    },
+    "units/scout": {
+      "x": 396,
+      "y": 1236,
+      "w": 77,
+      "h": 128
+    },
+    "units/t-dote": {
+      "x": 475,
+      "y": 1236,
+      "w": 105,
+      "h": 128
+    },
+    "units/t-hakuto": {
+      "x": 582,
+      "y": 1236,
+      "w": 107,
+      "h": 128
+    },
+    "units/t-hosotsu": {
+      "x": 691,
+      "y": 1236,
+      "w": 62,
+      "h": 128
+    },
+    "units/t-kaju": {
+      "x": 755,
+      "y": 1236,
+      "w": 114,
+      "h": 128
+    },
+    "units/t-kasensha": {
+      "x": 871,
+      "y": 1236,
+      "w": 112,
+      "h": 128
+    },
+    "units/t-keiki": {
+      "x": 985,
+      "y": 1236,
+      "w": 99,
+      "h": 128
+    },
+    "units/t-nagayari": {
+      "x": 1086,
+      "y": 1236,
+      "w": 124,
+      "h": 128
+    },
+    "units/t-renkyu": {
+      "x": 1212,
+      "y": 1236,
+      "w": 111,
+      "h": 128
+    },
+    "units/t-shoshido": {
+      "x": 1325,
+      "y": 1236,
+      "w": 99,
+      "h": 128
+    },
+    "units/t-tekki": {
+      "x": 1426,
+      "y": 1236,
+      "w": 115,
+      "h": 128
+    },
+    "units/t-yumite": {
+      "x": 1543,
+      "y": 1236,
+      "w": 116,
+      "h": 128
+    },
+    "units/trade_cart": {
+      "x": 1661,
+      "y": 1236,
+      "w": 110,
+      "h": 128
+    },
+    "units/transport_ship": {
+      "x": 1773,
+      "y": 1236,
+      "w": 123,
+      "h": 128
+    },
+    "units/v-axe": {
+      "x": 1898,
+      "y": 1236,
+      "w": 97,
+      "h": 128
+    },
+    "units/v-berserk": {
+      "x": 0,
+      "y": 1366,
+      "w": 112,
+      "h": 128
+    },
+    "units/v-bow": {
+      "x": 114,
+      "y": 1366,
+      "w": 112,
+      "h": 128
+    },
+    "units/v-fire": {
+      "x": 228,
+      "y": 1366,
+      "w": 117,
+      "h": 128
+    },
+    "units/v-greatship": {
+      "x": 347,
+      "y": 1366,
+      "w": 101,
+      "h": 128
+    },
+    "units/v-javelin": {
+      "x": 450,
+      "y": 1366,
+      "w": 120,
+      "h": 128
+    },
+    "units/v-longship": {
+      "x": 572,
+      "y": 1366,
+      "w": 115,
+      "h": 128
+    },
+    "units/v-raider": {
+      "x": 689,
+      "y": 1366,
+      "w": 108,
+      "h": 128
+    },
+    "units/v-ram": {
+      "x": 799,
+      "y": 1366,
+      "w": 114,
+      "h": 128
+    },
+    "units/v-shield": {
+      "x": 915,
+      "y": 1366,
+      "w": 78,
+      "h": 128
+    },
+    "units/villager": {
+      "x": 995,
+      "y": 1366,
+      "w": 78,
+      "h": 128
+    },
+    "units/warship": {
+      "x": 1075,
+      "y": 1366,
+      "w": 127,
+      "h": 128
+    },
+    "units/y-ashigaru": {
+      "x": 1204,
+      "y": 1366,
+      "w": 90,
+      "h": 128
+    },
+    "units/y-bushi": {
+      "x": 1296,
+      "y": 1366,
+      "w": 113,
+      "h": 128
+    },
+    "units/y-daikyu": {
+      "x": 1411,
+      "y": 1366,
+      "w": 96,
+      "h": 128
+    },
+    "units/y-horo": {
+      "x": 1509,
+      "y": 1366,
+      "w": 104,
+      "h": 128
+    },
+    "units/y-kiba": {
+      "x": 1615,
+      "y": 1366,
+      "w": 113,
+      "h": 128
+    },
+    "units/y-musha": {
+      "x": 1730,
+      "y": 1366,
+      "w": 98,
+      "h": 128
+    },
+    "units/y-nagae": {
+      "x": 1830,
+      "y": 1366,
+      "w": 72,
+      "h": 128
+    },
+    "units/y-ozutsu": {
+      "x": 1904,
+      "y": 1366,
+      "w": 112,
+      "h": 128
+    },
+    "units/y-seiro": {
+      "x": 0,
+      "y": 1496,
+      "w": 118,
+      "h": 128
+    },
+    "units/y-teppo": {
+      "x": 120,
+      "y": 1496,
+      "w": 113,
+      "h": 128
+    },
+    "units/y-yumiashigaru": {
+      "x": 235,
+      "y": 1496,
+      "w": 109,
+      "h": 128
+    }
+  }
+}

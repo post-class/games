@@ -1,0 +1,184 @@
+{
+  "_note": "第 3 章 第 1 話。鉄器の世。碑が度量衡と製鉄の手順を明かし、領地が測られ諸侯に分けられた。戦線が三本に割れる最初の年。",
+  "id": "ch3_m1",
+  "chapter": 3,
+  "index": 1,
+  "route": "main",
+  "title": "境を測る",
+  "brief": "碑が度量衡を明かし、土地が測られて諸侯に分けられた。境の三方で同時に揉める。止める・畳む・押すを三本の戦域に配る。",
+  "hints": [
+    "鉄器の世からは戦域が三本まで立ちます。手は二本しかありません。",
+    "死守で止め、保たない一本は後退で畳み、残った一本を突撃で押し切ってください。",
+    "渡せるのは方針だけです。兵の一人一人を動かそうとしないこと。"
+  ],
+  "setup": {
+    "map": "river",
+    "seed": 30101,
+    "playerCount": 2,
+    "player": 0,
+    "civs": [
+      "yamato",
+      "tou"
+    ],
+    "teams": [
+      0,
+      1
+    ],
+    "startAge": "tekki",
+    "startResources": "standard",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-musha",
+        "count": 8,
+        "at": {
+          "player": 0,
+          "dx": 8,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-daikyu",
+        "count": 6,
+        "at": {
+          "player": 0,
+          "dx": 0,
+          "dy": 8
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-horo",
+        "count": 5,
+        "at": {
+          "player": 0,
+          "dx": -8,
+          "dy": 0
+        }
+      }
+    ]
+  },
+  "victory": [
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "hold",
+      "count": 1,
+      "ticks": 250
+    },
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "retreat",
+      "count": 1,
+      "ticks": 125
+    },
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "charge",
+      "count": 1,
+      "ticks": 250
+    },
+    {
+      "type": "unitCountAtMost",
+      "player": 1,
+      "unit": "t-hakuto",
+      "count": 0
+    }
+  ],
+  "defeat": [
+    {
+      "type": "buildingCountAtMost",
+      "player": "self",
+      "building": "town_center",
+      "count": 0
+    },
+    {
+      "type": "loyaltyAtMostPercent",
+      "player": "self",
+      "percent": 0
+    }
+  ],
+  "events": [
+    {
+      "atTick": 0,
+      "type": "showHint",
+      "text": "三方から来ます。立った順に令を渡してください。"
+    },
+    {
+      "atTick": 250,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "t-hakuto",
+          "count": 6
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 24,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 8,
+        "dy": 0
+      }
+    },
+    {
+      "atTick": 900,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "t-hakuto",
+          "count": 8
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 0,
+        "dy": 24
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 0,
+        "dy": 8
+      }
+    },
+    {
+      "atTick": 1600,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "t-dote",
+          "count": 6
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": -24,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": -8,
+        "dy": 0
+      }
+    },
+    {
+      "when": {
+        "type": "frontOpened",
+        "count": 3
+      },
+      "type": "showHint",
+      "text": "三本になりました。保たない一本は後退で畳んでください。"
+    }
+  ],
+  "onVictory": "ch3_m2",
+  "onDefeat": "ch3_m1v"
+}

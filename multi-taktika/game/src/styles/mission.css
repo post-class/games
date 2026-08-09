@@ -1,0 +1,73 @@
+/*
+ * mission.css — キャンペーンの目標とヒント（`ui/hud/missionPanel.ts`）
+ *
+ * 置き場所は画面左、資源帯（上端）と小地図（左上）の**下**。
+ * 盤面の中央は空けておく（見たいのは盤面なので、HUD で覆わない）。
+ */
+
+.mt-mission {
+  position: absolute;
+  /* 小地図の下端より下。小地図は 200px 角 + 上端の資源帯ぶん */
+  top: 274px;
+  left: 20px; /* 左右の余白 20px（コーディング規約） */
+  width: min(320px, calc(50vw - 40px));
+  padding: 10px 12px;
+  background: rgba(18, 16, 12, 0.86);
+  border: 1px solid var(--line, #4a3a1e);
+  border-left: 3px solid #d8b24a;
+  border-radius: 4px;
+  font-size: 16px; /* 本文 16px を基準にする */
+  line-height: 1.5;
+  color: #e8e0cc;
+  pointer-events: none; /* 盤面のクリックを奪わない */
+}
+
+.mt-mission-title {
+  font-weight: 700;
+  color: #f0c860;
+  margin-bottom: 4px;
+}
+
+/* いちばん新しいヒント 1 件。指示なので本文より目立たせる */
+.mt-mission-hint {
+  margin: 4px 0 8px;
+  padding: 6px 8px;
+  background: rgba(58, 46, 18, 0.7);
+  border-radius: 3px;
+  color: #f4e9c8;
+}
+
+.mt-mission-objs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mt-mission-obj {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 1px 0;
+  color: #ded4bb;
+}
+
+/* 満たした目標は薄く・打ち消す。**消さない**（残りが対比で分かる） */
+.mt-mission-obj.is-met {
+  color: #8ea87a;
+  text-decoration: line-through;
+  text-decoration-color: rgba(142, 168, 122, 0.6);
+}
+
+/* 色以外の手がかり（`06§12`）。✔ と ・ で満たしたかを示す */
+.mt-mission-mark {
+  flex: 0 0 auto;
+  width: 1em;
+  text-align: center;
+}
+
+.mt-mission-rest {
+  margin-left: auto;
+  padding-left: 8px;
+  color: #c8a94c;
+  white-space: nowrap;
+}

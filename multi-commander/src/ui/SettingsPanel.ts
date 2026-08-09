@@ -118,7 +118,7 @@ export function buildSettingsPanel(onChange: () => void): HTMLElement {
         rangeRow('無線ログの表示時間', settings.radioDuration, 4, 20, 1, (v) =>
           updateSettings({ radioDuration: v }),
         ),
-        toggleRow('コクピット装飾 (天蓋・ダッシュボード)', settings.cockpitDecorations, (v) => {
+        toggleRow('コクピット表示 (風防・計器盤)', settings.cockpitDecorations, (v) => {
           updateSettings({ cockpitDecorations: v });
           onChange();
           render();

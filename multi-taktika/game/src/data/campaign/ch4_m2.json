@@ -1,0 +1,203 @@
+{
+  "_note": "第 4 章 第 2 話。城が石から星形の要塞へ変わった年。翠壁の星形要塞の石門を大筒で落とす。",
+  "id": "ch4_m2",
+  "chapter": 4,
+  "index": 2,
+  "route": "main",
+  "title": "星形の要塞",
+  "brief": "翠壁の城が星形に変わり、正面からは当たれなくなった。囮に略奪、門前に包囲。大筒を門前の戦域から外さない。",
+  "hints": [
+    "星形の要塞は正面に厚い。角に取り付いてください。",
+    "略奪で守兵を割り、門前に包囲を渡して大筒を通します。",
+    "包囲は下段の令です。上段に死守を重ねて構いません。"
+  ],
+  "setup": {
+    "map": "jungle",
+    "seed": 40202,
+    "playerCount": 2,
+    "player": 0,
+    "civs": [
+      "yamato",
+      "azteca"
+    ],
+    "teams": [
+      0,
+      1
+    ],
+    "startAge": "teikoku",
+    "startResources": "high",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-nagae",
+        "count": 12,
+        "at": {
+          "player": 1,
+          "dx": -12,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-ozutsu",
+        "count": 4,
+        "at": {
+          "player": 1,
+          "dx": -12,
+          "dy": 2
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-teppo",
+        "count": 8,
+        "at": {
+          "player": 1,
+          "dx": 0,
+          "dy": 12
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-kiba",
+        "count": 6,
+        "at": {
+          "player": 1,
+          "dx": 0,
+          "dy": -12
+        }
+      },
+      {
+        "player": 1,
+        "unit": "a-feather",
+        "count": 10,
+        "at": {
+          "player": 1,
+          "dx": -5,
+          "dy": 0
+        }
+      }
+    ],
+    "buildings": [
+      {
+        "player": 0,
+        "building": "castle",
+        "at": {
+          "player": 0,
+          "dx": -6,
+          "dy": -6
+        }
+      },
+      {
+        "player": 1,
+        "building": "stone_gate",
+        "at": {
+          "player": 1,
+          "dx": -7,
+          "dy": 0
+        }
+      }
+    ]
+  },
+  "victory": [
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "raid",
+      "count": 1,
+      "ticks": 125
+    },
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "hold",
+      "count": 1,
+      "ticks": 250
+    },
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "siege",
+      "count": 1,
+      "ticks": 250
+    },
+    {
+      "type": "buildingCountAtMost",
+      "player": 1,
+      "building": "stone_gate",
+      "count": 0
+    }
+  ],
+  "defeat": [
+    {
+      "type": "buildingCountAtMost",
+      "player": "self",
+      "building": "town_center",
+      "count": 0
+    },
+    {
+      "type": "loyaltyAtMostPercent",
+      "player": "self",
+      "percent": 0
+    }
+  ],
+  "events": [
+    {
+      "atTick": 0,
+      "type": "showHint",
+      "text": "南と北に囮を立ててから門に取り付いてください。"
+    },
+    {
+      "atTick": 1200,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "a-atlatl",
+          "count": 6
+        }
+      ],
+      "at": {
+        "player": 1,
+        "dx": 0,
+        "dy": -6
+      },
+      "attackAt": {
+        "player": 1,
+        "dx": 0,
+        "dy": -12
+      }
+    },
+    {
+      "atTick": 2200,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "a-bigcatapult",
+          "count": 3
+        }
+      ],
+      "at": {
+        "player": 1,
+        "dx": 6,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 1,
+        "dx": -7,
+        "dy": 0
+      }
+    },
+    {
+      "when": {
+        "type": "frontOpened",
+        "count": 3
+      },
+      "type": "showHint",
+      "text": "囮が立ちました。門前の戦域に包囲を渡してください。"
+    }
+  ],
+  "onVictory": "ch4_m3",
+  "onDefeat": "ch4_m2v"
+}

@@ -1,0 +1,207 @@
+{
+  "_note": "第 3 章 第 2 話。掟（井戸を埋めない・種籾を焼かない）を破った年。罰は神罰ではなく諸侯の離反で返る。守り抜くことが勝ち。",
+  "id": "ch3_m2",
+  "chapter": 3,
+  "index": 2,
+  "route": "main",
+  "title": "諸侯の離反",
+  "brief": "前の年に井戸を埋めた諸侯がいた。旗のいくつかは令に従わない。手元に残った旗だけで境を守り抜く。",
+  "hints": [
+    "離反した旗は数に入りません。残った旗で保たせてください。",
+    "守り切れない戦域は後退で畳み、残った戦域に死守を渡して時間を稼ぎます。",
+    "この話は攻め切らなくてよい。境が残っていれば勝ちです。"
+  ],
+  "setup": {
+    "map": "defile",
+    "seed": 30202,
+    "playerCount": 2,
+    "player": 0,
+    "civs": [
+      "yamato",
+      "roma"
+    ],
+    "teams": [
+      0,
+      1
+    ],
+    "startAge": "tekki",
+    "startResources": "standard",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-musha",
+        "count": 7,
+        "at": {
+          "player": 0,
+          "dx": 9,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-daikyu",
+        "count": 5,
+        "at": {
+          "player": 0,
+          "dx": 0,
+          "dy": 9
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-horo",
+        "count": 4,
+        "at": {
+          "player": 0,
+          "dx": -9,
+          "dy": 0
+        }
+      }
+    ]
+  },
+  "victory": [
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "retreat",
+      "count": 1,
+      "ticks": 125
+    },
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "hold",
+      "count": 1,
+      "ticks": 250
+    },
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "charge",
+      "count": 1,
+      "ticks": 250
+    },
+    {
+      "type": "surviveTicks",
+      "ticks": 3500
+    }
+  ],
+  "defeat": [
+    {
+      "type": "buildingCountAtMost",
+      "player": "self",
+      "building": "town_center",
+      "count": 0
+    },
+    {
+      "type": "loyaltyAtMostPercent",
+      "player": "self",
+      "percent": 0
+    }
+  ],
+  "events": [
+    {
+      "atTick": 0,
+      "type": "showHint",
+      "text": "旗の一部は令に従いません。畳む戦域を先に決めてください。"
+    },
+    {
+      "atTick": 250,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "r-principes",
+          "count": 6
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 26,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 9,
+        "dy": 0
+      }
+    },
+    {
+      "atTick": 900,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "r-principes",
+          "count": 8
+        },
+        {
+          "unit": "r-scorpio",
+          "count": 5
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 0,
+        "dy": 26
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 0,
+        "dy": 9
+      }
+    },
+    {
+      "atTick": 1600,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "r-eq",
+          "count": 6
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": -26,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": -9,
+        "dy": 0
+      }
+    },
+    {
+      "atTick": 2400,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "r-scorpio",
+          "count": 5
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 0,
+        "dy": 26
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 0,
+        "dy": 9
+      }
+    },
+    {
+      "when": {
+        "type": "frontOpened",
+        "count": 3
+      },
+      "type": "showHint",
+      "text": "三本抱えました。一本は後退で畳んで構いません。"
+    }
+  ],
+  "onVictory": "ch3_m3",
+  "onDefeat": "ch3_m2v"
+}

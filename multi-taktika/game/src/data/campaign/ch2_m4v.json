@@ -1,0 +1,63 @@
+{
+  "_note": "T-M16-03 分岐。ch2_m4 に負けた側。服属した年の収穫期。徴発されたぶん兵が足りない。",
+  "extends": "ch2_m4",
+  "id": "ch2_m4v",
+  "route": "vassal",
+  "title": "休戦の季（服属の年）",
+  "brief": "服属した年の収穫期。兵は徴発されて足りない。守れる戦域は初めから一つしかない。",
+  "hints": [
+    "守れるのは一つだけです。もう一つは後退で畳んでください。",
+    "畳んだ兵を残った戦域に足せば保ちます。",
+    "勝てば旗を戻して本線に復帰できます。"
+  ],
+  "setup": {
+    "startResources": "low",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-ashigaru",
+        "count": 7,
+        "at": {
+          "player": 0,
+          "dx": 10,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-ashigaru",
+        "count": 4,
+        "at": {
+          "player": 0,
+          "dx": 0,
+          "dy": 10
+        }
+      }
+    ]
+  },
+  "extraEvents": [
+    {
+      "atTick": 2100,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "r-slinger",
+          "count": 4
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 0,
+        "dy": 26
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 0,
+        "dy": 10
+      }
+    }
+  ],
+  "onVictory": "ch2_m5",
+  "onDefeat": "ch2_m5v"
+}

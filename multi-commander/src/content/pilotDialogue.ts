@@ -114,6 +114,48 @@ const MOURN: LineSet = {
   green: ['……嘘、ですよね。', 'さっきまで話してたのに。'],
 };
 
+// ───────── 僚機の被弾段階 (T1-②) ─────────
+//
+// 「被弾した」で終わらせず、シールド喪失 → 装甲被弾 → ハル危険域 と段階を踏ませる。
+// プレイヤーが助けに行く判断をできるよう、どこまで削られたかを言葉に出す。
+
+const WING_SHIELD_DOWN: LineSet = {
+  reckless: ['シールドが飛んだ！まだやれる！', 'シールドが落ちた。構わん、続ける。'],
+  steady: ['シールドが落ちました。次は装甲に来ます。', 'シールド喪失。距離を取ります。'],
+  precise: ['シールドが落ちた。被弾すれば装甲に通る。', 'シールド 0。射線から抜ける。'],
+  veteran: ['シールドを持っていかれた。まだ死なんがな。', 'シールドが落ちた。少し下がる。'],
+  grim: ['……シールドが落ちた。次で装甲だ。', 'シールドが無い。まずいな。'],
+  green: ['シールドが、シールドが落ちました！', 'えっ、シールド 0 です！どうすれば！'],
+};
+
+const WING_ARMOR_HIT: LineSet = {
+  reckless: ['装甲に通った！だが逃げないぞ！', '穴が空いた。まだ飛べる！'],
+  steady: ['装甲に被弾。支援をお願いします。', '装甲を削られました。剥がしてください。'],
+  precise: ['装甲に通った。後方の一機を頼む。', '装甲被弾。単独では外せない。'],
+  veteran: ['装甲を抜かれた。手を貸してくれ。', '老いた腕でもかわせなかった。装甲に通った、頼む。'],
+  grim: ['装甲に通った。……長くはない。', '削られている。誰か。'],
+  green: ['当てられました、装甲に！助けてください！', '装甲に穴が！怖い、助けて！'],
+};
+
+const WING_CRITICAL: LineSet = {
+  reckless: ['船体まで来た！おい、笑えないぞ！', 'もう装甲が無い！誰か引き剥がせ！'],
+  steady: ['船体に被弾。もう持ちません、支援を！', '限界です。助けてください！'],
+  precise: ['船体残量 わずか。離脱するか、支援を要請する。', '致命域だ。引き剥がしてくれ、今すぐ。'],
+  veteran: ['ここまでか……いや、まだだ！手を貸せ！', '船体に来た。長くは飛べん。'],
+  grim: ['……名前が増える。俺の番か。', '船体だ。もう駄目かもしれない。'],
+  green: ['もう駄目です、助けて、助けてください！', '船体に、船体に来てます！誰か！'],
+};
+
+export function wingmanShieldDownLine(personality: PersonalityId): string {
+  return pick(WING_SHIELD_DOWN, personality);
+}
+export function wingmanArmorLine(personality: PersonalityId): string {
+  return pick(WING_ARMOR_HIT, personality);
+}
+export function wingmanCriticalLine(personality: PersonalityId): string {
+  return pick(WING_CRITICAL, personality);
+}
+
 export function disobeyLine(personality: PersonalityId): string {
   return pick(DISOBEY, personality);
 }

@@ -15,7 +15,9 @@ import type { ScreenRouter } from './router';
 import { titleScreen } from './Title';
 import { matchSetupScreen } from './MatchSetup';
 import { civSelectScreen } from './CivSelect';
+import { campaignScreen } from './Campaign';
 import { resultScreen } from './Result';
+import { replayScreen } from './Replay';
 import { settingsScreen } from './Settings';
 
 export function registerScreens(router: ScreenRouter): void {
@@ -23,11 +25,11 @@ export function registerScreens(router: ScreenRouter): void {
   router.register('title', titleScreen);
   router.register('matchSetup', matchSetupScreen);
   router.register('civSelect', civSelectScreen);
-  // router.register('campaign', campaignScreen);
+  router.register('campaign', campaignScreen);
 
   // ---- 試合後（`05§13`, `05§14`）----
   router.register('result', resultScreen);
-  // router.register('replay', replayScreen);
+  router.register('replay', replayScreen);
 
   // ---- 設定（`06§12`）----
   router.register('settings', settingsScreen);

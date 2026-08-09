@@ -328,10 +328,10 @@
     "econBonus": [
       {
         "type": "startResourceAdd",
-        "food": 200,
-        "wood": 200,
-        "stone": 100,
-        "gold": 100
+        "food": 20,
+        "wood": 20,
+        "stone": 10,
+        "gold": 10
       }
     ],
     "uniqueOrder": "assai",

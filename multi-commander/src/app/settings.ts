@@ -118,8 +118,18 @@ export interface Settings {
   volumeSfx: number;
   /** 無線ログの表示時間 (秒)。読む速さに合わせて調整できる */
   radioDuration: number;
-  /** 天蓋・ダッシュボードの見た目だけの装飾を表示するか */
+  /**
+   * コクピット表示 (風防の枠・柱・天蓋・計器盤の筐体)。
+   * 既定は ON。切ると「機体に乗っている」構図が無くなるので、
+   * 見た目の負荷を下げたい人向けの逃げ道として残している。
+   */
   cockpitDecorations: boolean;
+  /**
+   * 保存データの版。既定値の意味が変わったときの移行に使う (UI には出さない)。
+   * 1: 版が無い時代の保存データ (cockpitDecorations の既定が false だった)
+   * 2: コクピット表示を既定 ON にした
+   */
+  settingsVersion: number;
   /** カメラの揺れ、追従遅延、アフターバーナー画角の強さ (0 で無効) */
   cameraShake: number;
   cameraFollowLag: number;
@@ -160,7 +170,8 @@ export const DEFAULT_SETTINGS: Settings = {
   volumeMusic: 0.5,
   volumeSfx: 0.9,
   radioDuration: 9,
-  cockpitDecorations: false,
+  cockpitDecorations: true,
+  settingsVersion: 2,
   cameraShake: 1,
   cameraFollowLag: 1,
   cameraFovKick: 1,
@@ -200,13 +211,33 @@ export function loadSettings(): void {
         }
       }
       loaded.keyBindings = mergeKeyBindings(DEFAULT_KEY_BINDINGS, parsed.keyBindings);
+      migrateSettings(loaded, parsed);
     }
     Object.assign(settings, loaded);
     normalizeSettings();
+    if (raw) saveSettings();
   } catch {
     /* 壊れた保存データは無視して既定値で動かす */
     Object.assign(settings, loaded);
   }
+}
+
+/**
+ * 保存データの移行。
+ *
+ * 保存は「全項目まとめて JSON」なので、既定値を変えても
+ * 一度でも設定を保存した人は古い値のまま固定されてしまう。
+ * 版が上がった項目だけを新しい既定へ引き上げる。
+ */
+function migrateSettings(loaded: Settings, parsed: Partial<Settings>): void {
+  // 版が書かれていない保存データは版1 (既定値を変える前) として扱う
+  const version = typeof parsed.settingsVersion === 'number' && Number.isFinite(parsed.settingsVersion)
+    ? parsed.settingsVersion
+    : 1;
+  // 版1: コクピット表示の既定が false だった。既定 ON へ引き上げる。
+  // (版2以降で自分で OFF にした人の選択は尊重する)
+  if (version < 2) loaded.cockpitDecorations = DEFAULT_SETTINGS.cockpitDecorations;
+  loaded.settingsVersion = DEFAULT_SETTINGS.settingsVersion;
 }
 
 export function saveSettings(): void {
@@ -274,6 +305,12 @@ function normalizeSettings(): void {
     if (typeof settings[key] !== 'boolean') settings[key] = DEFAULT_SETTINGS[key];
   }
   settings.subtitleScale = clampSetting(settings.subtitleScale, 0.8, 1.8, 1);
+  if (
+    !Number.isFinite(settings.settingsVersion) ||
+    settings.settingsVersion < DEFAULT_SETTINGS.settingsVersion
+  ) {
+    settings.settingsVersion = DEFAULT_SETTINGS.settingsVersion;
+  }
 }
 
 function clampSetting(value: number, min: number, max: number, fallback: number): number {

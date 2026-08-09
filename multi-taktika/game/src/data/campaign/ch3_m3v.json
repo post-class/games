@@ -1,0 +1,73 @@
+{
+  "_note": "T-M16-03 分岐。ch3_m3 に負けた側。二つの旗の下に三つ目として並ばされた年。",
+  "extends": "ch3_m3",
+  "id": "ch3_m3v",
+  "route": "vassal",
+  "title": "三つの旗（服属の年）",
+  "brief": "二つの旗の下に三つ目として並ばされた年。追う戦域を畳む判断だけは自分で決められる。",
+  "hints": [
+    "騎馬は追わないこと。畳んで構いません。",
+    "捕まる側に突撃を渡して押し切ります。",
+    "勝てば旗を戻して本線に復帰できます。"
+  ],
+  "setup": {
+    "startResources": "low",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-musha",
+        "count": 7,
+        "at": {
+          "player": 0,
+          "dx": 9,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-daikyu",
+        "count": 5,
+        "at": {
+          "player": 0,
+          "dx": 0,
+          "dy": 9
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-horo",
+        "count": 5,
+        "at": {
+          "player": 0,
+          "dx": -9,
+          "dy": 0
+        }
+      }
+    ]
+  },
+  "extraEvents": [
+    {
+      "atTick": 2900,
+      "type": "spawnEnemyWave",
+      "player": 2,
+      "units": [
+        {
+          "unit": "t-dote",
+          "count": 5
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 26,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 9,
+        "dy": 0
+      }
+    }
+  ],
+  "onVictory": "ch3_m4",
+  "onDefeat": "ch3_m4v"
+}

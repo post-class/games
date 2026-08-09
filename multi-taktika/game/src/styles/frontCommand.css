@@ -350,6 +350,8 @@
 }
 
 .mt-card {
+  /* 令アイコン（`.mt-card-icon`）を右上に絶対配置するための基準 */
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -361,6 +363,18 @@
   transition:
     transform 0.12s ease-out,
     box-shadow 0.12s ease-out;
+}
+
+/* 令のアイコン（M17）。カードの左上に小さく置く。
+   カードの主役は名前と説明なので、アイコンは**目印**の大きさに留める。 */
+.mt-card-icon {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  opacity: 0.85;
+  pointer-events: none;
 }
 
 /* 名前プレート。文明固有はここに金の縁（`05§8-8`） */

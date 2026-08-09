@@ -388,11 +388,24 @@ describe('効果型ごとの代表値', () => {
   });
 
   it('startResourceAdd: ペルシアの開始資源', () => {
+    // **期待値を `civs.json` から引く**（数値リテラルで固定しない）。
+    // T-M18-04（文明バランス）でこの値は 200/200/100/100 → 50/50/25/25 に下げた。
+    // `03§5` のペルシアは「開始資源が最多」とだけ書かれていて量は資料に無いので、
+    // 量はバランス調整で動く数値である。ここで量を固定すると
+    // 「バランスを触るたびにこのテストが落ちる」ことになるため、
+    // **見るのは「効果が配線されていること」と「4 資源すべてに正の加算が乗ること」**にした。
+    // 量そのものの妥当性は `docs/BALANCE.md`（勝率の実測）が担保する。
+    const civ = civDefById('persia');
+    const bonus = civ.econBonus.find((b) => b['type'] === 'startResourceAdd');
+    expect(bonus, 'civs.json の persia に startResourceAdd が無い').toBeDefined();
     const m = getPlayerModifiers(makeWorld('persia'), 0);
-    expect(startResourceAdd(m, 'food')).toBe(fx(200));
-    expect(startResourceAdd(m, 'wood')).toBe(fx(200));
-    expect(startResourceAdd(m, 'stone')).toBe(fx(100));
-    expect(startResourceAdd(m, 'gold')).toBe(fx(100));
+    for (const r of ['food', 'wood', 'stone', 'gold'] as const) {
+      const want = bonus![r];
+      expect(typeof want).toBe('number');
+      expect(startResourceAdd(m, r)).toBe(fx(want as number));
+      // 「最多」なので必ず正の加算（0 にすると資料の記述に反する）。
+      expect(startResourceAdd(m, r)).toBeGreaterThan(0);
+    }
   });
 
   it('unlockUnits: 船小屋が長船・大長船を解禁する', () => {

@@ -121,6 +121,57 @@ export const ENEMY_DISENGAGE = [
   '帰投線に入る。追撃はしないと信じる。',
 ];
 
+/**
+ * 僚機が戦死したときの管制の反応（T1-②）。
+ *
+ * 名前を口に出す。撃墜ログが流れて消えても「誰が落ちたか」が耳に残るようにする。
+ * 文中の `{name}` は戦死した僚機の呼び名で置き換える。
+ */
+export const CONTROL_WINGMAN_LOST = [
+  '{name} の信号が消えた。……記録する。',
+  '管制より全機。{name} 機、喪失。周囲を警戒しろ。',
+  '{name}、応答なし。脱出信号も無い。',
+  '{name} の機体が消えた。手を止めるな、生き延びろ。',
+];
+
+/**
+ * 護衛対象（輸送船・避難船・灯台など）の被弾段階（T1-②）。
+ *
+ * 話し手は護衛対象そのもの。撃墜されると必ず任務失敗になる相手なので、
+ * 「削られている」ことが戦闘中に聞こえるようにする。
+ */
+export const ESCORT_SHIELD_DOWN = [
+  'シールドが落ちた。次は船体に来る。',
+  'こちら被弾中。防御幕が保たない。',
+  'シールド喪失。近くに付いてくれ。',
+];
+
+export const ESCORT_ARMOR_HIT = [
+  '装甲に通った。曳いている、剥がしてくれ！',
+  '外板を破られた。応急班を回している。',
+  '被弾が装甲に届いた。掩護を頼む。',
+];
+
+export const ESCORT_CRITICAL = [
+  '船体が抜けた。もう保たない、頼む！',
+  '機関室に届いた。沈む前に引き剥がしてくれ！',
+  'これ以上は無理だ。……こちらには帰りを待つ者がいる。',
+];
+
+/** 護衛対象を失ったときの管制の反応（T1-②）。`{name}` は艦名で置き換える。 */
+export const CONTROL_ESCORT_LOST = [
+  '{name} の信号が消えた。……任務は失敗だ。',
+  '管制より。{name}、沈んだ。守る対象を失った。',
+  '{name} が消えた。乗員の記録を取る。',
+];
+
+/** 自機が撃墜されたときの管制の呼びかけ（T1-②）。 */
+export const CONTROL_PLAYER_DOWN = [
+  '……信号が消えた。誰か、応答しろ。',
+  '管制より。機体が消えた。救助艇を出す。',
+  'こちら管制。応答しろ。……応答しろ！',
+];
+
 /** 味方が敵を救ったときの反応。 */
 export const ALLY_RESCUE_ACK = [
   '敵機の回収を確認。記録に残る。',
@@ -176,6 +227,30 @@ export function enemyDisengageLine(): string {
 /** 敵を救ったときの味方の反応。 */
 export function allyRescueAckLine(): string {
   return rng.pick(ALLY_RESCUE_ACK);
+}
+
+/** 僚機の戦死に管制が反応する台詞。名前を必ず含める。 */
+export function controlWingmanLostLine(name: string): string {
+  return rng.pick(CONTROL_WINGMAN_LOST).replace('{name}', name);
+}
+
+/** 護衛対象の被弾段階の台詞。段階名は `damageStage()` の値をそのまま使う。 */
+export function escortDamageLine(
+  stage: 'shield-down' | 'armor-hit' | 'hull-critical',
+): string {
+  if (stage === 'shield-down') return rng.pick(ESCORT_SHIELD_DOWN);
+  if (stage === 'armor-hit') return rng.pick(ESCORT_ARMOR_HIT);
+  return rng.pick(ESCORT_CRITICAL);
+}
+
+/** 護衛対象の喪失に管制が反応する台詞。艦名を必ず含める。 */
+export function controlEscortLostLine(name: string): string {
+  return rng.pick(CONTROL_ESCORT_LOST).replace('{name}', name);
+}
+
+/** 自機撃墜に管制が反応する台詞。 */
+export function controlPlayerDownLine(): string {
+  return rng.pick(CONTROL_PLAYER_DOWN);
 }
 
 /**

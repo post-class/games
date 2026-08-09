@@ -1,0 +1,24 @@
+{
+  "_note": "T-M16-03 分岐。ch1_m5 に負けた側のルート。第 1 章の終端（onVictory / onDefeat がどちらも null）。勝てば旗を戻して章を終える。負けても服属のまま章は終わる（ゲームオーバーにはならない）。",
+  "extends": "ch1_m5",
+  "id": "ch1_m5v",
+  "route": "vassal",
+  "title": "攻城（服属の年）",
+  "brief": "服属したまま門の前に立つ。攻城兵器は一台しか回してもらえない。囮の作り方が試される。",
+  "hints": [
+    "攻城兵器は一台だけです。囮に守兵を引かせないと門には届きません。",
+    "反対側に略奪、本命の門前に包囲。",
+    "勝てば旗を戻して章を終えられます。"
+  ],
+  "setup": {
+    "startResources": "low",
+    "units": [
+      { "player": 0, "unit": "y-musha", "count": 6, "at": { "player": 1, "dx": -12, "dy": 0 } },
+      { "player": 0, "unit": "y-seiro", "count": 1, "at": { "player": 1, "dx": -12, "dy": 2 } },
+      { "player": 0, "unit": "y-ashigaru", "count": 5, "at": { "player": 1, "dx": 0, "dy": 12 } },
+      { "player": 1, "unit": "t-hosotsu", "count": 10, "at": { "player": 1, "dx": -5, "dy": 0 } }
+    ]
+  },
+  "onVictory": null,
+  "onDefeat": null
+}

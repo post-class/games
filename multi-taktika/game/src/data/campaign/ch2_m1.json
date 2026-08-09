@@ -1,0 +1,129 @@
+{
+  "_note": "第 2 章 第 1 話。青銅の世。碑から暦が読めて船が海に出た年。初めて向こう岸から人が来る。戦域は 1 本だけ。",
+  "id": "ch2_m1",
+  "chapter": 2,
+  "index": 1,
+  "route": "main",
+  "title": "向こう岸",
+  "brief": "碑が暦を明かし、船が海に出た年。北崖の船団が穂群の野の浜に着く。浜に出した一隊で戦域を一本立て、突撃で押し返す。",
+  "hints": [
+    "海の向こうから人が来ます。まだ話は通じません。",
+    "浜の一隊が交戦すれば戦域が一本立ちます。突撃を渡してください。",
+    "青銅の世では戦域は二本までしか持てません。ここは一本で足ります。"
+  ],
+  "setup": {
+    "map": "plain",
+    "seed": 20101,
+    "playerCount": 2,
+    "player": 0,
+    "civs": [
+      "yamato",
+      "viking"
+    ],
+    "teams": [
+      0,
+      1
+    ],
+    "startAge": "seido",
+    "startResources": "standard",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-ashigaru",
+        "count": 8,
+        "at": {
+          "player": 0,
+          "dx": 6,
+          "dy": 0
+        }
+      }
+    ]
+  },
+  "victory": [
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "charge",
+      "count": 1,
+      "ticks": 250
+    },
+    {
+      "type": "unitCountAtMost",
+      "player": 1,
+      "unit": "v-raider",
+      "count": 0
+    }
+  ],
+  "defeat": [
+    {
+      "type": "buildingCountAtMost",
+      "player": "self",
+      "building": "town_center",
+      "count": 0
+    },
+    {
+      "type": "loyaltyAtMostPercent",
+      "player": "self",
+      "percent": 0
+    }
+  ],
+  "events": [
+    {
+      "atTick": 0,
+      "type": "showHint",
+      "text": "北崖の船が着きました。浜の一隊が当たるまで待ってください。"
+    },
+    {
+      "atTick": 250,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "v-raider",
+          "count": 6
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 22,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 6,
+        "dy": 0
+      }
+    },
+    {
+      "atTick": 1200,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "v-raider",
+          "count": 5
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 22,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 6,
+        "dy": 0
+      }
+    },
+    {
+      "when": {
+        "type": "frontOpened",
+        "count": 1
+      },
+      "type": "showHint",
+      "text": "戦域が一本立ちました。突撃を渡して浜を空けてください。"
+    }
+  ],
+  "onVictory": "ch2_m2",
+  "onDefeat": "ch2_m1v"
+}

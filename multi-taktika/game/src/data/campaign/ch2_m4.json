@@ -1,0 +1,169 @@
+{
+  "_note": "第 2 章 第 4 話。休戦の季（収穫期の四十日）。白石海岸のローマが季を無視して寄せる。守り切ることが勝ち。",
+  "id": "ch2_m4",
+  "chapter": 2,
+  "index": 4,
+  "route": "main",
+  "title": "休戦の季",
+  "brief": "収穫期の四十日は兵を出さない取り決めがある。白石海岸のローマはこれを見送らなかった。畳める戦域は畳み、種籾のある里だけを守り切る。",
+  "hints": [
+    "こちらは季を守る側です。攻め切る必要はありません。守り切れば勝ちです。",
+    "守れない戦域は後退で畳んでよい。畳んだ兵は残った戦域に足してください。",
+    "種籾は焼かないのが八国の作法です。里の中心が残っていれば負けません。"
+  ],
+  "setup": {
+    "map": "plain",
+    "seed": 20404,
+    "playerCount": 2,
+    "player": 0,
+    "civs": [
+      "yamato",
+      "roma"
+    ],
+    "teams": [
+      0,
+      1
+    ],
+    "startAge": "seido",
+    "startResources": "standard",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-ashigaru",
+        "count": 8,
+        "at": {
+          "player": 0,
+          "dx": 10,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-ashigaru",
+        "count": 5,
+        "at": {
+          "player": 0,
+          "dx": 0,
+          "dy": 10
+        }
+      }
+    ]
+  },
+  "victory": [
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "retreat",
+      "count": 1,
+      "ticks": 125
+    },
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "charge",
+      "count": 1,
+      "ticks": 250
+    },
+    {
+      "type": "surviveTicks",
+      "ticks": 3000
+    }
+  ],
+  "defeat": [
+    {
+      "type": "buildingCountAtMost",
+      "player": "self",
+      "building": "town_center",
+      "count": 0
+    },
+    {
+      "type": "loyaltyAtMostPercent",
+      "player": "self",
+      "percent": 0
+    }
+  ],
+  "events": [
+    {
+      "atTick": 0,
+      "type": "showHint",
+      "text": "南は数が違います。守り切れない戦域は畳んでよい。"
+    },
+    {
+      "atTick": 250,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "r-hastati",
+          "count": 5
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 26,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 10,
+        "dy": 0
+      }
+    },
+    {
+      "atTick": 750,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "r-hastati",
+          "count": 8
+        },
+        {
+          "unit": "r-slinger",
+          "count": 6
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 0,
+        "dy": 26
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 0,
+        "dy": 10
+      }
+    },
+    {
+      "atTick": 1250,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "r-eq-light",
+          "count": 5
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 0,
+        "dy": 26
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 0,
+        "dy": 10
+      }
+    },
+    {
+      "when": {
+        "type": "frontOpened",
+        "count": 2
+      },
+      "type": "showHint",
+      "text": "南は保ちません。後退で畳んで、東に兵を寄せてください。"
+    }
+  ],
+  "onVictory": "ch2_m5",
+  "onDefeat": "ch2_m4v"
+}

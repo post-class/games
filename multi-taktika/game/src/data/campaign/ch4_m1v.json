@@ -1,0 +1,83 @@
+{
+  "_note": "T-M16-03 分岐。ch4_m1 に負けた側。火薬の配分を握られた年。",
+  "extends": "ch4_m1",
+  "id": "ch4_m1v",
+  "route": "vassal",
+  "title": "火の条（服属の年）",
+  "brief": "硝石の取り分を握られた年。鉄砲は数が揃わない。五本立つ戦域のうち勝たせるのは一本だけ。",
+  "hints": [
+    "鉄砲が足りません。死守で止めてから一本だけ押してください。",
+    "保たない戦域は後退で畳んで構いません。",
+    "勝てば旗を戻して本線に復帰できます。"
+  ],
+  "setup": {
+    "startResources": "standard",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-nagae",
+        "count": 9,
+        "at": {
+          "player": 0,
+          "dx": 10,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-teppo",
+        "count": 6,
+        "at": {
+          "player": 0,
+          "dx": 0,
+          "dy": 10
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-kiba",
+        "count": 5,
+        "at": {
+          "player": 0,
+          "dx": -10,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-nagae",
+        "count": 5,
+        "at": {
+          "player": 0,
+          "dx": 0,
+          "dy": -10
+        }
+      }
+    ]
+  },
+  "extraEvents": [
+    {
+      "atTick": 3000,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "p-gun",
+          "count": 5
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 0,
+        "dy": -26
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 0,
+        "dy": -10
+      }
+    }
+  ],
+  "onVictory": "ch4_m2",
+  "onDefeat": "ch4_m2v"
+}

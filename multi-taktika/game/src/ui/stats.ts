@@ -32,6 +32,8 @@
  */
 
 import { EntityKind, ORDER_IDS, RESOURCE_COUNT, type OrderId, type PlayerId } from '@/shared/types';
+import type { Command } from '@/sim/command';
+import { TICK_RATE } from '@/sim/core/config';
 import { FX_ONE } from '@/sim/core/fx';
 import { effectiveOrderOf } from '@/sim/core/front';
 import { MAX_FRONTS, areAllies, frontIndex, type World } from '@/sim/core/world';
@@ -45,6 +47,36 @@ export const ORDER_COUNT = ORDER_IDS.length;
  * **tick で決めることが再現性の要**（フレーム数や実時間で決めてはいけない）。
  */
 export const SERIES_INTERVAL_TICKS = 250;
+
+/**
+ * 1 分ぶんの tick 数（APM の分母）。`config.json` の `tickRate` から作る。
+ *
+ * **実時間（`Date.now` / `performance.now`）を使わない。** APM を実時間で測ると
+ * ゲーム速度・描画落ち・リプレイの倍速再生で値が変わってしまい、
+ * 「同じ操作列なら同じ APM」が崩れる（`06§8` のリプレイと突き合わせられなくなる）。
+ * tick で割れば、記録した操作列から常に同じ APM が出る。
+ */
+export const TICKS_PER_MINUTE = TICK_RATE * 60;
+
+/**
+ * APM（1 分あたりの操作数）。
+ *
+ * `01`「手数で勝たない」を数字で担保するための観測（T-M18-05）。
+ * 手順書 `07§9`（想定操作量）は **毎分 20〜40 操作**、完了条件は **60 未満**。
+ *
+ * ■ 1 操作の数え方 = **`Command` 1 件**
+ *   `Command` は「プレイヤーが 1 回何かした」単位で作られる（`06` の操作 1 回 = 1 件）。
+ *   20 体をまとめて動かす `moveUnits` は 1 件（実際にプレイヤーがしたのは
+ *   「囲んでクリック」の 1 手）。逆に令を 6 戦域に配れば `setOrder` が 6 件になる。
+ *   **この数え方が「手数」の定義**であり、APM を小さく見せるための細工はしない。
+ *
+ * @param commands 数えた `Command` の総数
+ * @param ticks 観測した tick 数（1 未満は 1 として扱う。0 除算を作らない）
+ */
+export function apmFrom(commands: number, ticks: number): number {
+  const t = ticks > 0 ? ticks : 1;
+  return (commands * TICKS_PER_MINUTE) / t;
+}
 
 /** 令 1 枚の成績（`05§13-5`「令ごとの成績も内訳で出ます」）。 */
 export interface OrderPerf {
@@ -97,6 +129,15 @@ export interface PlayerStatsSnapshot {
   readonly orderLog: readonly OrderLogEntry[];
   /** 累計採集量（4 資源合計）の推移。`ticks` と同じ長さ。 */
   readonly series: readonly number[];
+  /**
+   * 発行した `Command` の総数（= 操作数。`countCommands` を呼んでいなければ 0）。
+   *
+   * **省略可**にしてあるのは、既存の呼び手（結果画面のテストなど）が
+   * この型のオブジェクトを直に組み立てているため。`MatchStats.snapshot` は必ず入れる。
+   */
+  readonly commands?: number;
+  /** 1 分あたりの操作数（`commands` を観測 tick 数で割ったもの）。省略可の理由は上と同じ。 */
+  readonly apm?: number;
 }
 
 /** 統計全体。 */
@@ -108,6 +149,8 @@ export interface MatchStatsSnapshot {
   readonly players: readonly PlayerStatsSnapshot[];
   /** `sample` の呼び忘れ（tick 飛び）があったか。true なら統計は不完全。 */
   readonly hasGap: boolean;
+  /** APM の分母に使った観測 tick 数（`sample` を呼んだ範囲の長さ）。省略可。 */
+  readonly observedTicks?: number;
 }
 
 /** Fx（実数 × 256）→ 表示用の整数量。 */
@@ -138,6 +181,8 @@ export class MatchStats {
   private readonly orderBuildings: Int32Array;
   private readonly orderTicks: Int32Array;
   private readonly orderIssued: Int32Array;
+  /** 発行した `Command` の件数（= 操作数）。`[p]`。T-M18-05。 */
+  private readonly commandCount: Int32Array;
 
   // ---- census（前 tick のエンティティの写し） ----
   private censusCapacity = 0;
@@ -167,6 +212,8 @@ export class MatchStats {
 
   private started = false;
   private lastTick = -1;
+  /** 最初に `sample` した tick（APM の分母の起点）。 */
+  private firstTick = -1;
   private gap = false;
 
   constructor(playerCount: number) {
@@ -187,6 +234,7 @@ export class MatchStats {
     this.orderBuildings = new Int32Array(po);
     this.orderTicks = new Int32Array(po);
     this.orderIssued = new Int32Array(po);
+    this.commandCount = new Int32Array(playerCount);
 
     const fn = playerCount * MAX_FRONTS;
     this.prevOrder = new Int8Array(fn);
@@ -227,6 +275,7 @@ export class MatchStats {
       this.snapCensus(w);
       this.snapFronts(w, false);
       this.started = true;
+      this.firstTick = tick;
       this.lastTick = tick;
       this.pushSeries(tick);
       return;
@@ -241,6 +290,42 @@ export class MatchStats {
     this.lastTick = tick;
 
     if (tick % SERIES_INTERVAL_TICKS === 0) this.pushSeries(tick);
+  }
+
+  /**
+   * この tick に流した `Command` を数える（T-M18-05 の APM）。
+   *
+   * **`stepWorld(w, cmds)` に渡したのと同じ配列を、同じ tick に 1 度だけ渡す。**
+   * `sample` とは別のメソッドにしてあるのは、`sample` は「`stepWorld` の**後**」、
+   * こちらは「渡した入力そのもの」を見るためで、呼ぶ順序はどちらでもよい。
+   *
+   * 数えるのは `p` が観測対象のプレイヤーである `Command` だけ。
+   * 相手の入力（ロックステップで届いた分）も配列に混ざっているので、
+   * 添字で振り分ける。**時刻を使わないので、リプレイでも同じ値になる。**
+   */
+  countCommands(cmds: readonly Command[]): void {
+    for (let i = 0; i < cmds.length; i++) {
+      const p = cmds[i]!.p;
+      if (p < 0 || p >= this.playerCount) continue;
+      this.commandCount[p] = this.commandCount[p]! + 1;
+    }
+  }
+
+  /** そのプレイヤーの操作数（発行した `Command` の件数）。 */
+  commandsOf(p: PlayerId): number {
+    if (p < 0 || p >= this.playerCount) return 0;
+    return this.commandCount[p]!;
+  }
+
+  /** 観測した tick 数（`sample` を呼んだ範囲の長さ。1 度も呼んでいなければ 0）。 */
+  observedTicks(): number {
+    if (!this.started) return 0;
+    return this.lastTick - this.firstTick + 1;
+  }
+
+  /** そのプレイヤーの APM（1 分あたりの操作数）。 */
+  apmOf(p: PlayerId): number {
+    return apmFrom(this.commandsOf(p), this.observedTicks());
   }
 
   /** 結果画面に渡す不変の写し。 */
@@ -274,9 +359,17 @@ export class MatchStats {
         perOrder,
         orderLog: [...this.orderLog[p]!],
         series: [...this.series[p]!],
+        commands: this.commandCount[p]!,
+        apm: this.apmOf(p as PlayerId),
       });
     }
-    return { lastTick: this.lastTick, ticks: [...this.ticks], players, hasGap: this.gap };
+    return {
+      lastTick: this.lastTick,
+      ticks: [...this.ticks],
+      players,
+      hasGap: this.gap,
+      observedTicks: this.observedTicks(),
+    };
   }
 
   // ------------------------------------------------------------------ 資源

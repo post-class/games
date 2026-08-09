@@ -585,10 +585,16 @@ export class OrderCards {
       const key = el('span', 'mt-card-key', String(c.key));
       const name = el('span', 'mt-card-name', c.name);
       plate.append(key, name);
+      // 令のアイコン（M17）。**文字は焼き込んでいない**ので、名前は上の name が出す。
+      // アセットが無い環境では `onerror` で自分を消すだけ（枠が空くより消えたほうがよい）。
+      const icon = el('img', 'mt-card-icon') as HTMLImageElement;
+      icon.alt = '';
+      icon.addEventListener('error', () => icon.remove());
+      icon.src = `assets/ui/order_${c.order}.webp`;
       const tier = el('div', 'mt-card-tier', TIER_LABEL[c.tier]);
       const note = el('div', 'mt-card-note', c.note);
       const state = el('div', 'mt-card-state', '');
-      root.append(plate, tier, note, state);
+      root.append(icon, plate, tier, note, state);
       root.addEventListener('click', () => this.pick(c.order));
       node = { root, plate, name, state };
       this.cardNodes.set(c.order, node);

@@ -1,0 +1,117 @@
+/*
+ * styles/net.css — 通信（M14）の表示だけを持つ CSS
+ *
+ * 中身は 2 つ:
+ *   1. `.mt-desync`     デシンク検出の停止パネル（T-M14-06）
+ *   2. `.mt-net-wait`   入力待ちの小さな帯（「誰かの回線が遅いと全員が待つ」の可視化）
+ *
+ * 規約（`AI_CODING.md` / 手順書 §8.2）:
+ *   - 左右の余白 20px。幅は固定しない（ウィンドウを広げたら領域も広がる）
+ *   - 本文 16px を基準。見出しは 1 行だけ
+ *   - **HUD の位置は動かさない**（`05§1`）。ここにあるのは全部オーバーレイ
+ *
+ * 色は `styles/panels.css` / `render/palette.ts` と揃える（赤 = 危険）。
+ * 他のファイルは編集していない（`main.ts` にこの 1 行を足すだけで効く）。
+ */
+
+.mt-desync {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px; /* 左右の余白 20px */
+  box-sizing: border-box;
+  /* 試合が止まっていることが分かるように、盤面を暗く覆う */
+  background: rgba(8, 6, 4, 0.78);
+  z-index: 50;
+}
+
+.mt-desync[hidden] {
+  display: none;
+}
+
+.mt-desync-box {
+  width: 100%;
+  max-width: 720px; /* 読みやすさの上限。狭い窓では左右 20px まで広がる */
+  box-sizing: border-box;
+  padding: 16px 20px 20px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #e8ded0;
+  background: rgba(18, 16, 12, 0.96);
+  border: 2px solid #c0562f; /* 赤 = 危険（05§15） */
+  border-radius: 6px;
+}
+
+.mt-desync-title {
+  margin: 0 0 10px;
+  font-size: 20px; /* ヘッダは最小限。1 行だけ */
+  font-weight: 700;
+  color: #e6704a;
+}
+
+.mt-desync-line {
+  margin: 0 0 6px;
+}
+
+.mt-desync-table {
+  margin: 12px 0 8px;
+  border-top: 1px solid #4a3a1e;
+}
+
+.mt-desync-head {
+  padding: 8px 0 4px;
+  font-size: 14px;
+  color: #8d8578;
+}
+
+.mt-desync-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(74, 58, 30, 0.6);
+}
+
+.mt-desync-name {
+  color: #e8ded0;
+}
+
+/* ハッシュは等幅で。桁のずれを目で追えることが唯一の手掛かりになる */
+.mt-desync-hash {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  color: #e0b34a;
+}
+
+.mt-desync-groups {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: #8d8578;
+}
+
+/* ------------------------------------------------------ 入力待ちの帯 */
+
+/*
+ * 待っている間も描画は続く（画面は固まらない）。
+ * ただし「なぜ進まないのか」が分からないと不具合と区別できないので、
+ * 画面上端に細い帯を出すだけの表示を用意した。位置は固定（HUD を押しのけない）。
+ */
+.mt-net-wait {
+  position: absolute;
+  top: 0;
+  left: 20px;
+  right: 20px;
+  padding: 4px 0;
+  font-size: 14px;
+  text-align: center;
+  color: #14100c;
+  background: #e0b34a;
+  border-radius: 0 0 4px 4px;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.mt-net-wait[hidden] {
+  display: none;
+}

@@ -1,0 +1,99 @@
+/*
+ * gameMenu.css — 試合中のメニュー（`ui/hud/gameMenu.ts`。`06§11` の F10）
+ *
+ * 盤面の中央に出す。**盤面を全部覆わない**（何が起きているか見えないまま
+ * 投了を決めるのは不合理なので、周りは薄い幕にとどめる）。
+ */
+
+.mt-gmenu {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 盤面を隠しきらない濃さ */
+  background: rgba(10, 9, 6, 0.55);
+  z-index: 60;
+}
+
+.mt-gmenu-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* 左右の余白 20px（コーディング規約）。狭い窓でも内側の余白を保つ */
+  width: min(420px, calc(100vw - 40px));
+  padding: 20px;
+  background: rgba(22, 19, 14, 0.97);
+  border: 1px solid var(--line, #4a3a1e);
+  border-top: 3px solid #d8b24a;
+  border-radius: 6px;
+  font-size: 16px; /* 本文 16px */
+  color: #e8e0cc;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+
+.mt-gmenu-title {
+  font-size: 20px; /* 見出しは控えめに（ヘッダを大きくしすぎない） */
+  font-weight: 700;
+  color: #f0c860;
+  margin-bottom: 4px;
+}
+
+.mt-gmenu-item {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+}
+
+/* 投了は取り返しが付かないので、他の項目と色で区別する */
+.mt-gmenu-resign {
+  border-color: #8a3a2a;
+  color: #f0b8a8;
+}
+
+.mt-gmenu-confirm {
+  padding: 10px 12px;
+  background: rgba(58, 24, 18, 0.7);
+  border: 1px solid #8a3a2a;
+  border-radius: 4px;
+}
+
+.mt-gmenu-note {
+  margin: 0 0 8px;
+  line-height: 1.6;
+}
+
+.mt-gmenu-row {
+  display: flex;
+  gap: 8px;
+}
+
+.mt-gmenu-yes {
+  border-color: #b8503a;
+  color: #ffd8c8;
+}
+
+.mt-gmenu-hint {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--text-dim, #a89b89);
+}
+
+/* 一時停止中は縁を光らせる（メニューを閉じても分かるように帯を出す） */
+.mt-gmenu.is-paused .mt-gmenu-box {
+  border-top-color: #6fa8dc;
+}
+
+.mt-paused-band {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 6px 20px;
+  text-align: center;
+  background: rgba(24, 40, 60, 0.9);
+  border-bottom: 1px solid #6fa8dc;
+  color: #cfe4f7;
+  font-size: 16px;
+  z-index: 55;
+}

@@ -25,7 +25,23 @@ import type { World } from '../world/world';
 import { PILOTS } from '../content/pilots';
 import { expressionFor, portraitFace } from '../ui/Portrait';
 import { NavMap } from './NavMap';
-import { edgeArrow, worldToScreen, type ScreenPoint } from './project';
+import {
+  edgeArrow,
+  openingRectPx,
+  pointInRect,
+  rectEdgeArrow,
+  worldToScreen,
+  type ScreenPoint,
+  type ViewRect,
+} from './project';
+// 風防の開口部 (NDC)。3D 側 (render/Cockpit.ts) が唯一の出所なので、ここでは読むだけ。
+import { COCKPIT_OPENING } from '../render/Cockpit';
+import {
+  damageStage,
+  damageStageAdvice,
+  damageStageLabel,
+  type DamageStage,
+} from './damageStage';
 
 export interface ObjectiveView {
   text: string;
@@ -111,8 +127,22 @@ export class HudView {
   private warnMissile: HTMLElement;
   private warnShield: HTMLElement;
   private warnEject!: HTMLElement;
+  /** ハル危険域の警告灯 (脱出できることを併記する) */
+  private warnHull!: HTMLElement;
   private vignette: HTMLElement;
   private vignetteLevel = 0;
+  /** ハル危険域で画面周辺を赤く縁取る枠 */
+  private dangerFrame!: HTMLElement;
+  private dangerPhase = 0;
+  /** 被弾段階が進んだときだけ出す短い告知 (任務アナウンスとは別枠) */
+  private stageEl!: HTMLElement;
+  private stageUntil = 0;
+  /** 戦死者の名前を画面中央に出す枠 (右上の撃墜ログとは別) */
+  private casualtyEl!: HTMLElement;
+  private casualtyUntil = 0;
+  /** 外部視点用の最小 HUD (ダッシュボードを隠した代わりに出す) */
+  private extHud!: HTMLElement;
+  private externalView = false;
   private stickEl: HTMLElement;
   private autopilotEl: HTMLElement;
   private mouseHintEl!: HTMLElement;
@@ -120,6 +150,8 @@ export class HudView {
   private commsDelayEl!: HTMLElement;
   private cockpit: HTMLElement;
   private chrome: HTMLElement[] = [];
+  /** コクピット装飾 (風防・計器盤の筐体) が出ているか */
+  private decorated = false;
 
   // 計器
   private vduLeft: HTMLElement;
@@ -201,11 +233,78 @@ export class HudView {
     this.warnShield.textContent = 'シールド低下';
     this.warnEject = el('span', 'eject');
     this.warnEject.textContent = '脱出 — 救助待機';
-    warn.append(this.warnLock, this.warnMissile, this.warnShield, this.warnEject);
+    // ハル危険域。「何が起きたか」＋「どうするか」を1つの灯に載せる。
+    this.warnHull = el('span', 'eject');
+    this.warnHull.textContent = 'ハル危険域 — Alt+E で脱出';
+    warn.append(this.warnLock, this.warnMissile, this.warnShield, this.warnEject, this.warnHull);
     this.hud.appendChild(warn);
 
     this.vignette = el('div', 'mc-vignette');
     this.hud.appendChild(this.vignette);
+
+    // ハル危険域の赤い縁取り。CSS を増やさずに済むよう、見た目はここで指定する
+    // (`src/styles/cockpit.css` は別作業で編集中のため、新しい規則を足さない)。
+    this.dangerFrame = el('div', 'mc-hulldanger');
+    this.dangerFrame.style.position = 'absolute';
+    this.dangerFrame.style.inset = '0';
+    this.dangerFrame.style.pointerEvents = 'none';
+    this.dangerFrame.style.boxShadow = 'inset 0 0 90px 22px rgba(255,40,40,0.55)';
+    this.dangerFrame.style.border = '2px solid rgba(255,70,70,0.75)';
+    this.dangerFrame.style.opacity = '0';
+    this.dangerFrame.style.display = 'none';
+    this.hud.appendChild(this.dangerFrame);
+
+    // 被弾段階の告知。任務アナウンス (mc-announce) を潰さないよう別の位置に出す。
+    this.stageEl = el('div', 'mc-damagestage');
+    this.stageEl.style.position = 'absolute';
+    this.stageEl.style.left = '50%';
+    this.stageEl.style.top = '14%';
+    this.stageEl.style.transform = 'translateX(-50%)';
+    this.stageEl.style.padding = '3px 12px';
+    this.stageEl.style.background = 'rgba(4,12,14,0.72)';
+    this.stageEl.style.color = '#ff8f6a';
+    this.stageEl.style.fontSize = '17px';
+    this.stageEl.style.fontWeight = '700';
+    this.stageEl.style.letterSpacing = '0.1em';
+    this.stageEl.style.textShadow = '0 0 8px #000';
+    this.stageEl.style.display = 'none';
+    this.hud.appendChild(this.stageEl);
+
+    // 戦死者・自機撃墜の告知。右上の撃墜ログでは見落とすので中央に出す。
+    this.casualtyEl = el('div', 'mc-casualty');
+    this.casualtyEl.style.position = 'absolute';
+    this.casualtyEl.style.left = '50%';
+    this.casualtyEl.style.top = '44%';
+    this.casualtyEl.style.transform = 'translate(-50%,-50%)';
+    this.casualtyEl.style.textAlign = 'center';
+    this.casualtyEl.style.color = '#ff6b6b';
+    this.casualtyEl.style.fontSize = '30px';
+    this.casualtyEl.style.fontWeight = '700';
+    this.casualtyEl.style.letterSpacing = '0.14em';
+    this.casualtyEl.style.lineHeight = '1.35';
+    this.casualtyEl.style.textShadow = '0 0 12px #000, 0 0 26px rgba(255,60,60,0.6)';
+    this.casualtyEl.style.display = 'none';
+    this.hud.appendChild(this.casualtyEl);
+
+    // 外部視点で計器盤を隠した代わりに出す最小 HUD。
+    // 情報を消すのではなく置き換える (速度・スロットル・ターゲット・目標)。
+    this.extHud = el('div', 'mc-exthud');
+    this.extHud.style.position = 'absolute';
+    this.extHud.style.left = '50%';
+    this.extHud.style.bottom = '24px';
+    this.extHud.style.transform = 'translateX(-50%)';
+    this.extHud.style.padding = '6px 16px';
+    this.extHud.style.border = '1px solid rgba(127,227,176,0.35)';
+    this.extHud.style.background = 'rgba(4,14,14,0.72)';
+    this.extHud.style.color = 'var(--hud)';
+    this.extHud.style.fontSize = '15px';
+    this.extHud.style.letterSpacing = '0.08em';
+    this.extHud.style.lineHeight = '1.5';
+    this.extHud.style.textAlign = 'center';
+    this.extHud.style.whiteSpace = 'pre';
+    this.extHud.style.textShadow = '0 0 6px #000';
+    this.extHud.style.display = 'none';
+    this.hud.appendChild(this.extHud);
 
     this.stickEl = el('div', 'mc-stick');
     this.stickEl.style.display = 'none';
@@ -294,8 +393,101 @@ export class HudView {
 
   /** 視認性に直接関係しないコクピット装飾だけをまとめて切り替える。 */
   setCockpitDecorations(enabled: boolean): void {
+    this.decorated = enabled;
     this.cockpit.classList.toggle('decorated', enabled);
     this.hud.classList.toggle('cockpit-decorated', enabled);
+  }
+
+  /**
+   * いま実際に外が見えている範囲 (ピクセル)。
+   *
+   * コクピット装飾が ON のときは、風防の開口部より外は構造物なので、
+   * そこにターゲット枠やラベルを描くと「見えない敵に枠が付く」ことになる。
+   * 装飾 OFF と外部視点では制限しない (従来どおり画面全体)。
+   *
+   * @param margin 縁から内側に取る余白 (矢印を置くときに使う)
+   */
+  private viewRect(width: number, height: number, margin = 0): ViewRect | undefined {
+    if (!this.decorated || this.externalView) return undefined;
+    return openingRectPx(COCKPIT_OPENING, width, height, margin);
+  }
+
+  /** 開口部の内側に描けるか (画面内かつ構造物に隠れていない)。 */
+  private isReadable(p: ScreenPoint, rect: ViewRect | undefined): boolean {
+    return p.onScreen && (!rect || pointInRect(p, rect));
+  }
+
+  /**
+   * 見えていない対象を指す矢印。
+   * 開口部があるときは画面の縁ではなく**開口部の縁**へ寄せる。
+   */
+  private clippedArrow(
+    f: HudFrame,
+    pos: Vector3,
+    margin: number,
+    p: ScreenPoint,
+  ): { x: number; y: number; angleDeg: number } {
+    const arrowRect = this.viewRect(f.width, f.height, margin);
+    // 前方にあるなら、投影点の向きをそのまま使う (敵の真上あたりに矢印が出る)
+    if (arrowRect && p.inFront) return rectEdgeArrow(p, arrowRect);
+    const a = edgeArrow(f.camera, pos, f.width, f.height, margin);
+    if (!arrowRect) return a;
+    return { ...rectEdgeArrow(a, arrowRect), angleDeg: a.angleDeg };
+  }
+
+  /**
+   * 外部視点 (F) ではダッシュボードを隠し、最小 HUD に置き換える。
+   *
+   * 情報を消すと操作不能になるので、速度・スロットル・ターゲット・目標は
+   * `mc-exthud` に出し続ける。視点の違いが一目で分かることが目的。
+   */
+  setExternalView(external: boolean): void {
+    if (this.externalView === external) return;
+    this.externalView = external;
+    this.applyChromeVisibility();
+  }
+
+  /** 外部視点かどうか (テスト・確認用) */
+  get isExternalView(): boolean {
+    return this.externalView;
+  }
+
+  /** ダッシュボードが表示されているか (テスト・確認用) */
+  get dashboardVisible(): boolean {
+    return this.cockpit.style.display !== 'none';
+  }
+
+  private applyChromeVisibility(): void {
+    for (const n of this.chrome) n.style.display = this.shown ? '' : 'none';
+    // ダッシュボード (DOM の計器盤) は外部視点では出さない。
+    this.cockpit.style.display = this.shown && !this.externalView ? '' : 'none';
+    this.extHud.style.display = this.shown && this.externalView ? '' : 'none';
+  }
+
+  /**
+   * 戦死・自機撃墜を画面中央に出す。
+   * 右上の撃墜ログは流れて消えるため、見落とされない位置に別枠で置く。
+   */
+  showCasualty(title: string, note = '', durationMs = 2600): void {
+    this.casualtyEl.innerHTML = note
+      ? `<div>${escapeHtml(title)}</div><div style="font-size:16px;letter-spacing:0.1em;color:#ffb3a7">${escapeHtml(note)}</div>`
+      : `<div>${escapeHtml(title)}</div>`;
+    this.casualtyEl.style.display = '';
+    this.casualtyUntil = performance.now() + durationMs;
+  }
+
+  /** 被弾段階が進んだときの告知 (段階名 + どうするか)。 */
+  showDamageStage(stage: DamageStage, durationMs = 2600): void {
+    const label = damageStageLabel(stage);
+    if (!label) return;
+    this.stageEl.textContent = `${label} — ${damageStageAdvice(stage)}`;
+    this.stageEl.style.display = '';
+    this.stageUntil = performance.now() + durationMs;
+  }
+
+  /** 画面中央の告知が出ているか (テスト・確認用) */
+  get casualtyVisible(): boolean {
+    return this.casualtyEl.style.display !== 'none';
   }
 
   /** 任務をまたいで持ち越してはいけない HUD の一時表示を消す。 */
@@ -319,6 +511,17 @@ export class HudView {
     this.vignette.style.opacity = '0';
     this.navMap.setOpen(false);
     this.rightVduPage = 'tactical';
+
+    // 段階告知・戦死告知・危険域の縁取りは任務をまたいで残してはいけない
+    this.stageUntil = 0;
+    this.stageEl.style.display = 'none';
+    this.casualtyUntil = 0;
+    this.casualtyEl.style.display = 'none';
+    this.dangerFrame.style.display = 'none';
+    this.dangerFrame.style.opacity = '0';
+    this.dangerPhase = 0;
+    this.externalView = false;
+    this.applyChromeVisibility();
   }
 
   toggleRightVduPage(): void {
@@ -491,7 +694,7 @@ export class HudView {
     this.hud.classList.toggle('mc-colorblind', settings.colorblindMode);
     if (this.shown !== show) {
       this.shown = show;
-      for (const n of this.chrome) n.style.display = show ? '' : 'none';
+      this.applyChromeVisibility();
     }
     if (!show) {
       this.navMap.setOpen(false);
@@ -509,6 +712,14 @@ export class HudView {
     if (this.announceUntil && now > this.announceUntil) {
       this.announce.className = 'mc-announce';
       this.announceUntil = 0;
+    }
+    if (this.stageUntil && now > this.stageUntil) {
+      this.stageUntil = 0;
+      this.stageEl.style.display = 'none';
+    }
+    if (this.casualtyUntil && now > this.casualtyUntil) {
+      this.casualtyUntil = 0;
+      this.casualtyEl.style.display = 'none';
     }
 
     this.vignetteLevel = Math.max(0, this.vignetteLevel - dtReal * 1.6);
@@ -548,6 +759,10 @@ export class HudView {
     if (!player || !player.ship) {
       this.tgtBox.style.display = 'none';
       this.lead.style.display = 'none';
+      // 自機を失った直後は危険域の縁取りを残さない (撃墜演出は別枠で見せる)
+      this.dangerFrame.style.display = 'none';
+      // 撃墜後は計器を読めない。空の枠を残さないよう最小 HUD も畳む。
+      if (this.extHud.style.display !== 'none') this.extHud.style.display = 'none';
       this.hideMarkersFrom(0);
       return;
     }
@@ -558,7 +773,53 @@ export class HudView {
     this.renderLeftVdu(player);
     this.renderRightVdu(f, player);
     this.renderWarnings(f, player);
+    this.renderDanger(player, dtReal);
+    this.renderExternalHud(f, player);
     this.renderWorldMarkers(f, player);
+  }
+
+  /**
+   * ハル危険域の赤い縁取り。
+   *
+   * `reducedFlashes` では点滅させず一定の濃さで出す。点滅を抑えても
+   * 警告灯の文字 (ハル危険域 — Alt+E で脱出) は残るので、情報は失われない。
+   */
+  private renderDanger(player: Entity, dtReal: number): void {
+    const ship = player.ship!;
+    const critical = !ship.ejected && damageStage(healthRatios(player)) === 'hull-critical';
+    if (!critical) {
+      if (this.dangerFrame.style.display !== 'none') {
+        this.dangerFrame.style.display = 'none';
+        this.dangerFrame.style.opacity = '0';
+      }
+      this.dangerPhase = 0;
+      return;
+    }
+    this.dangerFrame.style.display = '';
+    if (settings.reducedFlashes) {
+      this.dangerFrame.style.opacity = '0.5';
+      return;
+    }
+    this.dangerPhase = (this.dangerPhase + dtReal * 3.4) % (Math.PI * 2);
+    this.dangerFrame.style.opacity = (0.34 + 0.3 * (0.5 + 0.5 * Math.sin(this.dangerPhase))).toFixed(3);
+  }
+
+  /** 外部視点用の最小 HUD。計器盤を隠した分の情報をここへ移す。 */
+  private renderExternalHud(f: HudFrame, player: Entity): void {
+    if (!this.externalView) return;
+    const speed = player.vel.length();
+    const target = f.world.byId(player.ship!.targetId);
+    const targetText = target
+      ? `${target.ship?.pilot ?? target.label ?? '目標'} ${target.pos.distanceTo(player.pos).toFixed(0)}m`
+      : '—';
+    const navText = f.nav
+      ? `${f.nav.label ?? 'NAV'} ${(f.nav.pos.distanceTo(player.pos) / 1000).toFixed(1)}k`
+      : '—';
+    const objective = f.objectives?.find((o) => o.state === 'active')?.text ?? '—';
+    const text =
+      `外部視点 [F]　SPD ${speed.toFixed(0)} KPS　THR ${(f.throttle * 100) | 0}%\n` +
+      `TGT ${targetText}　NAV ${navText}\n目標 ${objective}`;
+    if (this.extHud.textContent !== text) this.extHud.textContent = text;
   }
 
   private expire(lines: RadioLine[], now: number): void {
@@ -966,6 +1227,11 @@ export class HudView {
     toggle(this.warnMissile, !!f.world.byId(ship.incomingMissileId));
     toggle(this.warnShield, !ship.ejected && h.shieldFront < 0.2 && h.shieldRear < 0.2);
     toggle(this.warnEject, !!ship.ejected);
+    // ハル危険域。点滅を抑える設定では文字だけを残す (情報は消さない)。
+    const critical = !ship.ejected && damageStage(h) === 'hull-critical';
+    toggle(this.warnHull, critical);
+    const animation = settings.reducedFlashes ? 'none' : '';
+    if (this.warnHull.style.animation !== animation) this.warnHull.style.animation = animation;
   }
 
   private renderWorldMarkers(f: HudFrame, player: Entity): void {
@@ -973,13 +1239,16 @@ export class HudView {
     const target = f.world.byId(ship.targetId);
     const w = f.width;
     const hgt = f.height;
+    // 風防の開口部。ここより外は構造物なので、枠やラベルを置くと
+    // 「見えない敵に枠が付く」ことになる (装飾 OFF / 外部視点では undefined)。
+    const rect = this.viewRect(w, hgt);
 
     // ── ターゲット枠 ──
     if (target) {
       // 味方は報告位置に枠が出る (3秒前の場所を囲む)
       const targetPos = reportedPosition(target, this.tmpReport);
       const p = worldToScreen(f.camera, targetPos, w, hgt, this.tmpScreen);
-      if (p.onScreen) {
+      if (this.isReadable(p, rect)) {
         // 距離に応じた枠の大きさ
         const d = Math.max(1, targetPos.distanceTo(player.pos));
         const px = Math.max(22, Math.min(320, (target.radius * 2.2 * hgt) / (2 * d * Math.tan((f.camera.fov * Math.PI) / 360))));
@@ -1000,8 +1269,9 @@ export class HudView {
         this.tgtLabel.textContent = `${target.label ?? ''} ${d.toFixed(0)}`;
         this.tgtArrow.style.display = 'none';
       } else {
+        // 画面外、または構造物の裏。どちらも「見えていない」ので矢印に寄せる。
         this.tgtBox.style.display = 'none';
-        const a = edgeArrow(f.camera, targetPos, w, hgt, 40);
+        const a = this.clippedArrow(f, targetPos, 40, p);
         this.tgtArrow.style.display = '';
         this.tgtArrow.style.left = `${a.x}px`;
         this.tgtArrow.style.top = `${a.y}px`;
@@ -1019,7 +1289,8 @@ export class HudView {
         this.tmpV,
       );
       const lp = worldToScreen(f.camera, leadPos, w, hgt);
-      if (lp.onScreen) {
+      // リード表示も開口部の内側だけ。構造物の上に照準環だけ浮かせない。
+      if (this.isReadable(lp, rect)) {
         this.lead.style.display = '';
         this.lead.style.left = `${lp.x}px`;
         this.lead.style.top = `${lp.y}px`;
@@ -1036,7 +1307,7 @@ export class HudView {
     if (f.nav) {
       const p = worldToScreen(f.camera, f.nav.pos, w, hgt);
       const d = f.nav.pos.distanceTo(player.pos);
-      if (p.onScreen) {
+      if (this.isReadable(p, rect)) {
         this.navMarker.style.display = '';
         this.navMarker.style.left = `${p.x}px`;
         this.navMarker.style.top = `${p.y}px`;
@@ -1044,7 +1315,7 @@ export class HudView {
         this.navArrow.style.display = 'none';
       } else {
         this.navMarker.style.display = 'none';
-        const a = edgeArrow(f.camera, f.nav.pos, w, hgt, 70);
+        const a = this.clippedArrow(f, f.nav.pos, 70, p);
         this.navArrow.style.display = '';
         this.navArrow.style.left = `${a.x}px`;
         this.navArrow.style.top = `${a.y}px`;
@@ -1070,7 +1341,8 @@ export class HudView {
     for (const { e, d } of list) {
       if (used >= MAX_MARKERS) break;
       const p = worldToScreen(f.camera, reportedPosition(e, this.tmpReport), w, hgt);
-      if (!p.onScreen) continue;
+      // 構造物の裏にいる機体には印を付けない (方向は矢印とレーダーで示す)
+      if (!this.isReadable(p, rect)) continue;
       const m = this.marker(used++);
       const hostile = isHostile(player.faction, e.faction);
       const cls = `mc-marker ${hostile ? 'enemy' : 'friend'}`;

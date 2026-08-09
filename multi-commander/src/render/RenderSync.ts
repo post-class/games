@@ -16,6 +16,13 @@ import {
   requestShipVisual,
   type ShipVisualRequest,
 } from './MeshFactory';
+import {
+  attachVisibilityAids,
+  updateVisibilityAids,
+  type FactionTone,
+  type VisibilityAids,
+} from './ShipVisibility';
+import { plumeVisibilityBoost } from './Visibility';
 
 const _pos = new Vector3();
 const _quat = new Quaternion();
@@ -23,8 +30,12 @@ const _aim = new Vector3();
 const _forward = new Vector3();
 /** 砲塔が的を見失ったときに向く方向 (艦の外側前方) */
 const _rest = new Vector3();
-/** これより近い弾は描かない (自機の砲口すぐの弾で視界が塞がるのを防ぐ) */
-const NEAR_CLIP_SQ = 45 * 45;
+/**
+ * これより近い弾は描かない (自機の砲口すぐの弾で視界が塞がるのを防ぐ)。
+ * 「自分の弾がどこへ飛んだか」を最優先にするため、
+ * 砲身の長さぶんだけ隠したらすぐ見えるところまで詰める。
+ */
+const NEAR_CLIP_SQ = 18 * 18;
 /** 性能予算。近い敵を優先し、遠い敵の描画だけを落とす。シミュレーションは継続する。 */
 const MAX_RENDERED_HOSTILES = 24;
 
@@ -41,6 +52,8 @@ export class RenderSync {
   private damage = new Map<number, BattleDamage>();
   /** GLTF 差し替え中のリクエスト。エンティティ消滅時に必ず無効化する */
   private shipVisuals = new Map<number, ShipVisualRequest>();
+  /** 縁光シェルと遠距離の光点 (距離帯ごとに強度を切り替える) */
+  private aids = new Map<number, VisibilityAids>();
   private seen = new Set<number>();
   readonly root = new Group();
   /** コクピット視点では自機を描かない */
@@ -63,6 +76,8 @@ export class RenderSync {
       // デカールと焼け跡はテンプレート共有できないので実体に貼る
       attachDecals(obj, e);
       this.damage.set(e.id, new BattleDamage(obj, e));
+      // 縁光と光点。マテリアルは共有インスタンスなので実体ごとの生成は起きない
+      this.aids.set(e.id, attachVisibilityAids(obj));
       return obj;
     }
     if (e.kind === 'projectile' && e.projectile) {
@@ -133,6 +148,17 @@ export class RenderSync {
     }
   }
 
+  /**
+   * 縁光の色。敵=暖色 (赤)、味方=寒色 (青)、それ以外=白。
+   * 敵が連邦機に乗っていても「敵」として読めるよう、機体定義ではなく実体の陣営で決める。
+   */
+  private toneFor(player: Entity | undefined, e: Entity): FactionTone {
+    if (!player) return 'neutral';
+    if (isHostile(player.faction, e.faction)) return 'hostile';
+    if (e.faction === player.faction) return 'friendly';
+    return 'neutral';
+  }
+
   sync(world: World, alpha: number, cameraPos?: Vector3, dt = 1 / 60): void {
     this.seen.clear();
     const player = world.player;
@@ -169,7 +195,20 @@ export class RenderSync {
           obj.position.addScaledVector(_forward, -recoil);
         }
       }
-      this.plumes.get(e.id)?.update(e, dt);
+      // ── 距離帯ごとの見せ方 (縁光・光点・エンジン光) ──
+      let plumeBoost = 1;
+      if (e.kind === 'ship' && e.id !== world.playerId) {
+        const eye = cameraPos ?? player?.pos;
+        const distance = eye ? _pos.distanceTo(eye) : 0;
+        const aids = this.aids.get(e.id);
+        if (aids) updateVisibilityAids(aids, this.toneFor(player, e), distance, e.radius);
+        plumeBoost = plumeVisibilityBoost(distance);
+      }
+      const plume = this.plumes.get(e.id);
+      if (plume) {
+        plume.visibilityBoost = plumeBoost;
+        plume.update(e, dt);
+      }
       const turrets = this.turrets.get(e.id);
       if (turrets) this.aimTurrets(world, e, turrets);
       this.damage.get(e.id)?.update(e, world.time);
@@ -198,6 +237,7 @@ export class RenderSync {
       this.shipVisuals.delete(id);
       this.plumes.delete(id);
       this.turrets.delete(id);
+      this.aids.delete(id);
       this.damage.get(id)?.dispose();
       this.damage.delete(id);
     }
@@ -210,6 +250,7 @@ export class RenderSync {
     this.meshes.clear();
     this.plumes.clear();
     this.turrets.clear();
+    this.aids.clear();
     for (const d of this.damage.values()) d.dispose();
     this.damage.clear();
   }

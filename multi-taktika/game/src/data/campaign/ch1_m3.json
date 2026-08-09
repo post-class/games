@@ -1,0 +1,63 @@
+{
+  "_note": "第 1 章 第 3 話（06§13「2 つ目が立つ」）。片方に死守、片方に突撃。「両方を勝たせようとしない」練習。",
+  "id": "ch1_m3",
+  "chapter": 1,
+  "index": 3,
+  "route": "main",
+  "title": "2 つ目が立つ",
+  "brief": "戦域が 2 つ立つ。片方に死守、片方に突撃を渡す。両方を勝たせようとしないこと。",
+  "hints": [
+    "戦域が 2 つ立ちます。両方に突撃を渡しても両方は勝てません。",
+    "押されている側に死守（Shift+3 の位置の令）を渡して足止めしてください。",
+    "もう片方に突撃を渡して、そちらだけを押し切ります。"
+  ],
+  "setup": {
+    "map": "plain",
+    "seed": 10303,
+    "playerCount": 2,
+    "player": 0,
+    "civs": ["yamato", "tou"],
+    "teams": [0, 1],
+    "startAge": "seido",
+    "startResources": "standard",
+    "units": [
+      { "player": 0, "unit": "y-ashigaru", "count": 7, "at": { "player": 0, "dx": 8, "dy": 0 } },
+      { "player": 0, "unit": "y-ashigaru", "count": 7, "at": { "player": 0, "dx": 0, "dy": 8 } }
+    ]
+  },
+  "victory": [
+    { "type": "holdFrontsWithOrder", "player": "self", "order": "hold", "count": 1, "ticks": 250 },
+    { "type": "holdFrontsWithOrder", "player": "self", "order": "charge", "count": 1, "ticks": 250 },
+    { "type": "unitCountAtMost", "player": 1, "unit": "t-hosotsu", "count": 0 }
+  ],
+  "defeat": [
+    { "type": "buildingCountAtMost", "player": "self", "building": "town_center", "count": 0 },
+    { "type": "loyaltyAtMostPercent", "player": "self", "percent": 0 }
+  ],
+  "events": [
+    { "atTick": 0, "type": "showHint", "text": "二方向から来ます。先に立った戦域から順に令を渡してください。" },
+    {
+      "atTick": 250,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [{ "unit": "t-hosotsu", "count": 5 }],
+      "at": { "player": 0, "dx": 24, "dy": 0 },
+      "attackAt": { "player": 0, "dx": 8, "dy": 0 }
+    },
+    {
+      "atTick": 1000,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [{ "unit": "t-hosotsu", "count": 8 }],
+      "at": { "player": 0, "dx": 0, "dy": 24 },
+      "attackAt": { "player": 0, "dx": 0, "dy": 8 }
+    },
+    {
+      "when": { "type": "frontOpened", "count": 2 },
+      "type": "showHint",
+      "text": "戦域が 2 つ立ちました。押されている方に死守、もう片方に突撃。両方を勝たせようとしないこと。"
+    }
+  ],
+  "onVictory": "ch1_m4",
+  "onDefeat": "ch1_m3v"
+}

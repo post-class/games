@@ -19,7 +19,7 @@
 import { describe, expect, it } from 'vitest';
 import { EntityKind, RESOURCE_COUNT } from '@/shared/types';
 import { buildingDefById, unitDefById } from '@/sim/core/defs';
-import { fxToInt } from '@/sim/core/fx';
+import { fx, fxToInt } from '@/sim/core/fx';
 import { TICK_RATE } from '@/sim/core/config';
 import { stepWorld } from '@/sim/index';
 import { createMatch } from '@/sim/setup';
@@ -113,6 +113,13 @@ describe('内政 AI（T-M13-02）', () => {
       const { world } = createMatch({ seed: 11, playerCount: 2 });
       const ai = new AiPlayer(0, level);
       for (let t = 0; t < 60 * TICK_RATE; t++) {
+        // **資源を潤沢に保つ。**
+        // AI は「費用が足りているときだけ」進化を出すようになった（空打ちをやめた）。
+        // 60 秒では自力で費用が貯まらないので、ここで資源を与えて
+        // 「どの段階が進化を試みるか」という本題だけを見えるようにする。
+        for (let r = 0; r < world.players[0]!.resources.length; r++) {
+          world.players[0]!.resources[r] = fx(5000);
+        }
         const cmds = ai.think(world);
         for (const c of cmds) if (c.t === 'advanceAge') seen[level - 1] = true;
         stepWorld(world, cmds);

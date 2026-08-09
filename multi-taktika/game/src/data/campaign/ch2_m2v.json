@@ -1,0 +1,63 @@
+{
+  "_note": "T-M16-03 分岐。ch2_m2 に負けた側。服属したまま塩の値を飲まされる年。",
+  "extends": "ch2_m2",
+  "id": "ch2_m2v",
+  "route": "vassal",
+  "title": "塩の値（服属の年）",
+  "brief": "服属したまま隊商の値を飲まされる年。二本抱える兵はない。片方は初めから捨てる前提で組む。",
+  "hints": [
+    "兵は本線より少ないです。片方は捨てて構いません。",
+    "押されている側に死守、もう片方に突撃。",
+    "勝てば旗を戻して本線に復帰できます。"
+  ],
+  "setup": {
+    "startResources": "low",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-ashigaru",
+        "count": 6,
+        "at": {
+          "player": 0,
+          "dx": 8,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-yumiashigaru",
+        "count": 5,
+        "at": {
+          "player": 0,
+          "dx": 0,
+          "dy": 8
+        }
+      }
+    ]
+  },
+  "extraEvents": [
+    {
+      "atTick": 2400,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "m-yumi",
+          "count": 4
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 24,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 8,
+        "dy": 0
+      }
+    }
+  ],
+  "onVictory": "ch2_m3",
+  "onDefeat": "ch2_m3v"
+}

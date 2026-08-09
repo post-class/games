@@ -1,0 +1,135 @@
+{
+  "_note": "第 2 章 第 3 話。水閘の唐が運河の関で通行料を取る。関の前で押し合う。押される側に死守、抜ける側に突撃。攻城はまだ出てこない。",
+  "id": "ch2_m3",
+  "chapter": 2,
+  "index": 3,
+  "route": "main",
+  "title": "河口の関",
+  "brief": "水閘の唐が河口に関を据えて通行料を取り始めた。関の前で押し合いになる。押される側に死守を渡して止め、抜ける側に突撃を渡して通す。",
+  "hints": [
+    "関の守兵は正面に固まっています。正面は死守で止めてください。",
+    "止めている間に、川筋を回った一隊に突撃を渡して抜けます。",
+    "門を落とす令（包囲）はまだ要りません。鉄器の世からです。"
+  ],
+  "setup": {
+    "map": "river",
+    "seed": 20303,
+    "playerCount": 2,
+    "player": 0,
+    "civs": [
+      "yamato",
+      "tou"
+    ],
+    "teams": [
+      0,
+      1
+    ],
+    "startAge": "seido",
+    "startResources": "standard",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-ashigaru",
+        "count": 8,
+        "at": {
+          "player": 1,
+          "dx": -10,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-yumiashigaru",
+        "count": 6,
+        "at": {
+          "player": 1,
+          "dx": 0,
+          "dy": 10
+        }
+      },
+      {
+        "player": 1,
+        "unit": "t-hosotsu",
+        "count": 7,
+        "at": {
+          "player": 1,
+          "dx": -4,
+          "dy": 0
+        }
+      }
+    ]
+  },
+  "victory": [
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "hold",
+      "count": 1,
+      "ticks": 250
+    },
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "charge",
+      "count": 1,
+      "ticks": 250
+    },
+    {
+      "type": "unitCountAtMost",
+      "player": 1,
+      "unit": "t-hosotsu",
+      "count": 0
+    }
+  ],
+  "defeat": [
+    {
+      "type": "buildingCountAtMost",
+      "player": "self",
+      "building": "town_center",
+      "count": 0
+    },
+    {
+      "type": "loyaltyAtMostPercent",
+      "player": "self",
+      "percent": 0
+    }
+  ],
+  "events": [
+    {
+      "atTick": 0,
+      "type": "showHint",
+      "text": "正面は死守で止めてください。抜けるのは川筋の一隊です。"
+    },
+    {
+      "atTick": 1200,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "t-yumite",
+          "count": 5
+        }
+      ],
+      "at": {
+        "player": 1,
+        "dx": 4,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 1,
+        "dx": -4,
+        "dy": 0
+      }
+    },
+    {
+      "when": {
+        "type": "frontOpened",
+        "count": 2
+      },
+      "type": "showHint",
+      "text": "二本目が立ちました。抜ける側に突撃を渡してください。"
+    }
+  ],
+  "onVictory": "ch2_m4",
+  "onDefeat": "ch2_m3v"
+}

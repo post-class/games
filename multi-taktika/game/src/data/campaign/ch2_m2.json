@@ -1,0 +1,167 @@
+{
+  "_note": "第 2 章 第 2 話。塩街道のマリと岩塩の値で揉める。戦線が二本になり、片方を死守で止めてもう片方を押す。",
+  "id": "ch2_m2",
+  "chapter": 2,
+  "index": 2,
+  "route": "main",
+  "title": "塩の値",
+  "brief": "塩街道の隊商が値を上げ、東の川筋と南の草地の二方から押してくる。押される側に死守を渡し、もう片方を突撃で押し切る。",
+  "hints": [
+    "隊商は金で人を動かします。数は向こうが多いと思ってください。",
+    "先に立った戦域に死守を渡して足止めし、次に立った戦域を突撃で押し切ります。",
+    "二本とも勝たせようとしないこと。青銅の世の枠は二本です。"
+  ],
+  "setup": {
+    "map": "steppe",
+    "seed": 20202,
+    "playerCount": 2,
+    "player": 0,
+    "civs": [
+      "yamato",
+      "mali"
+    ],
+    "teams": [
+      0,
+      1
+    ],
+    "startAge": "seido",
+    "startResources": "standard",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-ashigaru",
+        "count": 7,
+        "at": {
+          "player": 0,
+          "dx": 8,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-yumiashigaru",
+        "count": 6,
+        "at": {
+          "player": 0,
+          "dx": 0,
+          "dy": 8
+        }
+      }
+    ]
+  },
+  "victory": [
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "hold",
+      "count": 1,
+      "ticks": 250
+    },
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "charge",
+      "count": 1,
+      "ticks": 250
+    },
+    {
+      "type": "unitCountAtMost",
+      "player": 1,
+      "unit": "m-yarite",
+      "count": 0
+    }
+  ],
+  "defeat": [
+    {
+      "type": "buildingCountAtMost",
+      "player": "self",
+      "building": "town_center",
+      "count": 0
+    },
+    {
+      "type": "loyaltyAtMostPercent",
+      "player": "self",
+      "percent": 0
+    }
+  ],
+  "events": [
+    {
+      "atTick": 0,
+      "type": "showHint",
+      "text": "二方から来ます。先に立った戦域から順に令を渡してください。"
+    },
+    {
+      "atTick": 250,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "m-yarite",
+          "count": 5
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 24,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 8,
+        "dy": 0
+      }
+    },
+    {
+      "atTick": 1000,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "m-yarite",
+          "count": 8
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 0,
+        "dy": 24
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 0,
+        "dy": 8
+      }
+    },
+    {
+      "atTick": 1800,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "m-yumi",
+          "count": 4
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 0,
+        "dy": 24
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 0,
+        "dy": 8
+      }
+    },
+    {
+      "when": {
+        "type": "frontOpened",
+        "count": 2
+      },
+      "type": "showHint",
+      "text": "二本立ちました。押されている側に死守、もう片方に突撃。"
+    }
+  ],
+  "onVictory": "ch2_m3",
+  "onDefeat": "ch2_m2v"
+}

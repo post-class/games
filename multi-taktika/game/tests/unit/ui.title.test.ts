@@ -93,10 +93,12 @@ describe('buildTitleMenu — メニュー 4 項目（05§2-3）', () => {
     expect(buildTitleMenu(noSave, registered())[1]!.enabled).toBe(false);
   });
 
-  it('オンラインは画面があっても通信が未実装なので押せない（M14 待ち）', () => {
+  it('オンラインは対戦設定画面が登録されていれば押せる（M14 の結線が入った）', () => {
+    // 中継サーバが動いていない場合は、押したあとの帯に理由が出る。
+    // 「押せない」ではなく「押したら分かる」に寄せた（`ONLINE_PENDING = false`）。
     const online = buildTitleMenu(noSave, registered('matchSetup'))[2]!;
-    expect(online.enabled).toBe(false);
-    expect(online.reason).toContain('M14');
+    expect(online.enabled).toBe(true);
+    expect(online.reason).toBeNull();
   });
 
   it('押せる項目には理由が付かない', () => {

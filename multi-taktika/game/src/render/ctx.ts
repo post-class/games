@@ -40,6 +40,20 @@ export interface Ctx2D {
   moveTo(x: number, y: number): void;
   lineTo(x: number, y: number): void;
   arc(x: number, y: number, r: number, a0: number, a1: number): void;
+  /**
+   * 楕円。俯瞰の盤面では「足元の接地円」は円ではなく**潰れた楕円**でないと
+   * 地面に貼り付いて見えない（`arc` だと空中に浮いた輪に見える）。
+   * アトラスのスプライトの影と陣営色リングで使う（`render/atlas.ts`）。
+   */
+  ellipse(
+    x: number,
+    y: number,
+    rx: number,
+    ry: number,
+    rotation: number,
+    a0: number,
+    a1: number,
+  ): void;
   rect(x: number, y: number, w: number, h: number): void;
   fill(): void;
   stroke(): void;
@@ -53,6 +67,18 @@ export interface Ctx2D {
 
   drawImage(image: CanvasImageSource, dx: number, dy: number): void;
   drawImage(image: CanvasImageSource, dx: number, dy: number, dw: number, dh: number): void;
+  /** アトラスから 1 枚だけ切り出して貼る（切り出し矩形 + 貼り付け矩形）。 */
+  drawImage(
+    image: CanvasImageSource,
+    sx: number,
+    sy: number,
+    sw: number,
+    sh: number,
+    dx: number,
+    dy: number,
+    dw: number,
+    dh: number,
+  ): void;
 }
 
 /** オフスクリーンのコピー元にできるもの（地形キャッシュ）。 */

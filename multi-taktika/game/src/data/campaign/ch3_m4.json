@@ -1,0 +1,156 @@
+{
+  "_note": "第 3 章 第 4 話。攻城の解禁（鉄器の世）。翠壁の石切場の門を落とす。略奪で囮、包囲で門。井櫓を渡す。",
+  "id": "ch3_m4",
+  "chapter": 3,
+  "index": 4,
+  "route": "main",
+  "title": "石切場",
+  "brief": "翠壁の石切場から石が出なくなれば境の砦は建たない。鉄器の世で攻城が解禁される。囮に略奪、門前に包囲を渡して柵門を落とす。",
+  "hints": [
+    "包囲は建物に強い令です。井櫓を含む戦域に渡してください。",
+    "門を正面から叩くと守兵が集まります。まず反対側に略奪を立ててください。",
+    "門が落ちれば石は出ます。町の中心まで落とす必要はありません。"
+  ],
+  "setup": {
+    "map": "jungle",
+    "seed": 30404,
+    "playerCount": 2,
+    "player": 0,
+    "civs": [
+      "yamato",
+      "azteca"
+    ],
+    "teams": [
+      0,
+      1
+    ],
+    "startAge": "tekki",
+    "startResources": "high",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-musha",
+        "count": 8,
+        "at": {
+          "player": 1,
+          "dx": -12,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-seiro",
+        "count": 3,
+        "at": {
+          "player": 1,
+          "dx": -12,
+          "dy": 2
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-daikyu",
+        "count": 6,
+        "at": {
+          "player": 1,
+          "dx": 0,
+          "dy": 12
+        }
+      },
+      {
+        "player": 1,
+        "unit": "a-obsidian",
+        "count": 8,
+        "at": {
+          "player": 1,
+          "dx": -5,
+          "dy": 0
+        }
+      }
+    ],
+    "buildings": [
+      {
+        "player": 1,
+        "building": "palisade_gate",
+        "at": {
+          "player": 1,
+          "dx": -7,
+          "dy": 0
+        }
+      }
+    ]
+  },
+  "victory": [
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "raid",
+      "count": 1,
+      "ticks": 125
+    },
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "siege",
+      "count": 1,
+      "ticks": 125
+    },
+    {
+      "type": "buildingCountAtMost",
+      "player": 1,
+      "building": "palisade_gate",
+      "count": 0
+    }
+  ],
+  "defeat": [
+    {
+      "type": "buildingCountAtMost",
+      "player": "self",
+      "building": "town_center",
+      "count": 0
+    },
+    {
+      "type": "loyaltyAtMostPercent",
+      "player": "self",
+      "percent": 0
+    }
+  ],
+  "events": [
+    {
+      "atTick": 0,
+      "type": "showHint",
+      "text": "南の一隊に略奪を渡して囮の戦域を立ててください。"
+    },
+    {
+      "atTick": 1500,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "a-atlatl",
+          "count": 5
+        }
+      ],
+      "at": {
+        "player": 1,
+        "dx": 4,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 1,
+        "dx": -7,
+        "dy": 0
+      }
+    },
+    {
+      "when": {
+        "type": "frontOpened",
+        "count": 2
+      },
+      "type": "showHint",
+      "text": "囮が立ちました。門前の戦域に包囲を渡してください。"
+    }
+  ],
+  "onVictory": "ch3_m5",
+  "onDefeat": "ch3_m4v"
+}

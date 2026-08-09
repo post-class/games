@@ -152,6 +152,7 @@ export const VEIL_CH10: MissionDef = {
       offset: [1800, -400, 1200],
       spread: 900,
       tag: TAG.escort,
+      displayName: '避難船',
       speed: 30,
       cruiseToNav: 2,
     },

@@ -1,0 +1,29 @@
+{
+  "_note": "T-M16-03 分岐（02「戦のあと ― 滅亡はない」）。ch1_m2 に負けた側のルート。服属した立場から始めるので開始資源が少なく、寄せ手が多い。勝てば旗を戻して本線（ch1_m3）へ復帰する。",
+  "extends": "ch1_m2",
+  "id": "ch1_m2v",
+  "route": "vassal",
+  "title": "戦域が 1 つ立つ（服属の年）",
+  "brief": "旗を巻いた翌年。蔵は空で、寄せ手は前より多い。ここで勝てば旗を戻せる。",
+  "hints": [
+    "服属した立場なので蔵が空です。手持ちの兵で戦域を保たせてください。",
+    "1 で戦域を選び、Shift+1（突撃）を渡します。手順は本線と同じです。",
+    "勝てば旗を戻して本線に復帰できます。負けても次の話には進めます。"
+  ],
+  "setup": {
+    "startResources": "low",
+    "units": [{ "player": 0, "unit": "y-ashigaru", "count": 5, "at": { "player": 0, "dx": 6, "dy": 0 } }]
+  },
+  "extraEvents": [
+    {
+      "atTick": 900,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [{ "unit": "t-hosotsu", "count": 4 }],
+      "at": { "player": 0, "dx": 22, "dy": 0 },
+      "attackAt": { "player": 0, "dx": 6, "dy": 0 }
+    }
+  ],
+  "onVictory": "ch1_m3",
+  "onDefeat": "ch1_m3v"
+}

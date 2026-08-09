@@ -1,0 +1,230 @@
+{
+  "_note": "第 4 章 第 1 話。帝国の世。碑の上段「火の条」から硝石と火薬が読めた年。城を一つ持つので戦域は五本立つ。",
+  "id": "ch4_m1",
+  "chapter": 4,
+  "index": 1,
+  "route": "main",
+  "title": "火の条",
+  "brief": "碑の上段が火の条を明かし、鉄砲が並び始めた。泉都のペルシアが重い初手で四方から寄せる。城が一つあるので戦域は五本まで立つ。",
+  "hints": [
+    "帝国の世は四本、城が一つあるので五本まで立ちます。全部は勝てません。",
+    "死守で止め、保たない一本は後退で畳み、残した一本を突撃で押し切ってください。",
+    "鉄砲は数が要ります。町の中心を止めないこと。"
+  ],
+  "setup": {
+    "map": "plain",
+    "seed": 40101,
+    "playerCount": 2,
+    "player": 0,
+    "civs": [
+      "yamato",
+      "persia"
+    ],
+    "teams": [
+      0,
+      1
+    ],
+    "startAge": "teikoku",
+    "startResources": "high",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-nagae",
+        "count": 10,
+        "at": {
+          "player": 0,
+          "dx": 10,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-teppo",
+        "count": 8,
+        "at": {
+          "player": 0,
+          "dx": 0,
+          "dy": 10
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-kiba",
+        "count": 6,
+        "at": {
+          "player": 0,
+          "dx": -10,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-nagae",
+        "count": 6,
+        "at": {
+          "player": 0,
+          "dx": 0,
+          "dy": -10
+        }
+      }
+    ],
+    "buildings": [
+      {
+        "player": 0,
+        "building": "castle",
+        "at": {
+          "player": 0,
+          "dx": -6,
+          "dy": -6
+        }
+      }
+    ]
+  },
+  "victory": [
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "hold",
+      "count": 1,
+      "ticks": 250
+    },
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "retreat",
+      "count": 1,
+      "ticks": 125
+    },
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "charge",
+      "count": 1,
+      "ticks": 250
+    },
+    {
+      "type": "surviveTicks",
+      "ticks": 2500
+    },
+    {
+      "type": "unitCountAtMost",
+      "player": 1,
+      "unit": "p-naga",
+      "count": 0
+    }
+  ],
+  "defeat": [
+    {
+      "type": "buildingCountAtMost",
+      "player": "self",
+      "building": "town_center",
+      "count": 0
+    },
+    {
+      "type": "loyaltyAtMostPercent",
+      "player": "self",
+      "percent": 0
+    }
+  ],
+  "events": [
+    {
+      "atTick": 0,
+      "type": "showHint",
+      "text": "四方から来ます。城があるので戦域は五本まで立ちます。"
+    },
+    {
+      "atTick": 250,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "p-naga",
+          "count": 8
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 26,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 10,
+        "dy": 0
+      }
+    },
+    {
+      "atTick": 900,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "p-gun",
+          "count": 6
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 0,
+        "dy": 26
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 0,
+        "dy": 10
+      }
+    },
+    {
+      "atTick": 1600,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "p-cataphract",
+          "count": 6
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": -26,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": -10,
+        "dy": 0
+      }
+    },
+    {
+      "atTick": 2300,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "p-naga",
+          "count": 6
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 0,
+        "dy": -26
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 0,
+        "dy": -10
+      }
+    },
+    {
+      "when": {
+        "type": "frontOpened",
+        "count": 4
+      },
+      "type": "showHint",
+      "text": "四本を超えました。畳む一本と勝たせる一本を決めてください。"
+    }
+  ],
+  "onVictory": "ch4_m2",
+  "onDefeat": "ch4_m1v"
+}

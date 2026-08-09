@@ -1,4 +1,5 @@
 import { onSettingsChanged, settings } from '../app/settings';
+import type { DamageStage } from '../hud/damageStage';
 
 type ExplosionSize = 'small' | 'large' | 'torpedo' | 'shield' | 'breach';
 type MissileId = 'dumbfire' | 'heat-seeker' | 'image-rec' | 'torpedo' | (string & {});
@@ -581,7 +582,30 @@ export class AudioManager {
     this.beep(frequency, complete ? (torpedo ? 0.24 : 0.14) : torpedo ? 0.1 : 0.06, torpedo ? 0.28 : 0.22, torpedo ? 'triangle' : 'square');
   }
 
-  warning(kind: 'missile' | 'lock' | 'shield', weaponId?: string): void {
+  /**
+   * 被弾段階が1つ進んだことを知らせる一発の音 (T1-②)。
+   *
+   * 連続警報 (`warning`) とは別に、「段階が変わった瞬間」だけを鳴らす。
+   * 段階ごとに高さと波形を変えるので、画面を見ていなくても深刻さが分かる。
+   * 同じ段階の連打は既存方針どおり `throttled` で間引く。
+   */
+  damageStageCue(stage: DamageStage): void {
+    if (stage === 'shield-ok') return;
+    if (this.throttled(`stage-${stage}`, 0.6)) return;
+    if (stage === 'shield-down') {
+      this.beep(880, 0.1, 0.2, 'square');
+      this.delayedBeep(110, 660, 0.1, 0.2, 'square');
+    } else if (stage === 'armor-hit') {
+      this.beep(520, 0.14, 0.22, 'square');
+    } else if (stage === 'hull-hit') {
+      this.beep(320, 0.2, 0.26, 'sawtooth');
+    } else {
+      // ハル危険域。低く長い三連で「もう持たない」ことを伝える
+      [260, 220, 180].forEach((f, i) => this.delayedBeep(i * 140, f, 0.22, 0.3, 'sawtooth'));
+    }
+  }
+
+  warning(kind: 'missile' | 'lock' | 'shield' | 'hull', weaponId?: string): void {
     if (this.throttled(`warn-${kind}-${weaponId ?? 'unknown'}`, weaponId === 'torpedo' ? 0.62 : 0.85)) return;
     if (kind === 'missile') {
       const torpedo = weaponId === 'torpedo';
@@ -590,6 +614,10 @@ export class AudioManager {
       this.delayedBeep(torpedo ? 220 : 130, frequency, torpedo ? 0.18 : 0.1, torpedo ? 0.34 : 0.3, torpedo ? 'triangle' : 'square');
     } else if (kind === 'lock') {
       this.beep(weaponId === 'torpedo' ? 430 : 760, weaponId === 'torpedo' ? 0.18 : 0.12, 0.2, 'triangle');
+    } else if (kind === 'hull') {
+      // ハル危険域の連続警報。シールド警報より低く、間隔を詰めて鳴らす。
+      this.beep(300, 0.16, 0.28, 'sawtooth');
+      this.delayedBeep(190, 240, 0.16, 0.28, 'sawtooth');
     } else {
       this.beep(420, 0.18, 0.22, 'sawtooth');
     }

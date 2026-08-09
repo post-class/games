@@ -1,0 +1,51 @@
+{
+  "_note": "第 1 章 第 2 話（06§13「戦域が 1 つ立つ」）。Tab → 1 → Shift+1（突撃）の 3 手だけを練習させる。",
+  "id": "ch1_m2",
+  "chapter": 1,
+  "index": 2,
+  "route": "main",
+  "title": "戦域が 1 つ立つ",
+  "brief": "Tab で俯瞰し、1 で戦域を選び、Shift+1（突撃）を渡すだけ。この 3 手が本作の基本形。",
+  "hints": [
+    "Tab で俯瞰します。交戦が続くと戦域が 1 つ立ちます。",
+    "1 で戦域を選び、Shift+1（突撃）を渡してください。",
+    "令を渡したら手を離してよい。あとは部隊が自律的に戦います。"
+  ],
+  "setup": {
+    "map": "plain",
+    "seed": 10202,
+    "playerCount": 2,
+    "player": 0,
+    "civs": ["yamato", "tou"],
+    "teams": [0, 1],
+    "startAge": "seido",
+    "startResources": "standard",
+    "units": [{ "player": 0, "unit": "y-ashigaru", "count": 8, "at": { "player": 0, "dx": 6, "dy": 0 } }]
+  },
+  "victory": [
+    { "type": "holdFrontsWithOrder", "player": "self", "order": "charge", "count": 1, "ticks": 250 },
+    { "type": "unitCountAtMost", "player": 1, "unit": "t-hosotsu", "count": 0 }
+  ],
+  "defeat": [
+    { "type": "buildingCountAtMost", "player": "self", "building": "town_center", "count": 0 },
+    { "type": "loyaltyAtMostPercent", "player": "self", "percent": 0 }
+  ],
+  "events": [
+    { "atTick": 0, "type": "showHint", "text": "東から唐の歩卒が来ます。Tab で俯瞰して待ってください。" },
+    {
+      "atTick": 250,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [{ "unit": "t-hosotsu", "count": 6 }],
+      "at": { "player": 0, "dx": 22, "dy": 0 },
+      "attackAt": { "player": 0, "dx": 6, "dy": 0 }
+    },
+    {
+      "when": { "type": "frontOpened", "count": 1 },
+      "type": "showHint",
+      "text": "戦域が 1 つ立ちました。1 で選び、Shift+1（突撃）を渡してください。"
+    }
+  ],
+  "onVictory": "ch1_m3",
+  "onDefeat": "ch1_m2v"
+}

@@ -1,0 +1,73 @@
+{
+  "_note": "T-M16-03 分岐。ch3_m2 に負けた側。離反した旗が向こうに付いた年。",
+  "extends": "ch3_m2",
+  "id": "ch3_m2v",
+  "route": "vassal",
+  "title": "諸侯の離反（服属の年）",
+  "brief": "離反した旗はそのまま向こうに付いた。残ったのは掟を守った旗だけ。守り抜けば旗は戻る。",
+  "hints": [
+    "残った旗は少ないですが、守り抜けば勝ちです。",
+    "後退で畳み、死守で時間を稼いでください。",
+    "勝てば旗を戻して本線に復帰できます。"
+  ],
+  "setup": {
+    "startResources": "low",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-musha",
+        "count": 6,
+        "at": {
+          "player": 0,
+          "dx": 9,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-daikyu",
+        "count": 4,
+        "at": {
+          "player": 0,
+          "dx": 0,
+          "dy": 9
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-horo",
+        "count": 4,
+        "at": {
+          "player": 0,
+          "dx": -9,
+          "dy": 0
+        }
+      }
+    ]
+  },
+  "extraEvents": [
+    {
+      "atTick": 3000,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "r-eq",
+          "count": 5
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": -26,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": -9,
+        "dy": 0
+      }
+    }
+  ],
+  "onVictory": "ch3_m3",
+  "onDefeat": "ch3_m3v"
+}

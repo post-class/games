@@ -1,0 +1,94 @@
+{
+  "_note": "T-M16-03 分岐。ch4_m3 に負けた側。総力戦の年に前線へ出される。城は一つしか残らない。",
+  "extends": "ch4_m3",
+  "id": "ch4_m3v",
+  "route": "vassal",
+  "title": "休戦の季を破る（服属の年）",
+  "brief": "総力戦の年に前線へ出された。城は一つしか残らないので戦域は五本。守り抜けば旗は戻る。",
+  "hints": [
+    "城が一つなので戦域は五本です。畳む順番を決めてください。",
+    "守り抜けば勝ちです。攻め切る必要はありません。",
+    "勝てば旗を戻して本線に復帰できます。"
+  ],
+  "setup": {
+    "startResources": "standard",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-nagae",
+        "count": 9,
+        "at": {
+          "player": 0,
+          "dx": 10,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-teppo",
+        "count": 6,
+        "at": {
+          "player": 0,
+          "dx": 0,
+          "dy": 10
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-kiba",
+        "count": 6,
+        "at": {
+          "player": 0,
+          "dx": -10,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-nagae",
+        "count": 6,
+        "at": {
+          "player": 0,
+          "dx": 0,
+          "dy": -10
+        }
+      }
+    ],
+    "buildings": [
+      {
+        "player": 0,
+        "building": "castle",
+        "at": {
+          "player": 0,
+          "dx": -6,
+          "dy": -6
+        }
+      }
+    ]
+  },
+  "extraEvents": [
+    {
+      "atTick": 3200,
+      "type": "spawnEnemyWave",
+      "player": 2,
+      "units": [
+        {
+          "unit": "m-camel-heavy",
+          "count": 5
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 26,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 10,
+        "dy": 0
+      }
+    }
+  ],
+  "onVictory": "ch4_m4",
+  "onDefeat": "ch4_m4v"
+}

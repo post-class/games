@@ -96,10 +96,32 @@ export const CIV_ASSETS: {
   /** ユニットのサムネイル。 */
   unit: (unitId: string) => string | null;
 } = {
-  emblem: () => null,
-  portrait: () => null,
-  unit: () => null,
+  // M17 で生成したアセットの置き場（`tools/assets/build.py` の出力先と対応）。
+  // **ファイルが無くても壊れない** ―― `imgOrText` が読み込み失敗時に文字へ戻す。
+  emblem: (civ) => `assets/ui/emblem_${civ}.webp`,
+  portrait: (civ) => `assets/ui/commander_${civ}.webp`,
+  // ユニットのサムネは盤面と同じ絵を使う（`units.json` の `sprite` と同じキー）。
+  unit: (unitId) => `assets/units/${unitId}.webp`,
 };
+
+/**
+ * 画像を試し、読めなかったら文字に戻す枠。
+ *
+ * アセットは後から足すものなので、**1 枚足りないだけで画面が壊れてはいけない**。
+ * `<img>` の読み込み失敗はエラーにならず「壊れた画像アイコン」になるだけなので、
+ * `onerror` で自分を捨てて文字に差し替える。
+ */
+export function imgOrText(src: string | null, alt: string, fallbackText: string): HTMLElement {
+  if (src === null) return el('span', 'mt-emblem-text', fallbackText);
+  const img = el('img', 'mt-emblem-img') as HTMLImageElement;
+  img.alt = alt;
+  img.addEventListener('error', () => {
+    const text = el('span', 'mt-emblem-text', fallbackText);
+    img.replaceWith(text);
+  });
+  img.src = src;
+  return img;
+}
 
 /** 紋章プレースホルダに出す文字（文明名の 1 文字目。ランダム枠は「？」）。 */
 export function civInitial(slot: CivSlotId): string {
@@ -123,15 +145,8 @@ export function emblemEl(slot: CivSlotId, sizePx = 44, teamColor?: string): HTML
   box.style.fontSize = `${Math.round(sizePx * 0.5)}px`;
   if (teamColor !== undefined) box.style.borderColor = teamColor;
   const src = slot === RANDOM_CIV ? null : CIV_ASSETS.emblem(slot);
-  if (src !== null) {
-    const img = el('img', 'mt-emblem-img');
-    img.src = src;
-    img.alt = civLabel(slot);
-    box.appendChild(img);
-  } else {
-    box.appendChild(el('span', 'mt-emblem-text', civInitial(slot)));
-    if (slot === RANDOM_CIV) box.classList.add('mt-emblem-random');
-  }
+  box.appendChild(imgOrText(src, civLabel(slot), civInitial(slot)));
+  if (slot === RANDOM_CIV) box.classList.add('mt-emblem-random');
   box.title = civLabel(slot);
   return box;
 }
@@ -409,18 +424,20 @@ function buildDetail(slot: CivSlotId): HTMLElement {
 
   const civ = slot;
 
-  // ---- 4 総大将（アセットは M17。今は紋章色の枠 + 名前）----
+  // ---- 4 総大将（立ち絵。読めなければ紋章文字に戻る）----
   const general = el('div', 'mt-civ-general');
   const portraitSrc = CIV_ASSETS.portrait(civ);
   const stage = el('div', 'mt-portrait');
   if (portraitSrc !== null) {
-    const img = el('img', 'mt-portrait-img');
-    img.src = portraitSrc;
+    const img = el('img', 'mt-portrait-img') as HTMLImageElement;
     img.alt = `${civLabel(civ)}の総大将`;
+    img.addEventListener('error', () => {
+      img.replaceWith(el('div', 'mt-portrait-ph', civInitial(civ)));
+    });
+    img.src = portraitSrc;
     stage.appendChild(img);
   } else {
     stage.appendChild(el('div', 'mt-portrait-ph', civInitial(civ)));
-    stage.appendChild(el('div', 'mt-portrait-ph-note', '立ち絵は M17'));
   }
   general.appendChild(stage);
   const gname = el('div', 'mt-civ-general-name');
@@ -439,9 +456,12 @@ function buildDetail(slot: CivSlotId): HTMLElement {
     const pic = el('div', 'mt-civ-thumb-pic');
     const src = t.unitId === null ? null : CIV_ASSETS.unit(t.unitId);
     if (src !== null) {
-      const img = el('img', 'mt-civ-thumb-img');
-      img.src = src;
+      const img = el('img', 'mt-civ-thumb-img') as HTMLImageElement;
       img.alt = t.label;
+      img.addEventListener('error', () => {
+        img.replaceWith(el('span', 'mt-civ-thumb-ph', t.has ? lineLabel(t.line) : '✕'));
+      });
+      img.src = src;
       pic.appendChild(img);
     } else {
       pic.appendChild(el('span', 'mt-civ-thumb-ph', t.has ? lineLabel(t.line) : '✕'));

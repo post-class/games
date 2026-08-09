@@ -31,6 +31,9 @@ import '@/styles/panels.css';
 import '@/styles/frontCommand.css';
 import '@/styles/screens.css';
 import '@/styles/result.css';
+// 通信（M14）の表示。デシンクの停止パネルと入力待ちの帯だけを持つ。
+import '@/styles/net.css';
+import '@/styles/gameMenu.css';
 
 import type { CivId, MapTypeId, PlayerId } from '@/shared/types';
 import type { Command } from '@/sim/command';
@@ -40,7 +43,19 @@ import { EntityKind } from '@/shared/types';
 import { spawnEntity } from '@/sim/core/entity';
 import { unitDefById } from '@/sim/core/defs';
 import { Renderer } from '@/render/Renderer';
-import { PlaceholderSpriteProvider } from '@/render/placeholder';
+import { FallbackSpriteProvider } from '@/render/placeholder';
+import { AtlasSpriteProvider, loadAtlas } from '@/render/atlas';
+import { loadTerrainTextures } from '@/render/terrainTextures';
+import { WebAudioSink, sfx } from '@/audio/sfx';
+import { ReplayRecorder } from '@/replay/format';
+import { dataHash } from '@/data/hash';
+import {
+  createMissionRun,
+  loadProgress,
+  missionById,
+  recordOutcome,
+  saveProgress,
+} from '@/campaign';
 import type { VisibilityQuery } from '@/render/spriteLayer';
 import { CameraController } from '@/input/camera';
 import { KeyboardInput } from '@/input/keys';
@@ -57,8 +72,12 @@ import { MarketPanel } from '@/ui/hud/marketPanel';
 import { InfoPanels } from '@/ui/hud/infoPanels';
 import { ProductionPanel } from '@/ui/hud/commandGrid';
 import { MatchStats } from '@/ui/stats';
-import { ScreenRouter, type Screen, type ScreenParams } from '@/ui/screens/router';
+import { ScreenRouter, el, type Screen, type ScreenNav, type ScreenParams } from '@/ui/screens/router';
 import { registerScreens } from '@/ui/screens/register';
+import { DesyncOverlay } from '@/ui/hud/desync';
+import { MissionPanel } from '@/ui/hud/missionPanel';
+import { GameMenu } from '@/ui/hud/gameMenu';
+import { type NetplaySession, joinMatch, roomFromLocation } from '@/net';
 
 /** 1 フレームで進める tick の上限（手順書 §4.1）。 */
 const MAX_STEPS_PER_FRAME = 5;
@@ -110,8 +129,46 @@ function createMatchScreen(): Screen {
   let stop: (() => void) | null = null;
   let onFrame: ((nowMs: number) => void) | null = null;
   return {
-    mount(root, _nav, params) {
-      const r = startMatch(root, params);
+    mount(root, nav, params) {
+      // ---- オンライン対戦（T-M14-02）。`#room=` が付いていたら中継サーバへ ----
+      //
+      // **World は `start` が来てから作る。** 先に作ってしまうと自分の playerId が
+      // 分からず、視点が常に P0 になる（`welcome` で初めて席が決まる）。
+      const room = onlineRoom(params);
+      if (room !== null) {
+        const banner = document.createElement('div');
+        banner.className = 'mt-net-wait';
+        banner.textContent = '中継サーバへ接続中…';
+        root.appendChild(banner);
+        const session: NetplaySession = joinMatch({
+          room,
+          name: localPlayerName(),
+          onStatus: (text) => {
+            banner.textContent = text;
+          },
+          onReady: (info) => {
+            banner.remove();
+            const started = startMatch(root, {
+              ...params,
+              // シードはサーバが決めた値を使う（部屋の主に引き直させない）
+              seed: info.seed,
+              playerCount: Math.max(2, info.playerIds.length),
+              viewer: info.playerId,
+              netplay: session,
+            }, nav);
+            stop = () => {
+              started.stop();
+              session.stop();
+            };
+            onFrame = started.frame;
+          },
+        });
+        // 接続中に画面を離れたときも線を切る
+        stop = () => session.stop();
+        return;
+      }
+
+      const r = startMatch(root, params, nav);
       stop = r.stop;
       onFrame = r.frame;
     },
@@ -130,6 +187,8 @@ function createMatchScreen(): Screen {
 function startMatch(
   overlay: HTMLElement,
   params: ScreenParams,
+  /** 画面遷移の口。決着したら結果画面へ移るのに使う（無ければ移らない）。 */
+  nav?: ScreenNav,
 ): { frame: (nowMs: number) => void; stop: () => void } {
   const canvas = document.getElementById('field') as HTMLCanvasElement | null;
   const boot = document.getElementById('boot');
@@ -140,20 +199,89 @@ function startMatch(
   if (ctx2d === null) throw new Error('main: 2d コンテキストが取れない');
 
   // ---------------------------------------------------------------- 試合を作る
-  const { world } = createMatch({
-    seed: typeof params['seed'] === 'number' ? params['seed'] : DEFAULT_SEED,
-    playerCount: typeof params['playerCount'] === 'number' ? params['playerCount'] : 2,
-    civs: Array.isArray(params['civs']) ? (params['civs'] as CivId[]) : [...CIVS],
-    mapType: typeof params['mapType'] === 'string' ? (params['mapType'] as MapTypeId) : 'plain',
+  //
+  // キャンペーン（`missionId` が来ているとき）は `createMissionRun` が
+  // 初期配置・勝敗条件・スクリプトイベントを持つ。**ここが唯一の分岐**で、
+  // 以降のループはミッションでもスカーミッシュでも同じ形になる
+  // （`advance()` がどちらを回すかだけを吸収する）。
+  const missionId = typeof params['missionId'] === 'string' ? params['missionId'] : null;
+  const mission = missionId === null ? null : (missionById(missionId) ?? null);
+  const run = mission === null ? null : createMissionRun(mission);
+  const world =
+    run !== null
+      ? run.world
+      : createMatch({
+          seed: typeof params['seed'] === 'number' ? params['seed'] : DEFAULT_SEED,
+          playerCount: typeof params['playerCount'] === 'number' ? params['playerCount'] : 2,
+          civs: Array.isArray(params['civs']) ? (params['civs'] as CivId[]) : [...CIVS],
+          mapType: typeof params['mapType'] === 'string' ? (params['mapType'] as MapTypeId) : 'plain',
+        }).world;
+  // 視点は自分の席（キャンペーンはミッションが決める。オンラインでは `welcome.playerId`）。
+  const viewer: PlayerId =
+    run !== null
+      ? run.self
+      : typeof params['viewer'] === 'number'
+        ? (params['viewer'] as PlayerId)
+        : 0;
+  /** オンライン対戦の口（null = 単独プレイ。手順書 §11） */
+  const netplay: NetplaySession | null = isNetplay(params['netplay']) ? params['netplay'] : null;
+
+  // ---------------------------------------------------------------- リプレイの記録
+  //
+  // **記録するのは入力だけ**（`07§12`）。映像も座標も保存しない。
+  // 同じシード・同じデータ・同じ入力列なら同じ試合が再生できる、という
+  // 決定論そのものが記録形式になっている。
+  //
+  // `dataHash()` を一緒に持たせるのが要点 ―― データを変えたあとに古い記録を
+  // 再生すると**別の試合が始まってしまう**ので、`checkReplay` が拒否できるようにする。
+  /** 結果画面へ移ったか（決着は 1 回しか通知しない）。 */
+  let finished = false;
+
+  const recorder = new ReplayRecorder(
+    typeof params['seed'] === 'number' ? params['seed'] : DEFAULT_SEED,
+    {
+      playerCount: world.playerCount,
+      civs: world.players.map((p) => p.civ),
+      // `world.map.mapType` は添字（数値）なので、記録には ID 文字列を入れる
+      // （データの並びが変わっても再生できるように。`replay/format.ts` の約束）。
+      mapType: typeof params['mapType'] === 'string' ? (params['mapType'] as MapTypeId) : 'plain',
+    },
+    dataHash(),
+  );
+
+  // ミッションの目標とヒント（キャンペーンのときだけ出る）。
+  const missionPanel = mission === null ? null : new MissionPanel(overlay, mission);
+
+  // 試合中のメニュー（`06§11` の F10 = 設定・投了・退出 / Pause = 一時停止）。
+  // **投了 = 服属**（`03§10` の勝敗 3 通りのうちの 1 つ）なので、
+  // これが無いと負け方が 1 つ足りず、キャンペーンの服属ルートにも入れない。
+  const pausedBand = el('div', 'mt-paused-band');
+  pausedBand.textContent = '一時停止中 — Pause で再開';
+  pausedBand.hidden = true;
+  overlay.appendChild(pausedBand);
+  const gameMenu = new GameMenu(overlay, {
+    viewer,
+    emit: (cmd: Command) => pending.push(cmd),
+    openSettings: () => nav?.go('settings'),
+    leave: () => nav?.go('title'),
+    // オンラインでは一時停止を無効にする（1 人が止めると全員が止まる）
+    isOnline: () => netplay !== null,
   });
-  const viewer: PlayerId = 0;
 
   // 負荷試験: `?stress=400` で兵を N 体足す（手順書 §1.2「400 体 60fps」の実測用）。
   // 描画の予算はユニット数で決まるので、実機で数えられる入口を用意しておく。
   stressSpawn(world, new URLSearchParams(location.search).get('stress'));
 
   // ---------------------------------------------------------------- 描画
-  const renderer = new Renderer(ctx2d, world, new PlaceholderSpriteProvider());
+  // アセット（`public/assets/atlas.webp`）は**あれば使う**。
+  // 読み込みを待たない ―― 無い / 失敗したあいだは `FallbackSpriteProvider` が
+  // プレースホルダ図形に落とすので、アセット 0 枚でも試合は始められる。
+  const atlas = new AtlasSpriteProvider();
+  void loadAtlas(atlas);
+  const renderer = new Renderer(ctx2d, world, new FallbackSpriteProvider(atlas));
+  // 地形の模様も同じ扱い（無ければ `TILE_COLORS` の単色で塗る）。
+  // 読めた時点で地形キャッシュが自分から焼き直す。
+  void loadTerrainTextures(renderer.terrainTextures);
   const cam = new CameraController(renderer.cam, world.map.widthTiles, world.map.heightTiles);
   // 自拠点を最初に映す
   cam.cam.cx = world.map.starts[viewer * 2]! / FX_ONE;
@@ -225,7 +353,8 @@ function startMatch(
       ` / 地形 ${renderer.last.layers.terrain.toFixed(1)} 霧 ${renderer.last.layers.fog.toFixed(1)} ` +
       `兵 ${renderer.last.layers.sprites.toFixed(1)} 戦域 ${renderer.last.layers.fronts.toFixed(1)} ` +
       `既知 ${renderer.last.layers.remembered.toFixed(1)} 消去 ${renderer.last.layers.clear.toFixed(1)}` +
-      (placing !== null ? ` / 建設: ${placing}（地面をクリック）` : ''),
+      (placing !== null ? ` / 建設: ${placing}（地面をクリック）` : '') +
+      (netplay !== null ? ` / 通信 ${netplay.statusText(world.tick)}` : ''),
   };
   const hud = new Hud(overlay, hudCtx);
 
@@ -292,6 +421,17 @@ function startMatch(
       keys.selectFront(slot, true);
     },
   });
+  // 警告音（M17）。音源が無ければ何も起きない（`audio/sfx.ts` の設計どおり）。
+  // 時計は描画側の `performance.now()` を渡す ―― 音の間引きは端末ごとの体感の話で、
+  // 試合の状態ではないので tick を使わない（使うと倍速で間引きが変わる）。
+  const audioSink = new WebAudioSink();
+  sfx.attach(audioSink);
+  void sfx.preloadAll();
+  warnings.onSound = () => sfx.play('warning', performance.now());
+  // 利用者が最初に触った時点で音を出せるようにする（ブラウザの自動再生制限）。
+  const unlockAudio = (): void => audioSink.unlock();
+  window.addEventListener('keydown', unlockAudio, { once: true });
+  window.addEventListener('pointerdown', unlockAudio, { once: true });
 
   const techPanel = new TechPanel(overlay, {
     world: () => world,
@@ -341,6 +481,9 @@ function startMatch(
   const onPanelKey = (ev: KeyboardEvent): void => {
     if (ev.ctrlKey || ev.metaKey) return;
     const k = ev.key;
+
+    // `F10` / `Pause` は最優先（メニューが開いていれば `Esc` もここで拾う）。
+    if (gameMenu.handleKey(k)) return stopKey(ev);
 
     // `Esc` は上から 1 つだけ（`06§11`）: ①開いているパネルを閉じる が最優先。
     if (k === 'Escape') {
@@ -415,6 +558,16 @@ function startMatch(
 
   if (boot !== null) boot.remove();
 
+  // ---------------------------------------------------------------- 通信の表示（M14）
+  //
+  // デシンクは**即座に出して試合を止める**（手順書 §4.5）。入力待ちは細い帯だけ出す
+  // （待っている間も描画は続くので、何も出さないと不具合と区別できない）。
+  const desyncView = new DesyncOverlay(overlay);
+  const waitBand = document.createElement('div');
+  waitBand.className = 'mt-net-wait';
+  waitBand.hidden = true;
+  if (netplay !== null) overlay.appendChild(waitBand);
+
   // ---------------------------------------------------------------- ループ
   let acc = 0;
   let lastMs = performance.now();
@@ -437,22 +590,59 @@ function startMatch(
       mouse.pointerInside ? { x: mouse.pointerX, y: mouse.pointerY, inside: true } : null,
     );
 
+    // オンラインでは入力を**送るだけ**にする（自分の分もサーバから戻ってきてから効く）。
+    // ここで `pending` を先に適用してしまうと、自分の端末だけ 1 手先に進んでデシンクする。
+    if (netplay !== null && pending.length > 0) {
+      for (const cmd of pending) netplay.emit(cmd);
+      pending = [];
+    }
+
     // シム: 25 tick/秒。1 フレームで進めるのは最大 5 tick
-    acc += dtMs * SPEED_MUL;
+    // 一時停止中は時間を溜めない（解除した瞬間に早送りしないため）。
+    // **World には何も書かない** ―― 「止まっている」を World に持たせると
+    // hash に入れる必要が出てデシンクの種になる。
+    pausedBand.hidden = !gameMenu.isPaused();
+    if (gameMenu.isPaused()) acc = 0;
+    else acc += dtMs * SPEED_MUL;
     const simStart = performance.now();
     let steps = 0;
+    /** 入力が揃わずに待ったか（`07§12`「誰かの回線が遅いと全員が同じだけ待つ」）。 */
+    let waiting = false;
     while (acc >= TICK_MS && steps < MAX_STEPS_PER_FRAME) {
       renderer.beforeStep(world);
-      // この tick の入力（1 人操作なので playerId 昇順は自明。発行順を保つ）
-      const cmds = pending;
-      pending = [];
-      stepWorld(world, cmds);
+      if (netplay !== null) {
+        // 揃った tick だけ進む。揃っていなければ**待つ**（描画はこの後も続ける）。
+        if (netplay.step(world) !== 'stepped') {
+          waiting = true;
+          break;
+        }
+      } else {
+        // この tick の入力（1 人操作なので playerId 昇順は自明。発行順を保つ）
+        const cmds = pending;
+        pending = [];
+        // **記録は進める前に取る**（進めたあとだと tick 番号が 1 つずれる）。
+        // 空の tick は `record` が自分で捨てるので、ここで分岐しなくてよい。
+        recorder.record(world.tick, { [viewer]: cmds });
+        // キャンペーンは `run.step` が「プレイヤーの入力 → スクリプトの入力」の順で
+        // `stepWorld` を呼ぶ。**順序が結果を決める**のでミッション側に任せる。
+        if (run !== null) run.step(cmds);
+        else stepWorld(world, cmds);
+      }
       // **統計は毎 tick 観測する**（飛ばすと撃破を取り逃がす。結果画面の材料）。
       stats.sample(world);
       acc -= TICK_MS;
       steps++;
     }
+    // 待っている間に acc を溜め込まない（復帰した瞬間の早送りを防ぐ）。
+    if (waiting) acc = Math.min(acc, TICK_MS);
     perf.simMs = performance.now() - simStart;
+
+    if (netplay !== null) {
+      const info = netplay.desync;
+      if (info !== null) desyncView.show(info, { localPlayerId: viewer });
+      waitBand.hidden = !waiting || info !== null;
+      if (waiting) waitBand.textContent = '入力待ち — 全員の入力が揃うまで進みません';
+    }
 
     // 視界は 5 tick ごと（T-M5-05）
     renderer.updateVision(world, viewer);
@@ -462,7 +652,8 @@ function startMatch(
       {
         world,
         viewer,
-        alpha: acc / TICK_MS,
+        // 待っている間は補間を進めない（進めると兵が滑って「動いている」ように見える）
+        alpha: waiting ? 0 : acc / TICK_MS,
         selected: selection.asSet(),
         dragRect: mouse.dragRect(),
       },
@@ -479,6 +670,32 @@ function startMatch(
     marketPanel.update(nowMs);
     infoPanels.frame(nowMs);
     production.update();
+    if (run !== null && missionPanel !== null) {
+      missionPanel.update(run.objectives(), run.hints());
+    }
+
+    // ---- 決着したら結果画面へ（`03§10` / `05§13`）----
+    //
+    // **1 回だけ**遷移する（`gameOver` は立ったままなので、印を持たないと
+    // 毎フレーム `nav.go` を呼んでしまう）。
+    // キャンペーンは**ミッションの条件**で決まる（`world.gameOver` だけでは足りない ――
+    // 「500 集める」のような勝ち方があるので）。
+    const outcome = run !== null ? run.outcome() : world.gameOver ? 'over' : 'running';
+    if (outcome !== 'running' && !finished) {
+      finished = true;
+      if (run !== null && missionId !== null && outcome !== 'over') {
+        // **負けてもゲームオーバーにしない**（`02`「この世界に滅亡はない」）。
+        // `recordOutcome` が次の行き先（服属ルート）を決めるので、ここは記録するだけ。
+        saveProgress(recordOutcome(loadProgress(), missionId, outcome, world.tick));
+      }
+      nav?.go('result', {
+        world,
+        stats: stats.snapshot(),
+        // リプレイ画面へ渡すのは**記録だけ**。結果画面はそれをそのまま素通しする。
+        replayParams: { replay: recorder.finish() },
+        ...(run !== null ? { campaign: true, missionId, outcome } : {}),
+      });
+    }
 
     perf.frameMs = performance.now() - frameStart;
     fpsCount++;
@@ -505,8 +722,52 @@ function startMatch(
       marketPanel.destroy();
       infoPanels.destroy();
       production.destroy();
+      desyncView.destroy();
+      missionPanel?.destroy();
+      gameMenu.destroy();
+      pausedBand.remove();
+      waitBand.remove();
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// オンライン対戦の入口（M14）
+// ---------------------------------------------------------------------------
+
+/**
+ * オンライン対戦の部屋 ID（null = 単独プレイ）。
+ *
+ * 優先順は「画面から渡された `room`」→「URL の `#room=` / `?room=`」。
+ * 共有 URL を作るのは `ui/screens/MatchSetup.ts`（`roomIdFromSeed`）。
+ */
+function onlineRoom(params: ScreenParams): string | null {
+  const fromParams = params['room'];
+  if (typeof fromParams === 'string' && fromParams !== '') return fromParams;
+  return roomFromLocation({ hash: location.hash, search: location.search });
+}
+
+/**
+ * 席の名前。**中継サーバは「同じ名前で戻ってきた席」を引き継ぐ**（120 秒保持）ので、
+ * 再読み込みしても同じ名前になるよう端末に覚えさせる。
+ * ここで `Math.random` を使うのは通信層なので構わない（`Command` には混ぜない）。
+ */
+function localPlayerName(): string {
+  const key = 'multi-taktika.playerName';
+  try {
+    const saved = window.localStorage.getItem(key);
+    if (saved !== null && saved !== '') return saved;
+    const made = `P-${Math.random().toString(36).slice(2, 8)}`;
+    window.localStorage.setItem(key, made);
+    return made;
+  } catch {
+    return `P-${Math.random().toString(36).slice(2, 8)}`;
+  }
+}
+
+/** `params.netplay` が通信の口かどうか（`ScreenParams` は `unknown` なので絞り込む）。 */
+function isNetplay(v: unknown): v is NetplaySession {
+  return typeof v === 'object' && v !== null && typeof (v as NetplaySession).step === 'function';
 }
 
 /** キーを後段へ流さない（capture 段で処理済みにする）。 */
@@ -527,12 +788,21 @@ function main(): void {
   registerScreens(router);
 
   // 起動先: 既定はタイトル（`05§1` の遷移）。
-  // `?dev=match` で対戦画面へ直接入る（開発中の確認用。M5 の通し確認がこれ）。
+  //
+  // `?dev=<画面 ID>` で**登録されている画面へ直接入れる**（`?dev=match` `?dev=settings` …）。
+  // 13 画面の目視レビュー（T-M18-06）で毎回タイトルから辿るのは現実的でないので、
+  // 入口を 1 つ用意しておく。登録されていない ID を渡したときはタイトルに落ちる
+  // （黙って何も出ないより、遷移の起点が見えるほうがよい）。
   const q = new URLSearchParams(location.search);
   const dev = q.get('dev');
   const seedRaw = q.get('seed');
   const seed = seedRaw === null ? DEFAULT_SEED : Number.parseInt(seedRaw, 10);
-  const startAt = dev === 'match' || !router.has('title') ? 'match' : 'title';
+  const startAt =
+    dev !== null && router.has(dev as Parameters<typeof router.go>[0])
+      ? (dev as Parameters<typeof router.go>[0])
+      : router.has('title')
+        ? 'title'
+        : 'match';
   router.go(startAt, { seed: Number.isFinite(seed) ? seed : DEFAULT_SEED });
 
   const loop = (nowMs: number): void => {

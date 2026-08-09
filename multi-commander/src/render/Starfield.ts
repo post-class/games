@@ -21,6 +21,12 @@ import { Rng } from '../core/rng';
 import { texture, textureAlpha, type NebulaTexId, type PlanetTexId } from './textures';
 
 const SKY_RADIUS = 9000;
+/**
+ * 星雲に掛ける減彩のティント。
+ * 乗算されるので、鮮やかな青緑がそのまま画面を占めるのを防ぎつつ、
+ * 星雲そのものは消さない。
+ */
+const NEBULA_TINT = 0xb9c6cc;
 
 // ───────── 星 ─────────
 
@@ -105,8 +111,8 @@ function nebulaTexture(seed: number, hue: number, octaves = 4): CanvasTexture {
       const g = ctx.createRadialGradient(x, y, 0, x, y, r);
       const c = new Color().setHSL(
         hue + rng.signed(0.09),
-        rng.range(0.45, 0.95),
-        rng.range(0.28, 0.62),
+        rng.range(0.3, 0.62),
+        rng.range(0.24, 0.5),
       );
       const a = 0.055 + 0.05 / (o + 1);
       g.addColorStop(0, `rgba(${(c.r * 255) | 0},${(c.g * 255) | 0},${(c.b * 255) | 0},${a})`);
@@ -256,8 +262,11 @@ export class Skybox {
           depthWrite: false,
           depthTest: false,
           transparent: true,
-          // 生成テクスチャは元から濃いので薄めに乗せる
-          opacity: nebIds?.length ? (big ? 0.2 : 0.1) : big ? 0.28 : 0.16,
+          // 生成テクスチャは元から濃いので薄めに乗せる。
+          // 星雲が主役になって敵機と照準の可読性を奪っていたため、
+          // 層の数と作り込みは保ったまま濃度と彩度だけを落としている。
+          opacity: nebIds?.length ? (big ? 0.12 : 0.06) : big ? 0.17 : 0.1,
+          color: NEBULA_TINT,
         }),
       );
       const dir = new Vector3(rng.signed(1), rng.signed(0.7), rng.signed(1)).normalize();
@@ -270,7 +279,8 @@ export class Skybox {
     // ── 惑星 ──
     if (opts.planet !== false) {
       const planetColor = opts.planetColor ?? 0x16324f;
-      const pr = SKY_RADIUS * 0.068;
+      // 惑星は「そこにある」ことが伝われば十分。画面を占領しない大きさに抑える
+      const pr = SKY_RADIUS * 0.052;
       const planet = new Mesh(
         new SphereGeometry(pr, 48, 32),
         new MeshStandardMaterial({
@@ -337,17 +347,19 @@ export class Skybox {
     }
 
     // ── 太陽 ──
+    // 目標テキストや敵機と視線を奪い合っていたので、芯・コロナ・フレアの
+    // すべてを小さく・薄くする。太陽の存在と光の向きは残す。
     const sun = new Mesh(
-      new SphereGeometry(SKY_RADIUS * 0.026, 24, 16),
+      new SphereGeometry(SKY_RADIUS * 0.019, 24, 16),
       new MeshBasicMaterial({ color: opts.sunColor ?? 0xfff2d0 }),
     );
     sun.position.copy(this.sunDir).multiplyScalar(SKY_RADIUS * 0.8);
     this.group.add(sun);
     // コロナ。生成テクスチャで芯と streamers を描き、外側に Canvas の滲みを重ねる
     const coronaLayers: Array<[number, number, boolean]> = [
-      [0.3, 0.95, true],
-      [0.62, 0.35, false],
-      [1.15, 0.16, false],
+      [0.22, 0.55, true],
+      [0.45, 0.2, false],
+      [0.85, 0.09, false],
     ];
     for (const [scale, opacity, generated] of coronaLayers) {
       const glow = new Sprite(
@@ -373,11 +385,11 @@ export class Skybox {
         depthWrite: false,
         depthTest: false,
         transparent: true,
-        opacity: 0.5,
+        opacity: 0.24,
       }),
     );
     flare.position.copy(sun.position);
-    flare.scale.set(SKY_RADIUS * 1.5, SKY_RADIUS * 0.5, 1);
+    flare.scale.set(SKY_RADIUS * 1.05, SKY_RADIUS * 0.34, 1);
     this.group.add(flare);
 
     // ── 遠方の小天体 (視差のない岩塊。宇宙が空虚に見えないように) ──

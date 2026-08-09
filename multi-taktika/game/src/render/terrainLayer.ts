@@ -37,7 +37,8 @@ import {
   tileToScreen,
   visibleTileBounds,
 } from './iso';
-import { TILE_COLORS } from './palette';
+import { TINT_ALPHA, terrainFill } from './terrainTextures';
+import type { PatternSource, TerrainTextures } from './terrainTextures';
 
 /** 1 フレームの地形描画の実績（性能テストとデバッグ表示用）。 */
 export interface TerrainStats {
@@ -67,6 +68,11 @@ export function drawTerrainTiles(
   cam: Camera,
   map: MapState,
   bounds?: TileBounds,
+  /**
+   * 地形の模様（M17）。省略 / null なら `TILE_COLORS` の単色で塗る。
+   * 模様があるときは「模様 → 色を薄く重ねる」の 2 段になる（`terrainTextures.ts`）。
+   */
+  textures?: TerrainTextures | null,
 ): TerrainStats {
   const stats = emptyTerrainStats();
   if (!hasTerrain(map)) return stats;
@@ -100,9 +106,21 @@ export function drawTerrainTiles(
       }
     }
     if (started) {
-      ctx.fillStyle = TILE_COLORS[t] ?? '#000';
+      // 積んだ菱形をまとめて塗る。模様があるときだけ色を薄く重ねる
+      // （模様そのままだと明るすぎて上の兵と建物が読めない）。
+      // パターンは塗る先の面で作る（`ctx` をそのまま渡す）。
+      const fill = terrainFill(textures ?? null, ctx as unknown as PatternSource, t);
+      ctx.fillStyle = fill.base;
       ctx.fill();
       stats.fills++;
+      if (fill.tint !== null) {
+        const prevAlpha = ctx.globalAlpha;
+        ctx.globalAlpha = prevAlpha * TINT_ALPHA;
+        ctx.fillStyle = fill.tint;
+        ctx.fill();
+        ctx.globalAlpha = prevAlpha;
+        stats.fills++;
+      }
     }
   }
   return stats;

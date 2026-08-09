@@ -23,6 +23,7 @@ import { mournLine } from '../content/pilotDialogue';
 import { PLAYABLE_SHIPS, shipDef } from '../content/ships';
 import { GUNS, MISSILES, missileDef } from '../content/weapons';
 import type { Loadout, MissionDef } from '../mission/types';
+import { MISSION_GRADE_LABEL, objectiveRewardPrefix, type MissionGrade } from '../mission/MissionRunner';
 import {
   barracksHtml,
   hangarHtml,
@@ -1024,8 +1025,17 @@ export class App {
       .map((m) => `${missileDef(m.missileId).name} ×${m.count}`)
       .join(' / ');
 
+    // 目標の表記は HUD・デブリーフと同じ出所（`src/mission/MissionRunner.ts` の
+    // `objectiveRewardTag`）から作る。ここで `(任意)` を組み立て直すと、
+    // 加点表記が反映されずブリーフィングだけ古い表記になる。
     const objectives = def.objectives
-      .map((o) => `<li>${escapeHtml(o.text)}${o.required ? '' : ' <span class="dim">(任意)</span>'}</li>`)
+      .map((o) => {
+        const prefix = objectiveRewardPrefix(o);
+        // 必須は従来どおりそのまま、加点は前置だけを薄く出す（見え方は維持）
+        return prefix
+          ? `<li><span class="dim">${escapeHtml(prefix)}</span>${escapeHtml(o.text)}</li>`
+          : `<li>${escapeHtml(o.text)}</li>`;
+      })
       .join('');
 
     const wing = load.wingman?.callsign;
@@ -1301,9 +1311,12 @@ export class App {
       routeReasons.push('一発も撃たずに完了');
     }
 
-    // 軍令信用: 命令順守と損害の最小化で上がり、未達成の条件で下がる
+    // 軍令信用: 命令順守と損害の最小化で上がり、未達成の条件で下がる。
+    // 理由の見出しは達成度3段階（T1-①）に合わせる。増減幅は勝敗のまま。
     let commandTrust = outcome === 'win' ? 2 : -2;
-    const commandReasons: string[] = [outcome === 'win' ? '任務達成' : '任務失敗'];
+    const commandReasons: string[] = [
+      MISSION_GRADE_LABEL[this.sortieGrade(outcome)],
+    ];
     if (s.objectivesFailed.length > 0) {
       commandTrust -= Math.min(4, s.objectivesFailed.length);
       commandReasons.push(`未達成の条件 ${s.objectivesFailed.length} 件`);
@@ -1381,6 +1394,18 @@ export class App {
       `<div class="dim">現在: ${now}　名簿 ${this.save.narrative.returnees.length} 名</div></div>`;
   }
 
+  /**
+   * この出撃の達成度 (T1-①)。
+   *
+   * 勝敗そのものは win / loss の2値のまま。見出しと記録だけを
+   * 「任務達成 / 部分達成 / 任務失敗」の3段階にする。
+   * 集計が取れなかった場合 (訓練の中断など) は勝敗をそのまま段階に落とす。
+   */
+  private sortieGrade(outcome: 'win' | 'loss'): MissionGrade {
+    if (outcome === 'loss') return 'failed';
+    return this.lastSummary?.grade ?? 'complete';
+  }
+
   private showDebrief(outcome: 'win' | 'loss'): void {
     const def = this.currentMission();
     const s = this.lastSummary;
@@ -1440,6 +1465,8 @@ export class App {
     this.save.node = nextNode;
     writeSave(this.save);
 
+    // 目標の判定は「達成 / 未達 / 失敗」を出し分ける。
+    // 破られていない制約 (protect など) は MissionRunner 側で done に解決済み。
     const objectives = (s?.objectives ?? [])
       .map(
         (o) =>
@@ -1447,6 +1474,9 @@ export class App {
           `${o.state === 'done' ? '達成' : o.state === 'failed' ? '失敗' : '未達'}　${escapeHtml(o.text)}</li>`,
       )
       .join('');
+    const grade = this.sortieGrade(outcome);
+    // 自機を失った出撃は「機体喪失」を戦果に明示し、やり直しを既定の選択にする
+    const playerLost = s?.playerLost ?? false;
     const minutes = Math.floor((s?.seconds ?? 0) / 60);
     const seconds = Math.floor((s?.seconds ?? 0) % 60);
     const routeLabel = transition
@@ -1473,6 +1503,8 @@ export class App {
           `<li>撃退 ${s?.routed ?? 0} 機</li>` +
           `<li>機体状態 ${Math.round((s?.playerHullRatio ?? 0) * 100)}%　フレア ${this.save.lastSortie?.flares ?? 0}　` +
           `僚機 ${s?.escortLost ? '護衛対象喪失' : '護衛維持'}</li>` +
+          // 撃墜されても戦役は止めない（案A）。代価として「機体喪失」を記録に残す
+          (playerLost ? `<li class="ng">機体喪失 — 機体を1機失った</li>` : '') +
           `<li>飛行時間 ${minutes}分${String(seconds).padStart(2, '0')}秒</li>` +
           `<li>通算撃墜 ${this.save.totalKills} 機 / 出撃 ${this.save.sorties} 回</li>` +
           `</ul></div>`, slot: 'flight-plan' },
@@ -1488,21 +1520,26 @@ export class App {
       outcome === 'loss' ? 'grim' : 'talk',
     );
 
+    const continueItem: MenuItem = { label: '続ける', onSelect: () => this.afterDebrief(nextNode) };
+    const retryItem: MenuItem = { label: 'この任務をやり直す', onSelect: () => this.retry(def.id, outcome) };
     this.game.sound.music.play(outcome === 'win' ? 'victory' : 'defeat');
     this.screens.show({
       variant: 'briefing',
       crest: outcome === 'win' ? artUrl('emblem-confed') : artUrl('emblem-kilrathi'),
       crestHeight: 72,
-      title: outcome === 'win' ? '任務達成' : '任務失敗',
+      // 見出しは達成度3段階（T1-①）。全未達で「任務達成」と出さない
+      title: MISSION_GRADE_LABEL[grade],
       subtitle: def.title,
       background: artUrl('tex/bg-briefing', 'jpg'),
       content: scene.el,
       items: [
-        { label: '続ける', onSelect: () => this.afterDebrief(nextNode) },
+        // 撃墜された出撃だけ「やり直す」を先頭（＝既定フォーカス）にする（案A の救済）。
+        // 達成した出撃では従来どおり「続ける」が既定。
+        ...(playerLost ? [retryItem, continueItem] : [continueItem]),
         // デブリーフは表示時に統計を確定するため、戻り先は再集計を起こさない艦内画面にする。
         { label: 'リプレイ / キルカム', disabled: this.game.replay.length < 2, onSelect: () => this.showReplayPanel(() => this.showHub()) },
         { label: '記録を保存 (JSON)', onSelect: () => this.downloadPlaytestLog() },
-        { label: 'この任務をやり直す', onSelect: () => this.retry(def.id, outcome) },
+        ...(playerLost ? [] : [retryItem]),
         { label: 'タイトルへ戻る', onSelect: () => this.showTitle() },
       ],
       hint: 'Space で読み進める / Esc で読み飛ばす',

@@ -2,6 +2,7 @@ import { Vector3, type PerspectiveCamera } from 'three';
 import { bus } from '../core/events';
 import { isHostile } from '../content/factions';
 import { healthRatios } from '../sim/damage';
+import { damageStage } from '../hud/damageStage';
 import type { World } from '../world/world';
 import { audio } from './AudioManager';
 import { MusicDirector } from './MusicDirector';
@@ -185,7 +186,10 @@ export class CombatAudio {
     if (incoming?.missile) audio.warning('missile', incoming.missile.def.id);
     else if (ship.lockedByEnemy) audio.warning('lock');
     const h = healthRatios(player);
-    if (h.shieldFront < 0.15 && h.shieldRear < 0.15 && h.hull < 0.6) audio.warning('shield');
+    // 被弾段階を音で読み分ける。ハル危険域は専用の低い警報にして、
+    // シールド警報と混ざらないようにする (段階の判定は damageStage が唯一の出所)。
+    if (!ship.ejected && damageStage(h) === 'hull-critical') audio.warning('hull');
+    else if (h.shieldFront < 0.15 && h.shieldRear < 0.15 && h.hull < 0.6) audio.warning('shield');
 
     // ロック進行中の断続音
     if (ship.lockProgress > 0.02 && ship.lockProgress < 1) audio.lockTone(false, this.playerMissileId);

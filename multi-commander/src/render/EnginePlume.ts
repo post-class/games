@@ -116,12 +116,18 @@ export class EnginePlume {
   /** 表示上の出力 (急に変わらないよう補間する) */
   private level = 0;
   private abLevel = 0;
+  /**
+   * 距離帯ごとの増幅 (RenderSync が毎フレーム入れる)。
+   * 遠い機体は噴射炎を伸ばして、影絵の中でも「動いている機体」だと分かるようにする。
+   */
+  visibilityBoost = 1;
 
   constructor(def: ShipDef, meshScale: number) {
     const color = def.visual.engine;
-    const outerMat = plumeMaterial(color, 0.2);
-    const innerMat = plumeMaterial(0xffffff, 0.26);
-    const coreMat = plumeMaterial(color, 0.5);
+    // 星雲や太陽を背にしても埋もれないよう、加算合成の濃さを上げている
+    const outerMat = plumeMaterial(color, 0.32);
+    const innerMat = plumeMaterial(0xffffff, 0.42);
+    const coreMat = plumeMaterial(color, 0.8);
 
     for (const n of nozzlesFor(def)) {
       const outer = new Mesh(PLUME_GEO, outerMat);
@@ -154,8 +160,10 @@ export class EnginePlume {
     this.level += (targetLevel - this.level) * k;
     this.abLevel += ((ab ? 1 : 0) - this.abLevel) * (1 - Math.pow(0.5, dt / 0.12));
 
-    const len = this.level * 2.6 + this.abLevel * 6.0;
-    const width = 0.75 + this.level * 0.2 + this.abLevel * 0.35;
+    const boost = Math.max(1, this.visibilityBoost);
+    // 停止中でも排気口が灯っているようにわずかな下限を持たせる (遠距離の存在確認になる)
+    const len = (Math.max(0.22, this.level) * 2.6 + this.abLevel * 6.0) * boost;
+    const width = (0.75 + this.level * 0.2 + this.abLevel * 0.35) * (1 + (boost - 1) * 0.5);
     const visible = len > 0.05;
 
     for (const n of this.nozzles) {
@@ -168,7 +176,7 @@ export class EnginePlume {
       const flicker = 0.92 + Math.sin((performance.now() * 0.02 + n.baseRadius * 31) % 6.283) * 0.08;
       n.outer.scale.set(r * 2.3 * width, r * 2.3 * width, r * len * 2.4 * flicker);
       n.inner.scale.set(r * 1.25 * width, r * 1.25 * width, r * len * 1.35 * flicker);
-      n.core.scale.setScalar(r * (1.5 + this.abLevel * 0.7));
+      n.core.scale.setScalar(r * (1.5 + this.abLevel * 0.7) * boost);
     }
   }
 }

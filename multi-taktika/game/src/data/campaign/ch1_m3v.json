@@ -1,0 +1,32 @@
+{
+  "_note": "T-M16-03 分岐。ch1_m3 に負けた側のルート（服属のまま第 3 話をやり直す）。勝てば本線（ch1_m4）へ復帰。",
+  "extends": "ch1_m3",
+  "id": "ch1_m3v",
+  "route": "vassal",
+  "title": "2 つ目が立つ（服属の年）",
+  "brief": "服属したまま二つの戦線を持たされる。両方を勝たせようとすれば両方を失う。",
+  "hints": [
+    "兵は本線より少ないので、片方は最初から捨てる前提で構いません。",
+    "押されている側に死守、もう片方に突撃。",
+    "勝てば旗を戻して本線に復帰できます。"
+  ],
+  "setup": {
+    "startResources": "low",
+    "units": [
+      { "player": 0, "unit": "y-ashigaru", "count": 5, "at": { "player": 0, "dx": 8, "dy": 0 } },
+      { "player": 0, "unit": "y-ashigaru", "count": 5, "at": { "player": 0, "dx": 0, "dy": 8 } }
+    ]
+  },
+  "extraEvents": [
+    {
+      "atTick": 1500,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [{ "unit": "t-yumite", "count": 4 }],
+      "at": { "player": 0, "dx": 24, "dy": 0 },
+      "attackAt": { "player": 0, "dx": 8, "dy": 0 }
+    }
+  ],
+  "onVictory": "ch1_m4",
+  "onDefeat": "ch1_m4v"
+}

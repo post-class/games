@@ -1,0 +1,83 @@
+{
+  "_note": "T-M16-03 分岐。ch3_m4 に負けた側。石切場は向こうの取り分になり、井櫓は一台しか回してもらえない。",
+  "extends": "ch3_m4",
+  "id": "ch3_m4v",
+  "route": "vassal",
+  "title": "石切場（服属の年）",
+  "brief": "石切場は向こうの取り分になった。井櫓は二台しか回してもらえない。囮の作り方が試される。",
+  "hints": [
+    "井櫓は二台だけです。守兵を引かせないと門には届きません。",
+    "反対側に略奪、門前に包囲。",
+    "勝てば旗を戻して本線に復帰できます。"
+  ],
+  "setup": {
+    "startResources": "standard",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-musha",
+        "count": 7,
+        "at": {
+          "player": 1,
+          "dx": -12,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-seiro",
+        "count": 2,
+        "at": {
+          "player": 1,
+          "dx": -12,
+          "dy": 2
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-daikyu",
+        "count": 5,
+        "at": {
+          "player": 1,
+          "dx": 0,
+          "dy": 12
+        }
+      },
+      {
+        "player": 1,
+        "unit": "a-obsidian",
+        "count": 9,
+        "at": {
+          "player": 1,
+          "dx": -5,
+          "dy": 0
+        }
+      }
+    ]
+  },
+  "extraEvents": [
+    {
+      "atTick": 2400,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "a-atlatl",
+          "count": 4
+        }
+      ],
+      "at": {
+        "player": 1,
+        "dx": 4,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 1,
+        "dx": -7,
+        "dy": 0
+      }
+    }
+  ],
+  "onVictory": "ch3_m5",
+  "onDefeat": "ch3_m5v"
+}

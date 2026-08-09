@@ -1,0 +1,39 @@
+{
+  "_note": "第 1 章 第 1 話（06§13「最初の 5 分」）。戦闘はまだ出てこないので敵プレイヤーを置かない。",
+  "id": "ch1_m1",
+  "chapter": 1,
+  "index": 1,
+  "route": "main",
+  "title": "最初の 5 分",
+  "brief": "村を起こす。H で町の中心に飛び、コマンドグリッドで村人を出し続ける。戦闘はまだ出てこない。",
+  "hints": [
+    "H で町の中心を選び、コマンドグリッドで村人を出し続けてください。",
+    ". で遊休村人を拾えます。手が空いた村人を資源に就けてください。",
+    "この話に戦闘は出てきません。村人を増やす手順だけを覚えてください。"
+  ],
+  "setup": {
+    "map": "plain",
+    "seed": 10101,
+    "playerCount": 1,
+    "player": 0,
+    "civs": ["yamato"],
+    "startAge": "reimei",
+    "startResources": "standard"
+  },
+  "victory": [
+    { "type": "unitCountAtLeast", "player": "self", "unit": "villager", "count": 10 },
+    { "type": "gatherResource", "player": "self", "resource": "food", "amount": 300 }
+  ],
+  "defeat": [],
+  "events": [
+    { "atTick": 0, "type": "showHint", "text": "H を押すと町の中心へ飛びます。まず村人を 3 体、続けて出してください。" },
+    { "atTick": 750, "type": "showHint", "text": ". で遊休村人へジャンプできます。止まっている村人がいないか確かめてください。" },
+    {
+      "when": { "type": "condition", "condition": { "type": "unitCountAtLeast", "player": "self", "unit": "villager", "count": 6 } },
+      "type": "showHint",
+      "text": "村人が 6 人になりました。食料 300 を集めればこの話は終わりです。"
+    }
+  ],
+  "onVictory": "ch1_m2",
+  "onDefeat": null
+}

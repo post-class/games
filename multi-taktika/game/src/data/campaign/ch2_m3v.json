@@ -1,0 +1,73 @@
+{
+  "_note": "T-M16-03 分岐。ch2_m3 に負けた側。関の通行料を払う側に回った年。",
+  "extends": "ch2_m3",
+  "id": "ch2_m3v",
+  "route": "vassal",
+  "title": "河口の関（服属の年）",
+  "brief": "通行料を払う側に回った年。関はもっと厚い。止める側と抜ける側の割り振りだけが試される。",
+  "hints": [
+    "守兵が増えています。正面を死守で止める手順は変わりません。",
+    "止めている間に川筋の一隊で抜けてください。",
+    "勝てば旗を戻して本線に復帰できます。"
+  ],
+  "setup": {
+    "startResources": "low",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-ashigaru",
+        "count": 7,
+        "at": {
+          "player": 1,
+          "dx": -10,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-yumiashigaru",
+        "count": 5,
+        "at": {
+          "player": 1,
+          "dx": 0,
+          "dy": 10
+        }
+      },
+      {
+        "player": 1,
+        "unit": "t-hosotsu",
+        "count": 7,
+        "at": {
+          "player": 1,
+          "dx": -4,
+          "dy": 0
+        }
+      }
+    ]
+  },
+  "extraEvents": [
+    {
+      "atTick": 2200,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "t-yumite",
+          "count": 4
+        }
+      ],
+      "at": {
+        "player": 1,
+        "dx": 4,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 1,
+        "dx": -4,
+        "dy": 0
+      }
+    }
+  ],
+  "onVictory": "ch2_m4",
+  "onDefeat": "ch2_m4v"
+}

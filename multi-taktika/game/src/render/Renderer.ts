@@ -21,6 +21,7 @@ import { MotionBuffer } from './interp';
 import type { Camera } from './iso';
 import { GOLD } from './palette';
 import { PlaceholderSpriteProvider, type SpriteProvider } from './placeholder';
+import { TerrainTextures } from './terrainTextures';
 import { SpriteLayer, type SpriteStats } from './spriteLayer';
 import { clearField, emptyTerrainStats, type TerrainStats } from './terrainLayer';
 import { VisionBuffer } from './vision';
@@ -68,6 +69,11 @@ export class Renderer {
   readonly motion: MotionBuffer;
   readonly vision: VisionBuffer;
   readonly sprites: SpriteProvider;
+  /**
+   * 地形の模様（M17）。**読み込みは呼び出し側（`main.ts`）が始める**。
+   * 読めていない種別は単色で塗る（`terrainTextures.ts`）。
+   */
+  readonly terrainTextures = new TerrainTextures();
   private readonly spriteLayer: SpriteLayer;
   private readonly ctx: Ctx2D;
   /**
@@ -138,7 +144,7 @@ export class Renderer {
     clearField(ctx, this.cam);
     layers.clear = elapsed(tl);
     tl = now();
-    const terrain = this.terrainCache.draw(ctx, this.cam, w.map);
+    const terrain = this.terrainCache.draw(ctx, this.cam, w.map, this.terrainTextures);
     layers.terrain = elapsed(tl);
     tl = now();
     drawRememberedBuildings(ctx, this.cam, w.map, this.vision);

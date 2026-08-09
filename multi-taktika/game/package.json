@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:golden": "vitest run tests/golden",
+    "golden:rebase": "GOLDEN_REBASE=1 vitest run tests/golden",
     "check": "npm run typecheck && npm run lint && npm run test",
     "server": "node --experimental-strip-types server/relay.ts"
   },

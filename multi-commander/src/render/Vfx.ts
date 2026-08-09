@@ -8,12 +8,14 @@ import {
   NormalBlending,
   Scene,
   SphereGeometry,
+  Quaternion,
   Sprite,
   SpriteMaterial,
   Vector3,
   type Texture,
 } from 'three';
 import { rng } from '../core/rng';
+import { worldMuzzlePoint } from './MuzzleAnchor';
 import { textureAlpha } from './textures';
 
 function glowTexture(inner = 'rgba(255,255,255,1)', mid = 'rgba(255,220,150,0.55)'): CanvasTexture {
@@ -44,6 +46,16 @@ function ringTexture(): CanvasTexture {
   return new CanvasTexture(cv);
 }
 
+/**
+ * 砲口閃光を機体の砲身に張り付けるための追従情報。
+ * 機体の現在の位置・姿勢からローカルオフセットを復元するので、
+ * 機体が動いても回っても閃光が空中に取り残されない。
+ */
+export interface MuzzleFollow {
+  ship: { pos: Vector3; quat: Quaternion };
+  local: Vector3;
+}
+
 interface SpriteFx {
   sprite: Sprite;
   life: number;
@@ -53,6 +65,7 @@ interface SpriteFx {
   vel: Vector3;
   opacity0: number;
   spin: number;
+  follow?: MuzzleFollow;
 }
 
 interface BallFx {
@@ -144,6 +157,7 @@ export class VfxManager {
       vel?: Vector3;
       additive?: boolean;
       spin?: number;
+      follow?: MuzzleFollow;
     },
   ): void {
     if (this.activeSprites.length >= VfxManager.MAX_SPRITES) return;
@@ -160,6 +174,7 @@ export class VfxManager {
       vel: o.vel ? o.vel.clone() : new Vector3(),
       opacity0: o.opacity ?? 1,
       spin: o.spin ?? 0,
+      follow: o.follow,
     });
   }
 
@@ -182,37 +197,49 @@ export class VfxManager {
     });
   }
 
-  /** 砲口の閃光。武器種別ごとに形状と輝度を変える。 */
+  /**
+   * 砲口の閃光。武器種別ごとに形状と輝度を変える。
+   *
+   * `opts.scale` はカメラからの距離で決める大きさ倍率 (`Visibility.muzzleFlashScale`)。
+   * これが無いと、自機の砲口 (カメラの十数 m 先) で
+   * 「空中に浮いた黄色い丸」になってしまう。
+   * `opts.follow` を渡すと閃光が砲身に張り付いて機体と一緒に動く。
+   */
   muzzleFlash(
     pos: Vector3,
     color: number,
     shape: 'needle' | 'heavy' | 'ring' | 'scatter' | 'burst' | 'lance' = 'needle',
     brightness = 0.8,
+    opts: { scale?: number; follow?: MuzzleFollow } = {},
   ): void {
+    const k = opts.scale ?? 1;
+    const follow = opts.follow;
     const size =
-      shape === 'heavy' ? 8 : shape === 'ring' ? 6 : shape === 'scatter' || shape === 'burst' ? 4 : shape === 'lance' ? 3 : 5;
+      (shape === 'heavy' ? 8 : shape === 'ring' ? 6 : shape === 'scatter' || shape === 'burst' ? 4 : shape === 'lance' ? 3 : 5) * k;
     this.pushSprite(this.glow, pos, {
       color,
-      size0: shape === 'lance' ? 2 : size,
-      size1: shape === 'lance' ? 16 : size * (shape === 'heavy' ? 1.9 : 2.1),
+      size0: shape === 'lance' ? 2 * k : size,
+      size1: shape === 'lance' ? 16 * k : size * (shape === 'heavy' ? 1.9 : 2.1),
       life: shape === 'heavy' ? 0.13 : shape === 'lance' ? 0.12 : 0.07,
       opacity: brightness,
+      follow,
     });
     if (shape === 'ring') {
       this.pushSprite(this.ring, pos, {
         color,
-        size0: 3,
-        size1: 15,
+        size0: 3 * k,
+        size1: 15 * k,
         life: 0.18,
         opacity: brightness * 0.75,
+        follow,
       });
     } else if (shape === 'scatter' || shape === 'burst') {
       const count = shape === 'burst' ? 5 : 3;
       for (let i = 0; i < count; i++) {
         this.pushSprite(this.spark, pos, {
           color,
-          size0: 1.6,
-          size1: 0.2,
+          size0: 1.6 * k,
+          size1: 0.2 * k,
           life: 0.15 + i * 0.03,
           opacity: brightness,
           vel: new Vector3(rng.signed(45), rng.signed(45), rng.signed(45)),
@@ -221,10 +248,11 @@ export class VfxManager {
     } else if (shape === 'lance') {
       this.pushSprite(this.ring, pos, {
         color,
-        size0: 1.4,
-        size1: 9,
+        size0: 1.4 * k,
+        size1: 9 * k,
         life: 0.18,
         opacity: brightness * 0.65,
+        follow,
       });
     }
   }
@@ -275,6 +303,14 @@ export class VfxManager {
       life: 0.2,
       opacity: 1,
     });
+    // 「当たった」ことだけを伝える短い白い芯。既存の火花と破片はそのまま残す。
+    this.pushSprite(this.glow, pos, {
+      color: 0xffffff,
+      size0: 2.2 * scale,
+      size1: 9 * scale,
+      life: 0.08,
+      opacity: 1,
+    });
     const direction = normal?.clone().normalize();
     for (let i = 0; i < 4; i++) {
       const velocity = direction
@@ -315,32 +351,38 @@ export class VfxManager {
     this.hitSpark(pos, scale * 1.12, weaponId, normal);
   }
 
-  /** 主砲の短い飛翔エフェクト。遠距離でも種類を読み取れる最小限の尾。 */
+  /**
+   * 主砲の短い飛翔エフェクト。遠距離でも種類を読み取れる最小限の尾。
+   *
+   * 「自分の弾がどこへ飛んだか分かる」ことを最優先にするため、
+   * 尾の寿命と輝度を上げて、点線ではなく一本の筋として読めるようにしている。
+   */
   projectileTrail(
     pos: Vector3,
     color: number,
     mode: 'beam' | 'slug' | 'plasma' | 'particle' | 'pulse' | 'lance',
   ): void {
     if (mode === 'beam') {
-      this.pushSprite(this.glow, pos, { color, size0: 1.8, size1: 0.2, life: 0.08, opacity: 0.28 });
+      this.pushSprite(this.glow, pos, { color, size0: 3.2, size1: 0.4, life: 0.16, opacity: 0.5 });
     } else if (mode === 'slug') {
       this.pushSprite(this.smoke, pos, {
-        color: 0x7d6658,
-        size0: 1.7,
-        size1: 4,
-        life: 0.22,
-        opacity: 0.18,
+        color: 0x8f776a,
+        size0: 2.4,
+        size1: 6,
+        life: 0.3,
+        opacity: 0.26,
         additive: false,
       });
+      this.pushSprite(this.glow, pos, { color, size0: 2.4, size1: 0.4, life: 0.14, opacity: 0.45 });
     } else if (mode === 'plasma') {
-      this.pushSprite(this.spark, pos, { color, size0: 2.5, size1: 0.3, life: 0.16, opacity: 0.5 });
+      this.pushSprite(this.spark, pos, { color, size0: 3.6, size1: 0.5, life: 0.24, opacity: 0.68 });
     } else if (mode === 'pulse') {
-      this.pushSprite(this.spark, pos, { color, size0: 2.1, size1: 0.1, life: 0.14, opacity: 0.65 });
-      this.pushSprite(this.glow, pos, { color, size0: 1, size1: 4, life: 0.1, opacity: 0.32 });
+      this.pushSprite(this.spark, pos, { color, size0: 3.0, size1: 0.2, life: 0.2, opacity: 0.8 });
+      this.pushSprite(this.glow, pos, { color, size0: 1.5, size1: 5, life: 0.14, opacity: 0.42 });
     } else if (mode === 'lance') {
-      this.pushSprite(this.glow, pos, { color, size0: 2.8, size1: 0.1, life: 0.1, opacity: 0.72 });
+      this.pushSprite(this.glow, pos, { color, size0: 4.0, size1: 0.2, life: 0.16, opacity: 0.85 });
     } else {
-      this.pushSprite(this.spark, pos, { color, size0: 1.7, size1: 0.1, life: 0.12, opacity: 0.55 });
+      this.pushSprite(this.spark, pos, { color, size0: 2.6, size1: 0.2, life: 0.18, opacity: 0.7 });
     }
   }
 
@@ -513,6 +555,10 @@ export class VfxManager {
         continue;
       }
       const t = 1 - fx.life / fx.maxLife;
+      if (fx.follow) {
+        // 砲身に張り付く: 機体の現在の位置と姿勢からローカルオフセットを復元する
+        worldMuzzlePoint(fx.follow.local, fx.follow.ship.pos, fx.follow.ship.quat, fx.sprite.position);
+      }
       fx.sprite.position.addScaledVector(fx.vel, dt);
       fx.sprite.scale.setScalar(fx.size0 + (fx.size1 - fx.size0) * t);
       (fx.sprite.material as SpriteMaterial).opacity = fx.opacity0 * (1 - t) * (1 - t);

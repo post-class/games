@@ -170,6 +170,7 @@ export const VEIL_CH04: MissionDef = {
       faction: 'confed',
       atNav: 1,
       tag: TAG.escort,
+      displayName: '連邦契約船',
       offset: [0, 0, -400],
       speed: 0,
     },

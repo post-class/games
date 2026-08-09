@@ -21,7 +21,9 @@ import { Rng } from '../core/rng';
 import { VISUAL_BASE_HALF_LENGTH, type ShipDef, type VisualDef } from '../content/ships';
 import { missilePresentation, type GunDef, type MissileDef } from '../content/weapons';
 import { PartBuilder } from './PartBuilder';
+import { defaultRimMaterial, RIM_MESH_NAME } from './ShipVisibility';
 import { ShipVisualLifecycle } from './ShipVisualLifecycle';
+import { TRACER_WIDTH_GAIN, tracerLengthScale } from './Visibility';
 import { ROCK_TEXTURES, texture } from './textures';
 
 /**
@@ -823,6 +825,39 @@ export function requestShipVisual(
   return lifecycle;
 }
 
+/**
+ * 縁光 (リムライト) のシェルを 1 枚だけ足す。
+ *
+ * 船体のマージ済みジオメトリを**そのまま使い回す**ので、追加のジオメトリメモリは 0、
+ * ドローコールは機体あたり +1 で済む。マテリアルは ShipVisibility 側の共有インスタンスで、
+ * 実体ごとに陣営色と距離帯へ差し替える (RenderSync)。
+ */
+function addRimShell(group: Group): void {
+  let source: Mesh | undefined;
+  let bestCount = 0;
+  for (const child of group.children) {
+    if (!(child instanceof Mesh)) continue;
+    const count = child.geometry.getAttribute('position')?.count ?? 0;
+    // 船体 (hull/hullGrime) を優先し、無ければ最も頂点の多い部品を使う
+    const preferred = child.name.startsWith('hull');
+    if (preferred && !source?.name.startsWith('hull')) {
+      source = child;
+      bestCount = count;
+    } else if (count > bestCount && !source?.name.startsWith('hull')) {
+      source = child;
+      bestCount = count;
+    }
+  }
+  if (!source) return;
+  const shell = new Mesh(source.geometry, defaultRimMaterial());
+  shell.name = RIM_MESH_NAME;
+  shell.position.copy(source.position);
+  shell.quaternion.copy(source.quaternion);
+  // 縁光は機体の上に加算で乗せる
+  shell.renderOrder = 1;
+  group.add(shell);
+}
+
 function buildTemplate(def: ShipDef): Object3D {
   const k = keysFor(def.visual);
   // 機体 id を種にすることで、同型機のグリーブル配置は毎回同じになる
@@ -836,6 +871,7 @@ function buildTemplate(def: ShipDef): Object3D {
     clawMotifs(parts, k, len, len * (def.visual.kind === 'hauler' || def.visual.kind === 'warship' ? 0.3 : 0.9));
   }
   const group = parts.build(resolveMaterial);
+  addRimShell(group);
   group.scale.setScalar(def.size / VISUAL_BASE_HALF_LENGTH[def.visual.kind]);
   const root = new Group();
   root.add(group);
@@ -860,59 +896,68 @@ export function createShipMesh(def: ShipDef): Object3D {
   return obj;
 }
 
-/** 主砲の弾体。色だけでなく形状でも6種を識別できるようにする。 */
-export function createTracerMesh(color: number, lengthScale = 1, gun?: GunDef): Object3D {
+/**
+ * 主砲の弾体。色だけでなく形状でも6種を識別できるようにする。
+ *
+ * `defTracer` は武器定義 `GunDef.tracer` の値そのもの。
+ * 「どこへ飛んだか分かる」ための全体の底上げは `Visibility.tracerLengthScale()` が
+ * 一手に担い、武器ごとの差 (mass-driver 0.8 / ion-lance 2.2 など) は必ず保たれる。
+ */
+export function createTracerMesh(color: number, defTracer = 1, gun?: GunDef): Object3D {
   const group = new Group();
   const mode = gun?.presentation?.fireMode ?? 'beam';
   const glow = resolveMaterial(`glow:${hex(color)}`);
+  const lengthScale = tracerLengthScale(defTracer);
+  // 長さだけ伸ばすと糸のように消えるので、太さも少しだけ上げる
+  const w = TRACER_WIDTH_GAIN;
   if (mode === 'slug') {
     const body = new Mesh(SPH, glow);
-    body.scale.set(1.9, 1.9, 5.5 * lengthScale);
+    body.scale.set(1.9 * w, 1.9 * w, 5.5 * lengthScale);
     group.add(body);
     const wake = new Mesh(TUBE, glow);
-    wake.scale.set(0.7, 0.7, 8 * lengthScale);
+    wake.scale.set(0.7 * w, 0.7 * w, 8 * lengthScale);
     wake.position.z = 3.5 * lengthScale;
     group.add(wake);
   } else if (mode === 'plasma') {
     const core = new Mesh(TUBE, glow);
-    core.scale.set(2.5, 2.5, 13 * lengthScale);
+    core.scale.set(2.5 * w, 2.5 * w, 13 * lengthScale);
     group.add(core);
     const ring = new Mesh(RING, glow);
-    ring.scale.setScalar(2.4);
+    ring.scale.setScalar(2.4 * w);
     ring.rotation.x = Math.PI / 2;
     group.add(ring);
   } else if (mode === 'particle') {
     const core = new Mesh(SPH, glow);
-    core.scale.set(1.4, 1.4, 4.2 * lengthScale);
+    core.scale.set(1.4 * w, 1.4 * w, 4.2 * lengthScale);
     group.add(core);
     for (const [x, y] of [[-1.5, 0.9], [1.5, -0.9], [0.5, 1.4]] as const) {
       const particle = new Mesh(SPH, glow);
-      particle.scale.setScalar(0.55);
-      particle.position.set(x, y, 3.2 * lengthScale);
+      particle.scale.setScalar(0.55 * w);
+      particle.position.set(x * w, y * w, 3.2 * lengthScale);
       group.add(particle);
     }
   } else if (mode === 'pulse') {
     const core = new Mesh(SPH, glow);
-    core.scale.set(1.8, 1.8, 4.8 * lengthScale);
+    core.scale.set(1.8 * w, 1.8 * w, 4.8 * lengthScale);
     group.add(core);
     for (const [x, y] of [[-2.2, 0], [2.2, 0]] as const) {
       const pulse = new Mesh(SPH, glow);
-      pulse.scale.setScalar(0.65);
-      pulse.position.set(x, y, 2.2 * lengthScale);
+      pulse.scale.setScalar(0.65 * w);
+      pulse.position.set(x * w, y * w, 2.2 * lengthScale);
       group.add(pulse);
     }
   } else if (mode === 'lance') {
     const core = new Mesh(TUBE, glow);
-    core.scale.set(0.75, 0.75, 18 * lengthScale);
+    core.scale.set(0.75 * w, 0.75 * w, 18 * lengthScale);
     group.add(core);
     const ring = new Mesh(RING, glow);
-    ring.scale.setScalar(1.5);
+    ring.scale.setScalar(1.5 * w);
     ring.rotation.x = Math.PI / 2;
     ring.position.z = 2.5 * lengthScale;
     group.add(ring);
   } else {
     const mesh = new Mesh(TUBE, glow);
-    mesh.scale.set(1.2, 1.2, 15 * lengthScale);
+    mesh.scale.set(1.2 * w, 1.2 * w, 15 * lengthScale);
     group.add(mesh);
   }
   group.userData.weaponShape = mode;

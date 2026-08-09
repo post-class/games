@@ -1,0 +1,184 @@
+{
+  "_note": "第 3 章 第 3 話。風原のモンゴルと水閘の唐が同じ旗の下に付いた年。城を持たない相手には追わずに畳む判断が要る。",
+  "id": "ch3_m3",
+  "chapter": 3,
+  "index": 3,
+  "route": "main",
+  "title": "三つの旗",
+  "brief": "風原の騎馬と水閘の歩卒が同じ旗の下に付いた。留まらない相手は追っても捕まらない。追う戦域は畳み、捕まる戦域だけを押す。",
+  "hints": [
+    "騎馬は留まりません。追いかける戦域は畳んでください。",
+    "捕まるのは歩卒の側です。そちらに突撃を渡して押し切ります。",
+    "後退は負けではありません。旗を戻すための手です。"
+  ],
+  "setup": {
+    "map": "steppe",
+    "seed": 30303,
+    "playerCount": 3,
+    "player": 0,
+    "civs": [
+      "yamato",
+      "mongol",
+      "tou"
+    ],
+    "teams": [
+      0,
+      1,
+      1
+    ],
+    "startAge": "tekki",
+    "startResources": "standard",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-musha",
+        "count": 8,
+        "at": {
+          "player": 0,
+          "dx": 9,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-daikyu",
+        "count": 6,
+        "at": {
+          "player": 0,
+          "dx": 0,
+          "dy": 9
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-horo",
+        "count": 6,
+        "at": {
+          "player": 0,
+          "dx": -9,
+          "dy": 0
+        }
+      }
+    ]
+  },
+  "victory": [
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "hold",
+      "count": 1,
+      "ticks": 250
+    },
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "retreat",
+      "count": 1,
+      "ticks": 125
+    },
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "charge",
+      "count": 1,
+      "ticks": 250
+    },
+    {
+      "type": "surviveTicks",
+      "ticks": 3500
+    }
+  ],
+  "defeat": [
+    {
+      "type": "buildingCountAtMost",
+      "player": "self",
+      "building": "town_center",
+      "count": 0
+    },
+    {
+      "type": "loyaltyAtMostPercent",
+      "player": "self",
+      "percent": 0
+    }
+  ],
+  "events": [
+    {
+      "atTick": 0,
+      "type": "showHint",
+      "text": "二つの旗が同時に来ます。どちらを捨てるか先に決めてください。"
+    },
+    {
+      "atTick": 250,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "g-archer",
+          "count": 6
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": -26,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": -9,
+        "dy": 0
+      }
+    },
+    {
+      "atTick": 900,
+      "type": "spawnEnemyWave",
+      "player": 2,
+      "units": [
+        {
+          "unit": "t-hakuto",
+          "count": 8
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 26,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 9,
+        "dy": 0
+      }
+    },
+    {
+      "atTick": 1700,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "g-archer",
+          "count": 5
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 0,
+        "dy": 26
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 0,
+        "dy": 9
+      }
+    },
+    {
+      "when": {
+        "type": "frontOpened",
+        "count": 3
+      },
+      "type": "showHint",
+      "text": "三本になりました。騎馬の側は畳んで、歩卒の側を押してください。"
+    }
+  ],
+  "onVictory": "ch3_m4",
+  "onDefeat": "ch3_m3v"
+}

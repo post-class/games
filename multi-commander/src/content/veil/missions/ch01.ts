@@ -11,17 +11,25 @@
  * 戦闘は軽い（先遣隊3機を追い散らすだけ）。難しいのは同時に走る三本のタイマーである。
  *
  * ■ 「三つ全部は間に合わない」の表現（受入基準）
- * 三つの締切を **`required: false` の `timeLimit`** として並べ、
- * それぞれに対応する行動目標（帰投誘導／ポッド回収／先遣隊の阻止）を紐づけた。
- * - `bulkhead`  … 輸送船の隔壁が保つ時間（300秒）
- * - `pod-life`  … 脱出ポッドの生命維持（240秒）
- * - `deny-window` … 逃げる先遣隊が航路情報を持ち帰るまでの時間（170秒）
+ * 三つの締切を `timeLimit` として並べ、それぞれに対応する行動目標
+ * （帰投誘導／ポッド回収／先遣隊の阻止）を紐づけた。
+ * - `bulkhead`  … 輸送船の隔壁が保つ時間（300秒。**必須**）
+ * - `pod-life`  … 脱出ポッドの生命維持（240秒。加点）
+ * - `deny-window` … 逃げる先遣隊が航路情報を持ち帰るまでの時間（170秒。加点）
  * NAV 2（救難信号源）到達までに 60〜90 秒かかるため、残り時間で
  * 「3機の撃破」「散らばったポッド3基の回収」「輸送船を母艦まで誘導」を
- * すべて満たすことはできない。どれを捨てても任務は成立する（＝必須ではない）が、
- * 期限切れは `failed` として記録に残る。
- * 必須なのは「輸送船の生存（`protect`）」と「帰投（`reachNav`）」の2つだけなので、
- * 達成不能な必須目標は存在しない。
+ * すべて満たすことはできない。捨てた分は加点を失うだけで任務は成立する。
+ *
+ * ■ 必須目標（T1-①）
+ * 必須は「輸送船を帰投航路に乗せる（`escortArrive`）」「輸送船の生存（`protect`）」
+ * 「隔壁の5分（`timeLimit`）」「自機の帰投（`reachNav`）」の4つ。
+ * 達成する目標は `escortArrive` と `reachNav` の2つなので、
+ * 「制約だけが必須で永久に終わらない」状態にはならない。
+ * `escortArrive` は輸送船を Nav 3（帰投）の到達半径へ入れることで達成する。
+ * 輸送船は自力では 25km を 5分以内に走り切れないので、
+ * オートパイロット（`updateAutopilot` が 3km 以内の味方機を連れて行く）で
+ * **一緒に連れ帰る**のが正解手順になる。帰投ボタンを押す前に
+ * 「輸送船は隣にいるか」を確認させるのがこの章のねらい。
  */
 
 import type { MissionDef } from '../../../mission/types';
@@ -93,6 +101,7 @@ export const VEIL_CH01: MissionDef = {
       faction: 'confed',
       atNav: 1,
       tag: TAG.escort,
+      displayName: ASTRA,
       cruiseToNav: 2,
       speed: 100,
       radio: [{ speaker: ASTRA, text: `こちら${ASTRA}。出力三割、まだ動ける。`, tone: 'friendly' }],
@@ -121,50 +130,63 @@ export const VEIL_CH01: MissionDef = {
     },
   ],
   objectives: [
-    // 必須①: 輸送船の生存。章の主目標そのものなので required
+    // 必須①: 輸送船を帰投航路に乗せる（T1-①）。
+    // この章の勝利条件そのもの。「沈まなければ勝ち」を防ぐため、
+    // 制約 (protect) ではなく達成する目標 (escortArrive) として置く。
+    {
+      id: 'astra-home',
+      text: `輸送船${ASTRA}を帰投航路に乗せる`,
+      required: true,
+      spec: { kind: 'escortArrive', tag: TAG.escort, navIndex: 2 },
+    },
+    // 必須②: 輸送船の生存。沈められた時点で失敗、という意味の制約として残す
     {
       id: 'astra',
       text: `輸送船${ASTRA}を守る`,
       required: true,
       spec: { kind: 'protect', tag: TAG.escort },
     },
-    // 任意①: 隔壁のタイマー。切れても任務は続く（記録に残るだけ）
+    // 必須③: 隔壁の5分。この時間を超えたら輸送船は保たない（T1-①で必須化）
     // TODO(T6-1): 隔壁は本来「時間経過で輸送船が沈む」挙動。protectCount / 損傷連動が入ったら差し替える
     {
       id: 'bulkhead',
       text: `${ASTRA}の隔壁が保つのは5分。それまでに帰投航路へ乗せる`,
-      required: false,
+      required: true,
       spec: { kind: 'timeLimit', seconds: 300 },
     },
-    // 任意②: 救難ポッドの回収。章末の選択（救難か追撃か）の片側なので required にしない
+    // 加点①: 救難ポッドの回収。章末の選択（救難か追撃か）の片側なので required にしない
     {
       id: 'pods',
       text: '脱出ポッド3基を回収する',
       required: false,
+      reward: '＋帰還者3',
       spec: { kind: 'rescue', tag: TAG.rescue, radius: 300 },
     },
-    // 任意③: 生命維持のタイマー。ポッド回収と同じ時間を食い合う
+    // 加点②: 生命維持のタイマー。ポッド回収と同じ時間を食い合う
     {
       id: 'pod-life',
       text: '脱出ポッドの生命維持は4分',
       required: false,
+      reward: '＋帰還者',
       spec: { kind: 'timeLimit', seconds: 240 },
     },
-    // 任意④: 先遣隊の阻止。章末の選択（追撃）の片側。撃たずに帰っても任務は成立する
+    // 加点③: 先遣隊の阻止。章末の選択（追撃）の片側。撃たずに帰っても任務は成立する
     {
       id: 'deny',
       text: 'キルラシー先遣隊3機を阻止する',
       required: false,
+      reward: '＋軍令信用',
       spec: { kind: 'destroyTag', tag: TAG.target },
     },
-    // 任意⑤: 敵が航路情報を持ち帰るまでの時間。三本目のタイマー
+    // 加点④: 敵が航路情報を持ち帰るまでの時間。三本目のタイマー
     {
       id: 'deny-window',
       text: '先遣隊が航路情報を持ち帰るまで残り2分50秒',
       required: false,
+      reward: '＋軍令信用',
       spec: { kind: 'timeLimit', seconds: 170 },
     },
-    // 必須②: 帰投。主目標の「帰投誘導」に対応する
+    // 必須④: 自機の帰投。主目標の「帰投誘導」に対応する
     {
       id: 'home',
       text: `${CLAW}へ帰投する`,

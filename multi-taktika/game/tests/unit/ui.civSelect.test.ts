@@ -167,18 +167,27 @@ describe('ランダム枠（05§4-3）', () => {
 });
 
 describe('プレースホルダとアセット差し替え口', () => {
-  it('既定では画像アセットを返さない（M17 まで文字と図形で描く）', () => {
-    expect(CIV_ASSETS.emblem('yamato')).toBeNull();
-    expect(CIV_ASSETS.portrait('yamato')).toBeNull();
-    expect(CIV_ASSETS.unit('y-nagae')).toBeNull();
+  it('M17 のアセットを指している（`tools/assets/build.py` の出力先と一致）', () => {
+    // ここが `build.py` の出力パスと食い違うと、画面から絵が消える。
+    // アセットは 8 文明ぶんあるので、キーが文明 ID そのままであることも確かめる。
+    expect(CIV_ASSETS.emblem('yamato')).toBe('assets/ui/emblem_yamato.webp');
+    expect(CIV_ASSETS.portrait('yamato')).toBe('assets/ui/commander_yamato.webp');
+    expect(CIV_ASSETS.unit('y-nagae')).toBe('assets/units/y-nagae.webp');
   });
 
-  it('差し替えたら以降その URL が返る（M17 の入口）', () => {
+  it('差し替えられる（別の置き場に移してもここだけ直せばよい）', () => {
     const orig = CIV_ASSETS.emblem;
-    CIV_ASSETS.emblem = (civ) => `/assets/emblem/${civ}.png`;
-    expect(CIV_ASSETS.emblem('mongol')).toBe('/assets/emblem/mongol.png');
+    CIV_ASSETS.emblem = (civ) => `/cdn/emblem/${civ}.png`;
+    expect(CIV_ASSETS.emblem('mongol')).toBe('/cdn/emblem/mongol.png');
     CIV_ASSETS.emblem = orig;
-    expect(CIV_ASSETS.emblem('mongol')).toBeNull();
+    expect(CIV_ASSETS.emblem('mongol')).toBe('assets/ui/emblem_mongol.webp');
+  });
+
+  it('null を返す差し替えもできる（絵を出したくない場面のため）', () => {
+    const orig = CIV_ASSETS.portrait;
+    CIV_ASSETS.portrait = () => null;
+    expect(CIV_ASSETS.portrait('roma')).toBeNull();
+    CIV_ASSETS.portrait = orig;
   });
 
   it('紋章プレースホルダの文字は文明名の 1 文字目、ランダム枠は ？', () => {

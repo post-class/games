@@ -21,6 +21,8 @@ import { Skybox, type SkyboxOptions } from './Starfield';
 
 /** 通常時の視野角。ジャンプ演出でここから広げる */
 const BASE_FOV = 70;
+/** 通常時のブルーム強度。ジャンプ演出でここから上げる */
+const BLOOM_STRENGTH = 0.26;
 
 export class SceneSetup {
   readonly renderer: WebGLRenderer;
@@ -49,7 +51,8 @@ export class SceneSetup {
     this.renderer.outputColorSpace = SRGBColorSpace;
     this.renderer.toneMapping = ACESFilmicToneMapping;
     // 恒星や星雲がHUDより先に目に入らないよう、暗部を保った露出にする。
-    this.renderer.toneMappingExposure = 0.78;
+    // 敵機と照準が背景より先に読めることを優先し、遠景の作り込みは強度だけ落とす。
+    this.renderer.toneMappingExposure = 0.7;
 
     this.camera = new PerspectiveCamera(BASE_FOV, 1, 0.5, 30000);
 
@@ -64,14 +67,14 @@ export class SceneSetup {
     pmrem.dispose();
 
     // 主光源は太陽方向。宇宙なので影側は落ちるが、機体形状が読める程度の補助光を入れる
-    this.scene.add(new AmbientLight(0x2a3442, 1.0));
-    this.scene.add(new HemisphereLight(0x3a4a5e, 0x0f1216, 0.5));
+    this.scene.add(new AmbientLight(0x2a3442, 1.15));
+    this.scene.add(new HemisphereLight(0x3a4a5e, 0x0f1216, 0.6));
     this.sun = new DirectionalLight(0xfff0d8, 2.7);
     this.sun.position.copy(this.skybox.sunDirection).multiplyScalar(1000);
     this.scene.add(this.sun);
     // 反対側からの弱い寒色フィル (シルエットが潰れないように)
     // 影側が真っ黒だと形が読めない。宇宙の暗さより可読性を取る
-    this.fill = new DirectionalLight(0x7f9ecd, 0.8);
+    this.fill = new DirectionalLight(0x7f9ecd, 1.0);
     this.fill.position.copy(this.skybox.sunDirection).multiplyScalar(-1000);
     this.scene.add(this.fill);
 
@@ -82,8 +85,10 @@ export class SceneSetup {
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     // しきい値を上げて、発光体 (エンジン・灯火・爆発) だけを滲ませる。
-    // 低いと日向の金属面まで白く潰れて、laser のような棒に見えてしまう
-    this.bloom = new UnrealBloomPass(new Vector2(1, 1), 0.34, 0.58, 1.05);
+    // 低いと日向の金属面まで白く潰れて、laser のような棒に見えてしまう。
+    // 太陽と星雲が目標テキストや敵機と視線を奪い合っていたので、強度を下げ、
+    // しきい値を上げて「本当に光っているもの」だけを滲ませる。
+    this.bloom = new UnrealBloomPass(new Vector2(1, 1), BLOOM_STRENGTH, 0.55, 1.2);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
 
@@ -107,7 +112,7 @@ export class SceneSetup {
     const level = Math.max(0, Math.min(1, v));
     if (Math.abs(level - this.warpLevel) < 0.004) return;
     this.warpLevel = level;
-    this.bloom.strength = 0.34 + level * 0.5;
+    this.bloom.strength = BLOOM_STRENGTH + level * 0.5;
   }
 
   setBloom(on: boolean): void {

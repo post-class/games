@@ -7,39 +7,12 @@
   overflow: hidden;
 }
 
-/* DOS/VGA の 4:3 に寄せた cockpit stage。16:9 では左右を暗い機体側面として残す。 */
-.mc-hud.cockpit-decorated::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    linear-gradient(
-      90deg,
-      rgba(1, 4, 6, 0.78) 0,
-      rgba(1, 4, 6, 0.78) calc((100% - min(100vw, 140vh)) / 2),
-      rgba(1, 4, 6, 0) calc((100% - min(100vw, 140vh)) / 2 + 42px),
-      rgba(1, 4, 6, 0) calc(100% - (100% - min(100vw, 140vh)) / 2 - 42px),
-      rgba(1, 4, 6, 0.78) calc(100% - (100% - min(100vw, 140vh)) / 2),
-      rgba(1, 4, 6, 0.78) 100%
-    ),
-    linear-gradient(180deg, rgba(2, 7, 9, 0.1), rgba(2, 7, 9, 0.25));
-}
-.mc-hud.cockpit-decorated::after {
-  content: '';
-  position: absolute;
-  top: 8px;
-  bottom: var(--message-bar-height);
-  left: 50%;
-  width: min(100vw, 140vh);
-  transform: translateX(-50%);
-  border-left: 2px solid rgba(25, 35, 41, 0.86);
-  border-right: 2px solid rgba(25, 35, 41, 0.86);
-  box-shadow: inset 18px 0 28px rgba(0, 0, 0, 0.28), inset -18px 0 28px rgba(0, 0, 0, 0.28);
-  pointer-events: none;
-  z-index: 0;
-}
+/*
+ * 視界を狭める黒帯 (4:3 stage の左右マスクと内側の枠線) は廃止した。
+ * 上下左右を暗くしても「囲まれている」感じは出ず、前方視界が減るだけだったため。
+ * 風防の枠・柱・天蓋は 3D 内装 (`render/Cockpit.ts`) が実際の構造物として描き、
+ * 画面中央 60% は必ず抜けている。CSS 側は計器の可読性だけを受け持つ。
+ */
 .mc-hud > * {
   z-index: 1;
 }
@@ -47,8 +20,14 @@
 .mc-reticle {
   position: absolute;
   left: 50%;
-  /* 下部コクピット計器を除いた前方視界の中央に置く。 */
-  top: 35%;
+  /*
+   * 画面のちょうど中央に置く。コクピット視点のカメラは機体の姿勢をそのまま使うので
+   * (CameraRig: camera.quaternion = 機体の q)、機首方向＝射線が投影されるのは画面中央である。
+   * 以前は「下部計器を除いた視界の中央」として 35% に置いていたが、
+   * ITTS のリード表示 (.mc-lead) は worldToScreen の実座標に出るため、
+   * 静的な照準環だけが射線より画面高の 15% 上にずれていた (撃っても当たらない原因)。
+   */
+  top: 50%;
   width: 46px;
   height: 46px;
   transform: translate(-50%, -50%);
@@ -325,6 +304,18 @@
   pointer-events: none;
   z-index: 4;
   overflow: visible;
+  transition: opacity 140ms linear;
+}
+
+/*
+ * 外部視点では計器盤を隠す。視点切替 (F) が意味を持つようにするための受け口。
+ * `.mc-cockpit` に付けても、祖先の `.mc-hud` に付けても効く。
+ * 位置計算を残したいので display ではなく visibility で消す。
+ */
+.mc-cockpit.cockpit-dash--hidden,
+.cockpit-dash--hidden .mc-cockpit {
+  opacity: 0;
+  visibility: hidden;
 }
 
 /* 計器盤の外形。上辺を斜めに落として「風防の下端」に見せる */
@@ -345,27 +336,13 @@
   clip-path: inherit;
 }
 
-/* 風防の柱 (左右の斜めフレーム) */
-/* 風防の柱。ダッシュボード上端から斜めに立ち上がらせる */
+/*
+ * 風防の柱は 3D 内装 (`render/Cockpit.ts`) が画面の左右端に描くようにした。
+ * DOM 側の柱 (`.mc-pillar`) は計器盤の角に短い斜めの棒が浮くだけで、
+ * 3D の柱と二重になるため出さない。要素自体は HudView が作っている。
+ */
 .mc-pillar {
-  position: absolute;
-  top: -12px;
-  width: 18px;
-  height: 64px;
-  background: linear-gradient(90deg, rgba(26, 34, 41, 0.96), rgba(9, 13, 17, 0.55));
-  pointer-events: none;
-}
-.mc-pillar.left {
-  left: 4px;
-  transform-origin: bottom left;
-  transform: rotate(13deg);
-  clip-path: polygon(0 0, 62% 0, 100% 100%, 0 100%);
-}
-.mc-pillar.right {
-  right: 4px;
-  transform-origin: bottom right;
-  transform: rotate(-13deg);
-  clip-path: polygon(38% 0, 100% 0, 100% 100%, 0 100%);
+  display: none;
 }
 
 .mc-panels {
@@ -743,125 +720,130 @@
   color: var(--bad);
 }
 
-@media (max-height: 760px) {
-  .mc-cockpit {
-    height: 150px;
-  }
-  .mc-vdu {
-    font-size: 8.5px;
-    line-height: 1.08;
-    padding: 3px 5px;
-  }
+/*
+ * 計器盤の詰め組み。**すべての画面高でこれを既定にする。**
+ *
+ * 計器盤の高さは clamp(150px, 16vh, 170px) なので、どれだけ画面が高くても最大 170px しかない
+ * (「計器盤を約半分にして前方視界を優先する」という設計)。この 170px の内側 (パネル実寸 128px) に
+ * 元の 10.5px 組みは収まらず (実測 178px)、`.mc-panels > *` の overflow: hidden で下端が切れていた。
+ * 以前は `@media (max-height: 760px)` の中にだけ詰め組みがあったため、
+ * **1366×768 と 1920×1080 では左 VDU の PRIMARY 行・右 VDU の WINGMAN 行が切れていた**。
+ * 高さの条件を外し、詰め組みを既定にする (720p の見え方は従来と同じ)。
+ */
+.mc-vdu {
+  font-size: 8.5px;
+  line-height: 1.08;
+  padding: 3px 5px;
+}
 
-  .mc-vdu-title {
-    font-size: 8px;
-    margin-bottom: 2px;
-    padding-bottom: 1px;
-  }
-  .mc-vdu-section {
-    margin: 2px 0 1px;
-    padding-top: 1px;
-    font-size: 7px;
-  }
-  .mc-vdu .name {
-    font-size: 9px;
-  }
-  .mc-status-chip {
-    font-size: 7px;
-    margin-top: 1px;
-  }
+.mc-vdu-title {
+  font-size: 8px;
+  margin-bottom: 2px;
+  padding-bottom: 1px;
+}
+.mc-vdu-section {
+  margin: 2px 0 1px;
+  padding-top: 1px;
+  font-size: 7px;
+}
+.mc-vdu .name {
+  font-size: 9px;
+}
+.mc-status-chip {
+  font-size: 7px;
+  margin-top: 1px;
+}
 
-  /* 720p でも追加した武器情報を切り捨てず、右 VDU 内だけで読めるように詰める。 */
-  .mc-vdu.right {
-    padding: 4px 6px;
-    font-size: 8.5px;
-    line-height: 1.05;
-    overflow: hidden;
-  }
-  .mc-vdu.right .mc-vdu-title {
-    margin-bottom: 2px;
-    padding-bottom: 2px;
-  }
-  .mc-vdu.right .mc-vdu-section {
-    margin: 2px 0 0;
-    padding-top: 1px;
-  }
-  .mc-vdu.right .mc-weapon-selected {
-    margin: 1px 0;
-    padding: 1px 2px;
-  }
-  .mc-vdu.right .mc-weapon-selected .weapon-use,
-  .mc-vdu.right .mc-fire-status {
-    margin: 1px 0;
-    font-size: 8px;
-    line-height: 1.05;
-  }
-  .mc-vdu.right .mc-lockstate {
-    margin-top: 1px;
-    font-size: 8px;
-  }
+/* 720p でも追加した武器情報を切り捨てず、右 VDU 内だけで読めるように詰める。 */
+.mc-vdu.right {
+  padding: 4px 6px;
+  font-size: 8.5px;
+  line-height: 1.05;
+  overflow: hidden;
+}
+.mc-vdu.right .mc-vdu-title {
+  margin-bottom: 2px;
+  padding-bottom: 2px;
+}
+.mc-vdu.right .mc-vdu-section {
+  margin: 2px 0 0;
+  padding-top: 1px;
+}
+.mc-vdu.right .mc-weapon-selected {
+  margin: 1px 0;
+  padding: 1px 2px;
+}
+.mc-vdu.right .mc-weapon-selected .weapon-use,
+.mc-vdu.right .mc-fire-status {
+  margin: 1px 0;
+  font-size: 8px;
+  line-height: 1.05;
+}
+.mc-vdu.right .mc-lockstate {
+  margin-top: 1px;
+  font-size: 8px;
+}
 
-  /* 右 VDU は V キーでページ分割するため、各ページをスクロールなしで収める。 */
-  .mc-vdu.right.tactical,
-  .mc-vdu.right.weapons {
-    padding: 2px 4px;
-    font-size: 7px;
-    line-height: 1;
-  }
-  .mc-vdu.right.tactical .mc-vdu-section,
-  .mc-vdu.right.weapons .mc-vdu-section {
-    margin: 1px 0;
-    padding-top: 1px;
-    font-size: 7px;
-  }
-  /* ターゲットの部位別残量を追加しても、NAV / WING まで枠内に収める。 */
-  .mc-vdu.right.tactical {
-    padding-top: 1px;
-    padding-bottom: 1px;
-    line-height: 0.9;
-  }
-  .mc-vdu.right.tactical .mc-vdu-title {
-    margin-bottom: 0;
-    padding-bottom: 0;
-    line-height: 0.9;
-  }
-  .mc-vdu.right.tactical .mc-vdu-section {
-    margin: 0;
-    padding-top: 0;
-    line-height: 0.9;
-  }
-  .mc-vdu.right.tactical .name {
-    line-height: 0.9;
-  }
-  .mc-vdu.right.weapons .weapon-use {
-    display: none;
-  }
-  .mc-vdu.right.compact {
-    padding: 0 3px;
-    font-size: 6.2px;
-    line-height: 1;
-  }
-  .mc-vdu.right.compact .mc-sys-sep {
-    margin-top: 1px;
-    padding-top: 1px;
-  }
+/* 右 VDU は V キーでページ分割するため、各ページをスクロールなしで収める。 */
+.mc-vdu.right.tactical,
+.mc-vdu.right.weapons {
+  padding: 2px 4px;
+  font-size: 7px;
+  line-height: 1;
+}
+.mc-vdu.right.tactical .mc-vdu-section,
+.mc-vdu.right.weapons .mc-vdu-section {
+  margin: 1px 0;
+  padding-top: 1px;
+  font-size: 7px;
+}
+/* ターゲットの部位別残量を追加しても、NAV / WING まで枠内に収める。 */
+.mc-vdu.right.tactical {
+  padding-top: 1px;
+  padding-bottom: 1px;
+  line-height: 0.9;
+}
+.mc-vdu.right.tactical .mc-vdu-title {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  line-height: 0.9;
+}
+.mc-vdu.right.tactical .mc-vdu-section {
+  margin: 0;
+  padding-top: 0;
+  line-height: 0.9;
+}
+.mc-vdu.right.tactical .name {
+  line-height: 0.9;
+}
+.mc-vdu.right.weapons .weapon-use {
+  display: none;
+}
+.mc-vdu.right.compact {
+  padding: 0 3px;
+  font-size: 6.2px;
+  line-height: 1;
+}
+.mc-vdu.right.compact .mc-sys-sep {
+  margin-top: 1px;
+  padding-top: 1px;
+}
 
-  .mc-gauges {
-    padding: 3px 5px;
-    gap: 2px;
-  }
-  .mc-gauge {
-    font-size: 7px;
-  }
-  .mc-gauge .bar {
-    height: 4px;
-  }
-  .mc-speed {
-    font-size: 14px;
-  }
-  .mc-speed small {
-    font-size: 7px;
-  }
+.mc-gauges {
+  padding: 3px 5px;
+  gap: 2px;
+}
+.mc-gauge {
+  font-size: 7px;
+}
+.mc-gauge .bar {
+  height: 4px;
+}
+.mc-speed {
+  font-size: 14px;
+}
+.mc-speed small {
+  font-size: 7px;
 }
 
 /* 小さい画面では、左右 VDU と中央計器を2段に分けて横幅へ収める。 */

@@ -4,10 +4,32 @@ import { CombatAudio } from '../audio/CombatAudio';
 import { bus } from '../core/events';
 import { forwardOf } from '../core/math';
 import { FIXED_DT, Loop } from '../core/loop';
-import { enemyTauntReply, playerTaunt, wingmanAck } from '../content/dialogue';
+import {
+  controlEscortLostLine,
+  controlPlayerDownLine,
+  controlWingmanLostLine,
+  enemyTauntReply,
+  escortDamageLine,
+  playerTaunt,
+  wingmanAck,
+} from '../content/dialogue';
+import {
+  mournLine,
+  wingmanArmorLine,
+  wingmanCriticalLine,
+  wingmanShieldDownLine,
+} from '../content/pilotDialogue';
+import { PILOTS, type PersonalityId } from '../content/pilots';
 import { HudView } from '../hud/HudView';
+import { damageStage, stageWorsened, type DamageStage } from '../hud/damageStage';
+import { healthRatios } from '../sim/damage';
 import { AIM_PITCH_OFFSET } from '../core/aim';
-import { MissionRunner } from '../mission/MissionRunner';
+import {
+  displayNameOf,
+  MISSION_GRADE_LABEL,
+  MissionRunner,
+  type MissionGrade,
+} from '../mission/MissionRunner';
 import type { Loadout, MissionDef } from '../mission/types';
 import { CameraRig } from '../render/CameraRig';
 import { CombatVfx } from '../render/CombatVfx';
@@ -31,6 +53,102 @@ import { InputManager } from './input';
 import { difficulty, settings } from './settings';
 import { ReplayBuffer } from './replay';
 import { PlaytestLog, type PlaytestRecorder } from './playtest';
+
+/**
+ * 自機が撃墜されてから画面を切り替えるまでの「間」(秒)。
+ *
+ * 即暗転すると死んだことに気付けないので、爆発を見せ、カメラを寄せ、
+ * 無線が1本入るまで待つ。この間はプレイヤー入力を一切受け付けない。
+ */
+export const PLAYER_DEATH_HOLD = 4.2;
+
+/**
+ * 任務失敗を読むための最低の余韻 (秒)。
+ *
+ * 失敗の見出し (部分達成/任務失敗) が出た瞬間に画面が切り替わると、
+ * 何が起きて負けたのかを読めない。達成で終わるときのテンポは変えない。
+ */
+export const LOSS_READ_DELAY = 3.6;
+
+/**
+ * 任務終了からデブリーフへ移るまでの待ち時間を決める。
+ *
+ * Game の外に出してあるのは、**「失敗が読める時間が必ず確保される」ことを
+ * 単体テストできる**ようにするため。
+ *
+ * @param outcome 勝敗
+ * @param opts landing: 着艦演出を挟むか / deathRemaining: 撃墜演出の残り (撃墜されていなければ undefined)
+ */
+export function endDelayFor(
+  outcome: 'win' | 'loss',
+  opts: { landing: boolean; deathRemaining?: number },
+): number {
+  if (outcome === 'win' && opts.landing) return 4.2;
+  // 撃墜されたときは爆発と無線を見せ終わるまで待つ
+  if (opts.deathRemaining !== undefined) return Math.max(LOSS_READ_DELAY, opts.deathRemaining + 0.4);
+  return LOSS_READ_DELAY;
+}
+
+/** 画面中央に出す告知の種類。 */
+export type CasualtyKind = 'wingman' | 'escort' | 'player';
+
+/**
+ * 画面中央の告知文。
+ *
+ * 僚機の戦死・護衛対象の喪失・自機の撃墜は**別の語**で書く。
+ * 同じ枠に同じ文言で出すと、何を失ったのか区別できない。
+ */
+export function casualtyBanner(
+  kind: CasualtyKind,
+  name = '',
+): { title: string; note: string; durationMs: number } {
+  if (kind === 'wingman') return { title: `${name} 戦死`, note: '編隊から1機失った', durationMs: 2600 };
+  if (kind === 'escort') return { title: `${name} 喪失`, note: '護衛対象が撃沈された', durationMs: 2800 };
+  return { title: '撃墜された', note: '機体喪失 — 記録に残る', durationMs: PLAYER_DEATH_HOLD * 1000 };
+}
+
+/**
+ * 自機撃墜からの「間」を持つ小さな状態機械。
+ *
+ * Game から切り出してあるのは、**入力を止めている条件を単体テストできる**ようにするため。
+ * 「間の最中か (`locked`)」と「撃墜されたか (`down`)」を分けて持つ。
+ * 間が明けた後も `down` は真のままで、終了処理は撃墜として扱える。
+ */
+export class DeathHold {
+  private left = 0;
+  private started = false;
+
+  /** 演出を始める。すでに始まっていれば false を返し、二重に始めない。 */
+  begin(seconds: number = PLAYER_DEATH_HOLD): boolean {
+    if (this.started) return false;
+    this.started = true;
+    this.left = seconds;
+    return true;
+  }
+
+  tick(dt: number): void {
+    if (this.left > 0) this.left = Math.max(0, this.left - dt);
+  }
+
+  /** 入力を捨てている間か。 */
+  get locked(): boolean {
+    return this.left > 0;
+  }
+
+  /** 撃墜されたか (間が明けた後も真)。 */
+  get down(): boolean {
+    return this.started;
+  }
+
+  get remaining(): number {
+    return this.left;
+  }
+
+  reset(): void {
+    this.left = 0;
+    this.started = false;
+  }
+}
 
 /**
  * 戦闘部分の本体。固定 dt でシミュレーションを進め、可変 dt で描画する。
@@ -91,6 +209,16 @@ export class Game {
   private hazardWarn = 0;
   private readonly tmpFwd = new Vector3();
   private readonly tmpTo = new Vector3();
+  /** 自機の被弾段階。段階が進んだ瞬間だけ警告する */
+  private playerStage: DamageStage = 'shield-ok';
+  /** 僚機ごとの被弾段階。同じ段階で何度も喋らせない */
+  private wingmanStages = new Map<number, DamageStage>();
+  /** 護衛対象ごとの被弾段階 (対象の列挙と名前は MissionRunner が唯一の出所) */
+  private escortStages = new Map<number, DamageStage>();
+  /** 自機撃墜の余韻。`locked` の間は入力を受け付けない */
+  private readonly death = new DeathHold();
+  /** 撃墜された自機。カメラを爆発へ向けるために参照を保つ */
+  private deathEntity?: Entity;
   /** ミッション終了後、デブリーフへ移るまでの余韻 */
   private endDelay = 0;
   private endedOutcome?: 'win' | 'loss';
@@ -132,6 +260,7 @@ export class Game {
       bus.on('destroyed', (p) => {
         if (p.target.kind === 'ship') this.replay.mark(`${p.target.ship?.pilot ?? p.target.label ?? '機体'} 撃墜`);
       }),
+      bus.on('destroyed', (p) => this.onCasualty(p.target)),
       bus.on('missionEnded', (p) => {
         if (this.activePlaytest) {
           this.playtestLog.complete(this.activePlaytest);
@@ -141,15 +270,18 @@ export class Game {
         this.endedOutcome = p.outcome;
         // 勝ったときは着艦の演出を挟んでから画面を切り替える
         const player = this.world.player;
-        if (p.outcome === 'win' && player && !player.ship?.ejected) {
-          this.deck.startLanding(this.world, player);
-          this.endDelay = 4.2;
-        } else {
-          this.endDelay = 3.2;
-        }
+        const landing = p.outcome === 'win' && !!player && !player.ship?.ejected;
+        if (landing && player) this.deck.startLanding(this.world, player);
+        this.endDelay = endDelayFor(p.outcome, {
+          landing,
+          deathRemaining: this.death.down ? this.death.remaining : undefined,
+        });
+        // 達成度は3段階 (T1-①)。見出しの語は MISSION_GRADE_LABEL を唯一の出所にして、
+        // デブリーフ (App 側) と飛行中のアナウンスで違う言い方にならないようにする。
+        const grade: MissionGrade = this.runner?.grade ?? (p.outcome === 'win' ? 'complete' : 'failed');
         bus.emit('announce', {
-          text: p.outcome === 'win' ? '任務達成' : '任務失敗',
-          kind: p.outcome === 'win' ? 'good' : 'bad',
+          text: MISSION_GRADE_LABEL[grade],
+          kind: grade === 'complete' ? 'good' : grade === 'partial' ? 'warn' : 'bad',
           durationMs: 3000,
         });
       }),
@@ -197,6 +329,182 @@ export class Game {
     }
   }
 
+  /** 自機の僚機か (編隊長が自機の戦闘機)。 */
+  private isWingman(e: Entity, playerId: number): boolean {
+    return (
+      e.kind === 'ship' &&
+      !!e.ship &&
+      e.id !== playerId &&
+      e.ai?.leaderId === playerId &&
+      // 輸送艦・艦艇は編隊に付いていても僚機として扱わない (護衛対象は別の扱い)
+      (e.ship.def.role === 'fighter' || e.ship.def.role === 'bomber')
+    );
+  }
+
+  /**
+   * 守る対象か。判定と名前は `MissionRunner` が唯一の出所 (T1-①)。
+   * ここで章ごとの推測をしない。
+   */
+  private isEscortTarget(e: Entity): boolean {
+    return e.kind === 'ship' && !!e.ship && !!this.runner?.isEscortTarget(e);
+  }
+
+  /** 無線の話者名。名簿由来の呼び名 (`ship.pilot`) をそのまま使う。 */
+  private speakerOf(e: Entity): string {
+    return e.ship?.pilot ?? e.label ?? '僚機';
+  }
+
+  /** 性格。名簿に載っていない僚機は既定の「堅実」として扱う。 */
+  private personalityOf(e: Entity): PersonalityId {
+    const callsign = e.ship?.pilot;
+    return PILOTS.find((p) => p.callsign === callsign)?.personality ?? 'steady';
+  }
+
+  /**
+   * 戦死を「事件」にする (T1-②)。
+   *
+   * 右上の撃墜ログだけでは見落とすので、
+   * 僚機の戦死は画面中央に名前を出し、他の僚機か管制が1本反応する。
+   * 自機の撃墜は専用の演出へ回す。
+   */
+  private onCasualty(target: Entity): void {
+    if (!this.active || target.kind !== 'ship' || !target.ship) return;
+    const playerId = this.world.playerId;
+    if (target.id === playerId) {
+      this.onPlayerDown(target);
+      return;
+    }
+    // 護衛対象の喪失。僚機の戦死と混ざらないよう「喪失」の語と別の説明にする。
+    if (this.isEscortTarget(target)) {
+      const shipName = displayNameOf(target);
+      this.escortStages.delete(target.id);
+      const banner = casualtyBanner('escort', shipName);
+      this.hud.showCasualty(banner.title, banner.note, banner.durationMs);
+      bus.emit('radio', {
+        speaker: '管制',
+        text: controlEscortLostLine(shipName),
+        tone: 'command',
+      });
+      return;
+    }
+    if (!this.isWingman(target, playerId)) return;
+
+    const name = this.speakerOf(target);
+    this.wingmanStages.delete(target.id);
+    const banner = casualtyBanner('wingman', name);
+    this.hud.showCasualty(banner.title, banner.note, banner.durationMs);
+    // 反応は1本だけ。他の僚機が生きていればその僚機、いなければ管制。
+    const other = this.world.entities.find(
+      (e) => e.alive && e.id !== target.id && this.isWingman(e, playerId),
+    );
+    if (other) {
+      bus.emit('radio', {
+        speaker: this.speakerOf(other),
+        text: mournLine(this.personalityOf(other)),
+        tone: 'friendly',
+      });
+    } else {
+      bus.emit('radio', {
+        speaker: '管制',
+        text: controlWingmanLostLine(name),
+        tone: 'command',
+      });
+    }
+  }
+
+  /**
+   * 自機撃墜。即暗転せず、爆発を見せてから画面を切り替える。
+   *
+   * - カメラを機外へ出して爆発の方へ寄せる
+   * - 画面中央に「撃墜された」を出す
+   * - 管制の無線を1本入れる
+   * - 間 (`DeathHold`) の最中はプレイヤー入力を受け付けない
+   */
+  private onPlayerDown(target: Entity): void {
+    if (!this.death.begin(PLAYER_DEATH_HOLD)) return;
+    this.deathEntity = target;
+    // 機外から爆発を見せる。視点設定は次の出撃で cockpit に戻る。
+    this.rig.mode = 'chase';
+    this.rig.focusOn(target.pos, PLAYER_DEATH_HOLD);
+    this.rig.addShake(0.9);
+    const banner = casualtyBanner('player');
+    this.hud.showCasualty(banner.title, banner.note, banner.durationMs);
+    audio.damageStageCue('hull-critical');
+    bus.emit('radio', { speaker: '管制', text: controlPlayerDownLine(), tone: 'command' });
+  }
+
+  /** 自機撃墜の余韻の最中か。true の間はプレイヤー入力を捨てる。 */
+  get inputLocked(): boolean {
+    return this.death.locked;
+  }
+
+  /**
+   * 被弾を段階で伝える (T1-②)。
+   *
+   * 段階が**進んだ瞬間だけ**警告する。同じ段階に留まっている間は
+   * 連続警報 (CombatAudio) が受け持つので、ここでは何もしない。
+   */
+  private updateDamageStages(): void {
+    const player = this.world.player;
+    if (player?.ship && !player.ship.ejected) {
+      const stage = damageStage(healthRatios(player));
+      if (stageWorsened(this.playerStage, stage)) {
+        this.hud.showDamageStage(stage);
+        audio.damageStageCue(stage);
+        if (stage === 'hull-critical') {
+          bus.emit('radio', {
+            speaker: '管制',
+            text: '船体が保たない。Alt+E で脱出できる。判断は任せろ。',
+            tone: 'command',
+          });
+        }
+      }
+      this.playerStage = stage;
+    }
+
+    // 護衛対象。沈むと必ず任務失敗になるので、僚機と同じ段階で伝える。
+    // 対象の列挙と表示名は MissionRunner の公開 API から取る (推測しない)。
+    for (const t of this.runner?.escortTargets() ?? []) {
+      const e = this.world.byId(t.id);
+      if (!e?.ship) continue;
+      const stage = damageStage(healthRatios(e));
+      const prev = this.escortStages.get(t.id) ?? 'shield-ok';
+      this.escortStages.set(t.id, stage);
+      if (!stageWorsened(prev, stage)) continue;
+      if (stage !== 'shield-down' && stage !== 'armor-hit' && stage !== 'hull-critical') continue;
+      bus.emit('radio', { speaker: t.name, text: escortDamageLine(stage), tone: 'friendly' });
+      // ハル危険域だけは、見落とさないよう画面上部にも段階を出す
+      if (stage === 'hull-critical') {
+        bus.emit('announce', {
+          text: `${t.name} 危険域 — 護衛対象を守れ`,
+          kind: 'bad',
+          durationMs: 2600,
+        });
+      }
+    }
+
+    const playerId = this.world.playerId;
+    for (const e of this.world.entities) {
+      if (!e.alive || !this.isWingman(e, playerId) || !e.ship) continue;
+      const stage = damageStage(healthRatios(e));
+      const prev = this.wingmanStages.get(e.id) ?? 'shield-ok';
+      this.wingmanStages.set(e.id, stage);
+      if (!stageWorsened(prev, stage)) continue;
+      const personality = this.personalityOf(e);
+      // ハル被弾 (hull-hit) は無線にしない。喋る回数を3段階に抑える。
+      const text =
+        stage === 'shield-down'
+          ? wingmanShieldDownLine(personality)
+          : stage === 'armor-hit'
+            ? wingmanArmorLine(personality)
+            : stage === 'hull-critical'
+              ? wingmanCriticalLine(personality)
+              : undefined;
+      if (!text) continue;
+      bus.emit('radio', { speaker: this.speakerOf(e), text, tone: 'friendly' });
+    }
+  }
+
   triggerHitStop(ms: number): void {
     this.hitStopLeft = Math.max(this.hitStopLeft, ms / 1000);
   }
@@ -227,6 +535,11 @@ export class Game {
 
     this.endedOutcome = undefined;
     this.endDelay = 0;
+    this.playerStage = 'shield-ok';
+    this.wingmanStages.clear();
+    this.escortStages.clear();
+    this.death.reset();
+    this.deathEntity = undefined;
     this.ejectArmed = 0;
     this.damagedChatter = 0;
     this.hazardWarn = 0;
@@ -262,6 +575,11 @@ export class Game {
   }
 
   endMission(): void {
+    this.death.reset();
+    this.deathEntity = undefined;
+    this.wingmanStages.clear();
+    this.escortStages.clear();
+    this.playerStage = 'shield-ok';
     this.deck.reset();
     this.tutorial.finish(false);
     audio.stopEngine();
@@ -288,6 +606,8 @@ export class Game {
     // フレームの後にシミュレーションが終わってしまい、最大 1 フレーム遅れる。
     this.input.update(dt);
     this.activePlaytest?.recordInputLatency(this.input.drainPlaytestLatency());
+    // 撃墜の余韻。終了処理より先に減らすので、終了待ちの間も間が保たれる
+    this.death.tick(dt);
 
     // ミッション終了後の余韻。演出だけ進めて入力は受け付けない
     if (this.endedOutcome) {
@@ -365,6 +685,7 @@ export class Game {
     });
     this.runner?.update(dt);
     this.replay.record(this.world, this.input, dt);
+    this.updateDamageStages();
     this.updateDamagedReturn(dt);
     this.updateHazardWarning(dt);
   }
@@ -508,7 +829,14 @@ export class Game {
     const frozen = this.paused || !this.active;
     this.sync.hidePlayer = this.rig.mode === 'cockpit';
     this.scene.cockpit.setVisible(this.active && this.rig.mode === 'cockpit' && settings.cockpitDecorations);
+    // 機内灯をハル残量に追従させる (被弾が深いほど橙へ寄る)。点滅はしない。
+    this.scene.cockpit.update(
+      player?.ship ? player.ship.hull / Math.max(1, player.ship.def.hull) : 1,
+    );
     this.hud.setCockpitDecorations(settings.cockpitDecorations);
+    // 外部視点 (F) では DOM の計器盤を隠し、最小 HUD に置き換える。
+    // 視点を切り替えたことが一目で分かるようにする。
+    this.hud.setExternalView(this.rig.mode !== 'cockpit');
     this.scene.dust.setVisible(this.active);
     // ジャンプ演出は描画側の時間で滑らかに立ち上げる
     const warpTarget = this.autopilot ? 1 : 0;
@@ -530,7 +858,9 @@ export class Game {
     this.applyTimeScale();
 
     const abActive = !!player?.input?.afterburner && (player.ship?.fuel ?? 0) > 0;
-    this.rig.update(player, dtReal, abActive || this.autopilot);
+    // 撃墜されて自機を失った後も、爆発の場所を見せるためにカメラだけは動かす
+    const camTarget = player ?? (this.death.locked ? this.deathEntity : undefined);
+    this.rig.update(camTarget, dtReal, abActive || this.autopilot);
     this.scene.render();
     this.sound.update(this.world, dtReal, this.active && !this.paused);
     if (this.active && !this.paused) {
@@ -572,6 +902,9 @@ export class Game {
     const actions = this.input.consumeActions();
     // ポーズ中の入力は ScreenHost 側が処理する
     if (this.paused) return;
+    // 撃墜の余韻中は何も受け付けない。
+    // 入力は上で捨てているので、間が明けた直後に溜まった操作が暴発しない。
+    if (this.inputLocked) return;
     for (const a of actions) {
       switch (a) {
         case 'pause':

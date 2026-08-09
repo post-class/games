@@ -4,8 +4,10 @@ import { gunDef, gunPresentation, missileDef, missilePresentation } from '../con
 import { settings } from '../app/settings';
 import type { World } from '../world/world';
 import type { CameraRig } from './CameraRig';
+import { localMuzzleOffset } from './MuzzleAnchor';
 import { ShieldFx } from './ShieldFx';
 import { VfxManager } from './Vfx';
+import { impactFlashScale, muzzleFlashScale } from './Visibility';
 
 const TRAIL_INTERVAL = 0.035;
 /** 損傷煙を出す間隔 */
@@ -33,6 +35,12 @@ export class CombatVfx {
   private unsubs: Array<() => void> = [];
   private trailTimer = 0;
   private smokeTimer = 0;
+  /**
+   * 視点の位置 (自機の座標を毎フレーム写す)。
+   * 砲口閃光と命中閃光の大きさを「画面上でどう見えるか」で決めるために使う。
+   * コクピットのカメラは自機からわずかに前上なので、距離の目安としては十分。
+   */
+  private eye = new Vector3();
 
   constructor(scene: Scene, private rig: CameraRig, private hitStop: (ms: number) => void) {
     this.vfx = new VfxManager(scene);
@@ -40,6 +48,13 @@ export class CombatVfx {
 
     this.unsubs.push(
       bus.on('weaponFired', (p) => {
+        // 砲口閃光は砲身 (hardpoint) に張り付き、機体と一緒に動く。
+        // 大きさはカメラからの距離で決めるので、自機の砲口でも巨大な丸にならない。
+        const follow = {
+          ship: p.shooter,
+          local: localMuzzleOffset(p.muzzle, p.shooter.pos, p.shooter.quat),
+        };
+        const scale = muzzleFlashScale(this.eye.distanceTo(p.muzzle));
         if (p.weaponKind === 'gun') {
           const gun = gunDef(p.weaponId);
           const presentation = gunPresentation(gun);
@@ -49,6 +64,7 @@ export class CombatVfx {
             gun.color,
             presentation.muzzleShape,
             (settings.reducedFlashes ? 0.3 : 1) * presentation.maxBrightness,
+            { scale, follow },
           );
           if (p.isPlayer) this.rig.addShake(0.035);
         } else {
@@ -59,12 +75,15 @@ export class CombatVfx {
             missile.color,
             presentation.detonation === 'torpedo' ? 'heavy' : 'ring',
             settings.reducedFlashes ? 0.35 : 0.8,
+            { scale, follow },
           );
           if (p.isPlayer && presentation.detonation === 'torpedo') this.rig.addShake(0.12);
         }
       }),
       bus.on('shieldHit', (p) => {
-        this.vfx.shieldSpark(p.point, p.isPlayer ? 1.6 : 1, p.weaponId, impactNormal(p.target, p.hitFace));
+        // 遠くの命中が点にならないよう距離で拡大する (シールド/装甲/ハルの描き分けは変えない)
+        const far = impactFlashScale(this.eye.distanceTo(p.point));
+        this.vfx.shieldSpark(p.point, (p.isPlayer ? 1.6 : 1) * far, p.weaponId, impactNormal(p.target, p.hitFace));
         // シールドが張られていることを、機体を包む殻と面の波紋で見せる
         const def = p.target.ship?.def;
         const cap = Math.max(1, ((def?.shield.front ?? 40) + (def?.shield.rear ?? 40)) * 0.25);
@@ -72,7 +91,7 @@ export class CombatVfx {
         if (p.isPlayer) this.rig.addShake(settings.reducedFlashes ? 0.09 : 0.18);
       }),
       bus.on('armorHit', (p) => {
-        const scale = p.isPlayer ? 1.8 : 1;
+        const scale = (p.isPlayer ? 1.8 : 1) * impactFlashScale(this.eye.distanceTo(p.point));
         const normal = impactNormal(p.target, p.hitFace);
         if (p.layer === 'hull') this.vfx.hullHit(p.point, scale, p.weaponId, normal);
         else this.vfx.hitSpark(p.point, scale, p.weaponId, normal);
@@ -95,6 +114,7 @@ export class CombatVfx {
 
   /** 描画フレームごと: ミサイル/フレアの軌跡を出しつつ、エフェクトを進める */
   update(world: World, dt: number): void {
+    if (world.player) this.eye.copy(world.player.pos);
     this.shieldFx.update(dt);
     this.trailTimer += dt;
     if (this.trailTimer >= TRAIL_INTERVAL) {

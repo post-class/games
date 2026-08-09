@@ -1,0 +1,53 @@
+{
+  "_note": "キャンペーンの構造値（M16）。ミッション固有の数値はここに書かない（各ミッションの JSON に書く）。コードに数値リテラルを置かないための唯一の置き場。",
+  "save": {
+    "_note": "T-M16-06 セーブ。version が合わないセーブは黙って読まない（既定で始める）。",
+    "storageKey": "multi-taktika.campaign.progress",
+    "version": 1,
+    "maxHistory": 200
+  },
+  "limits": {
+    "_note": "壊れたミッション定義を起動時に落とすための上限。バランス値ではなく構造的な安全弁。",
+    "maxPlacementOffsetTiles": 60,
+    "maxUnitsPerGroup": 40,
+    "maxGroupsPerEvent": 8,
+    "maxEvents": 64,
+    "maxConditions": 8,
+    "maxHints": 12,
+    "maxTextChars": 240,
+    "maxTicks": 90000,
+    "maxCount": 500,
+    "percentMax": 100,
+    "maxSpawnSearchTiles": 24
+  },
+  "chapters": [
+    {
+      "chapter": 1,
+      "title": "第一章 黎明の世",
+      "subtitle": "戦域と令の基本形（練習メニュー = 06§13）",
+      "age": "reimei",
+      "missionCount": 5
+    },
+    {
+      "chapter": 2,
+      "title": "第二章 青銅の世",
+      "subtitle": "隣人を得た（碑が暦を明かし、船が海に出る。争点は交易の権利）",
+      "age": "seido",
+      "missionCount": 5
+    },
+    {
+      "chapter": 3,
+      "title": "第三章 鉄器の世",
+      "subtitle": "境界を得た（領地が測られ諸侯に分かれる。攻城が解禁され、令が要る）",
+      "age": "tekki",
+      "missionCount": 5
+    },
+    {
+      "chapter": 4,
+      "title": "第四章 帝国の世",
+      "subtitle": "境界の引き直し方を得た（硝石と星形の要塞。総力戦の決着は攻城戦で）",
+      "age": "teikoku",
+      "missionCount": 5
+    }
+  ]
+}

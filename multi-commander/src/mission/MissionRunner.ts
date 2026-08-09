@@ -29,7 +29,7 @@ import {
   recordCommsPositions,
   resetCommsDelay,
 } from '../sim/comms';
-import { checkNavArrival } from '../sim/nav';
+import { checkNavArrival, navByIndex } from '../sim/nav';
 import { stateOf } from '../sim/subsystems';
 import type { Entity } from '../world/entity';
 import {
@@ -56,6 +56,82 @@ import type {
 } from './types';
 
 export type MissionState = 'running' | 'win' | 'loss';
+
+/**
+ * 達成度の3段階 (T1-①)。勝敗そのものは win / loss の2値のままで、
+ * 「どこまでやれたか」をこの3段階で持つ。
+ *
+ * - `complete` 必須目標すべて達成、かつ任意目標も残らず達成
+ * - `partial`  必須目標はすべて達成したが、任意目標に未達がある
+ * - `failed`   必須目標に失敗か未達がある（= loss）
+ */
+export type MissionGrade = 'complete' | 'partial' | 'failed';
+
+/** 達成度の見出し。デブリーフと記録で同じ語を使う */
+export const MISSION_GRADE_LABEL: Record<MissionGrade, string> = {
+  complete: '任務達成',
+  partial: '部分達成',
+  failed: '任務失敗',
+};
+
+/**
+ * 護衛・保護の対象を「達成する目標」として数える種別 (T1-①)。
+ *
+ * `escortTargets()` がこの宣言を読んで対象を列挙する。
+ * 「守る対象」の定義をここ以外に書かない（章ごとの推測をさせない）。
+ */
+const ESCORT_KINDS: ReadonlySet<ObjectiveSpec['kind']> = new Set([
+  'protect',
+  'protectCount',
+  'escortArrive',
+  'holdTag',
+] as const);
+
+/** 護衛対象の1件 (T1-①)。名前の出所は `SpawnGroupDef.displayName` → 機体名 */
+export interface EscortTarget {
+  id: number;
+  /** 目標が参照しているタグ */
+  tag: string;
+  /** 表示名。固有名が無ければ機体名にフォールバック済み */
+  name: string;
+  /** ミッション定義が宣言した固有名。宣言が無ければ undefined */
+  displayName?: string;
+}
+
+/**
+ * 機体の表示名 (T1-①)。**呼び出し側で名前を推測しないための唯一の関数**。
+ *
+ * `SpawnGroupDef.displayName` が宣言されていればその名前、
+ * 無ければ機体名 (`ShipDef.name`) になる（`spawnShip` が `label` に入れている）。
+ * 撃墜イベント (`destroyed`) の `target` のように、
+ * すでに戦域から外れた機体にもそのまま使える。
+ */
+export function displayNameOf(e: Entity): string {
+  return e.label ?? e.ship?.def.name ?? '対象';
+}
+
+/**
+ * 目標文の前に付ける「得られるもの」(T1-①)。必須では空文字。
+ *
+ * 任意目標は `(任意)` ではなく、`reward` があれば加点として読める表記を前置する
+ * （`reward` 未指定の任意目標は従来どおり `(任意)`）。
+ * ブリーフィングは前置だけを薄く出す必要があるので、区切り記号まで含めた
+ * この文字列を返す。**区切りをここ以外に書かない**（書くと表記が2系統になる）。
+ */
+export function objectiveRewardPrefix(def: ObjectiveDef): string {
+  if (def.required) return '';
+  return `${def.reward ?? '(任意)'} …`;
+}
+
+/**
+ * 目標の見出し文 (T1-①)。**表記の唯一の出所**。
+ *
+ * HUD（`objectiveViews`）・デブリーフ（`summary().objectives`）・
+ * ブリーフィング（`App.showBriefing`）はすべてこの組み立てを使う。
+ */
+export function objectiveLabel(def: ObjectiveDef): string {
+  return `${objectiveRewardPrefix(def)}${def.text}`;
+}
 
 /** 逃走した敵がこの距離まで離れたら「撃退した」として戦域から外す */
 const FLED_DISTANCE = 14000;
@@ -101,6 +177,8 @@ interface ObjectiveRuntime {
   watchIds: number[];
   /** rescue 用: 回収済みの対象 id */
   collected?: Set<number>;
+  /** escortArrive 用: Nav へ到達させた対象 id (一度入れたら取り消さない) */
+  arrived?: Set<number>;
   /** recon / holdTag 用: 条件を継続できている秒数 */
   progress?: number;
   /** HUD に出す進捗ラベル (例 "2/3") */
@@ -155,6 +233,11 @@ export class MissionRunner {
   private radioQueue: Array<{ line: RadioLineDef; at: number }> = [];
   private unsubs: Array<() => void> = [];
   private tagIndex = new Map<string, number[]>();
+  /**
+   * ミッション定義が宣言した固有名 (entity id → `SpawnGroupDef.displayName`)。
+   * 宣言の無い機体は入らない (= 表示名は機体名)。
+   */
+  private declaredNames = new Map<number, string>();
   private capitalStage = 0;
   private capitalTorpedoFired = false;
   /** 接近警告を最後に出した味方大型艦。離れるまで再通知しない */
@@ -272,6 +355,7 @@ export class MissionRunner {
       state: 'active',
       watchIds: [],
       collected: d.spec.kind === 'rescue' ? new Set<number>() : undefined,
+      arrived: d.spec.kind === 'escortArrive' ? new Set<number>() : undefined,
       progress: d.spec.kind === 'recon' || d.spec.kind === 'holdTag' ? 0 : undefined,
     }));
     this.playtest?.recordObjectives(this.playtestObjectiveStates(), 0);
@@ -287,6 +371,7 @@ export class MissionRunner {
     }));
     this.radioQueue = [];
     this.tagIndex.clear();
+    this.declaredNames.clear();
     this.capitalStage = 0;
     this.capitalTorpedoFired = false;
     this.friendlyProximityWarningShipId = undefined;
@@ -505,6 +590,45 @@ export class MissionRunner {
       if (o.spec.kind === 'protect') set.add(o.spec.tag);
     }
     return set;
+  }
+
+  /**
+   * 守る対象として宣言されているタグ (protect / protectCount / escortArrive / holdTag)。
+   * 「この機体は護衛対象か」の判定は必ずここを通す。
+   */
+  get escortTags(): ReadonlySet<string> {
+    const set = new Set<string>();
+    for (const o of this.def.objectives) {
+      if (!ESCORT_KINDS.has(o.spec.kind)) continue;
+      const spec = o.spec as { tag?: string };
+      if (spec.tag) set.add(spec.tag);
+    }
+    return set;
+  }
+
+  /** その機体が守る対象か (撃墜イベントの振り分けに使う) */
+  isEscortTarget(e: Entity): boolean {
+    return !!e.tag && this.escortTags.has(e.tag);
+  }
+
+  /**
+   * いま戦域にいる護衛対象 (T1-①)。
+   *
+   * 名前は `SpawnGroupDef.displayName` → 機体名の順に解決済みなので、
+   * 呼び出し側 (`src/app/game.ts` の被弾・撃墜通知など) は推測をしなくてよい。
+   * 撃墜イベントのように既に外れた機体の名前が必要な場合は
+   * `displayNameOf(entity)` を使う（同じ出所）。
+   */
+  escortTargets(): EscortTarget[] {
+    const out: EscortTarget[] = [];
+    for (const tag of this.escortTags) {
+      for (const id of this.tagIndex.get(tag) ?? []) {
+        const e = this.world.byId(id);
+        if (!e?.ship) continue;
+        out.push({ id, tag, name: displayNameOf(e), displayName: this.declaredNames.get(id) });
+      }
+    }
+    return out;
   }
 
   /**
@@ -1199,6 +1323,9 @@ export class MissionRunner {
         def,
         faction: g.faction,
         pos,
+        // 宣言された固有名をそのまま機体のラベルにする (T1-①)。
+        // 未宣言なら spawnShip が機体名を入れるので、既存の見え方は変わらない。
+        label: g.displayName,
         quat,
         speed: g.speed ?? def.maxSpeed * 0.6,
         speedScale: isHostile(g.faction, 'confed') && this.difficulty.id === 'easy' ? 0.5 : 1,
@@ -1212,6 +1339,7 @@ export class MissionRunner {
         list.push(e.id);
         this.tagIndex.set(g.tag, list);
       }
+      if (g.displayName) this.declaredNames.set(e.id, g.displayName);
       spawnedIds.push(e.id);
       // 決闘規約 (第5章)。宣言のあるエースだけが「測る側」になる。
       if (isAce && g.ace?.duel && player) {
@@ -1374,6 +1502,44 @@ export class MissionRunner {
   }
 
   /**
+   * 護衛対象を指定 Nav へ乗せる (T1-①)。
+   *
+   * `protect` の「沈められなければよい」に対して、こちらは
+   * **連れて帰るという行動**を勝利条件にする。到達半径は Nav 実体から読むので、
+   * 自機の Nav 到達判定 (`src/sim/nav.ts` の `checkNavArrival`) と同じ値になる
+   * （既定値をここで二重に定義しない）。
+   */
+  private evaluateEscortArrive(
+    o: ObjectiveRuntime,
+    spec: { tag: string; navIndex: number; min?: number },
+  ): void {
+    const ids = this.tagIndex.get(spec.tag) ?? [];
+    const nav = navByIndex(this.world, spec.navIndex);
+    // Nav がまだ無い（= 到達半径の出所が無い）間は判定しない
+    if (!nav?.nav) return;
+    const radius = nav.nav.arriveRadius;
+    const set = (o.arrived ??= new Set<number>());
+    for (const id of ids) {
+      const e = this.world.byId(id);
+      if (!e) continue;
+      // いちど到達させたら、その後どうなっても「乗せた」ことは取り消さない
+      if (e.pos.distanceTo(nav.pos) - e.radius <= radius) set.add(id);
+    }
+    // 既定は「出現した全数」。出現前は判定を始めない
+    const need = Math.max(1, spec.min ?? ids.length);
+    o.note = `${set.size}/${need} 到達`;
+    if (ids.length === 0) return;
+    if (set.size >= need) {
+      o.state = 'done';
+      return;
+    }
+    // 到達済み + まだ飛べる機体を足しても届かないなら、到達不能が確定した
+    let reachable = 0;
+    for (const id of ids) if (set.has(id) || this.world.byId(id)) reachable += 1;
+    if (reachable < need) o.state = 'failed';
+  }
+
+  /**
    * 偵察 (写真撮影)。対象を正面の狭い角度に一定距離まで収め続ける。
    * 撃つ必要はないが、逃げられたり追い散らされたりすると継続が途切れる。
    */
@@ -1455,6 +1621,10 @@ export class MissionRunner {
         }
         case 'rescue': {
           this.evaluateRescue(o, o.def.spec);
+          break;
+        }
+        case 'escortArrive': {
+          this.evaluateEscortArrive(o, o.def.spec);
           break;
         }
         case 'recon': {
@@ -1623,7 +1793,7 @@ export class MissionRunner {
   /** HUD 表示用の目標一覧 */
   objectiveViews(): ObjectiveView[] {
     return this.objectives.map((o) => {
-      const base = o.def.required ? o.def.text : `(任意) ${o.def.text}`;
+      const base = objectiveLabel(o.def);
       return {
         text: o.note && o.state === 'active' ? `${base} — ${o.note}` : base,
         state: o.state,
@@ -1631,11 +1801,41 @@ export class MissionRunner {
     });
   }
 
+  /**
+   * デブリーフに出す判定 (T1-①)。
+   *
+   * 制約 (`CONSTRAINT_KINDS`) は成立している間ずっと `active` なので、
+   * そのまま出すと「守り切ったのに未達」と見えてしまう。破られていない制約は
+   * 「達成」として見せる（`unmetObjectiveIds()` の扱いと揃える）。
+   */
+  private resolvedState(o: ObjectiveRuntime): ObjectiveView['state'] {
+    if (o.state === 'active' && CONSTRAINT_KINDS.has(o.def.spec.kind)) return 'done';
+    return o.state;
+  }
+
+  /**
+   * 達成度の3段階 (T1-①)。
+   *
+   * 必須目標がすべて達成されていなければ `failed`。
+   * そのうえで任意目標に未達が残っていれば `partial`、残っていなければ `complete`。
+   * 自機を失った出撃 (`state === 'loss'`) は必ず `failed`。
+   */
+  get grade(): MissionGrade {
+    if (this.state === 'loss') return 'failed';
+    const states = this.objectives.map((o) => ({ def: o.def, state: this.resolvedState(o) }));
+    if (states.some((o) => o.def.required && o.state !== 'done')) return 'failed';
+    return states.every((o) => o.state === 'done') ? 'complete' : 'partial';
+  }
+
   /** デブリーフ用の集計 */
   summary(): {
     kills: number;
     routed: number;
     objectives: ObjectiveView[];
+    /** 達成度の3段階 (T1-①)。デブリーフの見出しと記録に使う */
+    grade: MissionGrade;
+    /** 自機を失ったか (撃墜・脱出)。「機体喪失」として戦果に出す (T1-①) */
+    playerLost: boolean;
     seconds: number;
     playerHullRatio: number;
     wingmanLost: boolean;
@@ -1678,7 +1878,12 @@ export class MissionRunner {
     return {
       kills: this.kills,
       routed: this.routed,
-      objectives: this.objectives.map((o) => ({ text: o.def.text, state: o.state })),
+      objectives: this.objectives.map((o) => ({
+        text: objectiveLabel(o.def),
+        state: this.resolvedState(o),
+      })),
+      grade: this.grade,
+      playerLost: !player || !player.ship || player.ship.ejected || player.ship.hull <= 0,
       seconds: this.elapsed,
       playerHullRatio: player?.ship
         ? player.ship.hull / Math.max(1, player.ship.def.hull)
@@ -1753,6 +1958,9 @@ export class MissionRunner {
         if (o.state !== 'done') hasReturnNav = true;
         continue;
       }
+      // 護衛の帰投 (escortArrive) は「帰投することで達成する」目標なので、
+      // 帰投の前提条件にはしない (前提にすると帰れないまま詰む)。
+      if (o.def.spec.kind === 'escortArrive') continue;
       // 制約 (protect / 誤射禁止 / 発砲禁止 / N隻生存) は達成待ちにならない。
       // 破られていなければ帰投を妨げない。timeLimit は既存挙動のまま残す。
       if (o.def.spec.kind !== 'timeLimit' && CONSTRAINT_KINDS.has(o.def.spec.kind)) {

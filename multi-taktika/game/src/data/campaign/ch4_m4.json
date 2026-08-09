@@ -1,0 +1,233 @@
+{
+  "_note": "第 4 章 第 4 話。八国すべてが碑の島に艦を並べた年。碑の島では戦わない（掟一）ので、戦は白石海岸の側で起きる。",
+  "id": "ch4_m4",
+  "chapter": 4,
+  "index": 4,
+  "route": "main",
+  "title": "艦を並べる",
+  "brief": "八国すべてが碑の島に艦を並べた。島では刃を抜かない取り決めがあるので、戦は白石海岸の河口で起きる。四本を抱えて門を抜く。",
+  "hints": [
+    "碑の島では戦えません。ここは向こう岸の河口です。",
+    "略奪で守兵を割り、死守で押される側を止め、包囲で門を抜きます。",
+    "大筒は門前から外さないこと。"
+  ],
+  "setup": {
+    "map": "river",
+    "seed": 40404,
+    "playerCount": 2,
+    "player": 0,
+    "civs": [
+      "yamato",
+      "roma"
+    ],
+    "teams": [
+      0,
+      1
+    ],
+    "startAge": "teikoku",
+    "startResources": "high",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-nagae",
+        "count": 12,
+        "at": {
+          "player": 1,
+          "dx": -12,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-ozutsu",
+        "count": 5,
+        "at": {
+          "player": 1,
+          "dx": -12,
+          "dy": 2
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-teppo",
+        "count": 8,
+        "at": {
+          "player": 1,
+          "dx": 0,
+          "dy": 12
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-kiba",
+        "count": 8,
+        "at": {
+          "player": 1,
+          "dx": 0,
+          "dy": -12
+        }
+      },
+      {
+        "player": 1,
+        "unit": "r-triarii",
+        "count": 10,
+        "at": {
+          "player": 1,
+          "dx": -5,
+          "dy": 0
+        }
+      }
+    ],
+    "buildings": [
+      {
+        "player": 0,
+        "building": "castle",
+        "at": {
+          "player": 0,
+          "dx": -6,
+          "dy": -6
+        }
+      },
+      {
+        "player": 0,
+        "building": "castle",
+        "at": {
+          "player": 0,
+          "dx": 6,
+          "dy": 6
+        }
+      },
+      {
+        "player": 1,
+        "building": "stone_gate",
+        "at": {
+          "player": 1,
+          "dx": -7,
+          "dy": 0
+        }
+      }
+    ]
+  },
+  "victory": [
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "raid",
+      "count": 1,
+      "ticks": 125
+    },
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "hold",
+      "count": 1,
+      "ticks": 250
+    },
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "siege",
+      "count": 1,
+      "ticks": 250
+    },
+    {
+      "type": "buildingCountAtMost",
+      "player": 1,
+      "building": "stone_gate",
+      "count": 0
+    }
+  ],
+  "defeat": [
+    {
+      "type": "buildingCountAtMost",
+      "player": "self",
+      "building": "town_center",
+      "count": 0
+    },
+    {
+      "type": "loyaltyAtMostPercent",
+      "player": "self",
+      "percent": 0
+    }
+  ],
+  "events": [
+    {
+      "atTick": 0,
+      "type": "showHint",
+      "text": "河口の門を抜きます。まず北と南に囮を立ててください。"
+    },
+    {
+      "atTick": 1200,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "r-handgun",
+          "count": 6
+        }
+      ],
+      "at": {
+        "player": 1,
+        "dx": 0,
+        "dy": -6
+      },
+      "attackAt": {
+        "player": 1,
+        "dx": 0,
+        "dy": -12
+      }
+    },
+    {
+      "atTick": 2000,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "r-eq-heavy",
+          "count": 6
+        }
+      ],
+      "at": {
+        "player": 1,
+        "dx": 6,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 1,
+        "dx": -7,
+        "dy": 0
+      }
+    },
+    {
+      "atTick": 3000,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "r-onager",
+          "count": 3
+        }
+      ],
+      "at": {
+        "player": 1,
+        "dx": 6,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 1,
+        "dx": -7,
+        "dy": 0
+      }
+    },
+    {
+      "when": {
+        "type": "frontOpened",
+        "count": 4
+      },
+      "type": "showHint",
+      "text": "四本になりました。門前の戦域から大筒を外さないこと。"
+    }
+  ],
+  "onVictory": "ch4_m5",
+  "onDefeat": "ch4_m4v"
+}

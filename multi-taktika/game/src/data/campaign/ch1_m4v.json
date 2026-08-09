@@ -1,0 +1,32 @@
+{
+  "_note": "T-M16-03 分岐。ch1_m4 に負けた側のルート。勝てば本線（ch1_m5）へ復帰。",
+  "extends": "ch1_m4",
+  "id": "ch1_m4v",
+  "route": "vassal",
+  "title": "捨てる判断（服属の年）",
+  "brief": "服属した年の徴発。守れる戦域は初めから一つしかない。畳む順番だけを間違えないこと。",
+  "hints": [
+    "守れるのは一つだけです。もう一つは後退で畳んでください。",
+    "畳んだ兵を残した戦域に足せば押し切れます。",
+    "勝てば旗を戻して本線に復帰できます。"
+  ],
+  "setup": {
+    "startResources": "low",
+    "units": [
+      { "player": 0, "unit": "y-ashigaru", "count": 7, "at": { "player": 0, "dx": 10, "dy": 0 } },
+      { "player": 0, "unit": "y-ashigaru", "count": 3, "at": { "player": 0, "dx": 0, "dy": 10 } }
+    ]
+  },
+  "extraEvents": [
+    {
+      "atTick": 1750,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [{ "unit": "t-hosotsu", "count": 5 }],
+      "at": { "player": 0, "dx": 0, "dy": 26 },
+      "attackAt": { "player": 0, "dx": 0, "dy": 10 }
+    }
+  ],
+  "onVictory": "ch1_m5",
+  "onDefeat": "ch1_m5v"
+}

@@ -1,0 +1,235 @@
+{
+  "_note": "第 4 章 第 3 話。総力戦の年は八国とも休戦の季を黙って見送る。城を二つ持つので戦域は六本（上限）立つ。",
+  "id": "ch4_m3",
+  "chapter": 4,
+  "index": 3,
+  "route": "main",
+  "title": "休戦の季を破る",
+  "brief": "総力戦の年、八国とも収穫期の四十日を見送った。風原と塩街道が同時に寄せる。城が二つあるので戦域は六本、つまり上限まで立つ。",
+  "hints": [
+    "六本が上限です。ここから先はどれだけ増えても六本しか持てません。",
+    "畳む戦域を先に決めてください。後退は負けではありません。",
+    "守り切れば勝ちです。攻め切る必要はありません。"
+  ],
+  "setup": {
+    "map": "steppe",
+    "seed": 40303,
+    "playerCount": 3,
+    "player": 0,
+    "civs": [
+      "yamato",
+      "mongol",
+      "mali"
+    ],
+    "teams": [
+      0,
+      1,
+      1
+    ],
+    "startAge": "teikoku",
+    "startResources": "high",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-nagae",
+        "count": 10,
+        "at": {
+          "player": 0,
+          "dx": 10,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-teppo",
+        "count": 8,
+        "at": {
+          "player": 0,
+          "dx": 0,
+          "dy": 10
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-kiba",
+        "count": 8,
+        "at": {
+          "player": 0,
+          "dx": -10,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-nagae",
+        "count": 8,
+        "at": {
+          "player": 0,
+          "dx": 0,
+          "dy": -10
+        }
+      }
+    ],
+    "buildings": [
+      {
+        "player": 0,
+        "building": "castle",
+        "at": {
+          "player": 0,
+          "dx": -6,
+          "dy": -6
+        }
+      },
+      {
+        "player": 0,
+        "building": "castle",
+        "at": {
+          "player": 0,
+          "dx": 6,
+          "dy": 6
+        }
+      }
+    ]
+  },
+  "victory": [
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "hold",
+      "count": 1,
+      "ticks": 250
+    },
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "retreat",
+      "count": 1,
+      "ticks": 125
+    },
+    {
+      "type": "holdFrontsWithOrder",
+      "player": "self",
+      "order": "charge",
+      "count": 1,
+      "ticks": 250
+    },
+    {
+      "type": "surviveTicks",
+      "ticks": 4000
+    }
+  ],
+  "defeat": [
+    {
+      "type": "buildingCountAtMost",
+      "player": "self",
+      "building": "town_center",
+      "count": 0
+    },
+    {
+      "type": "loyaltyAtMostPercent",
+      "player": "self",
+      "percent": 0
+    }
+  ],
+  "events": [
+    {
+      "atTick": 0,
+      "type": "showHint",
+      "text": "季を守る国はもうありません。六本まで立ちます。"
+    },
+    {
+      "atTick": 250,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "g-heavy",
+          "count": 8
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": -26,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": -10,
+        "dy": 0
+      }
+    },
+    {
+      "atTick": 900,
+      "type": "spawnEnemyWave",
+      "player": 2,
+      "units": [
+        {
+          "unit": "m-naga",
+          "count": 10
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 26,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 10,
+        "dy": 0
+      }
+    },
+    {
+      "atTick": 1700,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "g-heavy",
+          "count": 6
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 0,
+        "dy": 26
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 0,
+        "dy": 10
+      }
+    },
+    {
+      "atTick": 2500,
+      "type": "spawnEnemyWave",
+      "player": 2,
+      "units": [
+        {
+          "unit": "m-hinawa",
+          "count": 6
+        }
+      ],
+      "at": {
+        "player": 0,
+        "dx": 0,
+        "dy": -26
+      },
+      "attackAt": {
+        "player": 0,
+        "dx": 0,
+        "dy": -10
+      }
+    },
+    {
+      "when": {
+        "type": "frontOpened",
+        "count": 4
+      },
+      "type": "showHint",
+      "text": "四本を超えました。畳む戦域を選んでください。"
+    }
+  ],
+  "onVictory": "ch4_m4",
+  "onDefeat": "ch4_m3v"
+}

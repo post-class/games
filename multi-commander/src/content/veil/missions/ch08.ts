@@ -130,6 +130,7 @@ export const VEIL_CH08: MissionDef = {
       faction: 'neurowm',
       offset: beside(BEACON_CENTER),
       tag: TAG.beacon,
+      displayName: '通信灯台〈中〉',
       speed: 0,
     },
     {
@@ -138,6 +139,7 @@ export const VEIL_CH08: MissionDef = {
       faction: 'neurowm',
       offset: beside(BEACON_NORTH),
       tag: TAG.beacon,
+      displayName: '通信灯台〈北〉',
       speed: 0,
     },
     {
@@ -146,6 +148,7 @@ export const VEIL_CH08: MissionDef = {
       faction: 'neurowm',
       offset: beside(BEACON_SOUTH),
       tag: TAG.beacon,
+      displayName: '通信灯台〈南〉',
       speed: 0,
     },
     // ───── 味方艦。護衛を続けるか敵の救難に向かうかの、こちら側の天秤。
@@ -155,6 +158,7 @@ export const VEIL_CH08: MissionDef = {
       faction: 'confed',
       offset: [0, -250, 1900],
       tag: TAG.capital,
+      displayName: CLAW,
       speed: 30,
     },
     // ───── 帝国の駆逐艦。停戦中なので撃たない（neutral）。ここから救難信号が上がる。

@@ -1,0 +1,320 @@
+/*
+ * styles/replay.css — リプレイ・観戦画面（T-M15-04, 05。`05§14`）
+ *
+ * 規約（`AI_CODING.md` / 手順書 §8.2）:
+ *   - 左右の余白 20px。**固定幅にしない**（ウィンドウを広げたらレーンも伸びる）
+ *   - 本文 16px 基準。ヘッダは 1 行 + 補足 1 行だけ（本体を狭めない）
+ *   - 色は `index.html` の :root 変数を使う。戦域の色は JS 側（`render/palette`）から入れる
+ *     （`05§15`「戦域の色は…リプレイのレーンで一貫します」ため 1 か所に持つ）
+ *
+ * ■ 割り付け（`05§14`「この画面の主役は盤面ではなく下半分のタイムライン」）
+ *   ヘッダ（固定）/ 盤面（残り。canvas は背後に見える）/ タイムライン（下半分）
+ *   盤面側は背景を敷かない = 背後の canvas がそのまま見える。
+ *
+ * クラス名は `mt-rp-` 接頭辞（hud.css / screens.css / result.css と衝突しない）。
+ */
+
+.mt-rp {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 20px 14px; /* 左右 20px */
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text, #e8ded0);
+  /* 盤面が透けるので画面全体は塗らない（下のパネルだけ塗る） */
+  pointer-events: none;
+}
+
+.mt-rp > * {
+  pointer-events: auto;
+}
+
+/* ---------------------------------------------------------------- ヘッダ */
+
+.mt-rp-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(20, 16, 12, 0.82);
+  border: 1px solid var(--line, #4a3a1e);
+}
+
+.mt-rp-title {
+  font-size: 20px; /* 本文の 1.25 倍まで */
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--gold, #e0b34a);
+}
+
+.mt-rp-sub {
+  font-size: 14px;
+  color: var(--text-dim, #a89b89);
+}
+
+.mt-rp-head-right {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+/* ---------------------------------------------------------------- 盤面（1） */
+
+.mt-rp-board {
+  flex: 1 1 auto;
+  min-height: 80px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding-top: 8px;
+}
+
+.mt-rp-board-note {
+  font-size: 14px;
+  color: var(--text-dim, #a89b89);
+  background: rgba(20, 16, 12, 0.72);
+  border-left: 3px solid var(--gold-dim, #a88530);
+  padding: 3px 8px;
+  border-radius: 2px;
+}
+
+/* ---------------------------------------------------------------- 再生できない */
+
+.mt-rp-reject {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--red, #c0562f);
+  border-radius: 4px;
+  background: rgba(20, 16, 12, 0.92);
+  max-width: 720px;
+}
+
+.mt-rp-reject-head {
+  font-weight: 700;
+  color: var(--red, #c0562f);
+  margin-bottom: 6px;
+}
+
+.mt-rp-dim {
+  color: var(--text-dim, #a89b89);
+  font-size: 14px;
+}
+
+/* ---------------------------------------------------------------- タイムライン */
+
+/*
+ * 下半分。**高さを画面の割合で決める**（レーン 6 本 + コントロール + 注記が入る最小値も持つ）。
+ * 幅は指定しない = ウィンドウを広げるとレーンがそのまま伸びる。
+ */
+.mt-rp-panel {
+  flex: 0 0 auto;
+  height: 50%;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 4px;
+  background: rgba(29, 24, 17, 0.94);
+}
+
+/* ---- 再生コントロール（7）と倍速（2） ---- */
+
+.mt-rp-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex: 0 0 auto;
+}
+
+.mt-rp-btn {
+  font: inherit;
+  font-size: 14px;
+  color: var(--text, #e8ded0);
+  background: var(--panel, #26200f);
+  border: 1px solid var(--line, #4a3a1e);
+  border-radius: 3px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.mt-rp-btn:hover:not(:disabled) {
+  border-color: var(--gold, #e0b34a);
+}
+
+.mt-rp-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.mt-rp-btn.is-primary {
+  border-color: var(--gold-dim, #a88530);
+}
+
+.mt-rp-btn.is-playing {
+  border-color: var(--gold, #e0b34a);
+  color: var(--gold, #e0b34a);
+}
+
+.mt-rp-clock {
+  font-variant-numeric: tabular-nums;
+  color: var(--gold, #e0b34a);
+}
+
+.mt-rp-speed {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--text-dim, #a89b89);
+}
+
+.mt-rp-range {
+  width: 160px;
+}
+
+.mt-rp-speed-val {
+  min-width: 56px;
+  color: var(--text, #e8ded0);
+  font-variant-numeric: tabular-nums;
+}
+
+.mt-rp-scan {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--text-dim, #a89b89);
+}
+
+/* ---- 戦域レーン（3） ---- */
+
+.mt-rp-lanes {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+}
+
+.mt-rp-lane {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 26px;
+  display: flex;
+  align-items: center;
+}
+
+.mt-rp-lane.is-follow {
+  background: rgba(224, 179, 74, 0.08);
+  outline: 1px solid var(--gold-dim, #a88530);
+}
+
+.mt-rp-lane-name {
+  position: absolute;
+  left: 0;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+/* レーンの目盛り本体。左端はレーン名の幅ぶんずらす（JS の LANE_NAME_WIDTH と一致） */
+.mt-rp-track {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  border-bottom: 1px solid rgba(74, 58, 30, 0.7);
+  cursor: pointer;
+}
+
+/* 立っていた時間 */
+.mt-rp-span {
+  position: absolute;
+  top: 50%;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 3px;
+  opacity: 0.75;
+}
+
+/* 令の変更点（4）。クリックでその瞬間から再生 */
+.mt-rp-card {
+  position: absolute;
+  top: 2px;
+  transform: translateX(-1px);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.2;
+  padding: 1px 4px;
+  color: var(--text, #e8ded0);
+  background: var(--panel, #26200f);
+  border: 1px solid var(--gold-dim, #a88530);
+  border-radius: 2px;
+  cursor: pointer;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.mt-rp-card:hover {
+  color: var(--gold, #e0b34a);
+  border-color: var(--gold, #e0b34a);
+}
+
+/* 下段の令（二重旗）は下寄せにして上段と重ならないようにする */
+.mt-rp-card.is-lower {
+  top: auto;
+  bottom: 2px;
+}
+
+/* 令が届いた時刻（5）: カードの少し右の**薄い**印 */
+.mt-rp-delivered {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: var(--text, #e8ded0);
+  opacity: 0.42;
+  z-index: 1;
+}
+
+/* 出した時刻と届いた時刻の間（= 遅延）を細い点線で結ぶ */
+.mt-rp-gap {
+  position: absolute;
+  top: 50%;
+  height: 0;
+  border-top: 1px dotted rgba(232, 222, 208, 0.5);
+}
+
+/* 再生ヘッド（6）: 全レーンを縦に貫く */
+.mt-rp-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 2px solid var(--gold, #e0b34a);
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* ---- 注記とキーの案内 ---- */
+
+.mt-rp-note {
+  flex: 0 0 auto;
+  font-size: 14px;
+  color: var(--text, #e8ded0);
+  border-left: 3px solid var(--gold-dim, #a88530);
+  padding-left: 8px;
+}
+
+.mt-rp-help {
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: var(--text-dim, #a89b89);
+}

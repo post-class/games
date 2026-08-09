@@ -1,0 +1,93 @@
+{
+  "_note": "T-M16-03 分岐。ch3_m5 に負けた側。第 3 章の終端。",
+  "extends": "ch3_m5",
+  "id": "ch3_m5v",
+  "route": "vassal",
+  "title": "境界を引く（服属の年）",
+  "brief": "境界は向こうの筆で引かれた。石門の前に立てるのは一度だけ。勝てば旗を戻して章を終えられる。",
+  "hints": [
+    "兵は本線より少ないです。門前の一本だけを勝たせてください。",
+    "略奪で守兵を割り、死守で押される側を止め、包囲で門を叩きます。",
+    "勝てば旗を戻して章を終えられます。"
+  ],
+  "setup": {
+    "startResources": "standard",
+    "units": [
+      {
+        "player": 0,
+        "unit": "y-musha",
+        "count": 9,
+        "at": {
+          "player": 1,
+          "dx": -12,
+          "dy": 0
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-seiro",
+        "count": 3,
+        "at": {
+          "player": 1,
+          "dx": -12,
+          "dy": 2
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-daikyu",
+        "count": 5,
+        "at": {
+          "player": 1,
+          "dx": 0,
+          "dy": 12
+        }
+      },
+      {
+        "player": 0,
+        "unit": "y-horo",
+        "count": 4,
+        "at": {
+          "player": 1,
+          "dx": 0,
+          "dy": -12
+        }
+      },
+      {
+        "player": 1,
+        "unit": "t-hakuto",
+        "count": 9,
+        "at": {
+          "player": 1,
+          "dx": -5,
+          "dy": 0
+        }
+      }
+    ]
+  },
+  "extraEvents": [
+    {
+      "atTick": 2800,
+      "type": "spawnEnemyWave",
+      "player": 1,
+      "units": [
+        {
+          "unit": "t-keiki",
+          "count": 5
+        }
+      ],
+      "at": {
+        "player": 1,
+        "dx": 6,
+        "dy": 0
+      },
+      "attackAt": {
+        "player": 1,
+        "dx": -7,
+        "dy": 0
+      }
+    }
+  ],
+  "onVictory": null,
+  "onDefeat": null
+}

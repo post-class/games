@@ -25,7 +25,7 @@
 import type { CivId, EntityId } from '@/shared/types';
 import { EntityKind, RESOURCE_IDS } from '@/shared/types';
 import type { Command } from '@/sim/command';
-import { cfgInt } from '@/sim/core/config';
+import { cfgAges, cfgInt } from '@/sim/core/config';
 import {
   buildingDef,
   buildingDefById,
@@ -99,23 +99,40 @@ const GOLD = RESOURCE_IDS.indexOf('gold');
 /** この判断 tick に出す内政の `Command`。 */
 export function planEconomy(ctx: AiContext): Command[] {
   const cmds: Command[] = [];
-  classifyVillagers(ctx);
+  const fresh = classifyVillagers(ctx);
 
-  // 1) 村人を出し続ける（人口枠がある限り。`07§2`「0〜5 分は村人だけを増やす時間」）。
+  // 1) 新しくできた村人を採集に就ける（**建てる前に採らせる**。
+  //    資源が入らないと家も資源施設も建たないので、順序はこちらが先）。
+  for (const c of gatherCommandsFor(ctx, fresh)) cmds.push(c);
+
+  // 2) 時代進化（段階 3 以上。`ai.json` の allowAdvanceAge）。
+  //
+  // **この判断のいちばん最初に出す。** 理由は 2 つあり、どちらも実測で踏んだ:
+  //  - `Command` は並んだ順に同じ tick で実行される。村人の生産や着工を先に出すと
+  //    そこで食料を使ってしまい、進化の費用が 1 体ぶん足りなくなって弾かれる
+  //    （費用は貯まるのに age が 0 のままだった原因）。
+  //  - 町の中心は「研究中は進化できない」（`canAdvanceAge` が `researchTech !== 0`
+  //    を弾く）ので、研究より先に出さないと研究が居座る。
+  //
+  // 進化を出したこの判断では**他に資源を使わない**（次の判断から再開する）。
+  const advance = planAgeAdvance(ctx);
+  if (advance !== null) {
+    cmds.push(advance);
+    return cmds;
+  }
+
+  // 3) 村人を出し続ける（人口枠と目標数の範囲で。`07§2`「0〜5 分は村人だけを増やす時間」）。
   pushVillagerProduction(ctx, cmds);
 
-  // 2) 建物（家 → 資源施設 → 市場）。1 回の判断で 1 棟だけ着工する
+  // 4) 建物（家 → 資源施設 → 市場）。1 回の判断で 1 棟だけ着工する
   //    （同じ tick に何棟も着工すると資源を使い切って村人が止まる）。
   const build = planEconBuilding(ctx);
   if (build !== null) cmds.push(build);
 
-  // 3) 研究（自軍の建物が持つ研究のうち、まだ取っていない最初のもの）。
-  const research = planResearch(ctx);
+  // 4) 研究（自軍の建物が持つ研究のうち、まだ取っていない最初のもの）。
+  //    **進化の費用が貯まっているときは研究しない**（町の中心を空けておく）。
+  const research = canAffordNextAge(ctx) ? null : planResearch(ctx);
   if (research !== null) cmds.push(research);
-
-  // 4) 時代進化（段階 3 以上。`ai.json` の allowAdvanceAge）。
-  const advance = planAgeAdvance(ctx);
-  if (advance !== null) cmds.push(advance);
 
   // 5) 資源の偏り: 金が余っていて足りない資源があるなら市場で交換する（`07§8`）。
   const trade = planMarketTrade(ctx);
@@ -134,11 +151,24 @@ export function planEconomy(ctx: AiContext): Command[] {
  *  - 後から現れた村人 → 生産されたばかりで手空き = 建設係
  * index が再利用されて別人になったら `EntityId` が変わるので再分類する。
  */
-function classifyVillagers(ctx: AiContext): void {
+function classifyVillagers(ctx: AiContext): OwnEntity[] {
   const m = ctx.memory;
   const villagerType = unitDefById(VILLAGER_ID).index;
   const firstLook = m.villagerKnownId.length === 0;
   const list = ctx.view.ownEntities;
+
+  // 今いる建設係の数。**枠が空いているぶんだけ**新しい村人を建設係にする。
+  let builders = 0;
+  if (!firstLook) {
+    for (let k = 0; k < list.length; k++) {
+      const oe = list[k]!;
+      if (oe.kind !== EntityKind.Unit || oe.typeId !== villagerType) continue;
+      if (memGet(m.villagerRole, oe.index) === VILLAGER_BUILDER) builders++;
+    }
+  }
+
+  /** この判断で新しく採集に就ける村人（`planEconomy` が `gather` を出す）。 */
+  const toGather: OwnEntity[] = [];
   for (let k = 0; k < list.length; k++) {
     const oe = list[k]!;
     if (oe.kind !== EntityKind.Unit || oe.typeId !== villagerType) continue;
@@ -146,9 +176,27 @@ function classifyVillagers(ctx: AiContext): void {
     if (id < 0) continue;
     if (memGet(m.villagerKnownId, oe.index) === id) continue;
     memSet(m.villagerKnownId, oe.index, id);
-    memSet(m.villagerRole, oe.index, firstLook ? VILLAGER_GATHERER : VILLAGER_BUILDER);
     memSet(m.villagerBusyUntil, oe.index, 0);
+    if (firstLook) {
+      // 開始時の村人は `setup` が資源に就かせている。触らない。
+      memSet(m.villagerRole, oe.index, VILLAGER_GATHERER);
+      continue;
+    }
+    // 生産されたばかりの村人。**建設係の枠が埋まっていたら、その場で採集に送る。**
+    //
+    // 以前は「全員いったん建設係にして、余ったら後で採集に回す」形だった。
+    // これだと建設係が建設で塞がっている間は余りが見えず、実測で
+    // **30 分に `gather` が 1 回しか出なかった**（＝生産された村人がほぼ全員遊んでいた）。
+    // 遊ばせるくらいなら採らせるほうが常に得なので、既定を採集側に寄せる。
+    if (builders < ctx.cfg.villagerBuilderCount) {
+      memSet(m.villagerRole, oe.index, VILLAGER_BUILDER);
+      builders++;
+    } else {
+      memSet(m.villagerRole, oe.index, VILLAGER_GATHERER);
+      toGather.push(oe);
+    }
   }
+  return toGather;
 }
 
 /**
@@ -166,10 +214,29 @@ const VILLAGER_RESERVE: Int32Array = (() => {
   return out;
 })();
 
+/** 自軍の村人の数（生産中は数えない）。 */
+export function countOwnVillagers(ctx: AiContext): number {
+  const villagerType = unitDefById(VILLAGER_ID).index;
+  let n = 0;
+  const list = ctx.view.ownEntities;
+  for (let k = 0; k < list.length; k++) {
+    const oe = list[k]!;
+    if (oe.kind === EntityKind.Unit && oe.typeId === villagerType) n++;
+  }
+  return n;
+}
+
 /** 村人を 1 体ずつ町の中心に積む（人口枠と手持ち資源が足りているときだけ）。 */
 function pushVillagerProduction(ctx: AiContext, out: Command[]): void {
   const own = ctx.view.own;
   if (own.pop >= own.popCap) return; // 上限に当たっている（`07§8`「生産ボタンが止まります」）
+  // **目標数で止める。** 止めないと入ってきた資源を全部村人に変えてしまい、
+  // 手持ちが 0 付近に張り付いて次の世に上がれない（`AiLevelConfig.villagerTarget` 参照）。
+  const villagers = countOwnVillagers(ctx);
+  if (villagers >= ctx.cfg.villagerTarget) return;
+  // **次の世の費用を貯める間は村人を出さない。**
+  // 出し続けると入った食料がその場で村人に変わり、進化の費用が永久に貯まらない。
+  if (villagers >= ctx.cfg.villagerBankFrom && !canAffordNextAge(ctx)) return;
   const udef = unitDefById(VILLAGER_ID);
   if (!canAfford(own.resources, VILLAGER_RESERVE)) return;
   const tc = findTownCenter(ctx);
@@ -435,15 +502,109 @@ function hasPrereqs(ctx: AiContext, requires: readonly string[]): boolean {
 }
 
 /**
+ * 余った建設係を採集に就ける（`07§2` の「村人を遊ばせない」）。
+ *
+ * ■ なぜ必要になったか（実測で分かった不具合）
+ * `classifyVillagers` は「後から現れた村人 = 建設係」と決めるが、建設係は
+ * `takeBuilder` に借りられるまで**何もしない**。着工は 1 回の判断で 1 棟だけなので、
+ * 生産された村人はほぼ全員が手空きのまま立ち続けていた。
+ * 実測（8 人・30 分）で **石材と金の累計採集量が 0**、食料も設計値の約 1/20 で、
+ * 結果として誰も鉄器の世に到達せず**文明ごとの兵種が 1 体も出なかった**。
+ *
+ * ■ 直し方
+ * 建設係を `villagerBuilderCount` 人だけ残し、**それを超えた手空きの村人は
+ * いちばん足りない資源のノードへ送って採集係にする**。
+ * 一度採集係にしたら触らない（`sim` 側が枯れたら次のノードへ移してくれる）。
+ *
+ * ■ 決定論
+ * `ownEntities` は index 昇順、`seenResourceNodes` も index 昇順。
+ * 距離は平方距離の整数比較で、同距離なら**先に見つけたノード**を採る。
+ * 乱数を使わないので全端末で同じ結論になる。
+ */
+export function gatherCommandsFor(ctx: AiContext, villagers: readonly OwnEntity[]): Command[] {
+  if (villagers.length === 0) return [];
+  const nodes = ctx.view.seenResourceNodes;
+  if (nodes.length === 0) return [];
+
+  const m = ctx.memory;
+  const cmds: Command[] = [];
+  for (let k = 0; k < villagers.length; k++) {
+    const oe = villagers[k]!;
+    const id = ctx.idOf(oe.index);
+    if (id < 0) continue;
+    // **4 資源に散らす。**
+    //
+    // 以前は「いちばん足りない資源」だけを狙わせていた。食料と木材は入った瞬間に
+    // 村人と家に消えるので常にこの 2 つが最下位になり、**石材と金は 30 分で 0 のまま**
+    // だった（実測）。金が入らないと鉄器の世に永久に到達しない。
+    // だから「今いちばん足りないもの」ではなく **RESOURCE_IDS を順に割り当てる**。
+    // 割り当ては「その村人が何人目か」で決めるので乱数を使わない。
+    const seq = memGet(m.gatherAssignSeq, 0) + k;
+    const want = seq % RESOURCE_IDS.length;
+    const target = nearestNodeOf(ctx, oe, want) ?? nearestNodeOf(ctx, oe, -1);
+    if (target === null) break;
+    cmds.push({ t: 'gather', p: ctx.playerId, units: [id], target });
+  }
+  memSet(m.gatherAssignSeq, 0, memGet(m.gatherAssignSeq, 0) + villagers.length);
+  return cmds;
+}
+
+/**
+ * その村人にいちばん近い資源ノード（`resource` が -1 なら種類を問わない）。
+ * 平方距離で比べる（平方根を取らない。§0.3）。
+ */
+function nearestNodeOf(ctx: AiContext, from: OwnEntity, resource: number): EntityId | null {
+  const nodes = ctx.view.seenResourceNodes;
+  let best: EntityId | null = null;
+  let bestD = Number.POSITIVE_INFINITY;
+  for (let k = 0; k < nodes.length; k++) {
+    const n = nodes[k]!;
+    if (resource >= 0 && n.resource !== resource) continue;
+    const dx = n.x - from.x;
+    const dy = n.y - from.y;
+    const d = dx * dx + dy * dy;
+    if (d < bestD) {
+      bestD = d;
+      best = n.id;
+    }
+  }
+  return best;
+}
+
+/**
  * 時代進化（`03§2`）。`allowAdvanceAge` の段階だけ。
  * 前提（前の世の建物 2 種・資源・研究中でない）の判定は `sim` 側が持っているので、
  * ここでは「最終時代でなければ町の中心に出す」だけ。通らなければ黙って捨てられる。
  */
+/** 次の世の費用が手元にあるか（無ければ貯める）。最終世なら true（貯める必要が無い）。 */
+export function canAffordNextAge(ctx: AiContext): boolean {
+  if (!ctx.cfg.allowAdvanceAge) return true;
+  const age = ctx.view.own.age;
+  if (age >= AGE_IDS.length - 1) return true;
+  const next = cfgAges()[age + 1];
+  if (next === undefined) return true;
+  const res = ctx.view.own.resources;
+  for (const [resId, amount] of Object.entries(next.cost)) {
+    const r = RESOURCE_IDS.indexOf(resId as (typeof RESOURCE_IDS)[number]);
+    if (r < 0) continue;
+    if (fxToInt(res[r] ?? 0) < amount) return false;
+  }
+  return true;
+}
+
 export function planAgeAdvance(ctx: AiContext): Command | null {
   if (!ctx.cfg.allowAdvanceAge) return null;
-  if (ctx.view.own.age >= AGE_IDS.length - 1) return null;
+  const age = ctx.view.own.age;
+  if (age >= AGE_IDS.length - 1) return null;
   const tc = findTownCenter(ctx);
   if (tc === null) return null;
+  // **資源が足りているときだけ出す。**
+  //
+  // 以前はここで毎回出していた。`sim` 側は足りなければ黙って捨てるので
+  // 動作としては正しく見えるが、実測で**全コマンドの 96〜97% がこの空打ち**になり、
+  // 操作量（APM）の計測が意味を失っていた（段階 5 で APM 62 のうち有効な操作は 2 件）。
+  // 「出せないなら出さない」は人間の操作でも同じ（UI はボタンを暗くする。`05§4`）。
+  if (!canAffordNextAge(ctx)) return null;
   return { t: 'advanceAge', p: ctx.playerId, building: ctx.idOf(tc.index) };
 }
 

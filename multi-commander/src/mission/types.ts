@@ -70,7 +70,22 @@ export type ObjectiveSpec =
    * タグ対象を `min` (既定1) 以上維持したまま `seconds` 経過で達成 (第8章の灯台60秒)。
    * 途中で `min` を下回ったら失敗する。
    */
-  | { kind: 'holdTag'; tag: string; seconds: number; min?: number };
+  | { kind: 'holdTag'; tag: string; seconds: number; min?: number }
+  /**
+   * 護衛対象を指定 Nav へ「乗せる」(T1-①)。
+   *
+   * `protect` が「沈められない」という**制約**であるのに対し、これは
+   * **達成する目標**である（`MissionRunner` の `CONSTRAINT_KINDS` には入れない）。
+   * これにより「守る対象が死ななければ、守らなくても勝ち」を防ぐ。
+   *
+   * - 達成: タグ対象のうち `min` (省略時は出現した全数) 以上が
+   *   `navs[navIndex]` の到達半径に入った。一度入れば以後も達成のまま。
+   * - 失敗: 到達済みと生存中を合わせても `min` に届かなくなった（＝到達不能が確定）。
+   *
+   * 到達半径は Nav 実体（`spawnNav` が `NavDef.arriveRadius` から作る）を読むので、
+   * 自機の Nav 到達判定（`src/sim/nav.ts`）と同じ値になる。
+   */
+  | { kind: 'escortArrive'; tag: string; navIndex: number; min?: number };
 
 export interface ObjectiveDef {
   id: string;
@@ -78,6 +93,15 @@ export interface ObjectiveDef {
   /** 失敗するとミッション失敗になるか */
   required: boolean;
   spec: ObjectiveSpec;
+  /**
+   * 任意目標を達成すると得られるもの (T1-①)。例 `'＋帰還者3'`。
+   *
+   * `required: false` の目標に付けると、HUD とデブリーフで
+   * `(任意)` の代わりにこの文字列を前置する（「加点」として読める表記にする）。
+   * 未指定の任意目標は従来どおり `(任意)` を前置する。
+   * `required: true` の目標では無視する。
+   */
+  reward?: string;
 }
 
 /**
@@ -122,6 +146,16 @@ export interface SpawnGroupDef {
   ace?: { pilot: string; skillBonus?: number; shipId?: string; duel?: DuelDef };
   /** ミッション目標から参照するタグ */
   tag?: string;
+  /**
+   * この群の固有名 (T1-①)。護衛対象の艦名のように、機体名では足りない呼称を宣言する。
+   *
+   * ここが**名前の唯一の出所**。宣言すると `spawnShip` の `label` になるので、
+   * HUD のターゲット名・無線の発信元・戦闘中の警告がすべて同じ名前を読む
+   * （表示ごとに別の推定をしない）。人物名簿から採る名前は
+   * `speakerName()` を通した文字列を渡すこと。
+   * 省略した群は従来どおり機体名 (`ShipDef.name`) が表示名になる。
+   */
+  displayName?: string;
   /**
    * この群の出現で決闘の誓約が破れる (第5章の急進派)。
    * 出現した瞬間に決闘モードが解除され、決闘の当事者は

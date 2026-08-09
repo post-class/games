@@ -45,6 +45,7 @@ import type { Fx } from '@/sim/core/fx';
 import { FX_ONE, distSq, idiv } from '@/sim/core/fx';
 
 import type { AiContext } from './AiPlayer';
+import { countOwnVillagers } from './econGoals';
 import { memGet, memSet } from './AiPlayer';
 import type { AiView, OwnEntity } from './view';
 import { canAfford, findTownCenter, placeBuildingCommand } from './econGoals';
@@ -235,6 +236,19 @@ export function planMilitary(ctx: AiContext): Command[] {
 
   const cmds: Command[] = [];
   const mix = desiredRoleMix(ctx.view);
+
+  // 0) **内政が立つまで兵を作らない**（`07§2` の「0〜5 分は村人だけを増やす時間」）。
+  //
+  // ここが無いと、同じ食料を村人と兵が取り合い、**兵が勝つ**。
+  // 実測（30 分・2 人戦）で `produce` 29 件のほとんどが兵で、
+  // 村人が数体しか増えず、採集量が伸びないまま時代も進まなかった。
+  // 敵が見えているときは例外（襲われているのに村人を出し続けるのは不合理）。
+  if (countOwnVillagers(ctx) < ctx.cfg.villagerTarget && ctx.view.seenEnemies.length === 0) {
+    // 兵は作らないが、**手空きの兵を前に出す判断だけは続ける**
+    // （既にいる兵を放置すると戦域が立たない）。
+    pushDispatch(ctx, cmds);
+    return cmds;
+  }
 
   // 1) 兵舎・射場・厩など「作りたい兵の生産元」を建てる（1 判断 1 棟）。
   const bld = planMilitaryBuilding(ctx, mix);
