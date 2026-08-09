@@ -36,7 +36,7 @@ import { unitDef } from '../core/defs';
 import type { Fx } from '../core/fx';
 import { distSq } from '../core/fx';
 import {
-  INTERACT_REACH,
+  interactReachTo,
   TRADE_CART_TYPE,
   carryCapacityFx,
   civGatherMulFx,
@@ -44,6 +44,8 @@ import {
   distanceFx,
   effectiveGatherRatePerSecFx,
   findNearestDropOffIndex,
+  findNearestResourceNodeAnyIndex,
+  findNearestResourceNodeIndex,
   findNearestShelterIndex,
   gatherAmountForTick,
   isDropOffIndex,
@@ -195,9 +197,24 @@ function gatherTick(w: World, i: number, ctx: EconomyTickContext): void {
   const e = w.entities;
   const ni = resolveIndex(e, e.target[i]!);
   if (ni < 0 || !isResourceNode(e, ni) || e.amount[ni]! <= 0) {
-    // 採り切った / 対象が消えた。運んでいるものがあれば搬入し、無ければ手が空く。
-    if (e.carryAmount[i]! > 0) startHaul(w, i);
-    else stopWork(w, i);
+    // 採り切った / 対象が消えた。
+    // 満載なら先に搬入し、そうでなければ**同じ資源の次のノードへ移る**（`07§8`）。
+    if (e.carryAmount[i]! > 0) {
+      startHaul(w, i);
+      return;
+    }
+    // **向かっていたノードが、着く前に他の村人に採り切られた場合。**
+    // 何を採るつもりだったかは残っていないので、失った目標の座標の最寄りのノードを継ぐ。
+    // これが無いと「歩いている間に森が尽きた村人」が Idle のまま働かなくなる（実測）。
+    const lost = findNearestResourceNodeAnyIndex(w, e.destX[i]!, e.destY[i]!);
+    if (lost >= 0) {
+      setVillagerState(e, i, UnitState.Gathering, w.tick);
+      e.target[i] = idOfIndex(e, lost);
+      e.destX[i] = e.x[lost]!;
+      e.destY[i] = e.y[lost]!;
+      return;
+    }
+    stopWork(w, i);
     return;
   }
 
@@ -206,7 +223,7 @@ function gatherTick(w: World, i: number, ctx: EconomyTickContext): void {
   const di = ensureDropOff(w, i, e.x[ni]!, e.y[ni]!);
 
   // ノードに触れていなければ歩く（移動は M3 の movement）。
-  if (!reached(w, i, e.x[ni]!, e.y[ni]!)) {
+  if (!reachedTarget(w, i, ni)) {
     e.destX[i] = e.x[ni]!;
     e.destY[i] = e.y[ni]!;
     return;
@@ -253,7 +270,14 @@ function gatherTick(w: World, i: number, ctx: EconomyTickContext): void {
           e.destY[i] = e.y[ri]!;
         }
       } else {
+        // **同じ資源の次のノードへ移る**（`07§8`「採り切ると消えます」/
+        // 「枯れた後は農地と交易だけが収入源」= 残っている森があるうちは続く）。
+        //
+        // ここで移すのが要点。搬入すると `carryKind` が 0 に戻るので、
+        // 「何を採っていたか」は**採り切ったこの瞬間しか分からない**。
+        // 後から探そうとして失敗し、村人が Idle のまま資源が止まっていた（実測）。
         e.target[i] = INVALID_ENTITY;
+        seekSameResource(w, i, nodeDef.resource);
       }
     }
   }
@@ -270,22 +294,29 @@ function haulTick(w: World, i: number): void {
     stopWork(w, i);
     return;
   }
-  if (!reached(w, i, e.x[di]!, e.y[di]!)) {
+  if (!reachedTarget(w, i, di)) {
     e.destX[i] = e.x[di]!;
     e.destY[i] = e.y[di]!;
     return;
   }
+  // **搬入する前に「何を採っていたか」を覚えておく。**
+  // `deliverCarry` は `carryKind` を 0 に戻すので、この行より後では分からなくなる。
+  const wasGathering = e.carryKind[i]! - 1;
   deliverCarry(w, i);
 
-  // 元の資源ノードが残っていれば戻る。無ければ手が空く。
+  // 元の資源ノードが残っていれば戻る。
   const ni = resolveIndex(e, e.target[i]!);
   if (ni >= 0 && isResourceNode(e, ni) && e.amount[ni]! > 0) {
     setVillagerState(e, i, UnitState.Gathering, w.tick);
     e.destX[i] = e.x[ni]!;
     e.destY[i] = e.y[ni]!;
-  } else {
-    stopWork(w, i);
+    return;
   }
+  // 採り切られていたら**同じ資源の次のノードへ移る**（`07§8`）。
+  // ここを `stopWork` にしていたため、森 1 本を採り終えた村人が
+  // 拠点まわりに 18 本の森を残したまま Idle になり、木材が 300 で止まっていた。
+  if (wasGathering >= 0 && seekSameResource(w, i, wasGathering)) return;
+  stopWork(w, i);
 }
 
 /** 持っている資源をプレイヤーの手持ちに加える。 */
@@ -324,6 +355,31 @@ function stopWork(w: World, i: number): void {
 }
 
 /**
+ * 採り切ったノードの代わりに、**同じ資源の最寄りのノードへ移る**。
+ *
+ * `07§8` は「森・鉱脈・農地には埋蔵量があり、採り切ると消えます」「枯れた後は
+ * 農地と交易だけが収入源になる」と書いている。つまり **1 本の森が尽きても、
+ * 隣の森が残っている限り採集は続く**のが前提。
+ *
+ * これが無いと「森 1 本（100）を採り切った村人が Idle のまま二度と働かず、
+ * 拠点まわりに森が 18 本あるのに木材が 300 で止まる」という壊れ方をする（実測）。
+ * 手で 1 体ずつ指示し直せば動くが、それは仕様ではない。
+ *
+ * 決定論: 探すのは `findNearestResourceNodeIndex`（index 昇順の最近傍）だけ。乱数を使わない。
+ * 見つからなければ Idle（= その資源はマップから尽きた。次の指示を待つ）。
+ */
+function seekSameResource(w: World, i: number, resource: number): boolean {
+  const e = w.entities;
+  const ni = findNearestResourceNodeIndex(w, e.x[i]!, e.y[i]!, resource);
+  if (ni < 0) return false;
+  setVillagerState(e, i, UnitState.Gathering, w.tick);
+  e.target[i] = idOfIndex(e, ni);
+  e.destX[i] = e.x[ni]!;
+  e.destY[i] = e.y[ni]!;
+  return true;
+}
+
+/**
  * `homeId` が有効な搬入点を指しているか確かめ、必要なら `(x, y)` から最寄りを選び直す。
  * 戻り値は搬入点の index（無ければ -1）。
  */
@@ -337,9 +393,15 @@ function ensureDropOff(w: World, i: number, x: Fx, y: Fx): number {
 }
 
 /** 到着判定（平方距離。`fxSqrt` を使わない）。 */
-function reached(w: World, i: number, tx: Fx, ty: Fx): boolean {
+/**
+ * 相手（建物・資源ノード）に届いたか。**相手の大きさを足して判定する**。
+ * 4×4 の町の中心は縁に立っても中心まで 2 マス以上あるので、
+ * 中心との距離を 1 マスで判定すると永久に到着しない（実測で資源が凍った）。
+ */
+function reachedTarget(w: World, i: number, targetIndex: number): boolean {
   const e = w.entities;
-  return distSq(e.x[i]!, e.y[i]!, tx, ty) <= INTERACT_REACH * INTERACT_REACH;
+  const reach = interactReachTo(e, targetIndex);
+  return distSq(e.x[i]!, e.y[i]!, e.x[targetIndex]!, e.y[targetIndex]!) <= reach * reach;
 }
 
 // ---------------------------------------------------------------- 村人の自動退避（T-M4-09）
@@ -407,7 +469,13 @@ function resumeWork(w: World, i: number, ctx: EconomyTickContext): void {
     }
     return;
   }
-  if (e.carryAmount[i]! > 0) startHaul(w, i);
+  if (e.carryAmount[i]! > 0) {
+    startHaul(w, i);
+    return;
+  }
+  // 覚えていたノードが尽きていたら、同じ資源の次のノードへ移る（`07§8`）。
+  const kind = e.carryKind[i]! - 1;
+  if (kind >= 0) seekSameResource(w, i, kind);
 }
 
 // ---------------------------------------------------------------- 交易荷車（T-M4-06）
@@ -430,7 +498,7 @@ function tradeCartTick(w: World, i: number): void {
 
   if (e.carryKind[i] === 0) {
     // 往路: 相手の市場へ。
-    if (!reached(w, i, e.x[partner]!, e.y[partner]!)) {
+    if (!reachedTarget(w, i, partner)) {
       e.destX[i] = e.x[partner]!;
       e.destY[i] = e.y[partner]!;
       return;
@@ -444,7 +512,7 @@ function tradeCartTick(w: World, i: number): void {
   }
 
   // 復路: 自分の市場へ。着いたら金が入る。
-  if (!reached(w, i, e.x[home]!, e.y[home]!)) {
+  if (!reachedTarget(w, i, home)) {
     e.destX[i] = e.x[home]!;
     e.destY[i] = e.y[home]!;
     return;

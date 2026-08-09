@@ -508,7 +508,7 @@ function battleCard(m: ResultModel): HTMLElement {
       const otr = el('tr');
       if (best !== null && best.order === o.order) otr.className = 'mt-order-best';
       const oname = el('td', 'mt-dim');
-      oname.textContent = `　└ ${o.name}${o.unique ? '（固有）' : ''}`;
+      oname.textContent = `\u3000└ ${o.name}${o.unique ? '（固有）' : ''}`;
       otr.appendChild(oname);
       otr.appendChild(el('td', 'mt-dim', `${o.kills}`));
       otr.appendChild(el('td', 'mt-dim', `${o.losses}`));
@@ -579,7 +579,7 @@ function graphCard(m: ResultModel, onSeek: (tick: number) => void): HTMLElement 
   if (g.divergenceTick >= 0) {
     const note = el('div', 'mt-graph-note');
     note.appendChild(
-      el('span', undefined, `線が離れた瞬間: ${tickToClock(g.divergenceTick)}　`),
+      el('span', undefined, `線が離れた瞬間: ${tickToClock(g.divergenceTick)}\u3000`),
     );
     note.appendChild(
       button('mt-btn', 'この時刻からリプレイ', () => onSeek(g.divergenceTick)),

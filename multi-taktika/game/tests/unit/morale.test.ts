@@ -83,6 +83,21 @@ function tickMorale(w: World, times = 1): void {
   }
 }
 
+/**
+ * **危険な状況を作る**（士気の減少要因を効かせる前提）。
+ *
+ * `07§6` の士気は「兵は体力 0 で死ぬ前に、士気 0 で退きます」という戦闘の仕組みなので、
+ * 減少要因（孤立・戦域の劣勢・味方の死・令の未着）は**危険なときだけ**効く。
+ * これを分けていなかったため「敵のいない平地を 1 体で歩く兵が孤立で退却し、
+ * 指示を失って戻ってこない」という壊れ方をしていた（村人が固まり資源が凍る原因）。
+ *
+ * テストで孤立の減少を見るには、**視界内に敵の戦闘ユニットを 1 体置く**。
+ * 「孤立している（味方がいない）」と「敵がいる」は同時に成り立つ。
+ */
+function putThreat(w: World, tx: number, ty: number, owner = 1): number {
+  return putUnit(w, 'clubman', owner, tx, ty);
+}
+
 function openFront(w: World, slot: number, owner: number): void {
   // 戦域はプレイヤーごとに 6 枠。owner は配列上の位置で決まるので代入しない。
   const f = getFront(w, owner, slot)!;
@@ -144,7 +159,9 @@ describe('T-M7-07 孤立した兵が退却し、後で戻る', () => {
     // retreatSec = 10 秒 = 250 tick で戻る
     const stateTick = e.stateTick[a]!;
     tickMorale(w, 250 + EVAL);
-    expect(e.state[a]).toBe(UnitState.Idle);
+    // 退却明けは **Idle ではなく Moving**。`07§6` の「また戻ってくる」を実装した結果で、
+    // Idle にすると村人が運搬の途中で固まって二度と働かなくなる（実際にそうなっていた）。
+    expect(e.state[a]).toBe(UnitState.Moving);
     expect(w.tick - 1 - stateTick).toBeGreaterThanOrEqual(250);
     expect(e.morale[a]).toBeGreaterThan(0);
     expect(e.frontId[a]).toBe(1);
@@ -157,6 +174,8 @@ describe('T-M7-07 孤立した兵が退却し、後で戻る', () => {
     // 「自軍建物の内側」の回復が混ざらないよう、判定半径（5 マス）の外に置く
     const near = putBuilding(w, 'watch_tower', 0, 37, 30);
     const e = w.entities;
+    // **危険な状況を作る**（士気が下がるのは危険なときだけ。`07§6` は戦闘の仕組み）
+    putThreat(w, 32, 30);
     e.morale[a] = 1; // すぐ 0 になるように
 
     tickMorale(w, EVAL);
@@ -228,6 +247,7 @@ describe('§6.5 減少要因', () => {
     // combat が同じ tick で殺した状態を作る（cleanup 前なので座標が残っている）
     for (const d of dead) markDeadIndex(e, d);
     expect(e.alive[survivor]).toBe(1);
+    putThreat(w, 33, 30); // 危険な状況（味方が倒れる＝敵がいる状況）
 
     const before = e.morale[a]!;
     tickMorale(w, EVAL);
@@ -323,6 +343,7 @@ describe('§6.5 増加要因', () => {
     putUnit(w, 'y-nagae', 0, 33, 30);
     putBuilding(w, 'town_center', 0, 30, 30);
     const e = w.entities;
+    putThreat(w, 34, 30); // 危険な状況（増加要因は危険なときの内訳）
     e.morale[a] = FX_ONE / 2;
     const before = e.morale[a]!;
     tickMorale(w, EVAL);
@@ -335,6 +356,7 @@ describe('§6.5 増加要因', () => {
     putUnit(w, 'y-nagae', 0, 33, 30);
     putBuilding(w, 'town_center', 1, 30, 30);
     const e = w.entities;
+    putThreat(w, 34, 30); // 危険な状況（回復要因の有無を測るため）
     e.morale[a] = FX_ONE / 2;
     const before = e.morale[a]!;
     tickMorale(w, EVAL);
@@ -360,6 +382,7 @@ describe('T-M7-08 祈祷師は周囲の士気を保つ', () => {
     // 6 マス離す: 孤立の半径 5 の外、祈祷師の半径 8 の内
     putUnit(w, 'priest', 0, 36, 30);
     const e = w.entities;
+    putThreat(w, 32, 30); // 危険な状況（孤立の減少を効かせる前提）
     e.morale[a] = FX_ONE / 2;
     const before = e.morale[a]!;
     tickMorale(w, EVAL);
@@ -373,6 +396,7 @@ describe('T-M7-08 祈祷師は周囲の士気を保つ', () => {
     const a = putUnit(w, 'y-nagae', 0, 30, 30);
     putUnit(w, 'priest', 0, 45, 30); // 15 マス離れている
     const e = w.entities;
+    putThreat(w, 32, 30); // 危険な状況
     e.morale[a] = FX_ONE / 2;
     const before = e.morale[a]!;
     tickMorale(w, EVAL);
@@ -384,6 +408,7 @@ describe('T-M7-08 祈祷師は周囲の士気を保つ', () => {
     const a = putUnit(w, 'y-nagae', 0, 30, 30);
     putUnit(w, 'priest', 1, 36, 30);
     const e = w.entities;
+    putThreat(w, 32, 30); // 危険な状況
     e.morale[a] = FX_ONE / 2;
     const before = e.morale[a]!;
     tickMorale(w, EVAL);
@@ -402,6 +427,9 @@ describe('「捨てる」が成立する（§6.5 末尾 / T-M8-07 の前倒し�
       const i = putUnit(w, 'y-nagae', 0, 10 + k * 10, 30);
       e.morale[i] = initial[k]!;
       units.push(i);
+      // それぞれの近くに敵を置いて**危険な状況**にする
+      // （`07§6` の士気は戦闘の仕組みなので、平時は下がらない）。
+      putThreat(w, 10 + k * 10 + 3, 30);
     }
 
     const routOrder: number[] = [];

@@ -17,6 +17,7 @@ import { spawnEntity } from '@/sim/core/entity';
 import { fx, fxFromInt } from '@/sim/core/fx';
 import { unitDefById } from '@/sim/core/defs';
 import { createAiView } from '@/ai/view';
+import { resourceNodeIndex, spawnResourceNode } from '@/sim/core/gather';
 
 const MAP = 200;
 
@@ -151,6 +152,27 @@ describe('AiView — 見えないものは渡さない（07§11 のズル禁止�
     const b = createAiView(w, 0);
     expect(JSON.stringify(a.seenEnemies)).toBe(JSON.stringify(b.seenEnemies));
     expect(JSON.stringify(a.ownEntities)).toBe(JSON.stringify(b.ownEntities));
+  });
+
+  it('視界内の資源ノードは見える（村人を就かせる対象。中立なので敵の情報ではない）', () => {
+    const w = makeWorld();
+    putUnit(w, 'scout', 0, 50, 50);
+    // 視界内と視界外に資源ノードを置く
+    const forest = resourceNodeIndex('forest');
+    spawnResourceNode(w, forest, fxFromInt(52), fxFromInt(50));
+    spawnResourceNode(w, forest, fxFromInt(150), fxFromInt(150));
+    const view = createAiView(w, 0);
+    expect(view.seenResourceNodes).toHaveLength(1);
+    expect(view.seenResourceNodes[0]!.x).toBe(fxFromInt(52));
+    // 資源の種類が分かる（`gather` の対象を名指しできる）
+    expect(view.seenResourceNodes[0]!.amount).toBeGreaterThan(0);
+  });
+
+  it('自軍のユニットは EntityId を持つ（Command に載せられる）', () => {
+    const w = makeWorld();
+    const id = putUnit(w, 'villager', 0, 50, 50);
+    const view = createAiView(w, 0);
+    expect(view.ownEntities.some((o) => o.id === id)).toBe(true);
   });
 
   it('市場の相場は見える（全プレイヤー共通の情報。07§8）', () => {

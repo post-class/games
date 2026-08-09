@@ -26,6 +26,11 @@
  */
 
 import '@/styles/hud.css';
+// 各パネル・画面は自分専用の CSS を持つ（並行実装で `hud.css` が競合しないようにした結果）。
+import '@/styles/panels.css';
+import '@/styles/frontCommand.css';
+import '@/styles/screens.css';
+import '@/styles/result.css';
 
 import type { CivId, MapTypeId, PlayerId } from '@/shared/types';
 import type { Command } from '@/sim/command';
@@ -44,6 +49,14 @@ import { Selection } from '@/input/selection';
 import { tileToFx } from '@/input/context';
 import type { InputContext } from '@/input/env';
 import { Hud, type HudContext } from '@/ui';
+import { FrontCommandView } from '@/ui/hud/frontCommandView';
+import { OrderCards } from '@/ui/hud/orderCards';
+import { WarningSystem } from '@/ui/hud/warnings';
+import { TechPanel } from '@/ui/hud/techPanel';
+import { MarketPanel } from '@/ui/hud/marketPanel';
+import { InfoPanels } from '@/ui/hud/infoPanels';
+import { ProductionPanel } from '@/ui/hud/commandGrid';
+import { MatchStats } from '@/ui/stats';
 import { ScreenRouter, type Screen, type ScreenParams } from '@/ui/screens/router';
 import { registerScreens } from '@/ui/screens/register';
 
@@ -197,7 +210,8 @@ function startMatch(
       keys.selectFront(slot, true);
     },
     toggleOverview: () => {
-      // 戦域指令ビューは M12（`T-M12-06`）。今は入口だけ用意しておく。
+      // `Tab` と同じ動作（`06§1`）。キーを使わない運用のための入口（`06§12`）。
+      frontView.toggle();
     },
     beginPlacement: (buildingId: string) => {
       placing = buildingId;
@@ -215,11 +229,173 @@ function startMatch(
   };
   const hud = new Hud(overlay, hudCtx);
 
-  // コマンドグリッドのキー（QWER/ASDF/ZXCV は並びと一対一。`05§9`）
-  window.addEventListener('keydown', (ev: KeyboardEvent) => {
-    if (ev.ctrlKey || ev.metaKey || ev.altKey || ev.shiftKey) return;
-    if (hud.pressGridKey(ev.key)) ev.preventDefault();
+  // ---------------------------------------------------------------- 試合中のパネル群（M12）
+  //
+  // **どのパネルを開いても試合は止まらない**（`05§1`）。
+  // だからパネルは画面（Screen）ではなく HUD の上に重なるオーバーレイとして持つ。
+  // ループは対戦画面が回し続け、パネルは `update` されるだけ。
+
+  /** 統計の収集（結果画面の材料）。sim には列を足さず、UI 側で毎 tick 観測する。 */
+  const stats = new MatchStats(world.playerCount);
+
+  /** 令カードパネルで選んでいる戦域スロット（0 = 未選択）。 */
+  let selectedFrontSlot = 0;
+
+  /** `Alt` の情報表示をトグルにするか（`06§12` の「長押しを使わない設定」）。 */
+  const altToggleMode = (): boolean => {
+    try {
+      return window.localStorage.getItem('multi-taktika.altToggle') === '1';
+    } catch {
+      return false;
+    }
+  };
+
+  const jumpTo = (tileX: number, tileY: number): void => {
+    cam.cam.cx = tileX;
+    cam.cam.cy = tileY;
+  };
+
+  const orderCards = new OrderCards(overlay, {
+    world: () => world,
+    viewer,
+    emit: (cmd: Command) => pending.push(cmd),
+    selectedFront: () => selectedFrontSlot,
+    selectFront: (slot: number) => {
+      selectedFrontSlot = slot;
+      keys.selectFront(slot, true);
+    },
   });
+
+  const frontView = new FrontCommandView(overlay, {
+    world: () => world,
+    viewer,
+    vision: () => renderer.vision,
+    emit: (cmd: Command) => pending.push(cmd),
+    selectFront: (slot: number) => {
+      selectedFrontSlot = slot;
+      keys.selectFront(slot, false);
+    },
+    selectedFront: () => selectedFrontSlot,
+    jumpTo,
+    openOrderCards: (slot: number) => {
+      selectedFrontSlot = slot;
+      orderCards.toggle(slot);
+    },
+  });
+
+  const warnings = new WarningSystem(overlay, {
+    world: () => world,
+    viewer,
+    jumpTo,
+    selectFront: (slot: number) => {
+      selectedFrontSlot = slot;
+      keys.selectFront(slot, true);
+    },
+  });
+
+  const techPanel = new TechPanel(overlay, {
+    world: () => world,
+    viewer,
+    emit: (cmd: Command) => pending.push(cmd),
+  });
+
+  const marketPanel = new MarketPanel(overlay, {
+    world: () => world,
+    viewer,
+    emit: (cmd: Command) => pending.push(cmd),
+    isVisible: (xFx: number, yFx: number) =>
+      renderer.vision.isVisible(Math.floor(xFx / FX_ONE), Math.floor(yFx / FX_ONE)),
+  });
+
+  const infoPanels = new InfoPanels(overlay, {
+    world: () => world,
+    viewer,
+    vision: () => renderer.vision,
+    camera: () => cam.cam,
+    stats: () => stats.snapshot(),
+    altToggleMode,
+  });
+
+  const production = new ProductionPanel(overlay, {
+    world: () => world,
+    viewer,
+    selected: () => [...selection.list()],
+    emit: (cmd: Command) => pending.push(cmd),
+    beginPlacement: (buildingId: string) => {
+      placing = buildingId;
+      canvas.style.outline = '2px solid #e0b34a';
+    },
+  });
+
+  // `Tab` = 戦域指令ビューの開閉（`06§1` の最小操作セット）
+  keys.onToggleOverview = () => {
+    frontView.toggle();
+  };
+
+  /**
+   * パネルのキー（`06§14` の全キー一覧）。
+   *
+   * **capture 段で先に拾う。** `KeyboardInput` は通常段で購読しているので、
+   * ここで拾ったキーは後段へ流さない（`Esc` の「上から 1 つだけ実行」を壊さないため）。
+   */
+  const onPanelKey = (ev: KeyboardEvent): void => {
+    if (ev.ctrlKey || ev.metaKey) return;
+    const k = ev.key;
+
+    // `Esc` は上から 1 つだけ（`06§11`）: ①開いているパネルを閉じる が最優先。
+    if (k === 'Escape') {
+      if (infoPanels.closeTop()) return stopKey(ev);
+      if (orderCards.isOpen()) {
+        orderCards.close();
+        return stopKey(ev);
+      }
+      if (techPanel.visible) {
+        techPanel.close();
+        return stopKey(ev);
+      }
+      if (marketPanel.visible) {
+        marketPanel.close();
+        return stopKey(ev);
+      }
+      if (frontView.isOpen()) {
+        frontView.close();
+        return stopKey(ev);
+      }
+      return; // 閉じるものが無ければ後段（手動解除 → 選択解除 → メニュー）へ
+    }
+
+    if (!ev.shiftKey && !ev.altKey) {
+      if (k === 'k' || k === 'K') {
+        techPanel.toggle();
+        return stopKey(ev);
+      }
+      if (k === 't' || k === 'T') {
+        marketPanel.toggle();
+        return stopKey(ev);
+      }
+    }
+
+    // 情報パネル（`L` 戦績 / `G` 残量 / `N` 進化条件 / `Y` 令の履歴 / `Alt`）
+    if (infoPanels.onKeyDown(k, { shift: ev.shiftKey, ctrl: ev.ctrlKey, alt: ev.altKey })) {
+      return stopKey(ev);
+    }
+
+    // 令カードは戦域を選んでいるときだけ数字で選べる（`06§4`。`Shift`+数字は keys.ts が拾う）
+    if (orderCards.isOpen() && !ev.shiftKey && !ev.altKey) {
+      const n = Number(k);
+      if (Number.isInteger(n) && n >= 1 && n <= 7 && orderCards.pressKey(n)) return stopKey(ev);
+    }
+
+    // コマンドグリッド（QWER/ASDF/ZXCV は並びと一対一。`05§9`）
+    if (!ev.shiftKey && !ev.altKey && production.pressKey(k)) return stopKey(ev);
+    if (!ev.shiftKey && !ev.altKey && hud.pressGridKey(k)) return stopKey(ev);
+  };
+  window.addEventListener('keydown', onPanelKey, true);
+
+  const onPanelKeyUp = (ev: KeyboardEvent): void => {
+    infoPanels.onKeyUp(ev.key);
+  };
+  window.addEventListener('keyup', onPanelKeyUp, true);
 
   // ---------------------------------------------------------------- 画面サイズ
   const resize = (): void => {
@@ -271,6 +447,8 @@ function startMatch(
       const cmds = pending;
       pending = [];
       stepWorld(world, cmds);
+      // **統計は毎 tick 観測する**（飛ばすと撃破を取り逃がす。結果画面の材料）。
+      stats.sample(world);
       acc -= TICK_MS;
       steps++;
     }
@@ -291,6 +469,16 @@ function startMatch(
       nowMs,
     );
     hud.update(nowMs);
+    // パネルは「開いていても試合は止まらない」（`05§1`）。毎フレーム更新するだけ。
+    frontView.update(nowMs);
+    orderCards.update(nowMs);
+    warnings.update(nowMs);
+    techPanel.update();
+    // 市場は**閉じていても相場の標本を取る**（開いた瞬間にグラフが空だと
+    // 「相手の行動を読む」が成立しない）。
+    marketPanel.update(nowMs);
+    infoPanels.frame(nowMs);
+    production.update();
 
     perf.frameMs = performance.now() - frameStart;
     fpsCount++;
@@ -306,10 +494,25 @@ function startMatch(
     stop: () => {
       running = false;
       window.removeEventListener('resize', resize);
+      window.removeEventListener('keydown', onPanelKey, true);
+      window.removeEventListener('keyup', onPanelKeyUp, true);
       detachMouse();
       detachKeys();
+      frontView.destroy();
+      orderCards.destroy();
+      warnings.destroy();
+      techPanel.destroy();
+      marketPanel.destroy();
+      infoPanels.destroy();
+      production.destroy();
     },
   };
+}
+
+/** キーを後段へ流さない（capture 段で処理済みにする）。 */
+function stopKey(ev: KeyboardEvent): void {
+  ev.preventDefault();
+  ev.stopPropagation();
 }
 
 /** 既定のシード（`?seed=` で上書き）。 */

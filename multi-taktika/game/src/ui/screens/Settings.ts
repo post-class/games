@@ -255,13 +255,9 @@ function buildLeftHandPool(): string[] {
     'KeyC',
     'KeyV',
     'KeyB',
-    'Digit1',
-    'Digit2',
-    'Digit3',
-    'Digit4',
-    'Digit5',
-    'Digit6',
   ];
+  // 数字キーは入れない。`Alt`+`1`〜`6` は「視点を動かさず戦域を選択」の派生に予約されている
+  // （`06§14`）ので、ここに割り当てると派生と衝突する。
   const out: string[] = [];
   for (const mods of ['Alt', 'Ctrl', 'Ctrl+Alt', 'Ctrl+Shift']) {
     for (const b of base) out.push(`${mods}+${b}`);
@@ -279,9 +275,9 @@ function isRightHandCombo(combo: string): boolean {
     return true;
   }
   if (['Digit7', 'Digit8', 'Digit9', 'Digit0'].includes(code)) return true;
-  // 右手側の文字キー（左手は Q..T / A..G / Z..B）
-  if (/^Key([H-JL-PU-Y])$/.test(code)) return true;
-  if (code === 'KeyK') return true;
+  // 右手側の文字キー（左手は Q W E R T / A S D F G / Z X C V B）
+  if (/^Key[H-P]$/.test(code)) return true;
+  if (code === 'KeyU' || code === 'KeyY') return true;
   return false;
 }
 

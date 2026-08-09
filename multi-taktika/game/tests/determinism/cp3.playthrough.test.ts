@@ -47,6 +47,8 @@ interface Outcome {
   finalResources: number[];
   /** 試合中に採集した累計（= 増分の最大値。使った分は戻らないので下限になる）。 */
   peakResources: number[];
+  /** 5,000 tick ごとの資源のサンプル（後半でも増えているかを見る）。 */
+  samples: number[][];
   world: World;
 }
 
@@ -89,6 +91,7 @@ function playthrough(seed: number, ticks: number): Outcome {
 
   const startResources = Array.from(w.players[0]!.resources, (v) => fxToInt(v));
   const peakResources = startResources.slice();
+  const samples: number[][] = [];
 
   const hashes: number[] = [];
   let peakFronts = 0;
@@ -122,6 +125,7 @@ function playthrough(seed: number, ticks: number): Outcome {
     }
 
     if (w.tick % HASH_CHECK_INTERVAL_TICKS === 0) hashes.push(hashWorld(w));
+    if (w.tick % 5000 === 0) samples.push(Array.from(res, (v) => fxToInt(v)));
   }
   const elapsedMs = performance.now() - t0;
 
@@ -134,6 +138,7 @@ function playthrough(seed: number, ticks: number): Outcome {
     startResources,
     finalResources: Array.from(w.players[0]!.resources, (v) => fxToInt(v)),
     peakResources,
+    samples,
     world: w,
   };
 }
@@ -204,6 +209,20 @@ describe('CP3: 30 分の試合が最後まで壊れずに進む（T-M9-11）', (
         `${labels[k]}が増えていない（開始 ${r.startResources[k]} → 最大 ${r.peakResources[k]}）`,
       ).toBeGreaterThan(r.startResources[k]!);
     }
+  });
+
+  it('**試合の後半でも**資源が増え続けている（序盤だけ動いて凍るのを検出する）', () => {
+    // このテストは以前「最大値 > 開始値」だけを見ていたため、
+    // **経済が tick 4000 で凍っていても緑になっていた**（実際に凍っていた）。
+    // 30 分の後半で増えていることまで見ないと、止まったことに気づけない。
+    const half = Math.floor(r.samples.length / 2);
+    const mid = r.samples[half]!;
+    const last = r.samples[r.samples.length - 1]!;
+    const total = (v: readonly number[]): number => v.reduce((a, b) => a + b, 0);
+    expect(
+      total(last),
+      `後半で資源が増えていない: ${mid.join('/')} → ${last.join('/')}`,
+    ).toBeGreaterThan(total(mid));
   });
 
   it('同じシードで 2 回回すとハッシュ列が完全に一致する（決定論）', () => {

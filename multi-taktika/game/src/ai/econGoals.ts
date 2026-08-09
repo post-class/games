@@ -67,6 +67,17 @@ const TOWN_CENTER_ID = 'town_center';
 /** 村人のユニット ID。 */
 const VILLAGER_ID = 'villager';
 
+/** 家の建物 ID。 */
+const HOUSE_ID = 'house';
+
+/** コストに「家 1 棟ぶん」を足した必要額（Fx）。使い切り防止の予備。 */
+function withHouseReserve(cost: Int32Array): Int32Array {
+  const h = buildingDefById(HOUSE_ID).cost;
+  const out = new Int32Array(cost.length);
+  for (let r = 0; r < out.length; r++) out[r] = cost[r]! + h[r]!;
+  return out;
+}
+
 /**
  * 内政の建物を建てる優先順（**ID の並びであって数値ではない**）。
  * 家が最優先なのは「人口で詰まると何も出せなくなる」ため。
@@ -81,8 +92,6 @@ const ECON_BUILD_ORDER: readonly string[] = [
 ];
 
 const FOOD = RESOURCE_IDS.indexOf('food');
-const WOOD = RESOURCE_IDS.indexOf('wood');
-const STONE = RESOURCE_IDS.indexOf('stone');
 const GOLD = RESOURCE_IDS.indexOf('gold');
 
 // ---------------------------------------------------------------- 公開: 内政の判断
@@ -142,12 +151,27 @@ function classifyVillagers(ctx: AiContext): void {
   }
 }
 
+/**
+ * 村人 1 体を出すのに必要な手持ち = 村人のコスト + 家 1 棟のコスト。
+ *
+ * **家の資源まで使い切ってはいけない。** 使い切ると人口上限に当たったときに
+ * 家が建てられず、そこから何も出せなくなって内政が破綻する（T-M13-02 の
+ * 「破綻せず回す」はこれを指す）。数値はデータ（`units.json` / `buildings.json`）由来。
+ */
+const VILLAGER_RESERVE: Int32Array = (() => {
+  const v = unitDefById(VILLAGER_ID).cost;
+  const h = buildingDefById('house').cost;
+  const out = new Int32Array(v.length);
+  for (let r = 0; r < out.length; r++) out[r] = v[r]! + h[r]!;
+  return out;
+})();
+
 /** 村人を 1 体ずつ町の中心に積む（人口枠と手持ち資源が足りているときだけ）。 */
 function pushVillagerProduction(ctx: AiContext, out: Command[]): void {
   const own = ctx.view.own;
   if (own.pop >= own.popCap) return; // 上限に当たっている（`07§8`「生産ボタンが止まります」）
   const udef = unitDefById(VILLAGER_ID);
-  if (!canAfford(own.resources, udef.cost)) return;
+  if (!canAfford(own.resources, VILLAGER_RESERVE)) return;
   const tc = findTownCenter(ctx);
   if (tc === null) return;
   out.push({
@@ -220,7 +244,10 @@ export function scarcestResource(resources: readonly number[]): number {
  */
 export function placeBuildingCommand(ctx: AiContext, buildingId: string): Command | null {
   const bdef = buildingDefById(buildingId);
-  if (!canAfford(ctx.view.own.resources, bdef.cost)) return null;
+  // **家 1 棟ぶんは常に残す。** 使い切ると人口上限に当たったときに家が建てられず、
+  // そこから何も出せなくなる（家そのものを建てるときは当然この予備を要求しない）。
+  const reserve = buildingId === HOUSE_ID ? bdef.cost : withHouseReserve(bdef.cost);
+  if (!canAfford(ctx.view.own.resources, reserve)) return null;
   const builder = takeBuilder(ctx, bdef.buildTicks);
   if (builder < 0) return null;
   const site = pickBuildSite(ctx, bdef.sizeW, bdef.sizeH);
@@ -454,9 +481,3 @@ export function canAfford(have: readonly number[], cost: Int32Array | readonly n
   }
   return true;
 }
-
-/** 資源の添字（テストから参照する）。 */
-export const RESOURCE_FOOD = FOOD;
-export const RESOURCE_WOOD = WOOD;
-export const RESOURCE_STONE = STONE;
-export const RESOURCE_GOLD = GOLD;

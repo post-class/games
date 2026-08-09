@@ -32,13 +32,14 @@
  *  - `World` 本体（`stepWorld` を呼ぶ・状態を書き換える、が構造的に不可能）
  */
 
-import type { PlayerId } from '@/shared/types';
+import type { EntityId, PlayerId } from '@/shared/types';
 import { EntityKind } from '@/shared/types';
 import { unitDef, buildingDef } from '@/sim/core/defs';
 import type { Fx } from '@/sim/core/fx';
 import { distSq } from '@/sim/core/fx';
-import { isAliveIndex } from '@/sim/core/entity';
+import { idOfIndex, isAliveIndex } from '@/sim/core/entity';
 import { PROGRESS_DONE } from '@/sim/core/entity';
+import { resourceNodeDef } from '@/sim/core/gather';
 import type { FrontRing } from '@/sim/core/front';
 import { visibleEnemyFronts } from '@/sim/core/front';
 import type { MapState, World } from '@/sim/core/world';
@@ -47,6 +48,8 @@ import { areAllies } from '@/sim/core/world';
 /** 自軍のユニット・建物 1 件（全部見える）。 */
 export interface OwnEntity {
   readonly index: number;
+  /** `EntityId`（`Command` に載せるのに必要）。 */
+  readonly id: EntityId;
   readonly kind: number;
   readonly typeId: number;
   readonly x: Fx;
@@ -70,6 +73,24 @@ export interface SeenEntity {
   readonly y: Fx;
   readonly hp: Fx;
   readonly hpMax: Fx;
+}
+
+/**
+ * 視界内の資源ノード（中立エンティティ）。
+ *
+ * **これが無いと AI は村人を森に就かせられない**（`gather` の対象を名指しできない）。
+ * 資源ノードは中立なので「敵の情報」ではなく、視界内なら人間にも見えている。
+ */
+export interface SeenResourceNode {
+  readonly id: EntityId;
+  /** `RESOURCE_NODE_DEFS` の添字（`core/gather.ts`）。 */
+  readonly typeId: number;
+  /** `RESOURCE_IDS` の添字（0=food, 1=wood, 2=stone, 3=gold）。 */
+  readonly resource: number;
+  readonly x: Fx;
+  readonly y: Fx;
+  /** 残り埋蔵量（Fx）。 */
+  readonly amount: Fx;
 }
 
 /** 自分の戦域（令まで見える）。 */
@@ -112,6 +133,8 @@ export interface AiView {
   readonly ownEntities: readonly OwnEntity[];
   /** 視界内の敵（味方は含まない）。 */
   readonly seenEnemies: readonly SeenEntity[];
+  /** 視界内の資源ノード（中立。村人を就かせる対象）。 */
+  readonly seenResourceNodes: readonly SeenResourceNode[];
   readonly ownFronts: readonly OwnFront[];
   /** 敵の戦域。**中心と半径と番号だけ**（`07§7`）。 */
   readonly enemyFronts: readonly FrontRing[];
@@ -136,6 +159,7 @@ export function createAiView(w: World, p: PlayerId): AiView {
 
   const ownEntities: OwnEntity[] = [];
   const seenEnemies: SeenEntity[] = [];
+  const seenResourceNodes: SeenResourceNode[] = [];
 
   // 1) 自軍を集めながら、視界の元（座標と視界半径）も同時に作る。
   //    index 昇順（§0.3）。
@@ -150,6 +174,7 @@ export function createAiView(w: World, p: PlayerId): AiView {
     const complete = kind !== EntityKind.Building || e.buildProgress[i]! >= PROGRESS_DONE;
     ownEntities.push({
       index: i,
+      id: idOfIndex(e, i),
       kind,
       typeId: e.typeId[i]!,
       x: e.x[i]!,
@@ -202,7 +227,32 @@ export function createAiView(w: World, p: PlayerId): AiView {
     });
   }
 
-  // 3) 自分の戦域（令まで見える）。
+  // 3) 視界内の資源ノード（中立）。敵の走査は `owner >= playerCount` で中立を弾くので別に集める。
+  for (let i = 0; i < e.highWater; i++) {
+    if (!isAliveIndex(e, i)) continue;
+    if (e.kind[i] !== EntityKind.Resource) continue;
+    if (e.amount[i]! <= 0) continue;
+    const nx = e.x[i]!;
+    const ny = e.y[i]!;
+    let visible = false;
+    for (let k = 0; k < sightX.length; k++) {
+      if (distSq(nx, ny, sightX[k]!, sightY[k]!) <= sightR2[k]!) {
+        visible = true;
+        break;
+      }
+    }
+    if (!visible) continue;
+    seenResourceNodes.push({
+      id: idOfIndex(e, i),
+      typeId: e.typeId[i]!,
+      resource: resourceNodeDef(e.typeId[i]!).resource,
+      x: nx,
+      y: ny,
+      amount: e.amount[i]!,
+    });
+  }
+
+  // 4) 自分の戦域（令まで見える）。
   const ownFronts: OwnFront[] = [];
   for (let s = 0; s < w.fronts.length; s++) {
     const f = w.fronts[s]!;
@@ -240,6 +290,7 @@ export function createAiView(w: World, p: PlayerId): AiView {
     },
     ownEntities,
     seenEnemies,
+    seenResourceNodes,
     ownFronts,
     enemyFronts: visibleEnemyFronts(w, p),
     map: w.map,

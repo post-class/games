@@ -793,7 +793,7 @@ export class InfoPanels {
       const q = r.estimated ? '?' : '';
       const pop = r.popCap > 0 ? `${r.pop}/${r.popCap}` : `${r.pop}${q}`;
       const right = el('span', r.estimated ? 'mt-info-est mt-num' : 'mt-num');
-      right.textContent = `人口 ${pop}　${r.ageName}${q}　戦域 ${r.fronts}`;
+      right.textContent = `人口 ${pop}\u3000${r.ageName}${q}\u3000戦域 ${r.fronts}`;
       row.appendChild(right);
       body.appendChild(row);
     }

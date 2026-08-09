@@ -156,7 +156,9 @@
     "recoveredOnReturn": 0.5,
     "recoveredOnReturnNote": "退却明けに戻る最低士気（0..1）。07§6「10 秒ほど後退して回復し、また戻ってくる」の回復量。資料に数値なし・初期値。",
     "insideOwnWallsRadiusTiles": 6,
-    "insideOwnWallsRadiusTilesNote": "「自軍の建物・壁の内側」と見なす距離（マス）。資料に数値なし・初期値。"
+    "insideOwnWallsRadiusTilesNote": "「自軍の建物・壁の内側」と見なす距離（マス）。資料に数値なし・初期値。",
+    "regenPerSecPeace": 0.1,
+    "regenPerSecPeaceNote": "危険でないときの士気の回復速度（毎秒）。07§6 の士気は「兵は体力 0 で死ぬ前に、士気 0 で退く」という戦闘の仕組みなので、敵がおらず戦域にも属していない平時は回復するだけにしている。資料に数値なし・初期値。"
   },
   "economy": {
     "note": "実効収集速度 = 基礎速度 × 研究倍率 × 文明倍率 × (1 - 運搬損失)。07§8 / 手順書 §6.6",
@@ -220,14 +222,12 @@
     "gatePassableForAlliesOnly": true,
     "siegePassesGateOrHoleOnly": true,
     "towerGarrisonNote": "塔・砲塔は村人を収容でき、収容中の村人は矢を放つ。07§9",
-
     "blockTilesForBuildings": false,
     "blockTilesForBuildingsNote": "壁・門以外の建物も足跡のマスを封鎖するか。既定 false。true にすると町の中心などの足跡が通行不可になり、村人の搬入・修理（建物の代表点を目標にして寄っていく実装）が届かなくなるため（economy / movement 側が『建物の縁に着いたら到着』を実装したら true に戻す。M10 の申し送り）。壁・門は常に封鎖し、敷設物（isLinear で壁でないもの＝街道）と付属物は常に封鎖しない",
     "wallTopElevation": 2,
     "wallTopElevationNote": "完成した壁の上の高低（terrain.ts の elevation 2 = 城壁上）。combat.highGround ×1.15 の根拠。門は地上なので付けない",
     "gateOpenRadiusTiles": 6,
     "gateOpenRadiusTilesNote": "門が開く判定の半径。半径内に自軍・味方がいて敵がいなければ開く（=通行ビットの Blocked を下ろす）。通行ビットは所有者を持てないので「敵が近いと閉じる」で『自軍と味方だけが通れる』を表す。資料に数値なし・初期値",
-
     "garrisonArrowDamage": 6,
     "garrisonArrowDamageNote": "収容中の 1 名が放つ矢の攻撃力（07§9『収容中の村人は塔から矢を放つ』）。塔本体の 12 の半分。資料に数値なし・初期値",
     "garrisonVolleySec": 2.0,
@@ -239,7 +239,6 @@
       "seed_store": 3
     },
     "attachmentParentsPerNote": "付属物 1 つが受け持つ親建物の数。井戸は『町の中心・家 1 か所につき 1 つ』、種籾蔵は『農地の数面ごとに 1 つ』（03§3）。3 面は資料に数値なし・初期値",
-
     "ladderRadiusTiles": 3,
     "ladderRadiusTilesNote": "井楼・攻城塔（壁を壊さない運搬兵器）が壁越えに運べる歩兵の半径。資料に数値なし・初期値",
     "ladderCarryPerCross": 2,
@@ -248,12 +247,10 @@
     "ladderCrossSecNote": "壁越えの間隔（秒）。資料に数値なし・初期値",
     "ladderMaxWallThickness": 3,
     "ladderMaxWallThicknessNote": "越えられる壁の厚み（マス）。これより厚い封鎖は越えられない",
-
     "moatTile": "shallow",
     "moatTileNote": "堀は新しいタイル種別を足さず既存の『浅瀬』で表す。浅瀬の通行ビットは Land|Ship で Wheeled を含まないため『攻城兵器は橋を通るしかない』（01 決着は、城の前で）が地形だけで成立し、騎兵も水際で −30% になる",
     "drawbridgeTile": "road",
     "drawbridgeTileNote": "跳ね橋は『街道』タイルで表す（terrain.ts が Road を『街道・橋の路面』と定義している）。Road は Land|Wheeled なので橋の上だけ攻城兵器が通れる。橋を上げる＝そのマスの Blocked を立てる",
-
     "siege": {
       "note": "攻城兵器の『得意』『弱点』（03§6）を、兵器 ID ではなく attackClass と traits から引く倍率にしたもの。壁・門・建物への与ダメージに掛かる",
       "wallCrosserVsStructureMul": 0.0,
@@ -411,7 +408,10 @@
     "antiEliteAtkMulNote": "武士（anti_elite）: 相手が line = elite の兵のときの与ダメージ倍率。『他国のエリートに対して攻撃が大きく上がる』。atk 13 → 実効 22.75 で、他のエリート（hp 65〜100）を 3〜5 発で落とせる = 『名指しで殺す』が成立する値",
     "antiInfantryAtkMul": 1.6,
     "antiInfantryAtkMulNote": "ジャガー戦士（anti_infantry）: 相手が近接歩兵 role のときの与ダメージ倍率。『他の近接歩兵に対する攻撃が非常に高い』。相性の有利（1.5）より少し上に置き、相性の輪の外から歩兵戦を割る役だと分かるようにした",
-    "antiInfantryRoles": ["spear", "sword"],
+    "antiInfantryRoles": [
+      "spear",
+      "sword"
+    ],
     "antiInfantryRolesNote": "『近接歩兵』とみなす role。03§7 の輪の『槍・長槍』と『刀剣系近接』。役割で判定し兵の名前では判定しない",
     "antiBuildingDamageMul": 2.0,
     "antiBuildingDamageMulNote": "火矢兵（anti_building）: 建物への与ダメージ倍率。03§5『火矢で建物を焼く』。壁を壊せない制約は未実装（申し送り）",

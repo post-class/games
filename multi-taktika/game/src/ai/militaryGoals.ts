@@ -27,7 +27,6 @@ import { CIV_IDS, EntityKind } from '@/shared/types';
 import type { Command } from '@/sim/command';
 import { cfgInt, cfgTiles } from '@/sim/core/config';
 import {
-  BUILDING_DEFS,
   CIV_DEFS,
   ROLE_COUNT,
   ROLE_IDS,
@@ -355,6 +354,14 @@ export function attackTargets(ctx: AiContext): { x: Fx; y: Fx }[] {
   const oy = tc === null ? 0 : tc.y;
   const out: { x: Fx; y: Fx; d: number }[] = [];
 
+  // 見えている敵の戦闘ユニット。**戦域は戦闘から生まれる**（`07§3`）ので、
+  // 建物より兵を先に狙う方が戦域が立つ（建物だけ殴ると令を配る場が生まれない）。
+  for (let k = 0; k < view.seenEnemies.length; k++) {
+    const s = view.seenEnemies[k]!;
+    if (s.kind !== EntityKind.Unit) continue;
+    if (unitDef(s.typeId).lineIdx === 0) continue;
+    out.push({ x: s.x, y: s.y, d: distSq(ox, oy, s.x, s.y) });
+  }
   for (let k = 0; k < view.seenEnemies.length; k++) {
     const s = view.seenEnemies[k]!;
     if (s.kind !== EntityKind.Building) continue;
@@ -397,12 +404,13 @@ function pushDispatch(ctx: AiContext, out: Command[]): void {
     const id = ctx.idOf(oe.index);
     if (id < 0) continue;
     if (memGet(m.dispatched, oe.index) !== id) continue;
+    if (memGet(m.released, oe.index) === id) continue; // もう返してある
     const tx = memGet(m.dispatchX, oe.index);
     const ty = memGet(m.dispatchY, oe.index);
     if (distSq(oe.x, oe.y, tx, ty) > ARRIVE_RADIUS * ARRIVE_RADIUS) continue;
     release.push(id);
-    memSet(m.dispatched, oe.index, 0);
-    memSet(m.decoy, oe.index, 0);
+    // `dispatched` は消さない。消すと「未派遣」に見えて毎回送り直してしまう。
+    memSet(m.released, oe.index, id);
   }
   if (release.length > 0) out.push({ t: 'releaseManual', p: ctx.playerId, units: release });
 
@@ -438,14 +446,3 @@ function pushDispatch(ctx: AiContext, out: Command[]): void {
   }
   out.push({ t: 'moveUnits', p: ctx.playerId, units: ids, x: target.x, y: target.y, queued: false });
 }
-
-// ---------------------------------------------------------------- 参照用
-
-/** 建物 index の一覧（テストの可読性のため。使い捨て。） */
-export function buildingTypeIdOf(id: string): number {
-  for (let i = 0; i < BUILDING_DEFS.length; i++) if (BUILDING_DEFS[i]!.id === id) return i;
-  return -1;
-}
-
-/** 1 マス（Fx）。座標計算の単位合わせに使う。 */
-export const TILE: Fx = FX_ONE;

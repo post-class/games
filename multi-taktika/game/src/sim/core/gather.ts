@@ -298,6 +298,27 @@ export function isVillagerIndex(e: Entities, i: number): boolean {
 }
 
 /** `i` が `(tx, ty)` の到達半径内にいるか（平方距離で比較）。 */
+/**
+ * **相手の大きさを足した到達距離。**
+ *
+ * `INTERACT_REACH` は 1 マス（村人 1 体分）だが、これを建物の**中心**との距離に
+ * そのまま当てると 4×4 の町の中心には**構造的に到達できない**
+ * （縁に立っても中心までは 2 マス以上ある）。実測で「満載の村人が搬入点の
+ * 1.6 マス手前で永久に止まり、資源が tick 4000 で凍る」という壊れ方をした。
+ *
+ * 建物には「大きさの半分」を足して、**縁に着いたら到着**とする。
+ * 資源ノードや兵は 1×1 相当なので従来どおり。
+ */
+export function interactReachTo(e: Entities, targetIndex: number): Fx {
+  if (e.kind[targetIndex] !== EntityKind.Building && e.kind[targetIndex] !== EntityKind.Attachment) {
+    return INTERACT_REACH;
+  }
+  const def = buildingDef(e.typeId[targetIndex]!);
+  const halfW = idiv(def.sizeW * FX_ONE, 2);
+  const halfH = idiv(def.sizeH * FX_ONE, 2);
+  return INTERACT_REACH + (halfW > halfH ? halfW : halfH);
+}
+
 export function withinReach(e: Entities, i: number, tx: Fx, ty: Fx, reach: Fx = INTERACT_REACH): boolean {
   return distSq(e.x[i]!, e.y[i]!, tx, ty) <= reach * reach;
 }
@@ -325,6 +346,34 @@ export function findNearestDropOffIndex(w: World, owner: PlayerId, x: Fx, y: Fx)
  * 最寄りの資源ノードの index。無ければ -1。
  * `resource` に 0..3 を渡すとその資源だけ、-1 なら資源を問わない。
  */
+/**
+ * `(x, y)` に最も近い資源ノードの index（資源の種類を問わない）。無ければ -1。
+ *
+ * 用途は 1 つだけ: **向かっていたノードが、着く前に他の村人に採り切られたとき**の復帰。
+ * その瞬間には「何を採るつもりだったか」がどこにも残っていない
+ * （`carryKind` は手ぶらなら 0 で、投射物や荷車が別用途で使っているので
+ *  「仕事の記憶」に転用できない）。
+ * 失った目標の座標のいちばん近くにあるノードを継ぐ ―― mapgen は同じ資源を
+ * 塊で置くので、実際にはほぼ同じ資源になる。
+ *
+ * 決定論: 距離が同じなら index の小さい方（乱数を使わない）。
+ */
+export function findNearestResourceNodeAnyIndex(w: World, x: Fx, y: Fx): number {
+  const e = w.entities;
+  let best = -1;
+  let bestSq = 0;
+  for (let i = 0; i < e.highWater; i++) {
+    if (!isResourceNode(e, i)) continue;
+    if (e.amount[i]! <= 0) continue;
+    const sq = distSq(x, y, e.x[i]!, e.y[i]!);
+    if (best < 0 || sq < bestSq) {
+      best = i;
+      bestSq = sq;
+    }
+  }
+  return best;
+}
+
 export function findNearestResourceNodeIndex(w: World, x: Fx, y: Fx, resource: number): number {
   const e = w.entities;
   let best = -1;

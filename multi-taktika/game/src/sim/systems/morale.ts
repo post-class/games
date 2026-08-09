@@ -122,6 +122,8 @@ interface MoraleParams {
   readonly warnThreshold: Fx;
   /** 退却から戻るときの最低士気（Fx）。 */
   readonly recoveredMorale: Fx;
+  /** 危険でないときの回復速度（毎秒。Fx）。 */
+  readonly regenPeace: Fx;
 }
 
 let cached: MoraleParams | null = null;
@@ -158,6 +160,7 @@ function params(): MoraleParams {
     retreatTicks: cfgTicks('morale.retreatSec'),
     warnThreshold: cfgFx('front.warnThreshold'),
     recoveredMorale: fx(cfgNum('morale.recoveredOnReturn')),
+    regenPeace: fx(cfgNum('morale.regenPerSecPeace')),
   };
   return cached;
 }
@@ -197,9 +200,21 @@ function updateRouted(w: World, i: number, p: MoraleParams): void {
 
   // 退却終了。frontId は保持したままなので、そのまま元の戦域へ戻る。
   if (e.morale[i]! < p.recoveredMorale) e.morale[i] = p.recoveredMorale;
-  e.state[i] = UnitState.Idle;
   e.stateTick[i] = w.tick;
   e.target[i] = INVALID_ENTITY;
+
+  /**
+   * **「また戻ってくる」（`07§6`）を実装する。**
+   *
+   * `Idle` にして目標も捨てると、退却した兵は二度と元の仕事に戻らない。
+   * 移動の目標（`destX/destY`）が残っているならそこへ向かい直す。
+   * 目標が無いときだけ `Idle`（次の指示待ち）にする。
+   *
+   * これが無いと「村人が運搬の途中で退却し、以後 Idle のまま資源が凍る」
+   * という壊れ方をする（実測で確認）。
+   */
+  const hasDest = e.destX[i] !== 0 || e.destY[i] !== 0;
+  e.state[i] = hasDest ? UnitState.Moving : UnitState.Idle;
 }
 
 // ---------------------------------------------------------------- 通常時
@@ -243,7 +258,32 @@ function updateMorale(w: World, i: number, p: MoraleParams): void {
   const f = frontOf(w, e.owner[i]! as PlayerId, e.frontId[i]!);
   const formation = formationOfEntity(w, i);
 
-  // ---- 減少要因 ----
+  /**
+   * **危険にさらされているか。**
+   *
+   * `07§6` の士気は「兵は体力 0 で死ぬ前に、士気 0 で退きます」という**戦闘の仕組み**で、
+   * 全滅を避けるためにある。だから減少要因（孤立・戦域の劣勢・味方の死・令の未着）は
+   * **危険な状況でしか効かせない**。
+   *
+   * これを見ないと「敵のいない平地を 1 体で歩いているだけの兵が、孤立を理由に
+   * 士気 0 まで落ちて退却し、指示を失って元の位置へ戻る」という壊れ方をする
+   * （実測: 30 マス先へ向かわせた棍棒兵が 17 マス進んで退却し、出発点付近で待機。
+   *  同じ理由で開始村人が運搬途中に固まり、資源が tick 2500 で止まっていた）。
+   *
+   * 危険の定義: 戦域に属している / 直近に殴られた / 視界内に敵がいる のいずれか。
+   */
+  const inDanger = isInDanger(w, i, p);
+
+  // ---- 平時: 回復するだけ（他の要因は見ない）----
+  if (!inDanger) {
+    if (e.morale[i]! < FX_ONE) {
+      const m = e.morale[i]! + moraleDelta(p.regenPeace, w.tick, EVAL_INTERVAL_TICKS);
+      e.morale[i] = m > FX_ONE ? FX_ONE : m;
+    }
+    return;
+  }
+
+  // ---- 危険なときの減少要因 ----
   let rate = 0;
   if (allyNear <= p.isolationAllyCountMax) rate -= p.decayIsolated;
   if (f !== null && f.advantage < p.warnThreshold) rate -= p.decayFrontWarned;
@@ -264,6 +304,42 @@ function updateMorale(w: World, i: number, p: MoraleParams): void {
   }
 
   if (e.morale[i]! <= 0 && !breakImmune(w, i)) beginRout(w, i);
+}
+
+/**
+ * 危険にさらされているか（士気の減少要因を効かせる条件）。
+ *
+ * 3 つのどれかが成り立てば危険:
+ *  1. 戦域に属している（交戦中の場所にいる）
+ *  2. 直近に実際に殴られた（`lastDamagedTick`）
+ *  3. 視界内に敵の戦闘ユニットがいる
+ *
+ * 3 は「まだ殴られていないが目の前に敵がいる」状況を拾うため。
+ * これを外すと、突撃してきた敵の前で兵の士気が最後まで下がらなくなる。
+ */
+function isInDanger(w: World, i: number, p: MoraleParams): boolean {
+  const e = w.entities;
+  if (e.frontId[i] !== 0) return true;
+
+  const since = w.tick - e.lastDamagedTick[i]!;
+  if (e.lastDamagedTick[i]! >= 0 && since >= 0 && since <= p.retreatTicks) return true;
+
+  // 視界内の敵（自分の視界半径で見る。index 昇順）
+  const sight = unitDef(e.typeId[i]!).sight;
+  if (sight <= 0) return false;
+  const out = w.scratch.neighbors2;
+  const n = queryCircle(w.grid, e, e.x[i]!, e.y[i]!, sight, out);
+  const owner = e.owner[i]!;
+  for (let k = 0; k < n; k++) {
+    const t = out[k]!;
+    if (t === i || e.alive[t] !== 1) continue;
+    if (e.kind[t] !== EntityKind.Unit) continue;
+    const other = e.owner[t]!;
+    if (other >= w.playerCount) continue; // 中立
+    if (areAllies(w, owner, other as PlayerId)) continue;
+    if (unitDef(e.typeId[t]!).atk > 0) return true;
+  }
+  return false;
 }
 
 /**

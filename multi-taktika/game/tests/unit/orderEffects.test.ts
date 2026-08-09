@@ -265,7 +265,10 @@ describe('方陣: 損耗しても隊列が崩れない（moraleBreakImmune）', 
 
   it('令が無ければ同じ条件で退却する（比較）', () => {
     const w = makeWorld();
-    const i = putUnit(w, 'r-hastati', 0, 30, 30);
+    // 士気は**危険なときだけ**効く（`07§6` は戦闘の仕組み）。
+    // 戦域に入れて「危険」にしてから比較する。方陣ありの側も同じ条件にしている。
+    openFront(w, 1, 0, null);
+    const i = putUnit(w, 'r-hastati', 0, 30, 30, 1);
     w.entities.morale[i] = 0;
     tickMorale(w, 12);
     expect(w.entities.state[i]).toBe(UnitState.Routed);

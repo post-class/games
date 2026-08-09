@@ -216,8 +216,14 @@ describe('埋蔵量と枯渇（T-M4-03）', () => {
 
     run(w, 25 * 10);
     expect(isAlive(w.entities, node)).toBe(false);
-    expect(fxToNumber(w.entities.carryAmount[vi]!)).toBeCloseTo(2, 5);
-    expect(w.entities.state[vi]).toBe(UnitState.Hauling);
+    // 採り切った 2 単位は搬入まで済む。
+    // 以前は「Hauling のまま carry 2 を持っている」ことを見ていたが、
+    // ノードが尽きたときに次の仕事へ移る（`07§8`）ようにした結果、
+    // 10 秒あれば搬入まで終わる（搬入点は隣の伐採所）。
+    teleportToDest(w, v);
+    run(w, 1);
+    expect(fxToNumber(w.players[0]!.resources[WOOD]!)).toBeCloseTo(2, 5);
+    expect(fxToNumber(w.entities.carryAmount[vi]!)).toBe(0);
   });
 });
 
@@ -258,15 +264,14 @@ describe('農地の再建（T-M4-04）', () => {
     w.entities.amount[resolveIndex(w.entities, farm.node)] = fx(1);
     const v = putUnit(w, 'villager', 0, 50, 50);
     assignVillagerToNode(w, v, farm.node);
-    const vi = resolveIndex(w.entities, v);
 
     run(w, 25 * 5);
     expect(isAlive(w.entities, farm.node)).toBe(false);
     expect(isAlive(w.entities, farm.building)).toBe(false);
-    // 持っている分は搬入に回る
-    expect(w.entities.state[vi]).toBe(UnitState.Hauling);
+    // 持っている分は搬入に回る（この試合には他の食料源が無いので、
+    // 搬入し終われば仕事が無くなる）。
     teleportToDest(w, v);
-    run(w, 1);
+    run(w, 2);
     expect(fxToNumber(w.players[0]!.resources[FOOD]!)).toBeCloseTo(1, 5);
     // 搬入し終わると仕事が無くなり、遊休村人として列挙される
     const idle: number[] = [];

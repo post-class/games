@@ -147,6 +147,12 @@ export interface AiMemory {
   readonly villagerBusyUntil: number[];
   /** その index の兵を送り出したときの EntityId。0 = 未派遣。 */
   readonly dispatched: number[];
+  /**
+   * 送り出した兵を令の管理下に戻した（`releaseManual` を出した）ときの EntityId。
+   * これを持たないと「解放 → 未派遣に見える → また手動で送る」を毎回繰り返し、
+   * 兵が延々と歩かされて戦域に編入されない（実測で 443 回の再派遣が起きた）。
+   */
+  readonly released: number[];
   /** 送り出した先（Fx）。`dispatched` と同じ添字。 */
   readonly dispatchX: number[];
   readonly dispatchY: number[];
@@ -169,6 +175,7 @@ function createMemory(): AiMemory {
     villagerRole: [],
     villagerBusyUntil: [],
     dispatched: [],
+    released: [],
     dispatchX: [],
     dispatchY: [],
     decoy: [],
@@ -299,8 +306,11 @@ export class AiPlayer {
   }
 }
 
-/** 判断間隔の外で返す共有の空配列（毎 tick の確保を避ける）。 */
-const NO_COMMANDS: Command[] = [];
+/**
+ * 判断間隔の外で返す共有の空配列（毎 tick の確保を避ける）。
+ * 呼び出し側が誤って push しないよう凍結してある。
+ */
+const NO_COMMANDS: Command[] = Object.freeze([] as Command[]) as Command[];
 
 function pushAll(dst: Command[], src: readonly Command[]): void {
   for (let i = 0; i < src.length; i++) dst.push(src[i]!);
