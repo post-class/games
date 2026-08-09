@@ -22,7 +22,7 @@
  *    偏りへの対処は **建物（伐採所・採掘場・農地）と市場の交換**で表している。
  */
 
-import type { EntityId } from '@/shared/types';
+import type { CivId, EntityId } from '@/shared/types';
 import { EntityKind, RESOURCE_IDS } from '@/shared/types';
 import type { Command } from '@/sim/command';
 import { cfgInt } from '@/sim/core/config';
@@ -181,7 +181,7 @@ export function planEconBuilding(ctx: AiContext): Command | null {
 }
 
 function pickEconBuilding(ctx: AiContext): string | null {
-  const civ = ctx.view.own.civ;
+  const civ = ctx.view.own.civ as CivId;
   if (needsHouse(ctx)) {
     const house = resolveBuildingForCiv(civ, 'house');
     if (house !== null && canCivBuild(civ, house)) return house;
@@ -271,7 +271,7 @@ export function countOwnBuildings(ctx: AiContext, typeId: number): number {
 
 /** 自軍の完成した町の中心（index 昇順の最初の 1 棟）。 */
 export function findTownCenter(ctx: AiContext): OwnEntity | null {
-  const id = resolveBuildingForCiv(ctx.view.own.civ, TOWN_CENTER_ID);
+  const id = resolveBuildingForCiv(ctx.view.own.civ as CivId, TOWN_CENTER_ID);
   if (id === null) return null;
   const typeId = buildingDefById(id).index;
   const list = ctx.view.ownEntities;
@@ -295,7 +295,6 @@ export function findTownCenter(ctx: AiContext): OwnEntity | null {
 export function pickBuildSite(ctx: AiContext, sizeW: number, sizeH: number): { x: Fx; y: Fx } | null {
   const tc = findTownCenter(ctx);
   if (tc === null) return null;
-  const map = ctx.view.map;
   const baseTx = idiv(tc.x, FX_ONE);
   const baseTy = idiv(tc.y, FX_ONE);
   const offsets = buildSiteOffsets();
@@ -390,7 +389,7 @@ export function planResearch(ctx: AiContext): Command | null {
       const techId = bdef.researches[t]!;
       const tdef = techDefById(techId);
       if (tdef.age > own.age) continue;
-      if (!canCivResearch(own.civ, techId)) continue;
+      if (!canCivResearch(own.civ as CivId, techId)) continue;
       if (own.researched[tdef.index] === true) continue;
       if (!hasPrereqs(ctx, tdef.requires)) continue;
       if (!canAfford(own.resources, tdef.cost)) continue;

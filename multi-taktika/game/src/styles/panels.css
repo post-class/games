@@ -1,0 +1,616 @@
+/*
+ * styles/panels.css — 生産・建設パネル / 学舎（研究）/ 市場（T-M12-05, 06, 07）
+ *
+ * 規約（`AI_CODING.md` / 手順書 §8.2）:
+ *   - 左右の余白 20px。ウィンドウを広げたら領域も広がる（固定幅にしない）
+ *   - 本文 16px を基準。ヘッダは最小限（1 行だけ）
+ *   - HUD の位置は固定（`05§1`）。学舎・市場は**オーバーレイ**で、開いても試合は止まらない
+ *
+ * 色の意味は `05§15` / `render/palette.ts` と揃える:
+ *   金の縁 = 今これができる／選ばれている / 暗いボタン・錠 = できない（理由 3 種）
+ *   緑のバー = 体力・進捗
+ *
+ * `hud.css` は編集していない（このファイルだけを追加で読み込む）。
+ *   `src/main.ts` に `import '@/styles/panels.css';` を足すこと。
+ */
+
+:root {
+  --mt-panel-bg: rgba(18, 16, 12, 0.94);
+  --mt-panel-line: #4a3a1e;
+  --mt-gold: #e0b34a;
+  --mt-text: #e8ded0;
+  --mt-dim: #8d8578;
+  --mt-good: #7cb342;
+  --mt-bad: #c0562f;
+}
+
+/* ============================================================ 共通のパネル枠 */
+
+.mt-panel {
+  position: absolute;
+  top: 96px;
+  left: 20px;
+  right: 20px; /* 左右の余白 20px。幅は固定しない */
+  bottom: 220px;
+  overflow: auto;
+  padding: 12px 20px 16px;
+  box-sizing: border-box;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--mt-text);
+  background: var(--mt-panel-bg);
+  border: 1px solid var(--mt-panel-line);
+  border-radius: 4px;
+  pointer-events: auto;
+}
+
+.mt-panel-hidden {
+  display: none;
+}
+
+.mt-panel button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* ヘッダは最小限（1 行。タイトル + 状態 + 閉じる） */
+.mt-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.mt-panel-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.mt-panel-close {
+  margin-left: auto;
+  padding: 2px 10px;
+  background: transparent;
+  border: 1px solid var(--mt-panel-line);
+  border-radius: 3px;
+}
+
+.mt-panel-close:hover {
+  border-color: var(--mt-gold);
+}
+
+/* 錠の 3 種（`05§15`。色 + 記号の二重表示で色覚に依存しない） */
+.mt-lock-age {
+  border-color: #3f4a5a !important;
+}
+
+.mt-lock-res {
+  border-color: #6a5a2a !important;
+}
+
+.mt-lock-civ {
+  border-color: #5a3030 !important;
+}
+
+/* ============================================================ 生産・建設パネル */
+
+.mt-prod {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+  padding: 8px 20px;
+  box-sizing: border-box;
+  font-size: 16px;
+  color: var(--mt-text);
+  background: rgba(18, 16, 12, 0.82);
+  border-top: 1px solid var(--mt-panel-line);
+  pointer-events: auto;
+}
+
+.mt-prod-target {
+  flex: 0 0 210px;
+  min-width: 0;
+}
+
+.mt-prod-name {
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mt-prod-hp {
+  height: 8px;
+  margin: 6px 0 2px;
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.mt-prod-hp-fill {
+  height: 100%;
+  width: 0;
+  background: var(--mt-good);
+  transition: width 0.2s linear;
+}
+
+/* 建設中は体力バーが建築の進捗を兼ねる（`05§9-2`） */
+.mt-prod-building .mt-prod-hp-fill {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--mt-gold) 0 8px,
+    rgba(224, 179, 74, 0.45) 8px 16px
+  );
+}
+
+.mt-prod-hp-text {
+  font-size: 14px;
+  color: var(--mt-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.mt-prod-attrs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.mt-prod-attr {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  font-size: 14px;
+}
+
+.mt-prod-attr-label {
+  color: var(--mt-dim);
+}
+
+.mt-prod-attr-base {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 研究で伸びた分は金色の加算表示（`05§9-3`） */
+.mt-prod-attr-bonus {
+  color: var(--mt-gold);
+  font-weight: 700;
+}
+
+.mt-prod-gridwrap {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 3 段 12 ボタン。段ラベル + 4 列（キー QWER / ASDF / ZXCV と一対一） */
+.mt-prod-grid {
+  display: grid;
+  grid-template-columns: 72px repeat(4, minmax(96px, 1fr));
+  gap: 4px;
+}
+
+.mt-prod-rowlabel {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  color: var(--mt-dim);
+}
+
+.mt-prod-btn {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: 4px;
+  min-height: 38px;
+  padding: 2px 6px;
+  text-align: left;
+  background: rgba(40, 34, 24, 0.9);
+  border: 1px solid var(--mt-panel-line);
+  border-radius: 3px;
+}
+
+.mt-prod-btn:not(:disabled):hover {
+  border-color: var(--mt-gold);
+}
+
+.mt-prod-btn-key {
+  font-size: 12px;
+  color: var(--mt-gold);
+}
+
+.mt-prod-btn-label {
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mt-prod-btn-lock {
+  font-size: 12px;
+}
+
+.mt-prod-empty {
+  background: rgba(255, 255, 255, 0.04);
+  border-style: dashed;
+  cursor: default;
+}
+
+.mt-prod-disabled {
+  color: var(--mt-dim);
+  background: rgba(30, 26, 20, 0.75);
+  cursor: not-allowed;
+}
+
+.mt-prod-pagerow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--mt-dim);
+}
+
+.mt-prod-pagebtn {
+  padding: 1px 8px;
+  background: transparent;
+  border: 1px solid var(--mt-panel-line);
+  border-radius: 3px;
+}
+
+.mt-prod-queuewrap {
+  flex: 0 0 190px;
+}
+
+.mt-prod-queue {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* 生産キュー最大 5 件（ローマ「軍団編成」だけ 10 件） */
+.mt-prod-qslot {
+  position: relative;
+  min-width: 56px;
+  padding: 2px 4px;
+  font-size: 13px;
+  background: rgba(40, 34, 24, 0.9);
+  border: 1px solid var(--mt-panel-line);
+  border-radius: 3px;
+}
+
+.mt-prod-qempty {
+  border-style: dashed;
+  opacity: 0.5;
+  min-height: 22px;
+}
+
+/* 先頭 = 生産中。リングが一周で 1 体完成（`05§9-7`） */
+.mt-prod-qhead {
+  border-color: var(--mt-gold);
+}
+
+.mt-prod-qring {
+  display: block;
+  height: 6px;
+  margin-top: 2px;
+  background: conic-gradient(var(--mt-gold) var(--mt-ring, 0deg), rgba(255, 255, 255, 0.14) 0);
+  border-radius: 3px;
+}
+
+.mt-prod-research {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--mt-gold);
+}
+
+/* ============================================================ 学舎（研究） */
+
+.mt-tech-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.mt-tech-tab {
+  padding: 4px 12px;
+  background: rgba(40, 34, 24, 0.9);
+  border: 1px solid var(--mt-panel-line);
+  border-radius: 3px;
+}
+
+.mt-tech-tab-active {
+  border-color: var(--mt-gold);
+  box-shadow: 0 0 0 1px rgba(224, 179, 74, 0.5) inset;
+}
+
+/* 建てていない系統のタブは暗く、開けない（`05§10-2`） */
+.mt-tech-tab-locked {
+  color: var(--mt-dim);
+  background: rgba(30, 26, 20, 0.7);
+  cursor: not-allowed;
+}
+
+.mt-tech-grid {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.mt-tech-col {
+  flex: 1 1 200px;
+  min-width: 180px;
+}
+
+.mt-tech-colhead {
+  margin-bottom: 6px;
+  font-size: 14px;
+  color: var(--mt-dim);
+  border-bottom: 1px solid var(--mt-panel-line);
+}
+
+.mt-tech-medal {
+  position: relative;
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 6px 8px;
+  text-align: left;
+  background: rgba(40, 34, 24, 0.9);
+  border: 1px solid var(--mt-panel-line);
+  border-radius: 4px;
+}
+
+.mt-tech-medal-name {
+  display: block;
+  font-size: 15px;
+}
+
+.mt-tech-medal-cost {
+  display: block;
+  font-size: 13px;
+  color: var(--mt-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.mt-tech-req {
+  display: block;
+  font-size: 12px;
+  color: var(--mt-dim);
+}
+
+.mt-tech-lock {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 13px;
+}
+
+/* 3 研究済み = 金色のメダル */
+.mt-tech-researched {
+  color: #2a2110;
+  background: linear-gradient(180deg, #f0cd7a, var(--mt-gold));
+  border-color: #f0cd7a;
+}
+
+.mt-tech-researched .mt-tech-medal-cost,
+.mt-tech-researched .mt-tech-req {
+  color: #5a4713;
+}
+
+/* 4 研究可能 = 縁が光る */
+.mt-tech-available {
+  border-color: var(--mt-gold);
+  box-shadow: 0 0 6px rgba(224, 179, 74, 0.55);
+}
+
+.mt-tech-inProgress {
+  border-color: var(--mt-gold);
+  border-style: dashed;
+}
+
+.mt-tech-progress {
+  display: block;
+  height: 5px;
+  margin-top: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--mt-gold) var(--mt-ratio, 0%),
+    rgba(255, 255, 255, 0.14) var(--mt-ratio, 0%)
+  );
+  border-radius: 3px;
+}
+
+/* 5 未解禁 = 暗く錠 */
+.mt-tech-locked {
+  color: var(--mt-dim);
+  background: rgba(28, 24, 18, 0.8);
+  cursor: not-allowed;
+}
+
+/* 6 前提線: 満たしていれば実線、未了なら点線（飛び越せない） */
+.mt-tech-linked::before,
+.mt-tech-blocked::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  width: 12px;
+  border-top: 2px solid var(--mt-gold);
+}
+
+.mt-tech-blocked::before {
+  border-top-style: dotted;
+  border-top-color: var(--mt-dim);
+}
+
+/* 7/8 説明プレート */
+.mt-tech-plate {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-left: 3px solid var(--mt-gold);
+  border-radius: 3px;
+}
+
+.mt-tech-plate-name {
+  font-weight: 700;
+}
+
+.mt-tech-plate-scene,
+.mt-tech-plate-look,
+.mt-tech-plate-cost,
+.mt-tech-plate-state,
+.mt-tech-plate-hint {
+  font-size: 14px;
+  color: var(--mt-dim);
+}
+
+.mt-tech-plate-cost {
+  font-variant-numeric: tabular-nums;
+}
+
+.mt-tech-running {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--mt-gold);
+}
+
+.mt-tech-empty {
+  color: var(--mt-dim);
+}
+
+/* ============================================================ 市場 */
+
+.mt-market-gold {
+  margin-left: 6px;
+  color: var(--mt-gold);
+  font-variant-numeric: tabular-nums;
+}
+
+.mt-market-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 左 3 列が交換に出す資源、右が売買ボタン（`05§11`） */
+.mt-market-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.8fr) minmax(180px, 1.1fr) 170px minmax(160px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  background: rgba(40, 34, 24, 0.75);
+  border: 1px solid var(--mt-panel-line);
+  border-radius: 3px;
+}
+
+.mt-market-rname {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.mt-market-price {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 相場の推移（直近の値動き。`05§11-4`） */
+.mt-market-spark {
+  height: 34px;
+}
+
+.mt-market-spark svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 2px;
+}
+
+.mt-market-trend {
+  font-size: 14px;
+  color: var(--mt-dim);
+}
+
+.mt-market-up {
+  color: var(--mt-bad);
+}
+
+.mt-market-down {
+  color: var(--mt-good);
+}
+
+.mt-market-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.mt-market-sell,
+.mt-market-buy {
+  padding: 4px 10px;
+  background: rgba(28, 24, 18, 0.9);
+  border: 1px solid var(--mt-panel-line);
+  border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mt-market-sell:not(:disabled):hover,
+.mt-market-buy:not(:disabled):hover {
+  border-color: var(--mt-gold);
+}
+
+.mt-market-sell:disabled,
+.mt-market-buy:disabled {
+  color: var(--mt-dim);
+  cursor: not-allowed;
+}
+
+.mt-market-trade {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.mt-market-tradehead {
+  flex: 1 0 100%;
+  font-size: 14px;
+  color: var(--mt-dim);
+  border-bottom: 1px solid var(--mt-panel-line);
+}
+
+.mt-market-cart,
+.mt-market-route {
+  padding: 4px 10px;
+  background: rgba(40, 34, 24, 0.9);
+  border: 1px solid var(--mt-panel-line);
+  border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mt-market-route-active {
+  border-color: var(--mt-gold);
+  box-shadow: 0 0 0 1px rgba(224, 179, 74, 0.5) inset;
+}
+
+/* 交易路が戦域に重なると狙われる（`05§11-7`） */
+.mt-market-route-risky {
+  border-color: var(--mt-bad);
+  color: #f0b9a5;
+}
+
+.mt-market-empty,
+.mt-market-note {
+  font-size: 14px;
+  color: var(--mt-dim);
+}
+
+.mt-market-note {
+  margin-top: 12px;
+}
