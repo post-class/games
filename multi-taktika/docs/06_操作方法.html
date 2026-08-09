@@ -402,7 +402,7 @@
       <div class="key" data-k="E" data-role="grid">E</div>
       <div class="key" data-k="R" data-role="grid">R</div>
       <div class="key" data-k="T" data-role="info">T<span class="sub">市場</span></div>
-      <div class="key" data-k="Y" data-role="info">Y</div>
+      <div class="key" data-k="Y" data-role="info">Y<span class="sub">令履歴</span></div>
       <div class="key" data-k="U" data-role="info">U</div>
       <div class="key" data-k="I" data-role="info">I</div>
       <div class="key" data-k="O" data-role="info">O</div>
@@ -414,7 +414,7 @@
       <div class="key" data-k="S" data-role="grid">S</div>
       <div class="key" data-k="D" data-role="grid">D</div>
       <div class="key" data-k="F" data-role="grid">F</div>
-      <div class="key" data-k="G" data-role="info">G</div>
+      <div class="key" data-k="G" data-role="info">G<span class="sub">残量</span></div>
       <div class="key" data-k="H" data-role="view">H<span class="sub">拠点</span></div>
       <div class="key" data-k="J" data-role="info">J</div>
       <div class="key" data-k="K" data-role="info">K<span class="sub">学舎</span></div>
@@ -427,10 +427,10 @@
       <div class="key" data-k="C" data-role="grid">C</div>
       <div class="key" data-k="V" data-role="grid">V</div>
       <div class="key" data-k="B" data-role="grid">B<span class="sub">建設</span></div>
-      <div class="key" data-k="N" data-role="info">N</div>
+      <div class="key" data-k="N" data-role="info">N<span class="sub">進化条件</span></div>
       <div class="key" data-k="M" data-role="view">M<span class="sub">地図</span></div>
-      <div class="key" data-k="," data-role="view">,</div>
-      <div class="key" data-k="." data-role="view">.<span class="sub">遊休</span></div>
+      <div class="key" data-k="," data-role="view">,<span class="sub">遊休←</span></div>
+      <div class="key" data-k="." data-role="view">.<span class="sub">遊休→</span></div>
     </div>
     <div class="kb-row">
       <div class="key w120" data-k="Alt" data-role="order">Alt</div>
@@ -479,12 +479,16 @@
   <h3>令を重ねる（帝国の世）</h3>
   <p>
     研究「二重旗」を取ると 1 つの戦域に令を 2 枚まで重ねられます。操作は <b>2 枚目を <kbd class="o">Shift</kbd> でもう一度セットするだけ</b>。
-    スロットが上下 2 段に割れ、両方の方針が同時に走ります（例：包囲＋死守）。
+    スロットが上下 2 段に割れ、両方の方針が同時に走ります（例：死守＋包囲）。
+    重ねられるのは <b>上段（突撃／死守／後退／建設）から 1 枚と、下段（包囲／略奪）から 1 枚</b>で、
+    同じ段の令は重ねられません（分類は <a href="07_ゲームシステム.html">07</a>）。
   </p>
 
   <div class="note warn">
     <b>令は即座に届きません。</b>本陣から遠い戦域ほど遅延があります（点線が実線になった時点で発効）。
-    研究「復唱」「早馬」、ユニット「伝令」、モンゴルの「駅伝」で短縮できます。<b>操作の失敗ではないので、連打しないでください。</b>
+    遅延を短縮するのは研究「復唱」、ユニット「伝令」、モンゴルの「駅伝」です。
+    研究「早馬」が短くするのは遅延ではなく、<b>同じ戦域に次の令を出せるまでの間隔</b>（6 秒 → 4.2 秒）です。
+    <b>どちらも操作の失敗ではないので、連打しないでください。</b>
   </div>
 </section>
 
@@ -494,10 +498,10 @@
     <table>
       <thead><tr><th>操作</th><th>すること</th><th>補足</th></tr></thead>
       <tbody>
-        <tr data-key="Ctrl"><td class="k"><kbd>Ctrl</kbd>+<kbd>A</kbd></td><td>全戦闘ユニットを選択</td><td>村人は含みません</td></tr>
+        <tr data-key="Ctrl"><td class="k"><kbd>Ctrl</kbd>+<kbd>A</kbd></td><td>全戦闘ユニットを選択</td><td>村人は含みません。<b>戦域に属している兵は選択対象から外れます</b>（全戦線の自律が一斉に止まるのを防ぐため）。戦域の兵ごと選ぶには <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd></td></tr>
         <tr data-key="7"><td class="k"><kbd>Ctrl</kbd>+<kbd>7</kbd>〜<kbd>0</kbd></td><td>選択中の部隊をグループに登録</td><td>4 グループまで</td></tr>
         <tr data-key="7"><td class="k"><kbd>7</kbd>〜<kbd>0</kbd></td><td>グループを呼び出す</td><td>2 回続けて押すとその部隊へ視点が飛びます</td></tr>
-        <tr data-key="Shift"><td class="k"><kbd>Shift</kbd>+<kbd>7</kbd>〜<kbd>0</kbd></td><td>グループに追加</td><td>増援を後から合流させるとき</td></tr>
+        <tr data-key="Shift"><td class="k"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>7</kbd>〜<kbd>0</kbd></td><td>グループに追加</td><td>増援を後から合流させるとき。<kbd>Shift</kbd>+<kbd>7</kbd> は固有令に使うため、追加は <kbd>Ctrl</kbd> を足します</td></tr>
         <tr data-key="Alt"><td class="k"><kbd>Alt</kbd>+ドラッグ</td><td>村人を除いて範囲選択</td><td>前線で村人を巻き込まないため</td></tr>
         <tr><td class="k">選択パネルのアイコンをクリック</td><td>種類ごとに絞り込む</td><td>「槍兵だけを抜き出す」等。<kbd>Ctrl</kbd>+クリックでその種類を除外</td></tr>
         <tr data-key="."><td class="k"><kbd class="v">.</kbd> / <kbd class="v">,</kbd></td><td>遊休の村人へ次々にジャンプ</td><td>手が空いた村人を拾う。序盤の生命線</td></tr>
@@ -566,7 +570,7 @@
         <tr><td class="k">ホイール</td><td>ズーム</td><td>4 段階。最も引くと戦域の輪が全部見えます</td></tr>
         <tr><td class="k">ミニマップを左クリック</td><td>その地点へジャンプ</td><td>右クリックならその地点への指示</td></tr>
         <tr data-key="M"><td class="k"><kbd class="v">M</kbd></td><td>ミニマップの拡大表示</td><td>全戦域と交易路をまとめて確認</td></tr>
-        <tr data-key="H"><td class="k"><kbd class="v">H</kbd></td><td>自拠点へ戻る</td><td>迷ったらこれ</td></tr>
+        <tr data-key="H"><td class="k"><kbd class="v">H</kbd></td><td>町の中心を選択して視点移動（＝自拠点へ戻る）</td><td>迷ったらこれ。2 回押すと次の町の中心へ</td></tr>
         <tr data-key="F1"><td class="k"><kbd class="v">F1</kbd>〜<kbd class="v">F4</kbd></td><td>記憶した視点を呼び出す</td><td><kbd>Ctrl</kbd>+<kbd class="v">F1</kbd>〜<kbd class="v">F4</kbd> で現在の視点を記憶</td></tr>
         <tr data-key="Backspace"><td class="k"><kbd class="v">Backspace</kbd></td><td>直前の視点へ戻る</td><td>連続で押すと履歴を遡ります</td></tr>
       </tbody>
@@ -584,7 +588,7 @@
     <table>
       <thead><tr><th>操作</th><th>すること</th><th>補足</th></tr></thead>
       <tbody>
-        <tr data-key="Alt"><td class="k"><kbd>Alt</kbd> 長押し</td><td>全ユニットの体力バーと所属戦域の色を表示</td><td>乱戦で「どれが令で動いているか」を確認</td></tr>
+        <tr data-key="Alt"><td class="k"><kbd>Alt</kbd> 長押し（単独）</td><td>全ユニットの体力バーと所属戦域の色を表示</td><td>乱戦で「どれが令で動いているか」を確認。<kbd>Alt</kbd>+ドラッグ／数字／クリックのように他のキーやボタンと組み合わせた場合は<b>修飾キーとして動き、情報表示は出ません</b>（トグル設定にすれば兼任そのものを無くせます）</td></tr>
         <tr data-key="L"><td class="k"><kbd class="i">L</kbd></td><td>戦績パネル（試合中のスコア）</td><td>相手の人口と時代の推定値も出ます</td></tr>
         <tr data-key="G"><td class="k"><kbd class="i">G</kbd></td><td>資源の残量を地形に重ねて表示</td><td>森・鉱脈の残りが色で分かります</td></tr>
         <tr data-key="N"><td class="k"><kbd class="i">N</kbd></td><td>時代進化の条件パネル</td><td>あと何が足りないかだけを表示</td></tr>
@@ -661,7 +665,7 @@
         <tr data-key="F11"><td class="k"><kbd>F11</kbd></td><td>全画面表示の切り替え</td><td>ブラウザの全画面をそのまま使います</td></tr>
         <tr data-key="F12"><td class="k"><kbd>F12</kbd></td><td>スクリーンショット</td><td>HUD を消して撮るオプションあり</td></tr>
         <tr><td class="k"><kbd>Pause</kbd></td><td>一時停止</td><td><b>キャンペーンとスカーミッシュのみ</b>。オンラインでは効きません</td></tr>
-        <tr data-key="Esc"><td class="k"><kbd>Esc</kbd></td><td>パネルを閉じる／選択を解除</td><td>何も開いていなければメニュー</td></tr>
+        <tr data-key="Esc"><td class="k"><kbd>Esc</kbd></td><td>上から順に 1 つだけ実行 ―― ①開いているパネルを閉じる ②手動操作中の部隊を令に戻す ③選択を解除 ④メニューを開く</td><td>該当するものが 1 つ処理された時点で止まります。まとめて起きることはありません</td></tr>
       </tbody>
     </table>
   </div>
@@ -738,8 +742,8 @@
         <tr data-key="Esc"><td>令</td><td class="k"><kbd>Esc</kbd></td><td>手動操作を解除して令に戻す／パネルを閉じる</td></tr>
         <tr data-key="Q"><td>コマンド</td><td class="k"><kbd class="g">Q</kbd><kbd class="g">W</kbd><kbd class="g">E</kbd><kbd class="g">R</kbd> / <kbd class="g">A</kbd><kbd class="g">S</kbd><kbd class="g">D</kbd><kbd class="g">F</kbd> / <kbd class="g">Z</kbd><kbd class="g">X</kbd><kbd class="g">C</kbd><kbd class="g">V</kbd></td><td>コマンドグリッドの 12 ボタンに対応</td></tr>
         <tr data-key="B"><td>コマンド</td><td class="k"><kbd class="g">B</kbd></td><td>建設メニュー</td></tr>
-        <tr data-key="Ctrl"><td>選択</td><td class="k"><kbd>Ctrl</kbd>+<kbd>A</kbd></td><td>全戦闘ユニット</td></tr>
-        <tr data-key="7"><td>選択</td><td class="k"><kbd>7</kbd>〜<kbd>0</kbd> / <kbd>Ctrl</kbd>+<kbd>7</kbd>〜<kbd>0</kbd></td><td>部隊グループの呼び出し／登録</td></tr>
+        <tr data-key="Ctrl"><td>選択</td><td class="k"><kbd>Ctrl</kbd>+<kbd>A</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd></td><td>戦域外の全戦闘ユニット／戦域の兵も含めて全戦闘ユニット</td></tr>
+        <tr data-key="7"><td>選択</td><td class="k"><kbd>7</kbd>〜<kbd>0</kbd> / <kbd>Ctrl</kbd>+<kbd>7</kbd>〜<kbd>0</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>7</kbd>〜<kbd>0</kbd></td><td>部隊グループの呼び出し／登録／追加</td></tr>
         <tr data-key="."><td>選択</td><td class="k"><kbd class="v">.</kbd> / <kbd class="v">,</kbd></td><td>遊休の村人へ次／前へジャンプ</td></tr>
         <tr data-key="H"><td>視点</td><td class="k"><kbd class="v">H</kbd></td><td>町の中心を選択して視点移動</td></tr>
         <tr data-key="M"><td>視点</td><td class="k"><kbd class="v">M</kbd></td><td>ミニマップの拡大</td></tr>

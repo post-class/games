@@ -320,7 +320,7 @@
 
   <h3>人口</h3>
   <ul class="plain">
-    <li>家 1 軒で人口上限 <strong>+5</strong>。町の中心は <strong>+10</strong>。上限は <strong>200</strong>。</li>
+    <li>家 1 軒で人口上限 <strong>+5</strong>。町の中心は <strong>+10</strong>。上限は既定 <strong>200</strong>（対戦設定で変更可）。</li>
     <li>村人・兵・攻城兵器・船はすべて人口を食います。攻城兵器は 1 台で <strong>3</strong>、戦象は <strong>2</strong>。</li>
     <li>戦域を増やすほど各戦線に兵が要るので、家の建て遅れがそのまま「令を配れない」に直結します。</li>
   </ul>
@@ -354,13 +354,13 @@
         <tr>
           <th>→ 鉄器の世</th>
           <td><span class="res f">食料 800</span><span class="res g">金 200</span></td>
-          <td>青銅の建物 2 種</td><td>160 秒</td><td class="c">4</td>
-          <td>各系統が第 2 段に入れ替わる。攻城と騎兵が解禁</td>
+          <td>青銅の建物 2 種</td><td>160 秒</td><td class="c">3</td>
+          <td>各系統が第 2 段に入れ替わる。攻城が解禁。騎兵は多くの文明がここから（ローマとモンゴルのみ青銅から）</td>
         </tr>
         <tr>
           <th>→ 帝国の世</th>
           <td><span class="res f">食料 1000</span><span class="res g">金 800</span></td>
-          <td>鉄器の建物 2 種</td><td>190 秒</td><td class="c">6</td>
+          <td>鉄器の建物 2 種</td><td>190 秒</td><td class="c">4</td>
           <td>各系統が最終段へ。硝石を持つ文明だけ火器が出る</td>
         </tr>
       </tbody>
@@ -372,12 +372,14 @@
   <ul class="plain">
     <li><strong>黎明（1 枠）</strong> ― 戦線は一本だけ。ほぼ内政ゲーム。</li>
     <li><strong>青銅（2 枠）</strong> ― 攻めと守りを同時に持てる。令の切り替えを覚える段。</li>
-    <li><strong>鉄器（4 枠）</strong> ― ここから本番。捨てる戦域を選ぶ判断が始まります。</li>
-    <li><strong>帝国（6 枠）</strong> ― 全周で殴り合える。囮と本命の使い分けが決着に直結します。</li>
+    <li><strong>鉄器（3 枠）</strong> ― ここから本番。捨てる戦域を選ぶ判断が始まります。</li>
+    <li><strong>帝国（4 枠）</strong> ― 全周で殴り合える。囮と本命の使い分けが決着に直結します。</li>
   </ul>
   <p class="note">
-    城 1 棟ごとに戦域スロットが <strong>+1</strong>（上限 6）。石材を城に回すか壁に回すかで、
-    「戦線の数」と「戦線の硬さ」のどちらを取るかを選ぶことになります。
+    時代で増える枠は 4 までで、<strong>残りの 2 枠は自分で取りに行きます</strong>。
+    城 1 棟ごとに <strong>+1</strong>、研究「旗竿」で <strong>+1</strong>（合計の上限は 6）。
+    石材を城に回すか壁に回すかで、「戦線の数」と「戦線の硬さ」のどちらを取るかを選ぶことになります。
+    帝国の世に入っても、城を建てなければ 6 戦線は運用できません。
   </p>
 </section>
 
@@ -413,7 +415,7 @@
         <tr class="age-row"><th colspan="4">青銅の世</th></tr>
         <tr><th>兵舎</th><td><span class="res w">木 175</span></td><td>その文明の近接歩兵</td><td>前線に建てると増援が速い</td></tr>
         <tr><th>射場</th><td><span class="res w">木 175</span></td><td>その文明の遠隔歩兵</td><td>持たない文明もある（モンゴル）</td></tr>
-        <tr><th>市場</th><td><span class="res w">木 175</span></td><td>資源交換・交易荷車・貢納</td><td>余った資源を足りない資源に替える窓口</td></tr>
+        <tr><th>市場</th><td><span class="res w">木 175</span></td><td>資源交換・交易荷車・貢納</td><td>余った資源を足りない資源に替える窓口。<strong>貢納</strong>＝チーム戦で味方に資源を送る操作（10% が手数料として消えます）</td></tr>
         <tr><th>鍛冶場</th><td><span class="res w">木 150</span></td><td>武器・防具の研究</td><td>研究できる範囲が文明で違う</td></tr>
         <tr><th>木柵</th><td><span class="res w">木 2</span>／1 枚</td><td>足止め</td><td>壊されるが、時間は稼げる</td></tr>
         <tr><th>木門</th><td><span class="res w">木 30</span></td><td>自軍だけ通れる出入口</td><td>柵で囲うときに必須</td></tr>
@@ -424,18 +426,40 @@
         <tr><th>学舎</th><td><span class="res w">木 200</span></td><td>技術研究。<strong>「令」の研究もここ</strong></td><td>本作で最重要の建物。後述</td></tr>
         <tr><th>祈祷所</th><td><span class="res w">木 175</span></td><td>祈祷師の生産・治療研究</td><td>兵を捨てずに回せるようになる</td></tr>
         <tr><th>攻城工房</th><td><span class="res w">木 200</span></td><td>その文明の攻城兵器</td><td>作れる兵器が文明ごとに違う</td></tr>
-        <tr><th>石壁</th><td><span class="res s">石 5</span>／1 枚</td><td>本格的な遮断</td><td>破られた穴はその試合ずっと残る</td></tr>
+        <tr><th>石壁</th><td><span class="res s">石 25</span>／1 枚</td><td>本格的な遮断</td><td>破られた穴はその試合ずっと残る。木柵の 12 倍以上のコストなので、囲い切るには石を諦める覚悟が要る</td></tr>
         <tr><th>城門</th><td><span class="res s">石 200</span></td><td>石壁の出入口</td><td>攻城兵器はここを通るしかない</td></tr>
         <tr><th>城</th><td><span class="res s">石 650</span></td><td>エリート生産・強力な防御・<strong>戦域スロット +1</strong></td><td>石材の最大の使い道</td></tr>
         <tr><th>港</th><td><span class="res w">木 150</span></td><td>軍船・火船・輸送船</td><td>水域マップでは第 2 の前線になる</td></tr>
 
         <tr class="age-row"><th colspan="4">帝国の世</th></tr>
-        <tr><th>火薬工房</th><td><span class="res w">木 200</span><span class="res g">金 200</span></td><td>火器と火薬兵器</td><td><strong>硝石を持たない 2 文明は建てられない</strong></td></tr>
-        <tr><th>砲塔</th><td><span class="res s">石 200</span><span class="res g">金 100</span></td><td>射程の長い固定砲台</td><td>1 基で戦域ひとつを止められる</td></tr>
-        <tr><th>碑の写し</th><td><span class="res w">木 1000</span><span class="res s">石 1000</span><span class="res g">金 1000</span></td><td>記念碑。建てて 10 分守れば勝利</td><td>建設中は全プレイヤーに位置が見える</td></tr>
+        <tr><th>火薬工房</th><td><span class="res w">木 200</span><span class="res g">金 200</span></td><td>火器と火薬兵器</td><td><strong>火器を持たない 3 文明（ヴァイキング・アステカ・モンゴル）は建てられない</strong></td></tr>
+        <tr><th>砲塔</th><td><span class="res s">石 200</span><span class="res g">金 100</span></td><td>射程の長い固定砲台</td><td>歩兵の足を止められるが、攻城兵器の射程外からは一方的に壊される。<strong>2 基以上で射線を組まないと戦域は止まらない</strong></td></tr>
+        <tr><th>碑の写し</th><td><span class="res w">木 1000</span><span class="res s">石 1000</span><span class="res g">金 1000</span></td><td>記念碑。建てて <strong>6 分</strong>守れば勝利</td><td>建設中は全プレイヤーに位置が見える。資源が枯れ始める時間帯に建てるため、<strong>森と鉱脈を残しておくか、交易で金を確保しておく</strong>必要がある</td></tr>
       </tbody>
     </table>
   </div>
+
+  <h3>掟に関わる付属物 ― 2 種（建てるものではありません）</h3>
+  <p>
+    <a href="02_世界観.html">世界観設定</a>の <strong>戦の作法</strong>で禁じられている「井戸を埋める」「種籾を焼く」の対象です。
+    プレイヤーが建てるものではなく、対応する建物に自動で付属し、<strong>独立して破壊できます</strong>。
+    上の共通 25 種には含めていません。
+  </p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>付属物</th><th>付く建物</th><th>壊すと</th><th>掟</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>井戸</th><td>町の中心・家（1 か所につき 1 つ）</td><td>周囲の村人の採集速度 −20%。その場所には <strong>この試合中もう建てられない</strong></td><td>破ると忠誠度 −25%</td></tr>
+        <tr><th>種籾蔵</th><td>農地（数面ごとに 1 つ）</td><td>その一帯の農地が <strong>再建できなくなる</strong>（収穫済みの分は失われない）</td><td>破ると忠誠度 −25%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">
+    「略奪」の令は資源施設を狙いますが、<strong>この 2 種は自動では狙いません</strong>。掟破りは手動で選んだときにだけ起きます。
+    試合オプション「掟の適用」を無効にすると、忠誠度の判定ごと無くなります（<a href="07_ゲームシステム.html">07</a>）。
+  </p>
 
   <h3>文明固有の建物 ― 8 種</h3>
   <p>共通建物のうち一部は、文明ごとに置き換わったり、そもそも建てられなかったりします。</p>
@@ -452,7 +476,7 @@
         <tr><th>マリ</th><td>―</td><td><strong>塩蔵</strong><span class="ruby">（えんぞう）</span></td><td>交易荷車の収入 +25%。市場を 3 つまで建てられる</td></tr>
         <tr><th>アステカ</th><td>厩・火薬工房</td><td><strong>神殿基壇</strong></td><td>石材で建て、周囲の兵の生産速度 +20%</td></tr>
         <tr><th>ペルシア</th><td>―</td><td><strong>地下水路</strong><span class="ruby">（カナート）</span></td><td>周囲の村人の採集速度 +15%</td></tr>
-        <tr><th>モンゴル</th><td>城・石壁・城門</td><td><strong>大天幕</strong>（城の置き換え）</td><td>いつでも畳んで移動できる城。耐久は城の 60%。戦域スロット +1 は同じ</td></tr>
+        <tr><th>モンゴル</th><td>城・石壁・城門・火薬工房</td><td><strong>大天幕</strong>（城の置き換え）</td><td>いつでも畳んで移動できる城。耐久は城の 60%。戦域スロット +1 と<strong>令の発信点</strong>も城と同じで、畳んで動かせば発信点ごと前に出せる</td></tr>
       </tbody>
     </table>
   </div>
@@ -552,7 +576,7 @@
         </tr>
         <tr><th>城のエリート</th><td colspan="3">武士 ― 敵のエリートユニットに対して攻撃が大きく上がる</td></tr>
 
-        <tr class="civ-row"><th colspan="4">ローマ ― 唯一すべての系統が 3 段揃う。穴も尖りもない</th></tr>
+        <tr class="civ-row"><th colspan="4">ローマ ― 近接・遠隔・騎兵の 3 系統すべてが 3 段揃う唯一の文明。穴も尖りもない</th></tr>
         <tr>
           <th>近接</th>
           <td><span class="uw"><img class="u" src="assets/img/units/r-hastati.webp" alt="ハスタティ">ハスタティ</span></td>
@@ -660,7 +684,7 @@
           <th>攻城</th>
           <td class="none">―</td>
           <td><span class="uw"><img class="u" src="assets/img/units/m-ram.webp" alt="破城槌">破城槌</span></td>
-          <td><span class="uw"><img class="u" src="assets/img/units/m-catapult.webp" alt="投石機">投石機<small>最上位なし</small></span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/m-catapult.webp" alt="投石機">投石機<small>破城槌も継続して作れる／最上位なし</small></span></td>
         </tr>
         <tr><th>城のエリート</th><td colspan="3">近衛弓兵 ― 矢が防具を貫通する</td></tr>
 
@@ -729,7 +753,7 @@
         <tr><th>遠隔（徒歩）</th><td class="none">―</td><td class="none">―</td><td class="none">―</td></tr>
         <tr>
           <th>騎兵</th>
-          <td><span class="uw"><img class="u" src="assets/img/units/g-light.webp" alt="軽騎兵"><em>軽騎兵</em><small>唯一 青銅から騎兵</small></span></td>
+          <td><span class="uw"><img class="u" src="assets/img/units/g-light.webp" alt="軽騎兵"><em>軽騎兵</em><small>青銅から騎兵（ローマと並ぶ最速）</small></span></td>
           <td><span class="uw"><img class="u" src="assets/img/units/g-archer.webp" alt="騎射兵">騎射兵</span></td>
           <td><span class="uw"><img class="u" src="assets/img/units/g-heavy.webp" alt="重騎射兵">重騎射兵</span></td>
         </tr>
@@ -753,7 +777,7 @@
         <tr><th>文明</th><th>持っていないもの</th><th>代わりに尖っているところ</th><th>勝ち筋</th></tr>
       </thead>
       <tbody>
-        <tr><th>ヤマト</th><td>青銅期の騎兵</td><td>歩兵の防御研究が 1 段多い</td><td>序盤を守り切り、鉄器以降の練度で押し返す</td></tr>
+        <tr><th>ヤマト</th><td>鉄器の世に壁を壊す手段（井楼は越えるだけ）</td><td>歩兵の防御研究が 1 段多い</td><td>序盤を守り切り、鉄器以降の練度で押し返す</td></tr>
         <tr><th>ローマ</th><td>―（穴なし）</td><td>街道で戦域間の増援が最速</td><td>全戦域に均等に手を回して、崩れた側へ即座に増援</td></tr>
         <tr><th>唐</th><td>近接の攻撃研究が 1 段少ない</td><td>遠隔と攻城が全文明最強。研究が安く速い</td><td>遠隔で削り、攻城で建物を壊して押し切る</td></tr>
         <tr><th>ヴァイキング</th><td><strong>騎兵・火器・投石・石壁</strong></td><td>近接の攻撃が最高。船が最強。ベルセルクが自己回復</td><td>海から降りて短期決戦。長引かせると負ける</td></tr>
@@ -913,7 +937,7 @@
         <tr><th>早馬</th><td>鉄器</td><td><span class="res f">食 150</span><span class="res g">金 100</span></td><td>令の切り替え待ち時間 −30%</td><td>戦況が細かく動く乱戦</td></tr>
         <tr><th>復唱</th><td>鉄器</td><td><span class="res f">食 200</span></td><td>令が戦域に届くまでの遅延 −50%</td><td>本陣から遠い戦域を抱えたとき</td></tr>
         <tr><th>二重旗</th><td>帝国</td><td><span class="res w">木 300</span><span class="res g">金 300</span></td><td>1 つの戦域に令を 2 枚まで重ねられる</td><td>「包囲」＋「死守」など複合運用</td></tr>
-        <tr><th>測量</th><td>青銅</td><td><span class="res f">食 100</span></td><td>建物の視界 +4</td><td>戦域の発生を早く知る</td></tr>
+        <tr><th>測量</th><td>青銅</td><td><span class="res f">食 100</span></td><td>建物の視界 +4</td><td>戦域の発生を早く知る（兵を強くしない「見える範囲を広げる」研究なので、この枝に置いています）</td></tr>
         <tr><th>写本</th><td>鉄器</td><td><span class="res f">食 200</span><span class="res g">金 100</span></td><td>以降の研究コスト −15%</td><td>長期戦を狙うとき</td></tr>
         <tr><th>徴兵令</th><td>帝国</td><td><span class="res f">食 400</span><span class="res g">金 200</span></td><td>すべての兵の生産速度 +25%</td><td>6 戦域を同時に維持する終盤</td></tr>
       </tbody>
@@ -955,7 +979,7 @@
         <tr><th>ローマ</th><td>―</td><td>軍団編成</td><td>兵舎・射場・厩の生産待ち行列が 2 倍の長さになる</td></tr>
         <tr><th>唐</th><td>鋼刃<span class="ruby">（近接の上位攻撃）</span></td><td>火薬術</td><td>火器と火箭車の攻撃 +25%</td></tr>
         <tr><th>ヴァイキング</th><td>板金鎧・馬鎧</td><td>狂戦</td><td>近接兵は体力が減るほど攻撃が上がる</td></tr>
-        <tr><th>マリ</th><td>オナゲル系の上位攻城</td><td>射法</td><td>遠隔兵の射程 +1（全文明最長になる）</td></tr>
+        <tr><th>マリ</th><td>鋳造<span class="ruby">（エリートの生産コスト減）</span></td><td>射法</td><td>遠隔兵の射程 +1（全文明最長になる）</td></tr>
         <tr><th>アステカ</th><td><strong>鎖鎧・板金鎧・馬鎧</strong><span class="ruby">（鉄が出ない）</span></td><td>綿甲</td><td>歩兵の遠隔耐性 +3。鉄の鎧の代替になる</td></tr>
         <tr><th>ペルシア</th><td>―</td><td>灌漁</td><td>農地の産出量 +20%（累積）。重い編成を支える</td></tr>
         <tr><th>モンゴル</th><td>板金鎧</td><td>駅伝</td><td>令の遅延が距離に関係なく一定になる（実質「復唱」の上位）</td></tr>
@@ -976,7 +1000,7 @@
     <div class="card">
       <p class="num">二</p>
       <h3>碑の写し</h3>
-      <p>帝国の世で記念碑を建て、10 分守り切る。建設を始めた瞬間に全プレイヤーへ位置が公開されるので、守れる算段があってから始める賭けになります。</p>
+      <p>帝国の世で記念碑を建て、<strong>6 分</strong>守り切る。建設を始めた瞬間に全プレイヤーへ位置が公開されるので、守れる算段があってから始める賭けになります。</p>
     </div>
     <div class="card">
       <p class="num">三</p>
@@ -986,7 +1010,11 @@
     <div class="card" style="border-top-color:var(--danger)">
       <p class="num">敗北</p>
       <h3>令が届かなくなったとき</h3>
-      <p>町の中心をすべて失うか、戦の作法を破って諸侯が離反し、令の届く戦域がゼロになった時点で敗北です。</p>
+      <p>
+        <strong>町の中心をすべて失った</strong>時点、または <strong>忠誠度が 0% になった</strong>時点で敗北です。
+        後者は「戦域が立っていても、どの戦域にも令が届かない（すべての旗が離反した）」状態を指します。
+        戦域が 0 本の状態（そもそも戦闘が起きていない序盤など）は敗北ではありません ―― 判定に使うのは戦域の数ではなく忠誠度です。
+      </p>
     </div>
   </div>
   <p class="dim" style="margin-top:14px">
