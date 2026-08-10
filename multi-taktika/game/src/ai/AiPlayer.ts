@@ -42,6 +42,7 @@ import type { World } from '@/sim/core/world';
 
 import type { AiView } from './view';
 import { createAiView } from './view';
+import { planScouting } from './scoutGoals';
 import { planEconomy } from './econGoals';
 import { planMilitary } from './militaryGoals';
 import { planFronts } from './frontPolicy';
@@ -180,6 +181,26 @@ export interface AiMemory {
    * 他の記憶と同じ寿命（AI の生存期間）にしたいだけで、意味は単なる整数。
    */
   readonly gatherAssignSeq: number[];
+  /**
+   * 見つけた資源ノードの記憶（**発見順**。`nodeIds[k]` と他の 3 本が同じ添字で対応）。
+   *
+   * ■ なぜ記憶が必要か
+   * `AiView.seenResourceNodes` は**その瞬間に視界に入っているものだけ**。
+   * 拠点の周りに見えるのは森と果樹だけで、石切場と金鉱は 8 マス先にあって
+   * 視界の外にある。斥候が通り過ぎた瞬間だけ見えても、次の判断では消えるので
+   * 「あそこに金鉱がある」と言えない。実測で**石材と金の採集量が 30 分間 0** だった。
+   *
+   * 人間は一度見た資源の場所を覚えているので、これは透視ではない
+   * （`view.ts` が地形を記憶扱いにしているのと同じ理由）。
+   */
+  readonly nodeIds: number[];
+  /** その資源の種類（`RESOURCE_IDS` の添字）。 */
+  readonly nodeResource: number[];
+  /** 座標（Fx）。 */
+  readonly nodeX: number[];
+  readonly nodeY: number[];
+  /** 斥候を次に向かわせる方角の番号（要素 1 個。乱数を使わずに一周させる）。 */
+  readonly scoutStep: number[];
   /** その index の兵を送り出したときの EntityId。0 = 未派遣。 */
   readonly dispatched: number[];
   /**
@@ -210,6 +231,11 @@ function createMemory(): AiMemory {
     villagerRole: [],
     villagerBusyUntil: [],
     gatherAssignSeq: [],
+    nodeIds: [],
+    nodeResource: [],
+    nodeX: [],
+    nodeY: [],
+    scoutStep: [],
     dispatched: [],
     released: [],
     dispatchX: [],
@@ -320,6 +346,10 @@ export class AiPlayer {
     // Command の並びは 1 人の中では発行順（手順書 §6.11）。
     const cmds: Command[] = [];
     pushAll(cmds, planEconomy(ctx));
+    // 探索（`scoutGoals`）。**内政の後・軍事の前**。
+    // 見つけていない資源があるあいだ斥候を歩かせる。これが無いと
+    // 拠点の周りの森と果樹しか見えず、石材と金を一度も採れない（実測）。
+    pushAll(cmds, planScouting(ctx));
     pushAll(cmds, planMilitary(ctx));
     pushAll(cmds, planFronts(ctx));
     return cmds;

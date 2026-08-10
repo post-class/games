@@ -26,7 +26,9 @@ import { PILOTS } from '../content/pilots';
 import { expressionFor, portraitFace } from '../ui/Portrait';
 import { NavMap } from './NavMap';
 import {
+  clampLabel,
   edgeArrow,
+  estimateLabelHalfWidth,
   openingRectPx,
   pointInRect,
   rectEdgeArrow,
@@ -34,6 +36,15 @@ import {
   type ScreenPoint,
   type ViewRect,
 } from './project';
+import {
+  buildObjectiveLines,
+  formatTimeLeft,
+  objectiveMark,
+  type ObjectiveLine,
+  type ObjectiveView,
+} from './objectiveLines';
+import { warningText } from './warning';
+import { HIT_EDGE_LABEL, hitEdgeOf, hitFaceOf, type HitEdge, type HitFace } from './hitDirection';
 // 風防の開口部 (NDC)。3D 側 (render/Cockpit.ts) が唯一の出所なので、ここでは読むだけ。
 import { COCKPIT_OPENING } from '../render/Cockpit';
 import {
@@ -43,10 +54,9 @@ import {
   type DamageStage,
 } from './damageStage';
 
-export interface ObjectiveView {
-  text: string;
-  state: 'active' | 'done' | 'failed';
-}
+// 目標表示の型は `objectiveLines.ts` が持つ (3行に絞る組み立てと同じ場所)。
+// 既存の参照 (`MissionRunner` など) をそのまま通すため、ここから再輸出する。
+export type { ObjectiveLine, ObjectiveView } from './objectiveLines';
 
 export interface HudFrame {
   world: World;
@@ -71,6 +81,17 @@ export interface HudFrame {
 }
 
 const MAX_MARKERS = 28;
+/**
+ * 操縦ヒントを出しておく秒数 (T2-⑧)。
+ * 画面中央に出したまま消えないと、航法マップにも重なって邪魔になる。
+ */
+export const MOUSE_HINT_SECONDS = 6;
+/** 被弾方向の光と装甲図のハイライトを残す秒数。 */
+export const HIT_DIRECTION_SECONDS = 1.6;
+/** 直近に片付いた目標を「達成した1件」として出しておく秒数。 */
+export const RECENT_OBJECTIVE_SECONDS = 8;
+/** Nav ラベルの高さの半分 (px)。`.mc-marker` の font-size 12px から見積もる。 */
+const NAV_LABEL_HALF_HEIGHT = 9;
 /** マーカーを出す最大距離 */
 const MARKER_RANGE = 24000;
 /** 障害物をレーダーに映す距離 (数が多いので至近だけ) */
@@ -123,6 +144,13 @@ export class HudView {
   private pendingExplosions: PendingExplosion[] = [];
   private playerFaction?: Entity['faction'];
   private objectivesBox: HTMLElement;
+  /** 全目標 (右 VDU の一覧ページで出す。常時表示は3行だけ) */
+  private allObjectives: ObjectiveView[] = [];
+  /** 直近に片付いた1件と、その残り表示時間 */
+  private recentObjective?: ObjectiveView;
+  private recentLeft = 0;
+  /** 前フレームの目標状態 (片付いた瞬間を拾う) */
+  private objectiveStates = new Map<string, ObjectiveView['state']>();
   private warnLock: HTMLElement;
   private warnMissile: HTMLElement;
   private warnShield: HTMLElement;
@@ -146,6 +174,20 @@ export class HudView {
   private stickEl: HTMLElement;
   private autopilotEl: HTMLElement;
   private mouseHintEl!: HTMLElement;
+  /** 操縦ヒントの残り表示時間 (0 で消す)。促しが終わっても出しっぱなしにしない。 */
+  private mouseHintLeft = 0;
+  /** 促しが立ち上がった瞬間を拾うための前フレームの値 */
+  private mouseHintArmed = false;
+  /** 被弾方向を示す画面端の光 (4辺) */
+  private hitEdgeEls: Record<HitEdge, HTMLElement> = {} as Record<HitEdge, HTMLElement>;
+  /** 辺ごとの残り時間 */
+  private hitEdgeLeft: Record<HitEdge, number> = { left: 0, right: 0, top: 0, bottom: 0 };
+  /** 被弾方向の文字表示 (点滅を抑える設定でも情報が残るように) */
+  private hitDirEl!: HTMLElement;
+  private hitDirLeft = 0;
+  /** 直前に食らった装甲面 (装甲図でハイライトする) */
+  private hitFace?: HitFace;
+  private hitFaceLeft = 0;
   /** 通信遅延の表示 (第6章。遅延が無い作戦では常に非表示) */
   private commsDelayEl!: HTMLElement;
   private cockpit: HTMLElement;
@@ -169,8 +211,13 @@ export class HudView {
 
   /** D キーで右 VDU を武装/被害に切り替える */
   damageMode = false;
-  /** V キーで切り替える、通常時の右 VDU ページ */
-  private rightVduPage: 'tactical' | 'weapons' = 'tactical';
+  /**
+   * V キーで切り替える、通常時の右 VDU ページ。
+   *
+   * 目標の常時表示を3行に絞った代わりに、**全目標の一覧を3ページ目**に置く (T2-⑧)。
+   * 新しいキーを増やさないので、既存の割り当て (X / D / N など) と衝突しない。
+   */
+  private rightVduPage: 'tactical' | 'weapons' | 'objectives' = 'tactical';
   /** N キーで開く航法マップ */
   readonly navMap: NavMap;
   private shown = true;
@@ -241,6 +288,44 @@ export class HudView {
 
     this.vignette = el('div', 'mc-vignette');
     this.hud.appendChild(this.vignette);
+
+    // 被弾方向の光 (T2-⑨)。左から撃たれたら左端が赤く光る。
+    // 位置と大きさはここで指定し、濃さだけを毎フレーム動かす。
+    for (const edge of ['left', 'right', 'top', 'bottom'] as HitEdge[]) {
+      const n = el('div', `mc-hitedge ${edge}`);
+      n.style.position = 'absolute';
+      n.style.pointerEvents = 'none';
+      const across = edge === 'left' || edge === 'right' ? '16%' : '100%';
+      const along = edge === 'left' || edge === 'right' ? '100%' : '14%';
+      n.style.width = across;
+      n.style.height = along;
+      n.style.top = edge === 'bottom' ? 'auto' : '0';
+      n.style.bottom = edge === 'bottom' ? '0' : 'auto';
+      n.style.left = edge === 'right' ? 'auto' : '0';
+      n.style.right = edge === 'right' ? '0' : 'auto';
+      const to =
+        edge === 'left' ? 'right' : edge === 'right' ? 'left' : edge === 'top' ? 'bottom' : 'top';
+      n.style.background = `linear-gradient(to ${to}, rgba(255,60,60,0.85), rgba(255,60,60,0))`;
+      n.style.opacity = '0';
+      n.style.display = 'none';
+      this.hitEdgeEls[edge] = n;
+      this.hud.appendChild(n);
+    }
+
+    // 被弾方向の文字。点滅を抑える設定でも「どこから撃たれたか」が残る。
+    this.hitDirEl = el('div', 'mc-hitdir');
+    this.hitDirEl.style.position = 'absolute';
+    this.hitDirEl.style.left = '50%';
+    this.hitDirEl.style.top = '19%';
+    this.hitDirEl.style.transform = 'translateX(-50%)';
+    this.hitDirEl.style.padding = '2px 10px';
+    this.hitDirEl.style.background = 'rgba(4,12,14,0.72)';
+    this.hitDirEl.style.color = '#ff9b7a';
+    this.hitDirEl.style.fontSize = '15px';
+    this.hitDirEl.style.letterSpacing = '0.1em';
+    this.hitDirEl.style.textShadow = '0 0 8px #000';
+    this.hitDirEl.style.display = 'none';
+    this.hud.appendChild(this.hitDirEl);
 
     // ハル危険域の赤い縁取り。CSS を増やさずに済むよう、見た目はここで指定する
     // (`src/styles/cockpit.css` は別作業で編集中のため、新しい規則を足さない)。
@@ -507,6 +592,23 @@ export class HudView {
 
     this.objectivesBox.textContent = '';
     delete this.objectivesBox.dataset.sig;
+    this.allObjectives = [];
+    this.objectiveStates.clear();
+    this.recentObjective = undefined;
+    this.recentLeft = 0;
+    // 被弾方向の光・文字・装甲図のハイライトは任務をまたいで残さない
+    for (const edge of ['left', 'right', 'top', 'bottom'] as HitEdge[]) {
+      this.hitEdgeLeft[edge] = 0;
+      this.hitEdgeEls[edge].style.display = 'none';
+      this.hitEdgeEls[edge].style.opacity = '0';
+    }
+    this.hitDirLeft = 0;
+    this.hitDirEl.style.display = 'none';
+    this.hitFace = undefined;
+    this.hitFaceLeft = 0;
+    this.mouseHintLeft = 0;
+    this.mouseHintArmed = false;
+    this.mouseHintEl.style.display = 'none';
     this.vignetteLevel = 0;
     this.vignette.style.opacity = '0';
     this.navMap.setOpen(false);
@@ -524,8 +626,19 @@ export class HudView {
     this.applyChromeVisibility();
   }
 
+  /** 右 VDU のページを順に送る (戦術 → 武装 → 目標一覧 → 戦術)。 */
   toggleRightVduPage(): void {
-    this.rightVduPage = this.rightVduPage === 'tactical' ? 'weapons' : 'tactical';
+    this.rightVduPage =
+      this.rightVduPage === 'tactical'
+        ? 'weapons'
+        : this.rightVduPage === 'weapons'
+          ? 'objectives'
+          : 'tactical';
+  }
+
+  /** 右 VDU の現在ページ (テスト・確認用)。 */
+  get vduPage(): 'tactical' | 'weapons' | 'objectives' {
+    return this.rightVduPage;
   }
 
   private makeGauge(id: string, label: string): HTMLElement {
@@ -590,7 +703,22 @@ export class HudView {
     this.unsubs.push(
       bus.on('announce', (p) => {
         if (!p.text) return;
-        this.announce.textContent = readableAnnouncement(p.text);
+        // 警告は「何が起きたか」＋「どうするか」の2行にする (T2-⑧)。
+        // 文言の対応表は hud/warning.ts が唯一の出所。
+        const w = warningText(p.text);
+        this.announce.textContent = '';
+        const what = el('div', 'what');
+        what.textContent = w.what;
+        this.announce.appendChild(what);
+        if (w.how) {
+          const how = el('div', 'how');
+          how.textContent = w.how;
+          how.style.fontSize = '17px';
+          how.style.fontWeight = '400';
+          how.style.letterSpacing = '0.08em';
+          how.style.opacity = '0.92';
+          this.announce.appendChild(how);
+        }
         this.announce.className = `mc-announce show ${p.kind ?? 'info'}`;
         this.announceUntil = performance.now() + (p.durationMs ?? 1800);
       }),
@@ -674,16 +802,82 @@ export class HudView {
         }
       }),
       bus.on('shieldHit', (p) => {
-        if (p.isPlayer) this.vignetteLevel = Math.min(0.6, this.vignetteLevel + 0.14);
-        else if (this.isHostileToPlayer(p.target)) this.pushCombatLine('命中確認 — シールド', 'hit');
+        if (p.isPlayer) {
+          this.vignetteLevel = Math.min(0.6, this.vignetteLevel + 0.14);
+          this.noteHitDirection(p.target, p.point, p.hitFace);
+        } else if (this.isHostileToPlayer(p.target)) this.pushCombatLine('命中確認 — シールド', 'hit');
       }),
       bus.on('armorHit', (p) => {
-        if (p.isPlayer) this.vignetteLevel = Math.min(0.9, this.vignetteLevel + 0.3);
-        else if (this.isHostileToPlayer(p.target)) {
+        if (p.isPlayer) {
+          this.vignetteLevel = Math.min(0.9, this.vignetteLevel + 0.3);
+          this.noteHitDirection(p.target, p.point, p.hitFace);
+        } else if (this.isHostileToPlayer(p.target)) {
           this.pushCombatLine(p.layer === 'hull' ? '命中確認 — 船体' : '命中確認 — 装甲', 'hit');
         }
       }),
     );
+  }
+
+  /**
+   * 被弾方向を覚える (T2-⑨)。
+   *
+   * 深刻さは `damageStage()` が決めるので、ここは**方向だけ**を扱う。
+   * 装甲面はダメージ計算が返した `hitFace` を優先し、無いときだけ方向から求める。
+   */
+  private noteHitDirection(target: Entity, point: Vector3, face?: HitFace): void {
+    this.tmpV.copy(point).sub(target.pos);
+    if (this.tmpV.lengthSq() > 0) this.tmpV.applyQuaternion(this.tmpQ.copy(target.quat).invert());
+    const edge = hitEdgeOf(this.tmpV);
+    this.hitEdgeLeft[edge] = HIT_DIRECTION_SECONDS;
+    this.hitFace = face ?? hitFaceOf(this.tmpV);
+    this.hitFaceLeft = HIT_DIRECTION_SECONDS;
+    this.hitDirLeft = HIT_DIRECTION_SECONDS;
+    const text = `被弾 ${HIT_EDGE_LABEL[edge]}方向`;
+    if (this.hitDirEl.textContent !== text) this.hitDirEl.textContent = text;
+  }
+
+  /** いま光っている画面端の濃さ (テスト・確認用)。 */
+  hitEdgeOpacity(edge: HitEdge): number {
+    return Number(this.hitEdgeEls[edge].style.opacity || '0');
+  }
+
+  /** 被弾方向の文字 (テスト・確認用)。点滅を抑える設定でも残る。 */
+  get hitDirectionText(): string {
+    return this.hitDirEl.style.display === 'none' ? '' : this.hitDirEl.textContent ?? '';
+  }
+
+  /** 装甲図でハイライトしている面 (テスト・確認用)。 */
+  get highlightedFace(): HitFace | undefined {
+    return this.hitFaceLeft > 0 ? this.hitFace : undefined;
+  }
+
+  /**
+   * 被弾方向の表示を時間で薄くする。
+   *
+   * `reducedFlashes` では明滅させず一定の濃さで出し、文字は常に残す
+   * （設定で情報が減らないようにする）。
+   */
+  private renderHitDirection(dtReal: number): void {
+    for (const edge of ['left', 'right', 'top', 'bottom'] as HitEdge[]) {
+      const left = Math.max(0, this.hitEdgeLeft[edge] - dtReal);
+      this.hitEdgeLeft[edge] = left;
+      const node = this.hitEdgeEls[edge];
+      if (left <= 0) {
+        if (node.style.display !== 'none') {
+          node.style.display = 'none';
+          node.style.opacity = '0';
+        }
+        continue;
+      }
+      node.style.display = '';
+      const ratio = left / HIT_DIRECTION_SECONDS;
+      node.style.opacity = settings.reducedFlashes ? '0.35' : (0.15 + 0.7 * ratio).toFixed(3);
+    }
+    this.hitFaceLeft = Math.max(0, this.hitFaceLeft - dtReal);
+    this.hitDirLeft = Math.max(0, this.hitDirLeft - dtReal);
+    const showText = this.hitDirLeft > 0;
+    const want = showText ? '' : 'none';
+    if (this.hitDirEl.style.display !== want) this.hitDirEl.style.display = want;
   }
 
   // ───────── 毎フレーム更新 ─────────
@@ -725,7 +919,17 @@ export class HudView {
     this.vignetteLevel = Math.max(0, this.vignetteLevel - dtReal * 1.6);
     this.vignette.style.opacity = String(this.vignetteLevel);
 
-    this.mouseHintEl.style.display = f.mouseArmPending ? '' : 'none';
+    // 操縦ヒント (T2-⑧)。促しが立ち上がった瞬間から数秒だけ、画面下部に出す。
+    // 航法マップを開いている間は出さない (マップに重ねない)。
+    const armPending = !!f.mouseArmPending;
+    if (armPending && !this.mouseHintArmed) this.mouseHintLeft = MOUSE_HINT_SECONDS;
+    this.mouseHintArmed = armPending;
+    if (!armPending) this.mouseHintLeft = 0;
+    else this.mouseHintLeft = Math.max(0, this.mouseHintLeft - dtReal);
+    const hintVisible = this.mouseHintLeft > 0 && !this.navMap.open;
+    this.mouseHintEl.style.display = hintVisible ? '' : 'none';
+
+    this.renderHitDirection(dtReal);
 
     // 通信遅延 (第6章)。位置表示が何秒古いかを明示する。
     const delay = commsDelaySeconds();
@@ -745,7 +949,7 @@ export class HudView {
       this.stickEl.style.display = 'none';
     }
 
-    this.renderObjectives(f.objectives);
+    this.renderObjectives(f.objectives, dtReal);
     this.navMap.update(f.world);
 
     if (f.autopilot && f.nav && player) {
@@ -869,18 +1073,58 @@ export class HudView {
     }
   }
 
-  private renderObjectives(objs: ObjectiveView[] | undefined): void {
+  /** 常時表示の行 (テスト・確認用)。3行を超えないことをここで確かめられる。 */
+  get objectiveLineCount(): number {
+    return this.objectivesBox.children.length;
+  }
+
+  /** 操縦ヒントが出ているか (テスト・確認用)。 */
+  get mouseHintVisible(): boolean {
+    return this.mouseHintEl.style.display !== 'none';
+  }
+
+  /**
+   * 目標の常時表示 (T2-⑧)。
+   *
+   * 出すのは3行だけ (追うべき目標 / 一番差し迫った制限時間 / 直近に片付いた1件)。
+   * 全目標は右 VDU の一覧ページ (`V`) へ移す。
+   * 文字の後ろには半透明の暗い帯を敷き、太陽や星雲に重なっても読めるようにする。
+   */
+  private renderObjectives(objs: ObjectiveView[] | undefined, dtReal: number): void {
+    this.allObjectives = objs ?? [];
     if (!objs || objs.length === 0) {
-      if (this.objectivesBox.childElementCount) this.objectivesBox.textContent = '';
+      this.objectiveStates.clear();
+      this.recentObjective = undefined;
+      this.recentLeft = 0;
+      if (this.objectivesBox.children.length) {
+        this.objectivesBox.innerHTML = '';
+        delete this.objectivesBox.dataset.sig;
+      }
       return;
     }
-    const html = objs
-      .map((o) => `<div class="${o.state}">${o.state === 'done' ? '✔' : o.state === 'failed' ? '✖' : '▸'} ${escapeHtml(o.text)}</div>`)
-      .join('');
-    if (this.objectivesBox.dataset.sig !== html) {
-      this.objectivesBox.dataset.sig = html;
-      this.objectivesBox.innerHTML = html;
+
+    // 片付いた瞬間を拾って「達成した直近1件」にする。
+    // 記録は毎フレーム作り直す (制限時間の目標は文が毎秒変わるので、溜め込まない)。
+    const states = new Map<string, ObjectiveView['state']>();
+    for (const o of objs) {
+      const prev = this.objectiveStates.get(o.text);
+      if (prev !== o.state && o.state !== 'active') {
+        this.recentObjective = o;
+        this.recentLeft = RECENT_OBJECTIVE_SECONDS;
+      }
+      states.set(o.text, o.state);
     }
+    this.objectiveStates = states;
+    this.recentLeft = Math.max(0, this.recentLeft - dtReal);
+    if (this.recentLeft <= 0) this.recentObjective = undefined;
+
+    const lines = buildObjectiveLines(objs, this.recentObjective);
+    const sig = lines.map((l) => `${l.role}|${l.state}|${l.required}|${l.timeLeftSec ?? ''}|${l.others ?? ''}|${l.text}`).join('\n');
+    if (this.objectivesBox.dataset.sig === sig) return;
+    this.objectivesBox.dataset.sig = sig;
+    // 帯を1行ずつ敷くので、行は要素として作り直す (innerHTML では帯を検証できない)
+    this.objectivesBox.textContent = '';
+    for (const l of lines) this.objectivesBox.appendChild(objectiveLineEl(l));
   }
 
   private renderGauges(f: HudFrame, player: Entity): void {
@@ -918,9 +1162,11 @@ export class HudView {
       const r = h.armor[face];
       const n = this.shieldParts[key];
       n.setAttribute('fill', barColor(r));
-      n.setAttribute('opacity', String(0.14 + 0.72 * r));
-      n.setAttribute('stroke', 'rgba(127,227,176,0.35)');
-      n.setAttribute('stroke-width', '0.7');
+      // 直前に食らった面を縁で強調する (T2-⑨)。どこから撃たれているかを図で示す。
+      const hit = this.hitFaceLeft > 0 && this.hitFace === face;
+      n.setAttribute('opacity', String((hit ? 0.34 : 0.14) + 0.72 * r));
+      n.setAttribute('stroke', hit ? '#ff6b6b' : 'rgba(127,227,176,0.35)');
+      n.setAttribute('stroke-width', hit ? '2.2' : '0.7');
     };
     setPoly('af', 'front');
     setPoly('ar', 'rear');
@@ -1202,12 +1448,32 @@ export class HudView {
       `<div class="mc-vdu-section">ORDNANCE</div>` +
       lines.join('') +
       lock;
-    this.setVdu(
-      this.vduRight,
-      this.rightVduPage === 'tactical' ? 'TARGET / NAV  [V]' : 'WEAPONS  [V]',
-      this.rightVduPage === 'tactical' ? tacticalBody : weaponsBody,
-      this.rightVduPage === 'tactical' ? 'tactical' : 'weapons',
-    );
+    // 全目標の一覧。常時表示は3行だけなので、詳細はこのページで読む。
+    const objectivesBody =
+      this.allObjectives.length === 0
+        ? '<div class="mc-vdu-empty">目標なし</div>'
+        : this.allObjectives
+            .map(
+              (o) =>
+                `<div class="mc-obj-row ${o.state} ${o.required === false ? 'bonus' : 'required'}">` +
+                `<span class="k">${o.state === 'active' && o.required === false ? '＋' : objectiveMark(o.state)}</span>` +
+                `<span>${escapeHtml(o.text)}</span></div>`,
+            )
+            .join('');
+
+    const title =
+      this.rightVduPage === 'tactical'
+        ? 'TARGET / NAV  [V]'
+        : this.rightVduPage === 'weapons'
+          ? 'WEAPONS  [V]'
+          : 'OBJECTIVES  [V]';
+    const body =
+      this.rightVduPage === 'tactical'
+        ? tacticalBody
+        : this.rightVduPage === 'weapons'
+          ? weaponsBody
+          : objectivesBody;
+    this.setVdu(this.vduRight, title, body, this.rightVduPage);
   }
 
   private setVdu(box: HTMLElement, title: string, bodyHtml: string, extraClass = ''): void {
@@ -1308,10 +1574,14 @@ export class HudView {
       const p = worldToScreen(f.camera, f.nav.pos, w, hgt);
       const d = f.nav.pos.distanceTo(player.pos);
       if (this.isReadable(p, rect)) {
+        const text = `◇ ${f.nav.label ?? 'NAV'} ${(d / 1000).toFixed(1)}k`;
+        // 画面端では中央合わせのラベルが切れる (`発艦点 2.6k` が x=0 で欠ける)。
+        // ラベルの半分だけ内側へ押し戻して、必ず画面内に収める (T2-⑧)。
+        const c = clampLabel(p, w, hgt, estimateLabelHalfWidth(text), NAV_LABEL_HALF_HEIGHT, rect);
         this.navMarker.style.display = '';
-        this.navMarker.style.left = `${p.x}px`;
-        this.navMarker.style.top = `${p.y}px`;
-        this.navMarker.textContent = `◇ ${f.nav.label ?? 'NAV'} ${(d / 1000).toFixed(1)}k`;
+        this.navMarker.style.left = `${c.x}px`;
+        this.navMarker.style.top = `${c.y}px`;
+        this.navMarker.textContent = text;
         this.navArrow.style.display = 'none';
       } else {
         this.navMarker.style.display = 'none';
@@ -1393,6 +1663,37 @@ function svgEl(tag: string): SVGElement {
   return document.createElementNS('http://www.w3.org/2000/svg', tag) as SVGElement;
 }
 
+/** 目標の色。必須は明るい白緑、加点は灰色。達成・失敗は状態の色を優先する。 */
+function objectiveColor(l: ObjectiveLine): string {
+  if (l.state === 'done') return '#6fe38f';
+  if (l.state === 'failed') return '#ff6b6b';
+  return l.required ? '#eaf7ff' : '#9fb4ab';
+}
+
+/**
+ * 常時表示の1行 (T2-⑧)。
+ *
+ * - 記号は必須／加点で分ける (`▸` と `＋`)。達成は ✓、失敗は ✖ ＋取り消し線
+ * - 文字の後ろに半透明の暗い帯を敷き、明るい背景 (太陽・星雲) でも読めるようにする
+ * - 加点表記そのものは `MissionRunner.objectiveRewardPrefix()` の出力を**そのまま**載せる
+ */
+export function objectiveLineEl(l: ObjectiveLine): HTMLElement {
+  const node = el('div', `mc-obj-line ${l.role} ${l.state}${l.required ? ' required' : ' bonus'}`);
+  // 背景が明るくても読めるように、行ごとに暗い帯を敷く
+  node.style.background = 'rgba(4,12,14,0.72)';
+  node.style.padding = '1px 6px';
+  node.style.color = objectiveColor(l);
+  if (l.state === 'failed') node.style.textDecoration = 'line-through';
+  const mark = l.state === 'active' && !l.required ? '＋' : objectiveMark(l.state);
+  const timer =
+    l.role === 'timer' && l.timeLeftSec !== undefined
+      ? `残り ${formatTimeLeft(l.timeLeftSec)} — `
+      : '';
+  const others = l.others && l.others > 0 ? `　他${l.others}件` : '';
+  node.textContent = `${mark} ${timer}${l.text}${others}`;
+  return node;
+}
+
 function toggle(node: HTMLElement, on: boolean): void {
   const has = node.classList.contains('on');
   if (on && !has) node.classList.add('on');
@@ -1433,13 +1734,6 @@ function missileFireStatus(
     return '発射不可 — 大型目標のみ';
   }
   return '発射可能';
-}
-
-function readableAnnouncement(text: string): string {
-  if (text === 'ロックしていない') return '発射不可 — ロック未完了';
-  if (text === 'ミサイル切れ') return '発射不可 — 弾切れ';
-  if (text === '対艦魚雷は大型目標を選択してください') return '発射不可 — 魚雷は大型目標のみ';
-  return text;
 }
 
 function escapeHtml(s: string): string {

@@ -30,6 +30,13 @@ import {
   resetCommsDelay,
 } from '../sim/comms';
 import { checkNavArrival, navByIndex } from '../sim/nav';
+import {
+  arrivalFormationStep,
+  arrivalSpread,
+  isArrivalTarget,
+  objectiveTagsOf,
+  pullIntoArriveRange,
+} from './navArrival';
 import { stateOf } from '../sim/subsystems';
 import type { Entity } from '../world/entity';
 import {
@@ -135,6 +142,11 @@ export function objectiveLabel(def: ObjectiveDef): string {
 
 /** 逃走した敵がこの距離まで離れたら「撃退した」として戦域から外す */
 const FLED_DISTANCE = 14000;
+/**
+ * 出撃時のスロットル (最高速に対する割合。やさしい以外の難易度。T2-⑤)。
+ * 0 だと発艦後に止まったまま時間が過ぎるので、必ず巡航状態から始める。
+ */
+const LAUNCH_THROTTLE = 0.35;
 /** 味方の大型艦に近づきすぎたと判断する中心間距離 */
 const FRIENDLY_LARGE_SHIP_WARNING_DISTANCE = 900;
 /** 一度離れたあと、再接近時にもう一度警告できるようにする距離 */
@@ -183,6 +195,15 @@ interface ObjectiveRuntime {
   progress?: number;
   /** HUD に出す進捗ラベル (例 "2/3") */
   note?: string;
+  /**
+   * タイマー系の目標の残り秒 (T2-⑧ からの依頼)。
+   *
+   * `note` に載せる `残り Ns` と**同じ計算結果**をそのまま持つ
+   * （HUD 側が表示文字列を正規表現で読み戻さなくて済むようにする）。
+   * タイマーでない目標、および `startAtNav` でまだ計時が始まっていない
+   * タイマーでは undefined のまま。undefined と 0 を区別できる。
+   */
+  timeLeftSec?: number;
 }
 
 /**
@@ -302,6 +323,16 @@ export class MissionRunner {
   /** 踏んでしまった反射 Nav の index (第9章)。幻影の僚機の出現条件に使う */
   private reflectionsHit = new Set<number>();
   /**
+   * Nav に到達した時刻 (nav index → その瞬間の `missionClock`)。T2-⑤。
+   *
+   * `timeLimit` の `startAtNav` がここを読み、「現場に着いてから」計時を始める。
+   * 移動に 60〜90 秒かかる Nav の先で走らせる時計を、
+   * 出撃した瞬間から減らさないための記録。
+   */
+  private navArrivalClock = new Map<number, number>();
+  /** 目標が読むタグの一覧 (到着時の間合いを詰める対象の判定に使う。T2-⑤) */
+  private objectiveTags: ReadonlySet<string> = new Set<string>();
+  /**
    * 章ごとの選択記録 (第9章の無線差し替え)。
    * `Loadout.choices` を最優先で使い、無ければ保存データから読む。
    */
@@ -349,6 +380,9 @@ export class MissionRunner {
     // 帰投窓のペナルティと反射経路の記録 (T6-9)
     this.timePenalty = 0;
     this.reflectionsHit.clear();
+    // 到着してから計時する timeLimit (T2-⑤) と、到着時に寄せる群の判定
+    this.navArrivalClock.clear();
+    this.objectiveTags = objectiveTagsOf(this.def);
     this.choices = this.resolveChoices();
     this.objectives = this.def.objectives.map((d) => ({
       def: d,
@@ -408,7 +442,14 @@ export class MissionRunner {
       faction: 'confed',
       pos: new Vector3(0, 0, 0),
       quat: facing,
-      speed: this.difficulty.id === 'easy' ? shipDef(this.loadout.shipId).maxSpeed * 0.5 : 0,
+      // 出撃時の速度 = 出撃時のスロットル (`spawnShip` が speed から throttle を作る)。
+      // ふつう / むずかしいは 0 だったため、スロットルも 0% から始まっていた。
+      // 3本のタイマーが同時に走る作戦 (第1章) で「気づかないと 100 秒失う」のは
+      // 難易度ではなく事故なので、どの難易度でも巡航速度から始める (T2-⑤)。
+      // やさしいの初速は据え置きなので、難易度の差 (50% / 35%) は残る。
+      speed:
+        shipDef(this.loadout.shipId).maxSpeed *
+        (this.difficulty.id === 'easy' ? 0.5 : LAUNCH_THROTTLE),
       label: '自機',
       pilot: 'あなた',
       gunOverride: this.loadout.gunId,
@@ -680,6 +721,11 @@ export class MissionRunner {
       this.playtest?.recordNavReached(arrived.nav.index, arrived.nav.name, this.world.time);
       const navDef = this.def.navs[arrived.nav.index];
       if (navDef?.onArrive) this.queueRadio(navDef.onArrive, 0.6);
+      // 「到着してから」計時する timeLimit の起点 (T2-⑤)。
+      // 何度も到達判定は降りないが、最初の到達だけを起点にする。
+      if (!this.navArrivalClock.has(arrived.nav.index)) {
+        this.navArrivalClock.set(arrived.nav.index, this.missionClock);
+      }
       // この Nav で出現するグループを解放
       for (const p of this.pending) {
         if (!p.released && p.group.atNav === arrived.nav.index && p.timer === undefined) {
@@ -1268,12 +1314,29 @@ export class MissionRunner {
     }
     if (g.offset) base.add(new Vector3(...g.offset));
 
-    const spread = g.spread ?? 260;
+    const player = world.player;
+
+    // ── 到着時の間合い (T2-⑤) ──
+    // Nav に紐づく主目標は、到着した自機から見える距離に置く。
+    // 判定式は `src/mission/navArrival.ts` に一本化してある
+    // （テストが同じ関数で上限を固定する）。
+    const arrivalTarget = isArrivalTarget(g, this.objectiveTags);
+    if (arrivalTarget) {
+      // 基準は「いま到着した自機」。自機が居ない (テスト・撃墜後) 場合は Nav 中心。
+      const ref = player?.pos ?? new Vector3(...(this.def.navs[g.atNav!]?.pos ?? [0, 0, 0]));
+      pullIntoArriveRange(base, ref);
+    }
+    const declaredSpread = g.spread ?? 260;
+    const spread = arrivalTarget ? arrivalSpread(declaredSpread) : declaredSpread;
+    // 隊列の間隔。隻数が多い群 (第3章の避難船18隻) が横へ伸びすぎないよう詰める
+    const formationStep = arrivalTarget
+      ? arrivalFormationStep(declaredSpread, g.count)
+      : spread * 0.9;
+
     const cruise = g.cruiseToNav !== undefined && this.def.navs[g.cruiseToNav]
       ? new Vector3(...this.def.navs[g.cruiseToNav].pos)
       : undefined;
 
-    const player = world.player;
     const skill = g.skill ?? this.difficulty.enemySkill;
     /** この群で実際に出た機体 (誓約を破る側の登録に使う) */
     const spawnedIds: number[] = [];
@@ -1291,7 +1354,7 @@ export class MissionRunner {
         .clone()
         .add(
           new Vector3(
-            rng.signed(spread) + (i - (g.count - 1) / 2) * spread * 0.9,
+            rng.signed(spread) + (i - (g.count - 1) / 2) * formationStep,
             rng.signed(spread * 0.4),
             rng.signed(spread),
           ),
@@ -1583,6 +1646,8 @@ export class MissionRunner {
 
     for (const o of this.objectives) {
       if (o.state === 'failed') continue;
+      // 残り秒は毎フレーム作り直す (未開始・非タイマーを undefined に戻す)
+      o.timeLeftSec = undefined;
       switch (o.def.spec.kind) {
         case 'destroyAll': {
           const done = this.allSpawnsReleased() && this.hostileShipsAlive() === 0;
@@ -1616,7 +1681,8 @@ export class MissionRunner {
         }
         case 'survive': {
           o.state = this.elapsed >= o.def.spec.seconds ? 'done' : 'active';
-          o.note = `残り ${Math.max(0, Math.ceil(o.def.spec.seconds - this.elapsed))}s`;
+          o.timeLeftSec = Math.max(0, o.def.spec.seconds - this.elapsed);
+          o.note = `残り ${Math.ceil(o.timeLeftSec)}s`;
           break;
         }
         case 'rescue': {
@@ -1632,10 +1698,21 @@ export class MissionRunner {
           break;
         }
         case 'timeLimit': {
+          // 起点 (T2-⑤)。startAtNav が無ければ 0 = ミッション開始からで従来と同値。
+          const startAtNav = o.def.spec.startAtNav;
+          const startedAt =
+            startAtNav === undefined ? 0 : this.navArrivalClock.get(startAtNav);
+          if (startedAt === undefined) {
+            // まだ現場に着いていない。移動時間は制限時間に含めない
+            const navName = this.def.navs[startAtNav!]?.name ?? `NAV ${startAtNav! + 1}`;
+            o.note = `残り ${Math.ceil(o.def.spec.seconds)}s (${navName}到達後に開始)`;
+            break;
+          }
           // 反射経路のペナルティ（第9章）は missionClock に入っている。
           // ペナルティが無ければ missionClock === elapsed なので判定式は従来と同値。
-          const left = o.def.spec.seconds - this.missionClock;
-          o.note = `残り ${Math.max(0, Math.ceil(left))}s`;
+          const left = o.def.spec.seconds - (this.missionClock - startedAt);
+          o.timeLeftSec = Math.max(0, left);
+          o.note = `残り ${Math.ceil(o.timeLeftSec)}s`;
           // 重力井戸がある作戦 (第4章) では、いまの重力を同じ行に載せる。
           // HUD を触らずに「機動の前提がいつ崩れるか」を読めるようにするため。
           o.note += this.gravityNote();
@@ -1673,6 +1750,7 @@ export class MissionRunner {
           o.progress ??= 0;
           if (t.total === 0) {
             // 対象がまだ出ていない間は計測を始めない
+            o.timeLeftSec = need;
             o.note = `残り ${Math.ceil(need)}s`;
             break;
           }
@@ -1682,7 +1760,8 @@ export class MissionRunner {
             break;
           }
           o.progress = Math.min(need, o.progress + this.lastDt);
-          o.note = `残り ${Math.max(0, Math.ceil(need - o.progress))}s`;
+          o.timeLeftSec = Math.max(0, need - o.progress);
+          o.note = `残り ${Math.ceil(o.timeLeftSec)}s`;
           if (o.progress >= need) o.state = 'done';
           break;
         }
@@ -1797,6 +1876,12 @@ export class MissionRunner {
       return {
         text: o.note && o.state === 'active' ? `${base} — ${o.note}` : base,
         state: o.state,
+        // 必須／加点の区別 (T2-⑧)。宣言 `ObjectiveDef.required` をそのまま渡す。
+        // 制約か達成目標か (CONSTRAINT_KINDS) とは別の軸なので混ぜない。
+        required: o.def.required,
+        // タイマー系の残り秒。表示文の `残り Ns` と同じ値。
+        // `startAtNav` で未開始のタイマーは undefined (残り0秒と区別できる)。
+        timeLeftSec: o.timeLeftSec,
       };
     });
   }
@@ -1844,6 +1929,18 @@ export class MissionRunner {
     wingmanRescued: boolean;
     wingmanAbandoned: boolean;
     escortLost: boolean;
+    /**
+     * 護衛・保護対象の生存数 / 総数 (T2-③ からの依頼)。
+     *
+     * 対象の定義は `ESCORT_KINDS`（`protect` / `protectCount` / `escortArrive` / `holdTag`）
+     * ＝ `escortTags` と完全に同じ。`escortLost`（bool）では
+     * 「18隻のうち何隻残ったか」が取れないので、隻数に比例した加減点を
+     * App 側で書けるようにここへ載せる。**呼び出し側で数え直さないこと**
+     * （`escortTags` × `tagSurvivors` の突き合わせは不要）。
+     * まだ出現していない群は総数に入らない（`tagAlive` と同じ規則）。
+     */
+    escortSurvivors: number;
+    escortTotal: number;
     acesKilled: number;
     shotsFired: number;
     hits: number;
@@ -1895,6 +1992,7 @@ export class MissionRunner {
       // 助けを求めたまま応えられずに終わった (死んだ or 要請が残ったまま)
       wingmanAbandoned: this.wingmanCalledForHelp || (this.wingmanLost && !this.wingmanRescued),
       escortLost: this.escortLost,
+      ...this.escortSurvivorCount(),
       acesKilled: this.acesKilled,
       shotsFired: this.shotsFired,
       hits: this.hits,
@@ -1918,6 +2016,24 @@ export class MissionRunner {
       objectivesFailed: this.unmetObjectiveIds(),
       tagSurvivors: this.tagSurvivors(),
     };
+  }
+
+  /**
+   * 護衛・保護対象の生存数と総数。
+   *
+   * 判定は既存の `escortTags`（= `ESCORT_KINDS`）と `tagAlive()` を使うだけで、
+   * 「守る対象」の定義を新しく書かない。同じタグを複数の目標が見ていても
+   * `escortTags` が Set なので二重に数えない。
+   */
+  private escortSurvivorCount(): { escortSurvivors: number; escortTotal: number } {
+    let alive = 0;
+    let total = 0;
+    for (const tag of this.escortTags) {
+      const t = this.tagAlive(tag);
+      alive += t.alive;
+      total += t.total;
+    }
+    return { escortSurvivors: alive, escortTotal: total };
   }
 
   /** タグごとの生存数。出現していないタグは含めない (総数が判らないため)。 */

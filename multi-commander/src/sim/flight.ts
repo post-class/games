@@ -10,6 +10,8 @@ const _desired = new Vector3();
 const _delta = new Vector3();
 const _cmd = new Vector3();
 const _fwd = new Vector3();
+const _axis = new Vector3();
+const _lat = new Vector3();
 
 /** アフターバーナー中の加速倍率 */
 const AB_ACCEL_BOOST = 1.7;
@@ -17,6 +19,35 @@ const AB_ACCEL_BOOST = 1.7;
 const AB_TURN_PENALTY = 0.72;
 /** 燃料の自然回復 (毎秒, def.fuel に対する割合) */
 const FUEL_RECOVER_RATE = 0.09;
+/**
+ * 旋回で進行方向を付け替えるときだけ使える推力の倍率 (T2-⑤)。
+ *
+ * ■ なぜ必要か
+ * `wc` モードの速度は「機首方向の目標速度へ `accel` で追従する」だけなので、
+ * 全速で旋回すると釣り合いの速度が `accel / 旋回角速度` に落ちる。
+ * ホーネット (accel 320 / yaw 1.7) では 400 → 約190 kps まで落ち、
+ * **旋回した時点で追撃が成立しない**（第1章の実プレイで確認）。
+ *
+ * ■ どう直したか
+ * 速度差 (前後方向) と進行方向の付け替え (横方向) を別の予算にし、
+ * 横方向にだけこの倍率を掛ける。釣り合いの速度が
+ * `accel * TURN_ALIGN_BOOST / 旋回角速度` になるので、
+ * ホーネットは約 265 kps を保てる（変更前 約190 kps）。
+
+ * ■ 値の決め方
+ * 1.4 は「全速の横旋回で最高速の 2/3 前後を保つ」水準。
+ * これより大きくすると被弾しない旋回戦が増え、AI の技量差が
+ * 結果に出にくくなる（`tests/ut/ai.test.ts` の 1v1 決着で確認）ため、
+ * 既存の技量差・機体差のテストが通る範囲でいちばん大きい値を採った。
+ *
+ * ■ 壊していないこと
+ * - 直線加速・減速は前後方向の予算のみを使うので数値が変わらない。
+ * - `handling.turnSpeedPenalty`（最高速では曲がらない）と
+ *   `handling.drift`（速度が機首に追いつかない）はそのまま効くので、
+ *   重い機体は依然「曲がりたければ絞る」判断が要る。
+ * - 難易度に関わる項はこの関数に無い（速度差は `speedScale` 側）。
+ */
+const TURN_ALIGN_BOOST = 1.4;
 
 /**
  * 1機の飛行を1ステップ進める。プレイヤー・AI・僚機で共通。
@@ -78,8 +109,22 @@ export function updateFlight(e: Entity, dt: number, mode: FlightMode = 'wc'): vo
     // drift が大きい機体は速度が機首に追いつくのが遅く、旋回中に流れる
     const driftScale = 1 - def.handling.drift * 0.75;
     const maxDelta = def.accel * driftScale * (ab ? AB_ACCEL_BOOST : 1) * massScale * dt;
-    const len = _delta.length();
-    if (len > maxDelta && len > 1e-6) _delta.multiplyScalar(maxDelta / len);
+    const speedLen = e.vel.length();
+    if (speedLen > 1e-4) {
+      // 前後方向 (速度そのものの増減) と横方向 (進行方向の付け替え) を別の予算で扱う。
+      // 横方向だけ TURN_ALIGN_BOOST ぶん多く使えるので、旋回で速度が半分以下に
+      // 落ちなくなる。予算内に収まっている間は従来と完全に同じ値になる。
+      _axis.copy(e.vel).divideScalar(speedLen);
+      const along = _delta.dot(_axis);
+      _lat.copy(_delta).addScaledVector(_axis, -along);
+      const latLen = _lat.length();
+      const latBudget = maxDelta * TURN_ALIGN_BOOST;
+      if (latLen > latBudget && latLen > 1e-6) _lat.multiplyScalar(latBudget / latLen);
+      _delta.copy(_lat).addScaledVector(_axis, clamp(along, -maxDelta, maxDelta));
+    } else {
+      const len = _delta.length();
+      if (len > maxDelta && len > 1e-6) _delta.multiplyScalar(maxDelta / len);
+    }
     e.vel.add(_delta);
   } else {
     // 純慣性: 推力は機首方向にしか出ない

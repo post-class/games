@@ -512,6 +512,232 @@ export function supportLevel(state: NarrativeState): SupportLevel {
   };
 }
 
+// ───────── 出撃結果 → 4状態（T2-③）─────────
+
+/**
+ * 出撃1回の「飛んだ結果」。4状態を動かす一次情報はここだけである。
+ *
+ * `MissionRunner.summary()` から作れる値だけで構成する（`src/mission/` へは依存しない）。
+ * 撃墜数は**含めない**。十章作戦記録 §03 の規約どおり、戦績は「誰を帰したか」で数える。
+ */
+export interface SortieFacts {
+  /** rescue 目標で回収した対象の数（味方・民間） */
+  rescued: number;
+  /** 敵陣営の脱出ポッド・被弾艦を回収した数 */
+  enemyRescued: number;
+  /** 生存させた護衛対象・輸送船の数 */
+  escortSurvivors: number;
+  /** 出現した護衛対象・輸送船の総数（0 なら護衛対象のない出撃） */
+  escortTotal: number;
+  /** 生還した僚機の数（名前付きで名簿に載る分） */
+  wingmenSurvived: number;
+  /** 戦死した僚機の数 */
+  wingmenLost: number;
+  /** 失った中立・非敵対勢力の艦船数（民間損害） */
+  civilianLosses: number;
+  /** 自機の射撃が味方・非敵対に命中した回数（誤射） */
+  friendlyFireHits: number;
+  /** 自機が撃った弾の数 */
+  shotsFired: number;
+  /** 自機を失ったか（撃墜・脱出） */
+  playerLost: boolean;
+  /** 未達成に終わった目標の数 */
+  objectivesFailed: number;
+  /** 達成度の3段階（`MissionGrade` と同じ語） */
+  grade: 'complete' | 'partial' | 'failed';
+}
+
+/** 4状態の並び順（デブリーフの表示順）。 */
+export type NarrativeKey = 'returnees' | 'routeTrust' | 'commandTrust' | 'aceOath';
+
+export const NARRATIVE_LABEL: Record<NarrativeKey, string> = {
+  returnees: '帰還者',
+  routeTrust: '航路信頼',
+  commandTrust: '軍令信用',
+  aceOath: '敵エースの誓約',
+};
+
+/** 増減1件の理由。「なぜ動いたか」を読ませるために必ず添える。 */
+export interface NarrativeReason {
+  /** 例 '救助3名' 'Sable 戦死' */
+  text: string;
+  /** その理由が動かした量（符号つき） */
+  delta: number;
+}
+
+/** 1状態あたりの内訳。プラス側とマイナス側を分けて持つ（合計だけにしない）。 */
+export interface NarrativeLine {
+  key: NarrativeKey;
+  label: string;
+  /** 合計（プラス側 + マイナス側、クランプ後） */
+  delta: number;
+  gains: NarrativeReason[];
+  losses: NarrativeReason[];
+}
+
+export interface SortieNarrativeResult {
+  /**
+   * `adjustNarrative` へそのまま渡せる増減。
+   *
+   * **注意**: 生還した僚機は「名前」として名簿へ載る（`addReturneeEntries`）ため、
+   * `returneeCredit` には含めない。二重計上を避けるためで、
+   * 表示用の `lines` には僚機の生還も理由として並ぶ。
+   */
+  delta: NarrativeDelta;
+  /** デブリーフに1行ずつ出す内訳 */
+  lines: NarrativeLine[];
+  /**
+   * `delta.returneeCredit` から差し引いてある「名前で名簿に載る人数」。
+   *
+   * 呼び出し側は名簿へ追加した実数を数え、載らなかった分（同名で重複した等）を
+   * クレジットとして埋め戻す。これをしないと表示した合計と指標がずれる。
+   */
+  namedHeads: number;
+}
+
+/**
+ * 1回の出撃で4状態が動く上限。
+ *
+ * **章末の選択（1択あたり総量 8・1状態あたり最大 5）より必ず大きく取る。**
+ * 「プレイの結果より選択が重い」状態を作らないための、この機能の中心の値である。
+ */
+export const SORTIE_TRUST_CAP = 12;
+/** 帰還者（人数）の1出撃あたりの上限。指標では ±60 に相当する */
+export const SORTIE_HEAD_CAP = 6;
+
+const GRADE_TEXT: Record<SortieFacts['grade'], string> = {
+  complete: '任務達成',
+  partial: '部分達成',
+  failed: '任務失敗',
+};
+const GRADE_COMMAND_DELTA: Record<SortieFacts['grade'], number> = {
+  complete: 8,
+  partial: 3,
+  failed: -6,
+};
+
+/** 内訳を組み立てるための小さな入れ物 */
+class LineBuilder {
+  readonly gains: NarrativeReason[] = [];
+  readonly losses: NarrativeReason[] = [];
+
+  add(delta: number, text: string): void {
+    if (!Number.isFinite(delta) || delta === 0) return;
+    (delta > 0 ? this.gains : this.losses).push({ text, delta });
+  }
+
+  /** クランプ後の合計 */
+  total(cap: number): number {
+    const sum = [...this.gains, ...this.losses].reduce((a, r) => a + r.delta, 0);
+    return clamp(sum, -cap, cap);
+  }
+
+  build(key: NarrativeKey, cap: number): NarrativeLine | undefined {
+    if (this.gains.length === 0 && this.losses.length === 0) return undefined;
+    return { key, label: NARRATIVE_LABEL[key], delta: this.total(cap), gains: this.gains, losses: this.losses };
+  }
+}
+
+/**
+ * 出撃結果を4状態の増減へ写す（T2-③）。
+ *
+ * 配分の考え方:
+ * - **飛んだ結果が主役**。1状態あたり最大 ±12（帰還者は ±6 名 = 指標 ±60）まで動く。
+ * - **章末の選択は方針の表明**。1択あたり総量 8・1状態あたり最大 5 に抑えている
+ *   （`src/content/veil/chapters.ts`）。同じ状態で比べて 12 対 5 になるので、
+ *   「選択だけで最低から最高へ飛ぶ」ことは起こらない。
+ * - **難易度は一切動かさない**。ここで返すのは4状態だけで、敵の強さ・数・命中には触れない。
+ */
+export function sortieNarrative(facts: SortieFacts): SortieNarrativeResult {
+  const f = normalizeFacts(facts);
+
+  // ── 帰還者（人数）──
+  const heads = new LineBuilder();
+  if (f.rescued > 0) heads.add(f.rescued, `救助 ${f.rescued}名`);
+  if (f.enemyRescued > 0) heads.add(f.enemyRescued, `敵側の救難 ${f.enemyRescued}名`);
+  if (f.escortSurvivors > 0) heads.add(f.escortSurvivors, `護衛対象 ${f.escortSurvivors}隻を生存`);
+  if (f.wingmenSurvived > 0) heads.add(f.wingmenSurvived, `僚機 ${f.wingmenSurvived}名が生還`);
+  if (f.wingmenLost > 0) heads.add(-f.wingmenLost, `僚機 ${f.wingmenLost}名が戦死`);
+  if (f.civilianLosses > 0) heads.add(-f.civilianLosses, `民間 ${f.civilianLosses}隻を喪失`);
+  if (f.escortTotal > f.escortSurvivors) {
+    heads.add(-(f.escortTotal - f.escortSurvivors), `護衛対象 ${f.escortTotal - f.escortSurvivors}隻を喪失`);
+  }
+  if (f.playerLost) heads.add(-1, '自機喪失（自分が帰れなかった）');
+
+  // ── 航路信頼（中立規約の順守と民間損害）──
+  const route = new LineBuilder();
+  if (f.civilianLosses > 0) route.add(-Math.min(12, f.civilianLosses * 4), `民間損害 ${f.civilianLosses}隻`);
+  if (f.friendlyFireHits > 0) route.add(-Math.min(8, f.friendlyFireHits * 2), `誤射 ${f.friendlyFireHits}発`);
+  if (f.escortTotal > 0 && f.escortSurvivors === f.escortTotal) {
+    route.add(3, `護衛対象 ${f.escortTotal}隻すべて生存`);
+  }
+  if (f.escortTotal > f.escortSurvivors) {
+    route.add(-Math.min(9, (f.escortTotal - f.escortSurvivors) * 3), '護衛対象の喪失');
+  }
+  // 「損なわなかった」加点は、護衛対象を失った出撃には出さない
+  // （輸送船を失っても誤射がなければ航路信頼が上がる、という読み違いを防ぐ）
+  if (f.friendlyFireHits === 0 && f.civilianLosses === 0 && f.escortSurvivors >= f.escortTotal) {
+    route.add(4, '誤射・民間損害なし');
+  }
+  if (f.shotsFired === 0) route.add(4, '一発も撃たずに完了');
+
+  // ── 軍令信用（命令順守と損害の最小化）──
+  const command = new LineBuilder();
+  command.add(GRADE_COMMAND_DELTA[f.grade], GRADE_TEXT[f.grade]);
+  if (f.objectivesFailed > 0) command.add(-Math.min(6, f.objectivesFailed * 2), `未達成の条件 ${f.objectivesFailed}件`);
+  if (f.wingmenLost > 0) command.add(-Math.min(8, f.wingmenLost * 4), `僚機 ${f.wingmenLost}名を失った`);
+  if (f.playerLost) command.add(-5, '機体喪失');
+
+  // ── 敵エースの誓約（救難優先と誤射）──
+  const oath = new LineBuilder();
+  if (f.enemyRescued > 0) oath.add(Math.min(10, f.enemyRescued * 5), `敵側の救難 ${f.enemyRescued}件`);
+  if (f.rescued > 0) oath.add(2, '救難を優先した');
+  if (f.friendlyFireHits > 0) oath.add(-Math.min(6, f.friendlyFireHits * 2), `誤射 ${f.friendlyFireHits}発`);
+
+  const lines: NarrativeLine[] = [];
+  for (const [key, builder, cap] of [
+    ['returnees', heads, SORTIE_HEAD_CAP],
+    ['routeTrust', route, SORTIE_TRUST_CAP],
+    ['commandTrust', command, SORTIE_TRUST_CAP],
+    ['aceOath', oath, SORTIE_TRUST_CAP],
+  ] as Array<[NarrativeKey, LineBuilder, number]>) {
+    const line = builder.build(key, cap);
+    if (line) lines.push(line);
+  }
+
+  // 生還した僚機は名前で名簿に載る（= 名簿の人数として1名分の指標になる）ので、
+  // クレジット（名前のない人数）からは差し引く。名簿へ実際に何名載ったかは
+  // 呼び出し側しか知らないため、載らなかった分は `namedHeads` を見て埋め戻す。
+  const headTotal = heads.total(SORTIE_HEAD_CAP);
+  const credit = headTotal - f.wingmenSurvived;
+  const delta: NarrativeDelta = {
+    routeTrust: route.total(SORTIE_TRUST_CAP),
+    commandTrust: command.total(SORTIE_TRUST_CAP),
+    aceOath: oath.total(SORTIE_TRUST_CAP),
+  };
+  if (credit !== 0) delta.returneeCredit = credit;
+  return { delta, lines, namedHeads: f.wingmenSurvived };
+}
+
+function normalizeFacts(raw: SortieFacts): SortieFacts {
+  const count = (v: unknown) => Math.max(0, Math.round(numberOr(v, 0)));
+  const escortTotal = count(raw?.escortTotal);
+  return {
+    rescued: count(raw?.rescued),
+    enemyRescued: count(raw?.enemyRescued),
+    escortTotal,
+    escortSurvivors: Math.min(escortTotal, count(raw?.escortSurvivors)),
+    wingmenSurvived: count(raw?.wingmenSurvived),
+    wingmenLost: count(raw?.wingmenLost),
+    civilianLosses: count(raw?.civilianLosses),
+    friendlyFireHits: count(raw?.friendlyFireHits),
+    shotsFired: count(raw?.shotsFired),
+    playerLost: !!raw?.playerLost,
+    objectivesFailed: count(raw?.objectivesFailed),
+    grade: raw?.grade === 'complete' || raw?.grade === 'partial' ? raw.grade : 'failed',
+  };
+}
+
 // ───────── 共通ヘルパ（roster.ts / frontline.ts と同じ流儀）─────────
 
 function numberOr(v: unknown, d: number): number {

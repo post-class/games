@@ -302,6 +302,10 @@ describe('ウェーブ投入', () => {
   it('エース指定のグループには ace フラグ付きの1機が含まれる', () => {
     const def = missionDef('m4-defend');
     const { world, runner } = start(def);
+    // 出撃時のスロットルが入るようになった (T2-⑤) ため、操縦しない自機は
+    // 戦域から離れ続けてしまう。この検証はウェーブ投入が対象なので、その場に留める
+    world.player!.vel.set(0, 0, 0);
+    world.player!.input!.throttle = 0;
     // エースの波 (150 秒後) まで自機と護衛対象を落とされないようにする
     for (const e of world.entities) {
       if (e.ship) {
@@ -357,12 +361,21 @@ describe('逃走した敵の扱い', () => {
 });
 
 describe('難易度の効き方', () => {
-  it('やさしいでは出撃時に初速が入る', () => {
+  // T2-⑤: どの難易度でも出撃時のスロットルは 0% にしない
+  // （0% だと発艦後に止まったままタイマーだけが減る）。
+  // やさしいの初速は据え置きなので、難易度の差は残っている。
+  it('出撃時は必ず巡航速度から始まり、やさしいがいちばん速い', () => {
     const def = missionDef('m1-patrol');
     const easy = start(def, 'easy');
     const normal = start(def, 'normal');
-    expect(easy.world.player!.vel.length()).toBeGreaterThan(0);
-    expect(normal.world.player!.vel.length()).toBe(0);
+    const hard = start(def, 'hard');
+    expect(normal.world.player!.vel.length()).toBeGreaterThan(0);
+    expect(hard.world.player!.vel.length()).toBeGreaterThan(0);
+    expect(easy.world.player!.vel.length()).toBeGreaterThan(
+      normal.world.player!.vel.length(),
+    );
+    // スロットルも同じ値から作られている（HUD の THR と実挙動が一致する）
+    expect(normal.world.player!.input!.throttle).toBeGreaterThan(0);
   });
 
   it('やさしいではウェーブの投入が遅い', () => {

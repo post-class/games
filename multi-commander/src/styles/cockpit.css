@@ -202,24 +202,68 @@
   color: var(--hud-dim);
 }
 
+/*
+ * 目標の常時表示 (T2-⑧)。
+ * 出すのは3行だけ (追うべき目標 / 一番差し迫った制限時間 / 直近に片付いた1件)。
+ * 行ごとに半透明の暗い帯を敷くので、太陽や星雲に重なっても読める
+ * (帯の色は HudView 側でインライン指定して、状態として検証できるようにしている)。
+ */
 .mc-objectives {
   position: absolute;
   right: 18px;
   top: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  max-width: min(38vw, 460px);
   text-align: right;
-  font-size: 12px;
-  line-height: 1.6;
+  font-size: 13px;
+  line-height: 1.5;
   color: var(--hud-dim);
 }
-.mc-objectives .done {
+.mc-obj-line {
+  border-left: 2px solid rgba(127, 227, 176, 0.5);
+  text-shadow: 0 0 6px #000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+/* いま追うべき目標だけ一段大きく出す */
+.mc-obj-line.focus {
+  font-size: 14px;
+  font-weight: 700;
+}
+.mc-obj-line.timer {
+  border-left-color: var(--warn);
+}
+.mc-obj-line.bonus {
+  border-left-color: rgba(159, 180, 171, 0.5);
+}
+.mc-obj-line.failed {
+  border-left-color: var(--bad);
+}
+/* 右 VDU の目標一覧ページ (V) */
+.mc-obj-row {
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--hud);
+}
+.mc-obj-row .k {
+  flex: 0 0 auto;
+}
+.mc-obj-row.bonus {
+  color: var(--hud-dim);
+}
+.mc-obj-row.done {
   color: var(--good);
 }
-.mc-objectives .failed {
+.mc-obj-row.failed {
   color: var(--bad);
   text-decoration: line-through;
-}
-.mc-objectives .active {
-  color: var(--hud);
 }
 
 .mc-warnlights {
@@ -262,6 +306,19 @@
   pointer-events: none;
   opacity: 0;
   background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 45%, rgba(255, 40, 40, 0.6) 100%);
+}
+
+/*
+ * 被弾方向の光 (T2-⑨)。左から撃たれたら左端が赤く光る。
+ * 位置・大きさ・グラデーションは HudView 側でインライン指定する
+ * (濃さを状態として検証できるようにするため)。ここでは重なり順だけを決める。
+ */
+.mc-hitedge {
+  z-index: 2;
+  mix-blend-mode: screen;
+}
+.mc-hitdir {
+  z-index: 5;
 }
 
 /* マウススティックの位置表示 */
@@ -932,10 +989,16 @@
 }
 
 /* マウス操縦の有効化ヒント */
+/*
+ * 操縦ヒント (T2-⑧)。
+ * 画面中央に出したままだと視界も航法マップも潰すので、**画面下部**に置き、
+ * 数秒で消す (残り時間は HudView が持つ)。
+ */
 .mc-mousehint {
   position: absolute;
   left: 50%;
-  top: 58%;
+  /* 計器盤 (`.mc-cockpit`) とチュートリアル帯のすぐ上に置く。数値は計器盤と同じ式。 */
+  bottom: calc(var(--message-bar-height) + clamp(150px, 16vh, 170px) + 12px);
   transform: translateX(-50%);
   padding: 5px 14px;
   background: rgba(6, 14, 18, 0.8);

@@ -15,7 +15,7 @@ import {
 } from '../content/campaign';
 import { missionDef } from '../content/missions';
 import { VEIL_ERA } from '../content/veil/world';
-import { VEIL_CHAPTERS } from '../content/veil/chapters';
+import { resolveVeilChoice, VEIL_CHAPTERS, type VeilChoiceEffects } from '../content/veil/chapters';
 import { speakerName } from '../content/veil/missions/shared';
 import { dynamicMissionDef, chooseDynamicMission, applyFrontlineOutcome, frontlineSystemName, FRONTLINE_SYSTEM_IDS, type DynamicMissionKind, type FrontlineSystemId } from '../content/frontline';
 import { PERSONALITIES, pilotDef } from '../content/pilots';
@@ -73,10 +73,14 @@ import {
   applyChoice,
   MAX_RELAYS,
   narrativeSummary,
+  NARRATIVE_LABEL,
   recordRelaysHeld,
   returneeRollCall,
+  sortieNarrative,
   supportLevel,
+  type NarrativeLine,
   type ReturneeKind,
+  type SortieFacts,
 } from './narrative';
 import { difficulty, settings, updateSettings } from './settings';
 import { showcase, type ShowcaseOptions, type ShowcaseResult } from './showroom';
@@ -122,6 +126,15 @@ export class App {
   private lastSummary?: ReturnType<NonNullable<Game['runner']>['summary']>;
   /** 格納庫で選んだ内容 (出撃まで保持する) */
   private selection?: HangarSelection;
+  /**
+   * 直前の出撃で守り切った護衛対象・輸送船の数 (T2-③)。
+   *
+   * `summary()` は喪失の有無 (`escortLost`) しか持たないので、
+   * `MissionRunner.escortTags` と `summary().tagSurvivors` から数え直す
+   * （`src/mission/` は他の担当が触っているため、読むだけにしている）。
+   */
+  /** 直前の章末選択 (デブリーフに「方針」として1行出す。T2-③) */
+  private lastChoiceEffects?: { label: string; effects: VeilChoiceEffects };
   /** 直前の出撃で失った僚機 (追悼画面に使う) */
   private lastLostWingman?: string;
   /** 最後に到達した階級 (昇進の検出に使う) */
@@ -1176,6 +1189,7 @@ export class App {
 
   private onMissionEnd(outcome: 'win' | 'loss'): void {
     this.lastSummary = this.game.runner?.summary();
+    this.lastChoiceEffects = undefined;
     if (this.tutorialActive) {
       this.tutorialActive = false;
       this.showTutorialEnd(outcome);
@@ -1208,12 +1222,17 @@ export class App {
       after();
       return;
     }
+    // T2-④: 出撃結果で選択肢と状況説明を差し替える。
+    // `resolveVeilChoice` は必ず2つ以上返すので、選択画面は常に成立する。
+    const choice = resolveVeilChoice(chapter.choice, this.sortieFacts());
     const scene = new ChoiceScene({
-      choice: chapter.choice,
+      choice,
       chapterLabel: `第${node.chapter}章`,
       onSelect: (choiceId) => {
-        const option = chapter.choice.options.find((o) => o.id === choiceId);
+        const option = choice.options.find((o) => o.id === choiceId);
         if (option) {
+          // デブリーフに「方針」として増減を出す（選択が小さいことを読ませる）
+          this.lastChoiceEffects = { label: option.label, effects: option.effects };
           // 章データの `returnees` は「名前が判らない増減（人数）」なので、
           // 名簿（名前の配列）ではなくクレジットとして渡す。
           // 名前の付く帰還者は出撃結果の側から記録される。
@@ -1272,117 +1291,115 @@ export class App {
   }
 
   /**
-   * 出撃結果を4状態へ反映する（十章作戦記録 §03）。
+   * この出撃で「実際にやったこと」(T2-③/④)。
    *
-   * 撃墜数は一切見ない。見るのは「誰を帰したか」「撃たずに済ませたか」
-   * 「民間を損なわなかったか」「命令の範囲で収めたか」だけである。
-   * 1回の出撃あたりの振れ幅は小さく（±6以内）保ち、章末の選択（±15）が主役であるようにする。
+   * 4状態の増減（`sortieNarrative`）と、章末の選択肢の出方（`resolveVeilChoice`）は
+   * どちらもこの1つの値だけを入力にする。**難易度・機体・所持兵装は含めない。**
    */
-  private applySortieToNarrative(outcome: 'win' | 'loss'): NarrativeChange[] {
+  private sortieFacts(): SortieFacts {
     const s = this.lastSummary;
-    if (!s) return [];
+    return {
+      rescued: s?.rescued ?? 0,
+      enemyRescued: s?.enemyRescued ?? 0,
+      escortSurvivors: s?.escortSurvivors ?? 0,
+      escortTotal: s?.escortTotal ?? 0,
+      wingmenSurvived: s?.wingmenSurvived ?? 0,
+      wingmenLost: s?.wingmenLost ?? 0,
+      civilianLosses: s?.civilianLosses ?? 0,
+      friendlyFireHits: s?.friendlyFireHits ?? 0,
+      shotsFired: s?.shotsFired ?? 0,
+      playerLost: s?.playerLost ?? false,
+      objectivesFailed: s?.objectivesFailed.length ?? 0,
+      // summary().grade は撃墜された出撃を必ず failed にしている（T1-①）
+      grade: s?.grade ?? 'failed',
+    };
+  }
+
+
+  /**
+   * 出撃結果を4状態へ反映する（十章作戦記録 §03 / T2-③）。
+   *
+   * 撃墜数は一切見ない。見るのは「誰を帰したか」「守り切ったか」「撃たずに済ませたか」
+   * 「民間を損なわなかったか」「命令の範囲で収めたか」だけである。
+   * 重みの配分は `sortieNarrative` に置いてあり（1状態あたり最大 ±12）、
+   * 章末の選択（1状態あたり最大 ±5）より必ず大きい。
+   */
+  private applySortieToNarrative(): { lines: NarrativeLine[]; extras: NarrativeChange[] } {
+    const s = this.lastSummary;
+    if (!s) return { lines: [], extras: [] };
     const chapter = campaignNode(this.save.node, 'veil').chapter;
     const n = this.save.narrative;
-    const changes: NarrativeChange[] = [];
+    const extras: NarrativeChange[] = [];
 
-    // 帰還者: 名前が判らないので人数のクレジットとして積む。
-    // 敵側の救難は、名簿に「勢力を問わず並ぶ」ので同じ扱いにする。
-    const heads = s.rescued + s.enemyRescued;
-    if (heads > 0) {
-      adjustNarrative(n, { returneeCredit: heads });
-      const detail = s.enemyRescued > 0 ? `（うち敵側 ${s.enemyRescued}）` : '';
-      changes.push({ label: '帰還者', delta: heads, reason: `救難 ${heads} 件${detail}` });
-    }
+    const result = sortieNarrative(this.sortieFacts());
+    adjustNarrative(n, result.delta);
 
-    // 航路信頼: 中立規約の順守（発砲・誤射なし）で上がり、民間損害で下がる
-    let routeTrust = 0;
-    const routeReasons: string[] = [];
-    if (s.civilianLosses > 0) {
-      const drop = Math.min(6, s.civilianLosses * 2);
-      routeTrust -= drop;
-      routeReasons.push(`民間損害 ${s.civilianLosses} 隻`);
+    // 生き延びた僚機は名前が判るので名簿に載せる（最終無線で読み上げる）。
+    // 名簿に載った1名は指標の1名分なので、`sortieNarrative` は同じ人数を
+    // クレジットから引いてある。載らなかった分（同じ名前が既にある等）だけ埋め戻す。
+    const wingmanId = this.selection?.wingmanId;
+    let named = 0;
+    if (wingmanId && s.wingmenSurvived > 0) {
+      const def = pilotDef(wingmanId);
+      named = addReturneeEntries(n, [
+        { name: def.name, chapter, kind: 'wingman', personId: def.personId },
+      ]);
     }
-    if (s.friendlyFireHits === 0 && s.civilianLosses === 0) {
-      routeTrust += 2;
-      routeReasons.push('誤射・民間損害なし');
-    }
-    if (s.shotsFired === 0) {
-      routeTrust += 2;
-      routeReasons.push('一発も撃たずに完了');
+    if (result.namedHeads > named) {
+      adjustNarrative(n, { returneeCredit: result.namedHeads - named });
     }
 
-    // 軍令信用: 命令順守と損害の最小化で上がり、未達成の条件で下がる。
-    // 理由の見出しは達成度3段階（T1-①）に合わせる。増減幅は勝敗のまま。
-    let commandTrust = outcome === 'win' ? 2 : -2;
-    const commandReasons: string[] = [
-      MISSION_GRADE_LABEL[this.sortieGrade(outcome)],
-    ];
-    if (s.objectivesFailed.length > 0) {
-      commandTrust -= Math.min(4, s.objectivesFailed.length);
-      commandReasons.push(`未達成の条件 ${s.objectivesFailed.length} 件`);
-    }
-    if (s.wingmenLost > 0) {
-      commandTrust -= 2;
-      commandReasons.push('僚機喪失');
-    }
-
-    // 敵エースの誓約: 敵の救難を優先すると上がり、誤射（＝停戦中の発砲）で下がる
-    let aceOath = 0;
-    const oathReasons: string[] = [];
-    if (s.enemyRescued > 0) {
-      aceOath += Math.min(6, s.enemyRescued * 3);
-      oathReasons.push(`敵側の救難 ${s.enemyRescued} 件`);
-    }
-    if (s.friendlyFireHits > 0) {
-      aceOath -= Math.min(4, s.friendlyFireHits);
-      oathReasons.push(`誤射 ${s.friendlyFireHits} 発`);
-    }
-
-    adjustNarrative(n, { routeTrust, commandTrust, aceOath });
-    if (routeTrust !== 0) changes.push({ label: '航路信頼', delta: routeTrust, reason: routeReasons.join('・') });
-    if (commandTrust !== 0) changes.push({ label: '軍令信用', delta: commandTrust, reason: commandReasons.join('・') });
-    if (aceOath !== 0) changes.push({ label: '敵エースの誓約', delta: aceOath, reason: oathReasons.join('・') });
-
-    // 生き延びた僚機は名前が判るので、名簿に載せる（最終無線で読み上げる）
     // 第8章の通信灯台。残した本数が第9章・第10章の援護の濃さになる。
     // 1基でも残れば認証は成立するが、記録するのは成否ではなく本数そのもの。
     const beacons = s.tagSurvivors['beacon'];
     if (beacons) {
       recordRelaysHeld(n, beacons.alive);
-      changes.push({
+      extras.push({
         label: '通信灯台',
         delta: beacons.alive - beacons.total,
         reason: `${beacons.alive}/${beacons.total} 回線を維持`,
       });
     }
-
-    const wingmanId = this.selection?.wingmanId;
-    if (wingmanId && s.wingmenSurvived > 0) {
-      const def = pilotDef(wingmanId);
-      const added = addReturneeEntries(n, [
-        { name: def.name, chapter, kind: 'wingman', personId: def.personId },
-      ]);
-      if (added > 0) changes.push({ label: '帰還者', delta: added, reason: `${def.name} が帰投` });
-    }
-    return changes;
+    return { lines: result.lines, extras };
   }
 
   /**
-   * 4状態の増減を理由つきで見せる（T7-5）。
+   * 4状態の増減を内訳つきで見せる（T7-5 / T2-③）。
    *
-   * 撃墜数を強調せず、「何をしたから何が動いたか」を1行ずつ示す。
-   * 変化が無かった出撃でも、現在値だけは出して指標の存在を伝える。
+   * 合計だけを出さない。「帰還者 +4　＋5（救助 3名 / 僚機 1名が生還）　−1（僚機 1名が戦死）」
+   * のように、プラス側とマイナス側を理由ごとに並べる。
+   * 章末の選択の増減は別行に分けて出す（飛んだ結果と方針の表明を混ぜない）。
    */
-  private narrativeChangeHtml(changes: readonly NarrativeChange[]): string {
+  private narrativeChangeHtml(
+    lines: readonly NarrativeLine[],
+    extras: readonly NarrativeChange[],
+  ): string {
     if (this.save.campaignMode !== 'veil') return '';
     const summary = narrativeSummary(this.save.narrative);
-    const rows = changes
+    const group = (reasons: readonly { text: string; delta: number }[], sign: '+' | '-') => {
+      if (reasons.length === 0) return '';
+      const sum = reasons.reduce((a, r) => a + r.delta, 0);
+      const body = reasons.map((r) => escapeHtml(r.text)).join(' / ');
+      return `　<span class="${sign === '+' ? 'ok' : 'ng'}">${sign === '+' ? '+' : '−'}${Math.abs(sum)}` +
+        `（${body}）</span>`;
+    };
+    const rows = lines
       .map(
-        (c) =>
-          // 0 は「損なわなかった」なので good 側に寄せる（灯台 3/3 維持など）
-          `<li class="${c.delta >= 0 ? 'ok' : 'ng'}">` +
-          `${escapeHtml(c.label)} <b>${c.delta > 0 ? '+' : ''}${c.delta}</b>　` +
-          `<span class="dim">${escapeHtml(c.reason)}</span></li>`,
+        (line) =>
+          `<li class="${line.delta >= 0 ? 'ok' : 'ng'}" data-narrative="${escapeHtml(line.key)}">` +
+          `${escapeHtml(line.label)} <b>${line.delta > 0 ? '+' : ''}${line.delta}</b>` +
+          group(line.gains, '+') +
+          group(line.losses, '-') +
+          `</li>`,
+      )
+      .concat(
+        extras.map(
+          (c) =>
+            // 0 は「損なわなかった」なので good 側に寄せる（灯台 3/3 維持など）
+            `<li class="${c.delta >= 0 ? 'ok' : 'ng'}">` +
+            `${escapeHtml(c.label)} <b>${c.delta > 0 ? '+' : ''}${c.delta}</b>　` +
+            `<span class="dim">${escapeHtml(c.reason)}</span></li>`,
+        ),
       )
       .join('');
     const now = [summary.returnees, summary.routeTrust, summary.commandTrust, summary.aceOath]
@@ -1390,8 +1407,31 @@ export class App {
       .join('　');
     return `<div class="block"><h3>作戦の帰結</h3>` +
       (rows ? `<ul>${rows}</ul>` : `<div class="dim">この出撃では4状態は動かなかった。</div>`) +
+      this.choiceEffectHtml() +
       // 「帰還者」は 0..100 の指標、「名簿」は読み上げる人数。名前を分けて混同を避ける
       `<div class="dim">現在: ${now}　名簿 ${this.save.narrative.returnees.length} 名</div></div>`;
+  }
+
+  /**
+   * 章末の選択が動かした分（T2-③）。
+   *
+   * 飛んだ結果より小さいことがひと目で判るよう、行を分けて薄く出す。
+   * 帰還者は人数（名簿には出ない「名前の付かない増減」）なので単位を添える。
+   */
+  private choiceEffectHtml(): string {
+    const picked = this.lastChoiceEffects;
+    if (!picked) return '';
+    const parts: string[] = [];
+    const push = (key: keyof typeof NARRATIVE_LABEL, value: number | undefined, unit = '') => {
+      if (value === undefined || value === 0) return;
+      parts.push(`${NARRATIVE_LABEL[key]} ${value > 0 ? '+' : ''}${value}${unit}`);
+    };
+    push('returnees', picked.effects.returnees, '名');
+    push('routeTrust', picked.effects.routeTrust);
+    push('commandTrust', picked.effects.commandTrust);
+    push('aceOath', picked.effects.aceOath);
+    if (parts.length === 0) return '';
+    return `<div class="dim">方針「${escapeHtml(picked.label)}」　${escapeHtml(parts.join(' / '))}</div>`;
   }
 
   /**
@@ -1431,7 +1471,9 @@ export class App {
       });
     }
     const narrativeChanges =
-      this.save.campaignMode === 'veil' ? this.applySortieToNarrative(outcome) : [];
+      this.save.campaignMode === 'veil'
+        ? this.applySortieToNarrative()
+        : { lines: [], extras: [] };
     replenishForMission(this.save.supplies, outcome, !!s?.escortLost);
     let nextNode: CampaignNodeId;
     let transition: ReturnType<typeof advanceCampaignSave> | undefined;
@@ -1509,7 +1551,7 @@ export class App {
           `<li>通算撃墜 ${this.save.totalKills} 機 / 出撃 ${this.save.sorties} 回</li>` +
           `</ul></div>`, slot: 'flight-plan' },
         { html: `<div class="block"><h3>目標</h3><ul>${objectives}</ul></div>` +
-          this.narrativeChangeHtml(narrativeChanges) +
+          this.narrativeChangeHtml(narrativeChanges.lines, narrativeChanges.extras) +
           (outcome === 'loss'
             ? `<div class="dim">${this.save.campaignMode === 'veil'
                 ? '達成できなかった条件は記録として残る。次の章はこの記録の上で始まる。'

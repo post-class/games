@@ -21,6 +21,7 @@ import {
 } from '../content/pilotDialogue';
 import { PILOTS, type PersonalityId } from '../content/pilots';
 import { HudView } from '../hud/HudView';
+import type { ObjectiveView } from '../hud/objectiveLines';
 import { damageStage, stageWorsened, type DamageStage } from '../hud/damageStage';
 import { healthRatios } from '../sim/damage';
 import { AIM_PITCH_OFFSET } from '../core/aim';
@@ -87,6 +88,20 @@ export function endDelayFor(
   // 撃墜されたときは爆発と無線を見せ終わるまで待つ
   if (opts.deathRemaining !== undefined) return Math.max(LOSS_READ_DELAY, opts.deathRemaining + 0.4);
   return LOSS_READ_DELAY;
+}
+
+/**
+ * HUD へ渡す目標表示 (T2-⑧)。
+ *
+ * かつてはここで「必須か加点か」を加点表記の区切り記号から、
+ * 「残り秒」を `残り 42s` の正規表現から**逆算していた**。
+ * 表示文を1文字変えると判定が黙って壊れる経路だったので、
+ * `MissionRunner.objectiveViews()` が `required` と `timeLeftSec` を
+ * 構造として返すようにし、ここは素通しにした。
+ * HUD 側はこの構造を見て3行に絞る (`hud/objectiveLines.ts`)。
+ */
+export function hudObjectiveViews(views: readonly ObjectiveView[]): ObjectiveView[] {
+  return views.map((v) => ({ ...v }));
 }
 
 /** 画面中央に出す告知の種類。 */
@@ -572,6 +587,8 @@ export class Game {
     this.active = false;
     this.input.uiMode = true;
     this.comms.setOpen(false);
+    // 訓練の帯は HUD の一部ではないので、飛行が終わったら明示的に消す (T2-⑭)。
+    this.tutorial.finish(false);
   }
 
   endMission(): void {
@@ -624,6 +641,10 @@ export class Game {
         const outcome = this.endedOutcome;
         this.endedOutcome = undefined;
         this.active = false;
+        // 出撃が終わったら訓練の表示を消す (T2-⑭)。
+        // `endMission()` はデブリーフの後まで呼ばれないので、ここで畳まないと
+        // 艦内ハブ画面にまで訓練の帯が残る。
+        this.tutorial.finish(false);
         this.onMissionEnd?.(outcome);
       }
       return;
@@ -888,7 +909,8 @@ export class Game {
         mouseArmPending:
           this.input.mouseFlight && !this.input.gamepadConnected && !this.input.mouseArmed,
         stick: { x: this.input.mousePx, y: this.input.mousePy },
-        objectives: this.runner?.objectiveViews(),
+        // 必須／加点と残り秒を足してから渡す (HUD が3行に絞る材料にする)
+        objectives: this.runner ? hudObjectiveViews(this.runner.objectiveViews()) : undefined,
         nav: this.runner?.currentNav,
         autopilot: this.autopilot,
         visible: this.active,

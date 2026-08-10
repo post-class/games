@@ -15,9 +15,14 @@ export interface TutorialContext {
 
 interface Step {
   text: string;
-  /** 旧チュートリアル互換用。進行判定には使用しない。 */
+  /**
+   * 完了条件 (T2-⑭)。**表示している操作をやったら進む**ようにする。
+   *
+   * 「操作イベントを受け取った」だけでは完了にせず、操作後のゲーム状態
+   * (スロットル値・ターゲット・オートパイロット) を見る。
+   */
   done: (ctx: TutorialContext, self: Tutorial) => boolean;
-  /** 旧チュートリアル互換用。進行判定には使用しない。 */
+  /** この秒数は読ませる (条件を満たしていても早送りしない) */
   minShow?: number;
 }
 
@@ -27,7 +32,9 @@ const TUTORIAL_NEXT_CODE = 'KeyB';
 const SIMPLE_STEPS: Step[] = [
   {
     text: 'まずスロットルを上げる。<b>]</b> キー（10%ずつ）かマウスホイール、または数字の <b>5</b> で 50%。',
-    done: (c) => c.input.throttle > 0.35,
+    // 「] で上げる」と書いてあるのだから **1回上げたら完了** にする。
+    // 50%→60% のような小さな増加でも進む (以前は 35% 超という別条件で止まっていた)。
+    done: (c, self) => self.throttleRaised && c.input.throttle > 0,
   },
   {
     text: 'マウスを照準から動かすと機首が向く。キーボードなら <b>↑↓←→</b>。<b>Q/E</b> でロール。',
@@ -58,7 +65,7 @@ const SIMPLE_STEPS: Step[] = [
 const DETAILED_STEPS: Step[] = [
   {
     text: 'スロットルを確認する。<b>]</b>／<b>[</b> は10%ずつ、数字 <b>1〜9</b> は割合指定、<b>0</b> は停止。ホイールでも調整できる。',
-    done: (c) => c.input.throttle > 0.35,
+    done: (c, self) => self.throttleRaised && c.input.throttle > 0,
   },
   {
     text: 'キーボード操縦を試す。<b>↑↓←→</b> でピッチ／ヨー、<b>Q/E</b> でロール。',
@@ -123,7 +130,9 @@ const DETAILED_STEPS: Step[] = [
 
 /**
  * 初回プレイ向けの短い操作案内。
- * B キーでステップを進め、最後まで進むと最初へ戻って繰り返す。
+ *
+ * 案内した操作を実際にやれば次へ進む (T2-⑭)。読み飛ばしたいときは B キーで送れる。
+ * 最後のステップを終えたら**繰り返さずに帯を消す**。
  */
 export class Tutorial {
   active = false;
@@ -133,6 +142,12 @@ export class Tutorial {
   turnAmount = 0;
   shotsFired = 0;
   missilesFired = 0;
+  /** スロットルを一度でも上げたか (押した瞬間ではなく、値が増えたことで判定する) */
+  throttleRaised = false;
+  /** 最後のステップまで通したか */
+  completed = false;
+  /** 前フレームのスロットル値。出撃直後の値を「上げた」と誤判定しないため未取得を分ける */
+  private lastThrottle?: number;
   private mode: TutorialMode = 'simple';
   private usedActions = new Set<string>();
   private unsubs: Array<() => void> = [];
@@ -176,8 +191,30 @@ export class Tutorial {
     this.turnAmount = 0;
     this.shotsFired = 0;
     this.missilesFired = 0;
+    this.throttleRaised = false;
+    this.completed = false;
+    this.lastThrottle = undefined;
     this.usedActions.clear();
     this.render();
+  }
+
+  /** 現在のステップ番号 (0 始まり。テスト・確認用) */
+  get stepIndex(): number {
+    return this.index;
+  }
+
+  /** 全ステップ数 (テスト・確認用) */
+  get stepCount(): number {
+    return this.steps().length;
+  }
+
+  /** 帯が出ているか (テスト・確認用) */
+  get visible(): boolean {
+    return this.el.style.display !== 'none';
+  }
+
+  private steps(): Step[] {
+    return this.mode === 'detailed' ? DETAILED_STEPS : SIMPLE_STEPS;
   }
 
   /** 詳細チュートリアルが入力経路を確認するための記録。 */
@@ -201,30 +238,51 @@ export class Tutorial {
     this.stepElapsed += dt;
     this.turnAmount += (Math.abs(ctx.input.pitch) + Math.abs(ctx.input.yaw) + Math.abs(ctx.input.roll)) * dt;
 
+    // スロットルは「上がったこと」を値の変化で見る。キー入力を数えると、
+    // キーリピートや上限で止まっている操作まで数えてしまう。
+    if (this.lastThrottle !== undefined && ctx.input.throttle > this.lastThrottle + 1e-6) {
+      this.throttleRaised = true;
+    }
+    this.lastThrottle = ctx.input.throttle;
+
     if (ctx.input.afterburner) this.usedActions.add('afterburner');
-    const steps = this.mode === 'detailed' ? DETAILED_STEPS : SIMPLE_STEPS;
-    const step = steps[this.index];
+    const step = this.steps()[this.index];
     if (!step) {
-      this.index = 0;
-      this.stepElapsed = 0;
-      this.render();
+      this.completeAll();
       return;
     }
+    // 案内した操作をやったら次へ。読む時間 (minShow) は必ず確保する。
+    if (this.stepElapsed >= (step.minShow ?? 0) && step.done(ctx, this)) this.advance();
   }
 
-  /** 現在の案内を確認したら次のステップへ進める。 */
+  /** 現在の案内を確認したら次のステップへ進める。最後まで来たら終える。 */
   private advance(): void {
     if (!this.active) return;
-    const steps = this.mode === 'detailed' ? DETAILED_STEPS : SIMPLE_STEPS;
-    this.index = (this.index + 1) % steps.length;
+    const steps = this.steps();
+    if (this.index + 1 >= steps.length) {
+      this.completeAll();
+      return;
+    }
+    this.index += 1;
     this.stepElapsed = 0;
     this.render();
   }
 
+  /**
+   * 全ステップを通し終えた。
+   *
+   * 繰り返さずに帯を消す (訓練の帯が任務中ずっと出続けないようにする)。
+   * `tutorialDone` は出撃の結果として App が決めるので、ここでは書かない。
+   */
+  private completeAll(): void {
+    this.completed = true;
+    this.finish(false);
+  }
+
   private render(): void {
-    const steps = this.mode === 'detailed' ? DETAILED_STEPS : SIMPLE_STEPS;
+    const steps = this.steps();
     const step = steps[this.index];
-    if (!step) return;
+    if (!step || !this.active) return;
     this.el.style.display = '';
     this.el.innerHTML =
       `<span class="step">${this.mode === 'detailed' ? '詳細訓練' : '簡易訓練'} ${this.index + 1} / ${steps.length}</span>` +

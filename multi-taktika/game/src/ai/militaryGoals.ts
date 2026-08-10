@@ -25,7 +25,7 @@
 import type { CivId } from '@/shared/types';
 import { CIV_IDS, EntityKind } from '@/shared/types';
 import type { Command } from '@/sim/command';
-import { cfgInt, cfgTiles } from '@/sim/core/config';
+import { TICK_RATE, cfgArray, cfgInt, cfgTiles } from '@/sim/core/config';
 import {
   CIV_DEFS,
   ROLE_COUNT,
@@ -60,6 +60,19 @@ import { canAfford, findTownCenter, placeBuildingCommand } from './econGoals';
  * に使う。
  */
 export const SQUAD_MIN_UNITS = cfgInt('front.spawnMinUnits');
+
+/**
+ * 「立ち上げ」区間の終わり（tick）。`config.matchPhases` の `buildup.toSec`。
+ * `07§2`「0〜5 分は村人だけを増やす時間」の境目そのもの。
+ */
+const BUILDUP_END_TICK = (() => {
+  const phases = cfgArray('matchPhases');
+  for (const raw of phases) {
+    const p = raw as Record<string, unknown>;
+    if (p['id'] === 'buildup') return Math.round(Number(p['toSec']) * TICK_RATE);
+  }
+  throw new Error("config.json の matchPhases に buildup がない");
+})();
 
 /** 戦域が生まれる半径（`front.spawnRadiusTiles`、Fx）。到着判定に使う。 */
 export const ARRIVE_RADIUS: Fx = cfgTiles('front.spawnRadiusTiles');
@@ -243,7 +256,29 @@ export function planMilitary(ctx: AiContext): Command[] {
   // 実測（30 分・2 人戦）で `produce` 29 件のほとんどが兵で、
   // 村人が数体しか増えず、採集量が伸びないまま時代も進まなかった。
   // 敵が見えているときは例外（襲われているのに村人を出し続けるのは不合理）。
-  if (countOwnVillagers(ctx) < ctx.cfg.villagerTarget && ctx.view.seenEnemies.length === 0) {
+  //
+  // 待つ条件は 2 つ:
+  //  - 村人が目標数に届いていない（採集人数が足りない）
+  //  - **まだ一度も世を上げていない**（`07§2` の「0〜5 分は村人だけを増やす時間」）。
+  //    上げる前に兵を作ると、貯めた食料が兵に変わって永久に上がれない。実測で
+  //    村人 24 体まで育っても食料が 12〜30 に張り付き、age 0 のままだった。
+  //    進化しない段階（`allowAdvanceAge` が false）はこの条件を課さない
+  //    ―― 上がらないのだから待つ意味が無く、待たせると永久に兵が出ない。
+  const needMoreVillagers = countOwnVillagers(ctx) < ctx.cfg.villagerTarget;
+  // 立ち上げの区間（`config.matchPhases` の `buildup` = 0〜5 分）は兵を作らない。
+  //
+  // ここは一度「最初の世に上がるまで待つ」にしてみたが、**強すぎた** ――
+  // 世に上がるのが 18〜24 分なので、28 組の総当たりが全部引き分けになり、
+  // 戦闘が 1 度も起きなかった。`07§2` は 0〜5 分を「村人だけを増やす時間」、
+  // 5〜12 分を「初接触」と定めているので、その境目をそのまま使う。
+  const inBuildup = ctx.view.tick < BUILDUP_END_TICK;
+  // 例外は「**戦域が立っている**」＝実際に戦っているとき。
+  //
+  // ここを「敵が視界に入った」にしていたら、**斥候が敵を一度見ただけで**
+  // 兵の生産が解禁され、貯めていた食料が兵に変わって進化できなくなった（実測）。
+  // 戦域は交戦から自動で立つ（`07§3`）ので、これが本当の「戦っている」の合図。
+  const underAttack = ctx.view.ownFronts.length > 0;
+  if ((needMoreVillagers || inBuildup) && !underAttack) {
     // 兵は作らないが、**手空きの兵を前に出す判断だけは続ける**
     // （既にいる兵を放置すると戦域が立たない）。
     pushDispatch(ctx, cmds);

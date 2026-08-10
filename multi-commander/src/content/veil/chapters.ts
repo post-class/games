@@ -8,7 +8,12 @@
  * - 選択に「正解」を作らない。どちらを選んでも何かを得て、何かを失う。
  * - 分岐で章を増やさない。選択は次章の僚機・補給・通信・援護を変えるだけ。
  * - 効果は4状態（帰還者／航路信頼／軍令信用／敵エースの誓約）への増減で表す。
- *   各値は -15..+15、1章あたりの増減の総量は ±15 程度に収める。
+ *   **1状態あたり最大 5、1択あたりの絶対値の合計は 8**（T2-③ で 15 から下げた）。
+ *   選択は「方針の表明」であり、4状態を大きく動かすのは飛んだ結果
+ *   （`src/app/narrative.ts` の `sortieNarrative`、1状態あたり最大 12）である。
+ * - 選択肢は**出撃結果で出方が変わる**（T2-④）。`when` を満たさない選択肢は表示せず、
+ *   代わりに `fallbackOptions` の同条件の裏返しが出る。
+ *   どの出撃結果でも必ず2つ以上出ることを `tests/ut/t2a-*.test.ts` が固定している。
  *
  * 注意: `theater` は `world.ts` の戦域idと対応させるが、循環参照と
  * 作成順の依存を避けるため文字列で保持する（import しない）。
@@ -26,6 +31,49 @@ export interface VeilChoiceEffects {
   aceOath?: number;
 }
 
+/**
+ * 選択肢を出す条件（T2-④）。
+ *
+ * 「その出撃で実際にやったこと」だけを条件にする。難易度・機体・所持兵装は見ない。
+ * 文字列にしているのは、条件を章データ側に書けるようにするため（関数を持たせない）。
+ */
+export type VeilChoiceCondition =
+  /** 常に出す */
+  | 'always'
+  /** 誰かを救助した（味方・民間・敵側のいずれか1名以上） */
+  | 'rescuedAny'
+  /** 誰も救助しなかった */
+  | 'rescuedNone'
+  /** 1発以上撃った */
+  | 'firedShots'
+  /** 一度も撃たなかった */
+  | 'noShotsFired'
+  /** 護衛対象・輸送船をすべて生存させた（護衛対象のない出撃も含む） */
+  | 'escortHeld'
+  /** 護衛対象・輸送船を1隻以上失った */
+  | 'escortLostAny'
+  /** 僚機が生還した */
+  | 'wingmanHome'
+  /** 僚機を失った */
+  | 'wingmanDown';
+
+/**
+ * 条件判定に使う出撃結果。
+ *
+ * `src/app/narrative.ts` の `SortieFacts` の部分集合として意図的に同じ名前を使う
+ * （content 層から app 層へ import しないための構造的な一致。App 側は同じ
+ * オブジェクトを両方へ渡せる）。
+ */
+export interface VeilSortieFacts {
+  rescued: number;
+  enemyRescued: number;
+  escortSurvivors: number;
+  escortTotal: number;
+  wingmenSurvived: number;
+  wingmenLost: number;
+  shotsFired: number;
+}
+
 export interface VeilChoiceOption {
   /** 安定キー。保存データに残るので変更しない。 */
   id: string;
@@ -35,6 +83,19 @@ export interface VeilChoiceOption {
   consequence: string;
   /** 4状態への増減 */
   effects: VeilChoiceEffects;
+  /**
+   * この選択肢を出す条件（省略＝`always`）。
+   *
+   * 例: 第1章の「救難を続ける」は救助を1件でもしていなければ出さない。
+   * 代わりに `fallbackOptions` の「今からでも港へ応援を要請する」が出る。
+   */
+  when?: VeilChoiceCondition;
+}
+
+/** 選択肢の前に置く1行の状況説明。条件に合う最初のものを使う。 */
+export interface VeilChoiceSituation {
+  when: VeilChoiceCondition;
+  text: string;
 }
 
 export interface VeilChoice {
@@ -42,9 +103,73 @@ export interface VeilChoice {
   kind: string;
   /** 問いの文 */
   question: string;
-  /** 補足（選択の帰結を示す一文） */
+  /** 補足（選択の帰結を示す一文）。`situations` に合致がなければこれを使う */
   note: string;
   options: VeilChoiceOption[];
+  /**
+   * `when` を満たさない選択肢の差し替え先（T2-④）。
+   *
+   * 各章の主要な選択肢1つに条件を付け、その裏返しの条件を持つ代替を1つ置く。
+   * これで**どの出撃結果でも選択肢の数は変わらない**（0個になって章が進まなくなるのを防ぐ）。
+   */
+  fallbackOptions?: VeilChoiceOption[];
+  /** 出撃結果で差し替える状況説明（T2-④）。上から順に最初に合致したものを使う */
+  situations?: VeilChoiceSituation[];
+}
+
+/** 条件を満たすか。未知の条件は「常に出す」として扱う（章データの追記で画面を壊さない）。 */
+export function veilConditionMet(when: VeilChoiceCondition | undefined, facts: VeilSortieFacts): boolean {
+  const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  const rescued = n(facts?.rescued) + n(facts?.enemyRescued);
+  switch (when) {
+    case undefined:
+    case 'always':
+      return true;
+    case 'rescuedAny':
+      return rescued > 0;
+    case 'rescuedNone':
+      return rescued <= 0;
+    case 'firedShots':
+      return n(facts?.shotsFired) > 0;
+    case 'noShotsFired':
+      return n(facts?.shotsFired) <= 0;
+    case 'escortHeld':
+      return n(facts?.escortSurvivors) >= n(facts?.escortTotal);
+    case 'escortLostAny':
+      return n(facts?.escortSurvivors) < n(facts?.escortTotal);
+    case 'wingmanHome':
+      return n(facts?.wingmenSurvived) > 0;
+    case 'wingmanDown':
+      return n(facts?.wingmenLost) > 0;
+    default:
+      return true;
+  }
+}
+
+/**
+ * 出撃結果から、実際に見せる章末の選択を組み立てる（T2-④）。
+ *
+ * - 条件を満たす `options` と `fallbackOptions` を宣言順に並べる。
+ * - 状況説明（`note`）を `situations` で差し替える。
+ * - **選択肢が2つ未満になることは許さない**。条件を無視して宣言順に補い、
+ *   それでも足りなければ全選択肢を返す（章が進まなくなるのを防ぐ最後の砦）。
+ */
+export function resolveVeilChoice(choice: VeilChoice, facts: VeilSortieFacts): VeilChoice {
+  const all = [...choice.options, ...(choice.fallbackOptions ?? [])];
+  const picked = all.filter((o) => veilConditionMet(o.when, facts));
+  if (picked.length < 2) {
+    for (const option of all) {
+      if (picked.length >= 2) break;
+      if (!picked.includes(option)) picked.push(option);
+    }
+  }
+  const situation = choice.situations?.find((s) => veilConditionMet(s.when, facts));
+  return {
+    kind: choice.kind,
+    question: choice.question,
+    note: situation?.text ?? choice.note,
+    options: picked.length >= 2 ? picked : all,
+  };
 }
 
 export interface VeilChapter {
@@ -110,18 +235,38 @@ export const VEIL_CHAPTERS: VeilChapter[] = [
       kind: 'FIELD CHOICE',
       question: '救難ポッドを回収するか、逃げる敵機を追うか。',
       note: '帰還後、積荷に「九分間」の航法ログが混入していたと判明。',
+      situations: [
+        {
+          when: 'rescuedAny',
+          text: '拾い上げたポッドの搭乗者名簿を、ハートが自分の手で書き写している。積荷には「九分間」の航法ログが混入していた。',
+        },
+        {
+          when: 'rescuedNone',
+          text: '格納庫に降ろすものは何もない。回収されなかったポッドの欄は空白のまま、積荷の「九分間」の航法ログだけが残った。',
+        },
+      ],
       options: [
         {
           id: 'rescue',
-          label: '救難：民間信頼と医療資源を得る',
+          when: 'rescuedAny',
+          label: '救難：拾い上げた者を港の医療区画へ回す',
           consequence: '第2章の格納庫に民間の医療物資が積まれ、港の民間人がこちらの機体番号を覚える。外周の索敵密度は落ちたまま次章へ持ち越される。',
-          effects: { returnees: 7, routeTrust: 4, aceOath: 3, commandTrust: -1 },
+          effects: { returnees: 2, routeTrust: 3, aceOath: 2, commandTrust: -1 },
         },
         {
           id: 'pursue',
           label: '追撃：敵の航路情報を得る',
           consequence: '第2章のブリーフィングにキルラシー先遣隊の航路図が付く。回収されなかったポッドの名前は空欄で記録に残る。',
-          effects: { returnees: -5, aceOath: -4, commandTrust: 5, routeTrust: -1 },
+          effects: { returnees: -2, aceOath: -2, commandTrust: 3, routeTrust: -1 },
+        },
+      ],
+      fallbackOptions: [
+        {
+          id: 'port-request',
+          when: 'rescuedNone',
+          label: '今からでも、港に救難隊の派遣を要請する',
+          consequence: '港の救難艇が外縁へ出て、拾えなかったポッドを翌朝までに探す。哨戒機をさらに割いた判断は司令部の記録に残る。',
+          effects: { returnees: 1, routeTrust: 3, aceOath: 1, commandTrust: -3 },
         },
       ],
     },
@@ -156,18 +301,38 @@ export const VEIL_CHAPTERS: VeilChapter[] = [
       kind: 'COMMAND TENSION',
       question: '帰還者の証言を公表するか、軍の解析室に封印するか。',
       note: '情報公開は港の不安を高めるが、後の中立勢力が応答しやすくなる。',
+      situations: [
+        {
+          when: 'rescuedAny',
+          text: '回収した漂流者が、同じ九分間について食い違う証言を始めている。生体記録はどれも一致している。',
+        },
+        {
+          when: 'rescuedNone',
+          text: '漂流者は一人も収容できなかった。手元にあるのは偽装信号の応答記録と、二重化したロックの航跡だけである。',
+        },
+      ],
       options: [
         {
           id: 'disclose',
-          label: '三つの証言を公表する',
+          when: 'rescuedAny',
+          label: '帰還者の証言をそのまま公表する',
           consequence: '第3章以降、セレシオンとオルドが通信に応答する。港の避難民は門を恐れ、連邦の輸送計画と司令部の評価が下がる。',
-          effects: { routeTrust: 9, commandTrust: -6 },
+          effects: { routeTrust: 5, commandTrust: -3 },
         },
         {
           id: 'seal',
           label: '解析室に封印する',
           consequence: '司令部の信用と輸送計画は保たれる。中立勢力は「空白を隠す側」としてこちらを扱い、支援の申し出が遅れる。',
-          effects: { commandTrust: 7, returnees: 2, routeTrust: -6 },
+          effects: { commandTrust: 4, returnees: 1, routeTrust: -3 },
+        },
+      ],
+      fallbackOptions: [
+        {
+          id: 'jam-report',
+          when: 'rescuedNone',
+          label: '偽装信号の記録だけを提出する',
+          consequence: '無人機の識別偽装が公式に認められ、次章以降の識別手順が改まる。証言がないため門の異常は「未確認」として扱われる。',
+          effects: { commandTrust: 3, routeTrust: 2, returnees: -1, aceOath: -2 },
         },
       ],
     },
@@ -202,18 +367,38 @@ export const VEIL_CHAPTERS: VeilChapter[] = [
       kind: 'RULE OF NEUTRALITY',
       question: '武器を封じて護衛を優先するか、先制攻撃で機雷原を消すか。',
       note: '非殺傷の選択は、キルラシーの儀礼通信士ヴァークに届く。',
+      situations: [
+        {
+          when: 'noShotsFired',
+          text: 'アウルの共鳴パルスは一度も途切れなかった。こちらの火器管制は最後まで沈黙している。',
+        },
+        {
+          when: 'firedShots',
+          text: '発砲の熱紋が回廊の記録に残った。共鳴パルスは撃つたびに閉じ、機雷帯の判定はそのぶん早く戻っている。',
+        },
+      ],
       options: [
         {
           id: 'disarm',
-          label: '武器管制を停止して護衛に徹する',
+          when: 'noShotsFired',
+          label: '武器管制の停止をこのまま継続する',
           consequence: '静穏海の中立回廊が補給と避難に開かれ、誓約語が灰冠回廊へ届く。艦橋は非武装進入の判断を記録に残す。',
-          effects: { routeTrust: 6, returnees: 5, aceOath: 2, commandTrust: -2 },
+          effects: { routeTrust: 4, returnees: 1, aceOath: 1, commandTrust: -2 },
         },
         {
           id: 'preemptive',
           label: '先制攻撃で機雷原を焼く',
           consequence: '航路は最短で開くが、共鳴パルスが閉じて避難船に損害が出る。セレシオンは次の季節の航路図を送らない。',
-          effects: { routeTrust: -7, returnees: -3, aceOath: -2, commandTrust: 3 },
+          effects: { routeTrust: -4, returnees: -1, aceOath: -1, commandTrust: 2 },
+        },
+      ],
+      fallbackOptions: [
+        {
+          id: 're-survey',
+          when: 'firedShots',
+          label: '発砲記録を添えて、回廊の再測定を申し出る',
+          consequence: 'セレシオンは熱紋の測り直しを受け入れ、回廊は細いまま維持される。再測定の日程は艦の作戦計画を押し戻す。',
+          effects: { routeTrust: 2, returnees: 1, aceOath: 1, commandTrust: -4 },
         },
       ],
     },
@@ -248,18 +433,38 @@ export const VEIL_CHAPTERS: VeilChapter[] = [
       kind: 'BOUNDARY',
       question: '契約船を解放するためにアンカーを破壊するか、採掘停止の証拠を回収するか。',
       note: 'オルドの信頼は、終盤の「門を固定する手段」に直結する。',
+      situations: [
+        {
+          when: 'firedShots',
+          text: '境界標に向けて撃った記録が、そのまま地層へ写される。契約船の空気は残り時間で数えられている。',
+        },
+        {
+          when: 'noShotsFired',
+          text: 'アンカーには一発も触れていない。アインは局所重力を戻し、契約船の空気の残量だけを読み上げた。',
+        },
+      ],
       options: [
         {
           id: 'break-anchor',
-          label: '重力アンカーを破壊して乗員を解放する',
+          when: 'firedShots',
+          label: '重力アンカーを撃ち切り、乗員を解放する',
           consequence: '契約船の乗員は全員帰投する。オルドは地層に「連邦は境界を撃った」と刻み、第8章の重力固定は差し出されない。',
-          effects: { returnees: 7, routeTrust: -6, commandTrust: 2 },
+          effects: { returnees: 2, routeTrust: -4, commandTrust: 2 },
         },
         {
           id: 'secure-evidence',
           label: '採掘停止の証拠を先に回収する',
           consequence: '核断片と採掘記録が第7章の告発材料になり、オルドの信頼が第8章の重力固定に変わる。契約船の空気は削られたまま数えられる。',
-          effects: { routeTrust: 7, commandTrust: 4, returnees: -4 },
+          effects: { routeTrust: 4, commandTrust: 2, returnees: -2 },
+        },
+      ],
+      fallbackOptions: [
+        {
+          id: 'wait-arbitration',
+          when: 'noShotsFired',
+          label: 'アンカーに触れず、アインへ裁定の短縮を求める',
+          consequence: 'オルドは「境界を撃たなかった連邦」を地層に刻み、第8章の重力固定が差し出される。契約船の乗員は裁定を待つ側に置かれる。',
+          effects: { routeTrust: 3, aceOath: 2, commandTrust: 1, returnees: -2 },
         },
       ],
     },
@@ -294,18 +499,38 @@ export const VEIL_CHAPTERS: VeilChapter[] = [
       kind: 'HONOR CLAUSE',
       question: '勝利を優先するか、敵エースを救うか。',
       note: '救出した場合、帝国側の停戦窓口が開く。撃墜しても戦争は終わらない。',
+      situations: [
+        {
+          when: 'rescuedAny',
+          text: '拾い上げた者たちの名前が、ヴァークの誓約記録にそのまま書き取られていく。',
+        },
+        {
+          when: 'rescuedNone',
+          text: '誰も拾わずに戻った。片翼を失った機体は脱出信号を出さないまま、急進派の航跡の向こうへ流れていった。',
+        },
+      ],
       options: [
         {
           id: 'victory',
           label: '勝利を優先し、決闘を終わらせる',
           consequence: '司令部は撃墜を戦果として認め、次章の兵装が通る。名前が一つ記憶から消え、第8章の停戦交渉に帝国の署名が届きにくくなる。',
-          effects: { commandTrust: 5, aceOath: -7, returnees: -3 },
+          effects: { commandTrust: 3, aceOath: -4, returnees: -1 },
         },
         {
           id: 'save-ace',
-          label: '敵エースを回収する',
+          when: 'rescuedAny',
+          label: '回収した相手を、名前ごと艦へ連れ帰る',
           consequence: 'ヴァルカーンの停戦窓口が開き、ラギティカの名が両軍の記録に残る。決闘の勝敗は未決のまま艦へ持ち帰る。',
-          effects: { aceOath: 8, returnees: 5, commandTrust: -2 },
+          effects: { aceOath: 4, returnees: 2, commandTrust: -2 },
+        },
+      ],
+      fallbackOptions: [
+        {
+          id: 'honor-record',
+          when: 'rescuedNone',
+          label: '決闘の記録だけをヴァークに残す',
+          consequence: '名を交換した事実が帝国の公式史に残り、誓約の条文は第8章まで生きる。名簿に載る名前は増えない。',
+          effects: { aceOath: 2, routeTrust: 2, commandTrust: 2, returnees: -2 },
         },
       ],
     },
@@ -341,18 +566,38 @@ export const VEIL_CHAPTERS: VeilChapter[] = [
       kind: 'CONSENT',
       question: '共同通信網への限定接続を許可するか、完全に遮断するか。',
       note: '接続すれば終盤で敵味方の航路を同時に見渡せる。ただし連邦内部の反発を招く。',
+      situations: [
+        {
+          when: 'firedShots',
+          text: '撃った数だけ群体が隊形を変えた記録が残っている。クラウンは痛みを訴えず、工事の進捗だけを読み上げる。',
+        },
+        {
+          when: 'noShotsFired',
+          text: '中継器には一発も撃っていない。命令は未完のまま、クラウンの「工事の報告」だけが手元にある。',
+        },
+      ],
       options: [
         {
           id: 'connect',
           label: '限定接続を許可する',
           consequence: '第9章で門の内側を測る手段と、第10章の全航路可視化が手に入る。機械に航法を預けた指揮官として司令部の無線が冷える。',
-          effects: { routeTrust: 6, returnees: 3, commandTrust: -6 },
+          effects: { routeTrust: 4, returnees: 1, commandTrust: -3 },
         },
         {
           id: 'sever',
-          label: '中継器を破壊して完全に遮断する',
+          when: 'firedShots',
+          label: '残る中継器も破壊して完全に遮断する',
           consequence: '命令は完遂され、司令部の信用と搭載兵装が保たれる。第9章で位相迷路を測る手段を失い、群体は学習した隊形で戻ってくる。',
-          effects: { commandTrust: 7, routeTrust: -5, returnees: -3 },
+          effects: { commandTrust: 4, routeTrust: -2, returnees: -2 },
+        },
+      ],
+      fallbackOptions: [
+        {
+          id: 'sever-order',
+          when: 'noShotsFired',
+          label: '中継器に触れず、遮断命令の再検討を持ち帰る',
+          consequence: '朝比奈の観測記録が司令部へ回り、遮断は保留される。命令未完の報告は評価に残り、群体の工事はそのまま進む。',
+          effects: { commandTrust: -3, routeTrust: 2, aceOath: 1, returnees: 2 },
         },
       ],
     },
@@ -387,18 +632,38 @@ export const VEIL_CHAPTERS: VeilChapter[] = [
       kind: 'CHAIN OF COMMAND',
       question: '正式手続を守るか、艦長と共に無許可出撃するか。',
       note: 'ここで失うのは評価ではない。誰が次章で味方として発艦できるかである。',
+      situations: [
+        {
+          when: 'noShotsFired',
+          text: '搬送中に一発も撃っていない。共同設備の保全規約は守られ、告発の書式は無傷で受理条件を満たしている。',
+        },
+        {
+          when: 'firedShots',
+          text: '搬送中の発砲が公証中継所の保全記録に残った。告発の正当性は、この一行のぶんだけ削られている。',
+        },
+      ],
       options: [
         {
           id: 'procedure',
           label: '停止命令に従い、正式手続を待つ',
           consequence: '司令部の信用と搭載兵装は保たれ、次章の甲板に司令部の増援が並ぶ。中継所は閉鎖され、証拠は第8章の六十秒に間に合わない。',
-          effects: { commandTrust: 7, routeTrust: -6, returnees: -2 },
+          effects: { commandTrust: 4, routeTrust: -3, returnees: -1 },
         },
         {
           id: 'unauthorized',
-          label: '艦長と共に無許可で発艦する',
+          when: 'noShotsFired',
+          label: '艦長と共に無許可で発艦し、正規の書式で提出する',
           consequence: '告発が期限内に受理され、第8章で五者署名の書式が揃う。次章の搭載兵装は減り、司令部の無線は事務的になる。',
-          effects: { routeTrust: 6, aceOath: 2, commandTrust: -7 },
+          effects: { routeTrust: 4, aceOath: 1, commandTrust: -3 },
+        },
+      ],
+      fallbackOptions: [
+        {
+          id: 'unauthorized-tainted',
+          when: 'firedShots',
+          label: '発砲記録を添えたまま、それでも搬送を強行する',
+          consequence: '告発は受理されるが保全規約違反の付記が付き、第8章の署名は一つ足りないまま始まる。司令部は無許可出撃と発砲の両方を数える。',
+          effects: { routeTrust: 2, returnees: 1, commandTrust: -3, aceOath: -2 },
         },
       ],
     },
@@ -435,18 +700,38 @@ export const VEIL_CHAPTERS: VeilChapter[] = [
       kind: 'CEASEFIRE WINDOW',
       question: '味方艦を守るか、敵の救難信号を救うか。',
       note: '敵を救えば、ヴァルカーンは「名誉ある共同作戦」を承認する。',
+      situations: [
+        {
+          when: 'rescuedAny',
+          text: '六十秒の間に拾い上げた者たちが、五者署名の立会人として記録に並んでいる。',
+        },
+        {
+          when: 'rescuedNone',
+          text: '救難信号はどれも応答されないまま六十秒が過ぎた。認証の書式には、立会人の欄だけが空いている。',
+        },
+      ],
       options: [
         {
           id: 'guard-fleet',
           label: '味方艦の護衛を続ける',
           consequence: '艦隊は無傷で第9章へ入り、司令部の増援がつく。共同作戦の記録は薄く、帝国側の参戦規模は縮む。',
-          effects: { commandTrust: 6, returnees: 4, aceOath: -5 },
+          effects: { commandTrust: 3, returnees: 2, aceOath: -3 },
         },
         {
           id: 'rescue-enemy',
-          label: '敵の救難信号へ向かう',
+          when: 'rescuedAny',
+          label: '救難を続け、敵の被弾艦まで手を伸ばす',
           consequence: '帝国の公式記録に連邦機の名が残り、第10章でキルラシーが本隊規模で参戦する。味方艦の被害が次章の僚機数に響く。',
-          effects: { aceOath: 8, returnees: 4, commandTrust: -3 },
+          effects: { aceOath: 4, returnees: 2, commandTrust: -2 },
+        },
+      ],
+      fallbackOptions: [
+        {
+          id: 'answer-signal',
+          when: 'rescuedNone',
+          label: '救難信号に応答だけ返し、座標を帝国へ渡す',
+          consequence: 'ヴァルカーンは応答の事実を誓約として受け取り、停戦窓口は細く開く。拾えなかった名前は両軍の記録で空欄になる。',
+          effects: { aceOath: 2, commandTrust: 2, routeTrust: 2, returnees: -2 },
         },
       ],
     },
@@ -481,30 +766,50 @@ export const VEIL_CHAPTERS: VeilChapter[] = [
       kind: 'ANCHOR MEMORY',
       question: '現実へ帰す一人を選ぶ。誰の声を錨にするか。',
       note: '残す者はいないが、誰がプレイヤーを信じるかが変わる。選んだ人物の個別エピローグが第10章の無線を支える。',
+      situations: [
+        {
+          when: 'rescuedAny',
+          text: '迷路の出口で、この出撃で拾い上げた者たちの声が先に届いている。錨にできる声はまだ増やせる。',
+        },
+        {
+          when: 'rescuedNone',
+          text: '拾えなかった者たちの声が、赦しではなく問いとして返ってくる。錨に選べるのは、こちらを覚えている者だけだ。',
+        },
+      ],
       options: [
         {
           id: 'anchor-hart',
           label: 'ウィリアム・ハートの声を錨にする',
           consequence: '第10章の最終無線は艦長の名簿読み上げから始まり、司令部との回線が復旧する。中立勢力と決闘士の声は後列に下がる。',
-          effects: { commandTrust: 7, returnees: 3, routeTrust: -3, aceOath: -2 },
+          effects: { commandTrust: 4, returnees: 2, routeTrust: -1, aceOath: -1 },
         },
         {
           id: 'anchor-sophie',
           label: 'ソフィー・ローランの声を錨にする',
           consequence: '航路設計図が完全な形で持ち帰られ、セレシオンとオルドの援護が濃くなる。帰投窓を優先した分、迷路に置いてきた声が名簿から漏れる。',
-          effects: { routeTrust: 7, commandTrust: 2, returnees: -3, aceOath: -3 },
+          effects: { routeTrust: 4, commandTrust: 1, returnees: -2, aceOath: -1 },
         },
         {
           id: 'anchor-claire',
+          when: 'rescuedAny',
           label: 'クレア・ベネットの声を錨にする',
           consequence: '救難艇が迷路の出口で待ち、帰還者名簿が最も長くなる。設計図の一部は欠落し、司令部への報告が通りにくくなる。',
-          effects: { returnees: 8, aceOath: 3, commandTrust: -4 },
+          effects: { returnees: 2, aceOath: 2, routeTrust: 2, commandTrust: -2 },
         },
         {
           id: 'anchor-memoria',
           label: 'メモリアの声を錨にする',
           consequence: '記録層経由で敵味方すべての航路が第10章に引き継がれる。機械の声で帰った指揮官として、連邦内部の反発が最終出撃まで残る。',
-          effects: { routeTrust: 5, returnees: 2, aceOath: 2, commandTrust: -6 },
+          effects: { routeTrust: 3, returnees: 1, aceOath: 1, commandTrust: -3 },
+        },
+      ],
+      fallbackOptions: [
+        {
+          id: 'anchor-ragitika',
+          when: 'rescuedNone',
+          label: 'ラギティカの声を錨にする',
+          consequence: '決闘士が自分の名前を外へ持ち帰り、第10章でキルラシー側の護衛が濃くなる。連邦側の記録には「敵の声で帰った」と残る。',
+          effects: { aceOath: 4, returnees: 1, routeTrust: 1, commandTrust: -2 },
         },
       ],
     },
@@ -544,24 +849,37 @@ export const VEIL_CHAPTERS: VeilChapter[] = [
       kind: 'FINAL ORDER',
       question: '門を閉じて戦争を止めるか。限定開放して連邦を守るか。五者共同管理に委ねるか。',
       note: 'どの結末でも、最終無線は「帰還者の名前」を読み上げて幕を閉じる。',
+      // 第10章だけは選択肢に条件を付けない。3つの選択肢は門の管理方法そのもので、
+      // 結末id（`gateOutcomeFromChoice`）と1対1に対応しているため、飛び方で消してはいけない。
+      // 出撃結果を反映するのは状況説明の1行だけにする。
+      situations: [
+        {
+          when: 'rescuedAny',
+          text: 'この出撃で拾い上げた者たちが、最終無線の名簿の末尾に並んでいる。読み上げは、どの結末でも同じ形式で行われる。',
+        },
+        {
+          when: 'rescuedNone',
+          text: 'この出撃で新しく拾った名前はない。最終無線は、これまでに帰した者の名前だけを読み上げることになる。',
+        },
+      ],
       options: [
         {
           id: 'seal-gate',
           label: '制御核を破壊し、門を永久に閉じる',
           consequence: 'ヴェガ宙域の戦争は終わり、司令部は作戦を成功として綴じる。辺境の居住区は補給を失い、中立勢力の航路は静かに枯れる。',
-          effects: { commandTrust: 6, returnees: -5, routeTrust: -4 },
+          effects: { commandTrust: 4, returnees: -2, routeTrust: -2 },
         },
         {
           id: 'limited-open',
           label: '核を共鳴させ、限定開放する',
           consequence: '連邦の物流と避難航路は生き延びる。扉の管理者は不在のまま残り、誓約で参戦した者たちは記録を持たずに帰る。',
-          effects: { routeTrust: 5, commandTrust: 4, aceOath: -6 },
+          effects: { routeTrust: 3, commandTrust: 2, aceOath: -3 },
         },
         {
           id: 'joint-custody',
           label: '五者共同管理に委ねる',
           consequence: '六つ目の条項が発効し、明日も五勢力が交渉を続ける。最も脆く、どの勢力にも決定権が残らない体制のまま門は開いたままになる。',
-          effects: { routeTrust: 6, aceOath: 5, returnees: 2, commandTrust: -2 },
+          effects: { routeTrust: 3, aceOath: 3, returnees: 1, commandTrust: -1 },
         },
       ],
     },
@@ -586,10 +904,17 @@ export function veilChapter(chapterOrId: number | string): VeilChapter {
   return found;
 }
 
-/** 章末の選択肢を id で引く。未知の選択肢は例外にする。 */
+/**
+ * 章末の選択肢を id で引く。未知の選択肢は例外にする。
+ *
+ * 条件付きで差し替わる `fallbackOptions` も同じ名前空間として引ける
+ * （保存データには差し替え後の id が残るため、必ず両方を見る）。
+ */
 export function veilChoiceOption(chapterOrId: number | string, optionId: string): VeilChoiceOption {
   const chapter = veilChapter(chapterOrId);
-  const option = chapter.choice.options.find((entry) => entry.id === optionId);
+  const option = [...chapter.choice.options, ...(chapter.choice.fallbackOptions ?? [])].find(
+    (entry) => entry.id === optionId,
+  );
   if (!option) throw new Error(`unknown veil choice option: ${chapter.id}/${optionId}`);
   return option;
 }

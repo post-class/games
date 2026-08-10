@@ -203,7 +203,23 @@ export const VEIL_CH03: MissionDef = {
       required: true,
       spec: { kind: 'protectCount', tag: TAG.escort, min: 14 },
     },
-    // 必須②: 回廊出口への到達。護送の完了地点なので required
+    // 必須②: 船団を出口に「乗せる」（T2-⑤）。
+    //
+    // `protectCount` は「沈められないこと」という制約なので、勝利条件には数えられない。
+    // これだけだと自機が NAV 3 と母艦を素通りするだけで護送が成立してしまう
+    //（＝飛んで着けば勝ち）。第1章と同じ `escortArrive` を必須に置いて、
+    // 「船団を出口まで連れて行った」ことを達成条件にする。
+    //
+    // min = 12 の根拠: 自力航行できる12隻。牽引の6隻は自力では出口に届かない速度
+    //（22 kps）なので、到達数の条件には数えない。ただし `protectCount` の min 14 が
+    // 効いているので、6隻を見捨てる（沈める）解は依然として失敗になる。
+    {
+      id: 'convoy-out',
+      text: '避難船12隻以上を中立回廊の出口へ送り出す',
+      required: true,
+      spec: { kind: 'escortArrive', tag: TAG.escort, navIndex: 2, min: 12 },
+    },
+    // 必須③: 自機も回廊出口まで抜ける。護送の完了地点なので required
     {
       id: 'corridor',
       text: '中立回廊の出口まで船団を導く',
@@ -226,7 +242,7 @@ export const VEIL_CH03: MissionDef = {
       required: false,
       spec: { kind: 'destroyTag', tag: TAG.target },
     },
-    // 必須③: 帰投
+    // 必須④: 帰投
     {
       id: 'home',
       text: `${CLAW}へ帰投する`,

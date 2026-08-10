@@ -96,6 +96,41 @@ export function rectEdgeArrow(
 }
 
 /**
+ * 画面端に寄ったラベルを画面内へ押し戻す (T2-⑧)。
+ *
+ * `発艦点 2.6k` のような Nav ラベルは `transform: translate(-50%,-50%)` で
+ * 中央合わせに置くので、`x = 0` だとラベルの左半分が画面外に出て切れる。
+ * ラベルの寸法の**半分**を余白として与え、その分だけ内側へ寄せる。
+ *
+ * @param halfWidth ラベル幅の半分 (px)
+ * @param halfHeight ラベル高さの半分 (px)
+ * @param rect 開口部などのさらに内側の枠 (あれば画面枠より優先)
+ */
+export function clampLabel(
+  p: { x: number; y: number },
+  width: number,
+  height: number,
+  halfWidth: number,
+  halfHeight: number,
+  rect?: ViewRect,
+): { x: number; y: number } {
+  const left = Math.max(0, rect ? rect.left : 0) + halfWidth;
+  const right = Math.min(width, rect ? rect.right : width) - halfWidth;
+  const top = Math.max(0, rect ? rect.top : 0) + halfHeight;
+  const bottom = Math.min(height, rect ? rect.bottom : height) - halfHeight;
+  // 枠がラベルより狭いときは中央に置く (押し戻しで反転させない)
+  return {
+    x: left > right ? (left + right) / 2 : Math.min(right, Math.max(left, p.x)),
+    y: top > bottom ? (top + bottom) / 2 : Math.min(bottom, Math.max(top, p.y)),
+  };
+}
+
+/** ラベル幅の目安 (px)。日本語と数字が混ざるので 1 文字 = 12px で見積もる。 */
+export function estimateLabelHalfWidth(text: string, charPx = 12): number {
+  return Math.max(charPx, (text.length * charPx) / 2);
+}
+
+/**
  * 画面外のターゲットを指す矢印の位置と角度。
  * 画面中心から見た方向へ、縁に沿って配置する。
  */

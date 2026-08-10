@@ -187,7 +187,8 @@ describe('第1章の必須目標', () => {
     const required = VEIL_CH01.objectives.filter((o) => o.required).map((o) => o.spec.kind);
     expect(required).toEqual(['escortArrive', 'protect', 'timeLimit', 'reachNav']);
     const bulkhead = VEIL_CH01.objectives.find((o) => o.id === 'bulkhead')!;
-    expect(bulkhead.spec).toEqual({ kind: 'timeLimit', seconds: 300 });
+    // 計時は救難区域 (NAV 2 = index 1) 到着から始まる（T2-⑤）
+    expect(bulkhead.spec).toEqual({ kind: 'timeLimit', seconds: 300, startAtNav: 1 });
   });
 
   it('任意目標には加点（reward）が書かれている', () => {

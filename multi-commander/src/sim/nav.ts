@@ -9,6 +9,17 @@ export const AUTOPILOT_BLOCK_RANGE = 4500;
 export const AUTOPILOT_HAZARD_RANGE = 2200;
 /** オートパイロット中の巡航速度 */
 const AUTOPILOT_SPEED = 7000;
+/**
+ * オートパイロットが連れて行く味方機の範囲 (m)。
+ *
+ * 護送作戦の船団は隊列そのものに幅がある（第3章の避難船18隻）。
+ * 3000m だと隊列の端が置き去りになり、`escortArrive` が
+ * 「操作していないのに達成できない」目標になってしまうため、
+ * 到着時の間合い (`src/mission/navArrival.ts` の隊列幅上限) と
+ * 釣り合う値まで広げてある。**自機の隣にいることは依然として条件**で、
+ * 現場に置いてきた船は連れて行かない。
+ */
+export const AUTOPILOT_ESCORT_RANGE = 5200;
 
 export function nextNav(world: World): Entity | undefined {
   let best: Entity | undefined;
@@ -125,7 +136,7 @@ export function updateAutopilot(
     if (!e.alive || e.kind !== 'ship' || e.id === player.id) continue;
     if (isHostile(player.faction, e.faction)) continue;
     if (e.ship?.def.role === 'capital') continue;
-    if (e.pos.distanceTo(player.pos) > 3000) continue;
+    if (e.pos.distanceTo(player.pos) > AUTOPILOT_ESCORT_RANGE) continue;
     e.pos.addScaledVector(_dir, step);
     e.renderPrevPos.copy(e.pos);
   }

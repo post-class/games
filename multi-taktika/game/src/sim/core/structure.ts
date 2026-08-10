@@ -65,6 +65,8 @@ import {
   spawnEntity,
 } from './entity';
 import { isBuildingComplete, isWallHole, markModifiersDirty } from './effects';
+// 農地の食料ノードを載せるのに使う（`gather.ts` は `structure.ts` を import しないので輪はできない）。
+import { FARM_BUILDING_TYPE, FARM_NODE_TYPE, spawnResourceNode } from './gather';
 import { Formation, computeDamage } from './damage';
 import { invalidatePathfinder } from './pathfind';
 import {
@@ -204,11 +206,46 @@ export function applyFootprint(w: World, i: number, on: boolean): void {
 
 /**
  * 建物が完成したときの後処理（`construction.advanceConstruction` から呼ぶ）。
- * 封鎖の再適用（着工時から立てているが、置き直しに強くしておく）と付属物の生成。
+ * 封鎖の再適用（着工時から立てているが、置き直しに強くしておく）と付属物の生成、
+ * そして**農地の食料ノードの生成**。
  */
 export function onStructureCompleted(w: World, i: number): void {
   applyFootprint(w, i, true);
   attachAttachments(w, i);
+  spawnFarmNodeIfFarm(w, i);
+}
+
+/**
+ * 完成した建物が農地なら、その上に食料の資源ノードを載せる。
+ *
+ * ■ なぜ必要か（実測で見つけた抜け）
+ * `buildings.json` の農地は「**食料を継続産出**。収穫し切ると要再建」と定めているが、
+ * `spawnFarm`（建物 + ノードの対を置く関数）は**マップ生成とテストからしか
+ * 呼ばれていなかった**。プレイヤーや AI が建てた農地には食料ノードが載らず、
+ * **建てても 1 も採れない**状態だった。
+ *
+ * これは AI だけの問題ではない。人間が農地を建てても同じで、
+ * 盤上の果樹（1 マップに数個）が枯れたら食料の入り口が永久に無くなる。
+ * 実測（AI 30 分）で農地 7 面を建てたのに食料が 192 で止まり、
+ * 青銅の世の 500 に一度も届かなかったのがこれ。
+ *
+ * ノードは建物に `parent` で紐付ける（枯れたらノードだけ差し替えて再建できる。
+ * T-M4-04 の `rebuildFarmNode` が同じ形を使う）。
+ */
+function spawnFarmNodeIfFarm(w: World, i: number): void {
+  const e = w.entities;
+  if (e.typeId[i] !== FARM_BUILDING_TYPE) return;
+  // 既にノードが載っているなら二重に置かない（置き直しに強くしておく）。
+  const id = idOfIndex(e, i);
+  for (let k = 0; k < e.highWater; k++) {
+    if (!isAliveIndex(e, k)) continue;
+    if (e.kind[k] !== EntityKind.Resource) continue;
+    if (e.homeId[k] === id) return;
+  }
+  spawnResourceNode(w, FARM_NODE_TYPE, e.x[i]!, e.y[i]!, {
+    owner: e.owner[i]! as PlayerId,
+    parent: id,
+  });
 }
 
 /**

@@ -96,9 +96,52 @@ const GOLD = RESOURCE_IDS.indexOf('gold');
 
 // ---------------------------------------------------------------- 公開: 内政の判断
 
+/**
+ * 見えている資源ノードを記憶に足す（`AiMemory.nodeIds` ほか）。
+ *
+ * `AiView.seenResourceNodes` は**その瞬間に視界に入っているものだけ**なので、
+ * 覚えないと「斥候が通り過ぎた金鉱」を二度と使えない。
+ * 記憶は**発見順に足すだけ**（並べ替えない）ので、どの端末でも同じ順になる。
+ *
+ * 枯れたノードは、見えている状態で埋蔵量 0 になったときに落とす
+ * （見えていないものは判断できないので残す。使おうとして失敗しても
+ * `sim` 側が次のノードへ移してくれる ―― `economy.ts` の `seekSameResource`）。
+ */
+export function rememberNodes(ctx: AiContext): void {
+  const m = ctx.memory;
+  const seen = ctx.view.seenResourceNodes;
+  for (let k = 0; k < seen.length; k++) {
+    const n = seen[k]!;
+    let at = -1;
+    for (let i = 0; i < m.nodeIds.length; i++) {
+      if (m.nodeIds[i] === n.id) {
+        at = i;
+        break;
+      }
+    }
+    if (n.amount <= 0) {
+      // 枯れた。記憶から抜く（末尾を詰めると発見順が壊れるので splice する）
+      if (at >= 0) {
+        m.nodeIds.splice(at, 1);
+        m.nodeResource.splice(at, 1);
+        m.nodeX.splice(at, 1);
+        m.nodeY.splice(at, 1);
+      }
+      continue;
+    }
+    if (at >= 0) continue; // 既に覚えている
+    m.nodeIds.push(n.id);
+    m.nodeResource.push(n.resource);
+    m.nodeX.push(n.x);
+    m.nodeY.push(n.y);
+  }
+}
+
 /** この判断 tick に出す内政の `Command`。 */
 export function planEconomy(ctx: AiContext): Command[] {
   const cmds: Command[] = [];
+  // 見えている資源ノードを覚える（**判断より先に**。今回の割り当てに使う）。
+  rememberNodes(ctx);
   const fresh = classifyVillagers(ctx);
 
   // 1) 新しくできた村人を採集に就ける（**建てる前に採らせる**。
@@ -232,11 +275,18 @@ function pushVillagerProduction(ctx: AiContext, out: Command[]): void {
   if (own.pop >= own.popCap) return; // 上限に当たっている（`07§8`「生産ボタンが止まります」）
   // **目標数で止める。** 止めないと入ってきた資源を全部村人に変えてしまい、
   // 手持ちが 0 付近に張り付いて次の世に上がれない（`AiLevelConfig.villagerTarget` 参照）。
-  const villagers = countOwnVillagers(ctx);
-  if (villagers >= ctx.cfg.villagerTarget) return;
-  // **次の世の費用を貯める間は村人を出さない。**
-  // 出し続けると入った食料がその場で村人に変わり、進化の費用が永久に貯まらない。
-  if (villagers >= ctx.cfg.villagerBankFrom && !canAffordNextAge(ctx)) return;
+  // **目標数で止める。**
+  //
+  // 止めないと入った食料をその場で村人に変え続け、手持ちが 0 付近に張り付いて
+  // 次の世に上がれない。逆に止めるのが早すぎると採集人数が増えず、
+  // やはり上がれない ―― 実測で「12 体で貯め始める」形にしたら
+  // **村人 12 体のまま 30 分間固定**になった（費用も貯まらない）。
+  //
+  // だから貯めるための別のしきい値は持たず、**目標数まで出したら自然に止まる**
+  // 形にしている（`villagerTarget` に達したあとは食料が余り始め、
+  // その余りが次の世の費用になる）。軍事の生産も同じ目標数を待つので、
+  // 「村人を揃える → 世を上げる → 兵を出す」の順に流れる。
+  if (countOwnVillagers(ctx) >= ctx.cfg.villagerTarget) return;
   const udef = unitDefById(VILLAGER_ID);
   if (!canAfford(own.resources, VILLAGER_RESERVE)) return;
   const tc = findTownCenter(ctx);
@@ -277,7 +327,13 @@ function pickEconBuilding(ctx: AiContext): string | null {
     const house = resolveBuildingForCiv(civ, 'house');
     if (house !== null && canCivBuild(civ, house)) return house;
   }
-  const scarce = scarcestResource(ctx.view.own.resources);
+  // **次の世に足りない資源**を優先して施設を建てる。
+  //
+  // ここを `scarcestResource`（手持ちの単純比較）にしていたら、
+  // 果樹が枯れて食料が 200 で止まっているのに「石材のほうが数値が小さい」ため
+  // 農地が 1 面も建たず、青銅の世の 500 に永久に届かなかった（実測）。
+  // 農地は食料ノードを作り直せる唯一の手段なので、ここの選び方が効く。
+  const scarce = deficitOrScarcest(ctx);
   for (let k = 0; k < ECON_BUILD_ORDER.length; k++) {
     const id = ECON_BUILD_ORDER[k]!;
     if (id === 'house') continue; // 家は上で見た
@@ -523,24 +579,34 @@ function hasPrereqs(ctx: AiContext, requires: readonly string[]): boolean {
  */
 export function gatherCommandsFor(ctx: AiContext, villagers: readonly OwnEntity[]): Command[] {
   if (villagers.length === 0) return [];
-  const nodes = ctx.view.seenResourceNodes;
-  if (nodes.length === 0) return [];
-
   const m = ctx.memory;
+  // **記憶から選ぶ**（視界内だけだと拠点の周りの森と果樹しか選べない）。
+  if (m.nodeIds.length === 0) return [];
   const cmds: Command[] = [];
   for (let k = 0; k < villagers.length; k++) {
     const oe = villagers[k]!;
     const id = ctx.idOf(oe.index);
     if (id < 0) continue;
-    // **4 資源に散らす。**
+    // **半分は 4 資源に順番で、半分は「次の世に足りないもの」へ。**
     //
-    // 以前は「いちばん足りない資源」だけを狙わせていた。食料と木材は入った瞬間に
-    // 村人と家に消えるので常にこの 2 つが最下位になり、**石材と金は 30 分で 0 のまま**
-    // だった（実測）。金が入らないと鉄器の世に永久に到達しない。
-    // だから「今いちばん足りないもの」ではなく **RESOURCE_IDS を順に割り当てる**。
+    // 決め方を 2 度作り直している。経緯を残す:
+    //  1. 「いちばん足りない資源」だけを狙わせた → 食料と木材は入った瞬間に消えるので
+    //     常にこの 2 つが最下位になり、**石材と金は 30 分で 0 のまま**だった。
+    //  2. 4 資源に均等に散らした → 石材と金は入るようになったが、こんどは
+    //     **食料が 200 前後で止まり**、青銅の世の 500 に届かなかった（1/4 しか採らない）。
+    //  3. いま: 偶数番目は順番に（4 資源すべてに人が就くのを保証）、
+    //     奇数番目は**次の世の費用に対していちばん足りない資源**へ寄せる。
+    //     これで「建物に使う木と石も採れるが、進化に必要なものが優先される」形になる。
+    //
     // 割り当ては「その村人が何人目か」で決めるので乱数を使わない。
     const seq = memGet(m.gatherAssignSeq, 0) + k;
-    const want = seq % RESOURCE_IDS.length;
+    // 順番のほうは `seq / 2` で数える。
+    // **`seq % 4` にすると偶数の seq が 0 と 2 しか取らず、木材と金に誰も就かない**
+    // （実測で木材が開始値のまま・金が 50 のまま固定になった）。
+    const want =
+      seq % 2 === 0
+        ? Math.floor(seq / 2) % RESOURCE_IDS.length
+        : nextAgeDeficitResource(ctx);
     const target = nearestNodeOf(ctx, oe, want) ?? nearestNodeOf(ctx, oe, -1);
     if (target === null) break;
     cmds.push({ t: 'gather', p: ctx.playerId, units: [id], target });
@@ -554,21 +620,61 @@ export function gatherCommandsFor(ctx: AiContext, villagers: readonly OwnEntity[
  * 平方距離で比べる（平方根を取らない。§0.3）。
  */
 function nearestNodeOf(ctx: AiContext, from: OwnEntity, resource: number): EntityId | null {
-  const nodes = ctx.view.seenResourceNodes;
+  const m = ctx.memory;
   let best: EntityId | null = null;
   let bestD = Number.POSITIVE_INFINITY;
-  for (let k = 0; k < nodes.length; k++) {
-    const n = nodes[k]!;
-    if (resource >= 0 && n.resource !== resource) continue;
-    const dx = n.x - from.x;
-    const dy = n.y - from.y;
+  for (let k = 0; k < m.nodeIds.length; k++) {
+    if (resource >= 0 && m.nodeResource[k] !== resource) continue;
+    const dx = m.nodeX[k]! - from.x;
+    const dy = m.nodeY[k]! - from.y;
     const d = dx * dx + dy * dy;
     if (d < bestD) {
       bestD = d;
-      best = n.id;
+      best = m.nodeIds[k] as EntityId;
     }
   }
   return best;
+}
+
+/**
+ * 建てる施設を選ぶときの「足りない資源」。
+ * 次の世の費用に足りないものがあればそれを、無ければ手持ちがいちばん少ないものを返す。
+ */
+export function deficitOrScarcest(ctx: AiContext): number {
+  if (!canAffordNextAge(ctx)) return nextAgeDeficitResource(ctx);
+  return scarcestResource(ctx.view.own.resources);
+}
+
+/**
+ * 次の世の費用に対していちばん足りない資源（同値は `RESOURCE_IDS` 順で固定）。
+ * 足りないものが無ければ食料（いつでも人口の元になる）。
+ */
+export function nextAgeDeficitResource(ctx: AiContext): number {
+  const age = ctx.view.own.age;
+  const next = cfgAges()[age + 1];
+  const res = ctx.view.own.resources;
+  if (next === undefined) return FOOD;
+  let best = -1;
+  let bestDeficit = 0;
+  for (let r = 0; r < RESOURCE_IDS.length; r++) {
+    const need = next.cost[RESOURCE_IDS[r]!] ?? 0;
+    if (need <= 0) continue;
+    const deficit = need - fxToInt(res[r] ?? 0);
+    if (deficit > bestDeficit) {
+      bestDeficit = deficit;
+      best = r;
+    }
+  }
+  return best < 0 ? FOOD : best;
+}
+
+/** 記憶にその資源のノードがあるか（探索を続けるかの判断に使う）。 */
+export function knowsResource(ctx: AiContext, resource: number): boolean {
+  const m = ctx.memory;
+  for (let k = 0; k < m.nodeResource.length; k++) {
+    if (m.nodeResource[k] === resource) return true;
+  }
+  return false;
 }
 
 /**
@@ -618,6 +724,11 @@ export function planAgeAdvance(ctx: AiContext): Command | null {
  */
 export function planMarketTrade(ctx: AiContext): Command | null {
   const res = ctx.view.own.resources;
+  // **次の世の費用を売り払わない。**
+  // 鉄器の世は金 200 を要求するが、以前はここで金を売り続けて
+  // 金が 90〜100 に張り付き、永久に届かなかった（実測で交換 133 回）。
+  // 貯めている最中に貯めているものを手放すのは、どんな相場でも損。
+  if (!canAffordNextAge(ctx)) return null;
   const goldUnits = fxToInt(res[GOLD]!);
   if (goldUnits < GOLD_SURPLUS_UNITS) return null;
   const scarce = scarcestResource(res);

@@ -49,8 +49,15 @@ export type ObjectiveSpec =
    * 「撮影」なので撃つ必要はないが、逃げられると撮り直しになる。
    */
   | { kind: 'recon'; tag: string; seconds?: number; range?: number; coneDeg?: number }
-  /** 制限時間。超過すると失敗する (時間制限つき防衛や強襲に使う) */
-  | { kind: 'timeLimit'; seconds: number }
+  /**
+   * 制限時間。超過すると失敗する (時間制限つき防衛や強襲に使う)。
+   *
+   * `startAtNav` を宣言すると、その Nav に到達した瞬間から計時を始める (T2-⑤)。
+   * 現場まで 60〜90 秒かかる作戦で、移動時間を制限時間に含めないための宣言。
+   * 到達前は「残り <seconds>s (<Nav名>到達後に開始)」と表示し、失敗判定を行わない。
+   * 省略時は従来どおり**ミッション開始から**計時する。
+   */
+  | { kind: 'timeLimit'; seconds: number; startAtNav?: number }
   /**
    * 誤射禁止。自機の射撃が味方・非敵対勢力に命中した回数が 0 であること (第2章)。
    * 1発でも当てた時点で失敗する。

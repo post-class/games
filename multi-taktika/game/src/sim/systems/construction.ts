@@ -61,7 +61,6 @@ import {
 } from '../core/effects';
 import {
   applyFootprint,
-  attachAttachments,
   garrisonVolley,
   onStructureCompleted,
   onStructureRemoved,
@@ -213,9 +212,11 @@ export function spawnBuilding(w: World, p: PlayerId, buildingId: string, x: Fx, 
   });
   const idx = resolveIndex(w.entities, id);
   w.entities.buildProgress[idx] = PROGRESS_DONE;
-  // 完成済みで置くので、封鎖・城壁上の高低・付属物まで一気に整える（M10）。
-  applyFootprint(w, idx, true);
-  attachAttachments(w, idx);
+  // 完成済みで置くので、完成時の後処理をそのまま通す。
+  // **個別に `applyFootprint` + `attachAttachments` を書かない** ―― 建設で完成した
+  // ときと事前配置で処理が食い違うと、片方だけ抜ける（実測: 農地の食料ノードが
+  // 建設経路では載らなかった）。完成時にやることは 1 か所に集める。
+  onStructureCompleted(w, idx);
   markModifiersDirty(w, p);
   recomputeFrontSlots(w, p);
   return id;
