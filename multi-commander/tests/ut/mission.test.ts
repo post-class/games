@@ -12,7 +12,11 @@ import {
 import { MISSIONS, missionDef } from '../../src/content/missions';
 import { reseed } from '../../src/core/rng';
 import { bus } from '../../src/core/events';
-import { MissionRunner } from '../../src/mission/MissionRunner';
+import {
+  LAUNCH_SPEED,
+  LAUNCH_THROTTLE,
+  MissionRunner,
+} from '../../src/mission/MissionRunner';
 import type { MissionDef } from '../../src/mission/types';
 import { newAi } from '../../src/sim/ai';
 import { destroyEntity, setCombatOptions } from '../../src/sim/combat';
@@ -386,21 +390,22 @@ describe('逃走した敵の扱い', () => {
 });
 
 describe('難易度の効き方', () => {
-  // T2-⑤: どの難易度でも出撃時のスロットルは 0% にしない
+  // T2-⑤: どの難易度でも出撃時のスロットル（速度設定）は 0% にしない
   // （0% だと発艦後に止まったままタイマーだけが減る）。
-  // やさしいの初速は据え置きなので、難易度の差は残っている。
-  it('出撃時は必ず巡航速度から始まり、やさしいがいちばん速い', () => {
+  // W1（07_更なる改善）で実初速は難易度に依らず LAUNCH_SPEED になったので、
+  // 難易度の差は速度設定（やさしい 50% / それ以外 LAUNCH_THROTTLE）に残る。
+  it('出撃時の実初速は LAUNCH_SPEED で、速度設定はやさしいがいちばん高い', () => {
     const def = missionDef('m1-patrol');
     const easy = start(def, 'easy');
     const normal = start(def, 'normal');
     const hard = start(def, 'hard');
-    expect(normal.world.player!.vel.length()).toBeGreaterThan(0);
-    expect(hard.world.player!.vel.length()).toBeGreaterThan(0);
-    expect(easy.world.player!.vel.length()).toBeGreaterThan(
-      normal.world.player!.vel.length(),
-    );
-    // スロットルも同じ値から作られている（HUD の THR と実挙動が一致する）
-    expect(normal.world.player!.input!.throttle).toBeGreaterThan(0);
+    for (const s of [easy, normal, hard]) {
+      expect(s.world.player!.vel.length()).toBeCloseTo(LAUNCH_SPEED, 6);
+    }
+    // 速度設定は巡航値から始まる（HUD の SET SPD と実挙動が同じ出所）
+    expect(normal.world.player!.input!.throttle).toBe(LAUNCH_THROTTLE);
+    expect(hard.world.player!.input!.throttle).toBe(LAUNCH_THROTTLE);
+    expect(easy.world.player!.input!.throttle).toBeGreaterThan(LAUNCH_THROTTLE);
   });
 
   it('やさしいではウェーブの投入が遅い', () => {

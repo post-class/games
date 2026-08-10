@@ -491,3 +491,61 @@ export function reachableCampaignNodes(start: CampaignNodeId, mode: CampaignMode
   visit(start);
   return [...seen];
 }
+
+/** 章の中でのミッションの位置。1章に1本しか無い章では total が 1 になる。 */
+export interface ChapterPosition {
+  chapter: number;
+  totalChapters: number;
+  /** 章内の 1-based 序数 */
+  index: number;
+  /** 章内のミッション総数 */
+  total: number;
+}
+
+/**
+ * 章の中で、そのノードが何本目のミッションかを返す。
+ *
+ * 章内の並び順は「勝ちルート優先 → ノード id 昇順」で安定させる。
+ * グラフの到達順で並べないのは、敗北ルートを含む章では順路が枝分かれし、
+ * 「何本目」が経路によって変わってしまうため。
+ * ここは表示のための安定した番号であり、進行の順序そのものではない。
+ *
+ * 終端（victory / defeat）はグラフにノードが無いので、呼び出し側で
+ * `isTerminal()` を先に見る。ここはノードが存在する前提でよい
+ * （`campaignNode()` の既存の振る舞いに合わせ、無ければ投げる）。
+ */
+export function chapterPosition(
+  id: CampaignNodeId,
+  mode: CampaignMode = 'expanded',
+): ChapterPosition {
+  const graph = campaignGraph(mode);
+  const node = campaignNode(id, mode);
+  const siblings = Object.keys(graph)
+    .filter((key) => graph[key].chapter === node.chapter)
+    .sort((a, b) => {
+      // 勝ちルート（losingRoute なし）を先に、その中は id の辞書順で固定する
+      const la = graph[a].losingRoute ? 1 : 0;
+      const lb = graph[b].losingRoute ? 1 : 0;
+      return la - lb || (a < b ? -1 : a > b ? 1 : 0);
+    });
+  return {
+    chapter: node.chapter,
+    totalChapters: totalChapters(mode),
+    index: Math.max(1, siblings.indexOf(id) + 1),
+    total: Math.max(1, siblings.length),
+  };
+}
+
+/**
+ * 「いま何章の何本目か」の表示文（W6）。
+ *
+ * ポーズ画面とブリーフィング画面が同じ文字列を使うため、組み立てはここ1か所に置く
+ * （App 側は DOM 依存で単体テストしづらいので、純関数として切り出している）。
+ * 章内に1本しか無い章（veil の全章）では章内表記を省く
+ * （「1本目/全1本」は情報が無いのに横幅を食う）。
+ */
+export function chapterProgressText(position: ChapterPosition): string {
+  const chapter = `第${position.chapter}章 / 全${position.totalChapters}章`;
+  const within = position.total > 1 ? `　ミッション ${position.index}/${position.total}` : '';
+  return `${chapter}${within}`;
+}

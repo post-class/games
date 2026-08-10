@@ -1,6 +1,7 @@
 import {
   BoxGeometry,
   CylinderGeometry,
+  DoubleSide,
   Euler,
   Group,
   MeshBasicMaterial,
@@ -16,6 +17,14 @@ import {
 } from 'three';
 import { PartBuilder } from './PartBuilder';
 import { textureAlpha } from './textures';
+/*
+ * 表示方法の型だけを設定モジュールから借りる。
+ * `import type` にしているのは、描画側が設定モジュールの実体
+ * (localStorage を触る初期化) に依存しないようにするため。
+ * (render → app の実体 import は CameraRig などに既にあるので循環にはならないが、
+ *  ここは型だけで足りる)
+ */
+import type { CockpitStyle } from '../app/settings';
 
 /**
  * コクピット内装。カメラに追従させ、機体と一緒に揺れるようにする。
@@ -54,9 +63,19 @@ const LAMP_R = 'lampR';
 const PANEL_ART = 'panelArt';
 const PANEL_WEAR = 'panelWear';
 const RIVET = 'rivet';
+/** 風防のガラス。骨組みの間に張る面。奥のものを隠さないので depthWrite しない */
+export const GLASS = 'glass';
+
+/**
+ * ガラスの既定の濃さ。
+ * 0 にすると完全な素通しで「ガラスが無い」ように見え、
+ * 0.25 を超えると遠方の敵機 (画面上 10px 前後) が沈むので上限を 0.25 とする。
+ */
+export const GLASS_OPACITY = 0.1;
+export const GLASS_OPACITY_MAX = 0.25;
 
 /*
- * 内装のマテリアルは 6種だけ (FRAME / FRAME_DARK / RIVET / PANEL / SCREEN / ランプ)。
+ * 内装のマテリアルは 7種だけ (FRAME / FRAME_DARK / RIVET / PANEL / SCREEN / ランプ / GLASS)。
  * PartBuilder がマテリアル単位でジオメトリを畳むので、この 6種の中で部品を増やす限り
  * ドローコールは増えない。新しい色を足すたびに 1ドローコール増えるので足さない。
  *
@@ -82,6 +101,28 @@ function material(key: string) {
         metalness: 0.08,
         envMapIntensity: 0.12,
         flatShading: true,
+      });
+    case GLASS:
+      /*
+       * 板ガラス。透過は「素材の透明度」ではなく **描かない** ことで作る。
+       * MeshPhysicalMaterial の transmission は屈折レンダーターゲットを毎フレーム焼くので、
+       * 至近距離に 3枚 (天蓋 + 側壁 2枚) 置くと描画コストが跳ねる。
+       * ここは「淡い映り込みが載った透明な板」に見えれば足りるので、
+       * 環境マップを受ける標準マテリアルを低い opacity で使う。
+       *
+       * depthWrite: false — ガラスの背後の敵機・曳光弾・母艦を消さないため。
+       *   (深度を書くと、後から描かれる不透明物がガラス面で捨てられる場合がある)
+       * side: DoubleSide — 板が薄い箱なので、内側から見ても面が消えないようにする。
+       */
+      return new MeshStandardMaterial({
+        color: 0x9fc4d8,
+        transparent: true,
+        opacity: GLASS_OPACITY,
+        roughness: 0.08,
+        metalness: 0,
+        envMapIntensity: 0.9,
+        depthWrite: false,
+        side: DoubleSide,
       });
     case RIVET:
       return new MeshStandardMaterial({
@@ -192,10 +233,48 @@ export type CockpitGeoKind = 'box' | 'tube' | 'sphere' | 'plane';
 
 /**
  * 部品の役割。
- * 'frame' = 風防の枠・柱・天蓋・側壁 (中央 60% の外に置く)
+ * 'frame' = 骨組み (柱・桁・リブ・リベット。中央 60% の外に置く)
+ * 'glass' = 風防のガラス面 (天蓋・側壁)
  * 'dash'  = 計器盤の筐体 (DOM 計器盤の上端より下に置く)
  */
-export type CockpitZone = 'frame' | 'dash';
+export type CockpitZone = 'frame' | 'glass' | 'dash';
+
+/** zone の一覧。グループを組む順序でもある (ガラスは骨組みの後に描く)。 */
+export const COCKPIT_ZONES: readonly CockpitZone[] = ['frame', 'glass', 'dash'];
+
+/**
+ * 表示方法 (`settings.cockpitStyle`) から、出す zone の集合を出す純関数 (W4)。
+ *
+ * `Cockpit` は Three 依存でテストしづらいので、
+ * 「どの表示方法でどの zone を出すか」の対応表だけをここへ切り出してテストする。
+ *
+ * 'full'  … 骨組み + ガラス + 計器盤 (既定。機体に乗っている構図)
+ * 'glass' … ガラス + 計器盤 (骨組みを消して視界を最大にする)
+ * 'frame' … 骨組み + 計器盤 (ガラスの映り込みを消す)
+ * 'dash'  … 計器盤のみ (旧「コクピット表示 OFF」に近い見え方)
+ * 'off'   … 何も出さない
+ *
+ * 計器盤は 'off' 以外では必ず出す (DOM 側の計器と繋がって見える面なので、
+ * これを消すと計器が宙に浮く)。
+ */
+export function visibleZones(style: CockpitStyle): Set<CockpitZone> {
+  if (style === 'off') return new Set<CockpitZone>();
+  const zones = new Set<CockpitZone>(['dash']);
+  if (style === 'full' || style === 'frame') zones.add('frame');
+  if (style === 'full' || style === 'glass') zones.add('glass');
+  return zones;
+}
+
+/**
+ * このマテリアルは奥のものを隠すか。
+ *
+ * 「ガラスは奥を隠さない」という W3 の前提の根拠をここ 1か所に集める。
+ * `opaqueBlockers()` の判定も、GLASS マテリアルの depthWrite: false も、
+ * 同じ「GLASS だけが素通し」という約束に基づく。
+ */
+export function isOpaqueCockpitMaterial(mat: string): boolean {
+  return mat !== GLASS;
+}
 
 /** 内装の部品 1つ。位置・向き・寸法だけを持つ純データ (検証できるように外へ出す)。 */
 export interface CockpitPart {
@@ -313,10 +392,12 @@ export function cockpitParts(): CockpitPart[] {
 
   // ── 天蓋 (開口部の上辺からカメラ側へ後退する天井) ──
   // 遠端が上辺の高さ、近端は画面の上へ抜ける。近端の距離は 0.75 で near(0.5) より手前。
-  p.push(part('box', FRAME_DARK, {
+  // W3: 不透明な板から気密風防のガラスへ変えた。位置・寸法・回転は変えていない。
+  p.push(part('box', GLASS, {
     pos: [0, 0.828, -1.07],
     scale: [3.7, 0.09, 0.7],
     rot: [-0.3, 0, 0],
+    zone: 'glass',
   }));
   // 天井の桁 (遠近が分かるように 2本)
   p.push(part('box', FRAME, { pos: [0, 0.711, -1.22], scale: [3.4, 0.055, 0.075], rot: [-0.3, 0, 0] }));
@@ -330,16 +411,20 @@ export function cockpitParts(): CockpitPart[] {
 
   // ── 側壁 (柱の外側からカメラ側へ後退する壁) ──
   // rot.y でカメラ側へ広がらせ、画面の外へ抜けさせる。
-  p.push(...mirrored('box', FRAME_DARK, {
+  // W3: 不透明な壁から気密風防のガラスへ変えた。位置・寸法・回転は変えていない。
+  p.push(...mirrored('box', GLASS, {
     pos: [1.455, -0.05, -1.07],
     scale: [0.12, 2.2, 0.72],
     rot: [0, 0.25, 0],
+    zone: 'glass',
   }));
   /*
-   * 側壁のリブ。
-   * 壁は 1枚の広い面なので、そのままだと明るい灰色のスラブに見える。
-   * 壁の内側に、奥から手前へ 3本の縦リブ (壁より明るい FRAME) を立てて
-   * 継ぎ目と陰影を作る。壁の x は rot.y 0.25 のぶん奥ほど内側へ寄るので、
+   * ガラスを支える縦桟 (マリオン)。
+   * 以前は「無地の壁に陰影を作るリブ」だったが、W3 で壁をガラスへ置き換えたため、
+   * ガラスの継ぎ目を示す構造材として残している。本数と位置は変えていない
+   * (3本より増やすと視界が桟で切れる)。
+   *
+   * 位置の出し方は従来どおり。壁の x は rot.y 0.25 のぶん奥ほど内側へ寄るので、
    * 世界座標 x = 1.455 + 0.2474 * z0 / 世界座標 z = -1.07 + 0.9689 * z0 に沿わせ、
    * そこから 0.07 だけ内側 (機内側) へ出す。
    */
@@ -517,6 +602,43 @@ export function partNdcBounds(p: CockpitPart, view: ViewSpec): {
 }
 
 /**
+ * 部品が画面上で占める面積。画面全体 (NDC で 2×2 = 4) を 1 とした割合を返す。
+ *
+ * `partNdcBounds()` の外接矩形で測る。細長い桁は矩形でも細長いままなので、
+ * 「大面積で塞いでいるか」の判定にはこれで足りる。
+ * 画面の外へ抜ける部品は矩形が画面外まで伸びるが、そのぶんを切り落とすと
+ * ガラス面 (左右・上へ大きく抜ける) の面積まで小さく見えてしまうので切らない。
+ * 代わりに、画面と全く重ならない部品は 0 とする。
+ */
+export function partNdcArea(p: CockpitPart, view: ViewSpec): number {
+  const b = partNdcBounds(p, view);
+  // 画面 (|NDC| <= 1) と重ならない部品は何も塞いでいない
+  if (b.maxX < -1 || b.minX > 1 || b.maxY < -1 || b.minY > 1) return 0;
+  return ((b.maxX - b.minX) * (b.maxY - b.minY)) / 4;
+}
+
+/**
+ * 開口部の外側で、視界を塞ぐ不透明な大面積の部品を返す。
+ *
+ * 「側壁・天蓋がガラスになった」ことを機械的に固定するための検証用。
+ * 画面上の面積 (`partNdcArea()`、画面全体を 1 とした割合) が `minNdcArea` 以上で、
+ * かつ不透明なマテリアル (`isOpaqueCockpitMaterial()`) を持つ部品を返す。
+ * `zone === 'dash'` は計器盤なので、下側を覆うのが役目であり除外する。
+ *
+ * 既定の 0.25 は「画面の 1/4 以上を 1部品で塞いでいる」の意味。
+ * 骨組み (柱・桁・縦桟) はいちばん大きいものでも 0.21 程度 (4:3 の壁と天蓋の境の桁) で
+ * 掛からず、天蓋・側壁を不透明へ戻すと 1.1 を超えて必ず掛かる。
+ */
+export function opaqueBlockers(view: ViewSpec, minNdcArea = 0.25): CockpitPart[] {
+  return cockpitParts().filter(
+    (p) =>
+      p.zone !== 'dash' &&
+      isOpaqueCockpitMaterial(p.mat) &&
+      partNdcArea(p, view) >= minNdcArea,
+  );
+}
+
+/**
  * 部品が画面中央の矩形へ入り込んでいるか。
  *
  * 部品は箱なので投影した 8点の凸包が画面上の形になる。
@@ -582,24 +704,55 @@ function geometryOf(kind: CockpitGeoKind) {
   }
 }
 
-function buildInterior(): Object3D {
-  const b = new PartBuilder();
-  for (const p of cockpitParts()) {
-    b.add(geometryOf(p.geo), p.mat, {
-      pos: [p.pos[0], p.pos[1], p.pos[2]],
-      rot: [p.rot[0], p.rot[1], p.rot[2]],
-      scale: [p.scale[0], p.scale[1], p.scale[2]],
-    });
-  }
+/**
+ * zone ごとに 3グループへ組む。
+ *
+ * 表示方法の切替 (W4) で zone 単位に出し入れするため、1つの Object3D ではなく
+ * frame / glass / dash の 3グループを返す。
+ *
+ * マテリアルのキャッシュ (`materials`) は **3グループで共有する**。
+ * グループごとに新しいマテリアルを作ると、同じ色でも別マテリアル扱いになって
+ * ドローコールが 3倍になる。
+ *
+ * ガラスのマテリアルは W4 の `setGlassOpacity()` で濃さを変えるので、
+ * キャッシュから取り出して一緒に返す (グループを掘り返さずに 1か所へ代入するため)。
+ */
+function buildInterior(): {
+  frame: Object3D;
+  glass: Object3D;
+  dash: Object3D;
+  glassMaterial: ReturnType<typeof material> | undefined;
+} {
   const materials = new Map<string, ReturnType<typeof material>>();
-  return b.build((key) => {
+  const get = (key: string) => {
     let m = materials.get(key);
     if (!m) {
       m = material(key);
       materials.set(key, m);
     }
     return m;
-  });
+  };
+  const parts = cockpitParts();
+  const buildZone = (zone: CockpitZone) => {
+    const b = new PartBuilder();
+    for (const p of parts) {
+      if (p.zone !== zone) continue;
+      b.add(geometryOf(p.geo), p.mat, {
+        pos: [p.pos[0], p.pos[1], p.pos[2]],
+        rot: [p.rot[0], p.rot[1], p.rot[2]],
+        scale: [p.scale[0], p.scale[1], p.scale[2]],
+      });
+    }
+    const g = b.build(get);
+    g.name = `cockpit-${zone}`;
+    return g;
+  };
+  const zones = {
+    frame: buildZone('frame'),
+    glass: buildZone('glass'),
+    dash: buildZone('dash'),
+  };
+  return { ...zones, glassMaterial: materials.get(GLASS) };
 }
 
 /**
@@ -610,13 +763,32 @@ function buildInterior(): Object3D {
  */
 export class Cockpit {
   readonly root = new Group();
-  private interior: Object3D;
-  private visible = true;
+  /**
+   * zone ごとのグループ。W4 の表示方法 (`cockpitStyle`) で個別に出し入れするため、
+   * 外から参照できるようにしてある。マテリアルは 3グループで共有している。
+   */
+  readonly frameGroup: Object3D;
+  readonly glassGroup: Object3D;
+  readonly dashGroup: Object3D;
+  /** 現在の表示方法。組み立て直後は全部出ているので 'full' から始める。 */
+  private style: CockpitStyle = 'full';
+  /** 現在出している zone。`setGlassOpacity()` と判定を共有するために保持する。 */
+  private zones = visibleZones('full');
+  /**
+   * ガラスの濃さ (0..1)。初期値は「マテリアルの既定 `GLASS_OPACITY` と同じ比率」。
+   * こうしておくと、設定の既定値 (0.4) が来たときにマテリアルへ代入せずに済む。
+   */
+  private glassRatio = GLASS_OPACITY / GLASS_OPACITY_MAX;
+  private glassMaterial: ReturnType<typeof material> | undefined;
   private glow: PointLight;
 
   constructor(scene: Scene, private camera: PerspectiveCamera) {
-    this.interior = buildInterior();
-    this.root.add(this.interior);
+    const interior = buildInterior();
+    this.frameGroup = interior.frame;
+    this.glassGroup = interior.glass;
+    this.dashGroup = interior.dash;
+    this.glassMaterial = interior.glassMaterial;
+    this.root.add(this.frameGroup, this.glassGroup, this.dashGroup);
     // 計器盤の下から当てる淡い光。太陽の向きに関わらず内装の形が読めるようにする
     this.glow = new PointLight(0x8fd8c0, 1.3, 3.2, 2);
     this.glow.position.set(0, -0.5, -0.9);
@@ -630,9 +802,13 @@ export class Cockpit {
     this.camera.add(this.root);
     scene.add(this.camera);
     this.syncToView();
-    // 画角・画面比が変わっても構図を保つ。描画直前に見て次フレームへ反映する
-    for (const child of this.interior.children) {
-      child.onBeforeRender = () => this.syncToView();
+    // 画角・画面比が変わっても構図を保つ。描画直前に見て次フレームへ反映する。
+    // zone ごとに 3グループへ分けたので、3グループすべての子へ登録する
+    // (どの zone だけが表示されていても補正が掛かるようにするため)。
+    for (const group of [this.frameGroup, this.glassGroup, this.dashGroup]) {
+      for (const child of group.children) {
+        child.onBeforeRender = () => this.syncToView();
+      }
     }
   }
 
@@ -661,11 +837,59 @@ export class Cockpit {
     this.glow.intensity = 1.3 + t * 0.5;
   }
 
-  setVisible(v: boolean): void {
-    // 毎フレーム呼ばれる経路なので、ここでも構図の補正を掛けておく
+  /**
+   * 表示方法 (W4) を反映する。
+   *
+   * 毎フレーム呼ばれる経路なので、同じ値なら zone の出し入れは飛ばす。
+   * ただし構図の補正 (`syncToView()`) は画角・画面比が動くので毎回掛ける。
+   */
+  setStyle(style: CockpitStyle): void {
     this.syncToView();
-    if (this.visible === v) return;
-    this.visible = v;
-    this.root.visible = v;
+    if (this.style === style) return;
+    this.style = style;
+    this.zones = visibleZones(style);
+    this.root.visible = style !== 'off';
+    this.frameGroup.visible = this.zones.has('frame');
+    this.dashGroup.visible = this.zones.has('dash');
+    this.applyGlassVisible();
+    // 計器盤の下からの光。内装が出ていないときに光だけ残ると外部視点が明るくなる
+    this.glow.visible = style !== 'off';
+  }
+
+  /**
+   * ガラスの濃さを反映する (W4)。`ratio01` は設定の `glassOpacity` (0..1)。
+   * 実効の不透明度は `ratio01 × GLASS_OPACITY_MAX`。
+   *
+   * `setStyle()` と同じ毎フレーム経路から呼ばれる前提なので、
+   * 値が変わっていないときはマテリアルへ代入しない。
+   */
+  setGlassOpacity(ratio01: number): void {
+    const ratio = Math.max(0, Math.min(1, Number.isFinite(ratio01) ? ratio01 : 0));
+    if (this.glassRatio === ratio) return;
+    this.glassRatio = ratio;
+    if (this.glassMaterial) this.glassMaterial.opacity = ratio * GLASS_OPACITY_MAX;
+    this.applyGlassVisible();
+  }
+
+  /**
+   * ガラス面を出すかどうか。
+   *
+   * **表示方法と濃さの AND で決める (どちらか一方でも「出さない」なら出さない)。**
+   * 濃さ 0 は「完全な素通し」なので、描いても見た目が変わらない。
+   * `visible = false` にして描画自体を省く (透明な面でも半透明パスは走るため)。
+   * 逆に濃さが 0 でなくても、表示方法が 'frame' / 'dash' / 'off' ならガラスは出さない。
+   */
+  private applyGlassVisible(): void {
+    this.glassGroup.visible = this.zones.has('glass') && this.glassRatio > 0;
+  }
+
+  /**
+   * 内装全体の表示/非表示 (旧 API)。
+   *
+   * W4 で表示方法が 5値になったので、`setStyle()` へ委譲する薄いラッパとして残す。
+   * 呼び出し元 (`game.ts`) が `setStyle()` へ移ったら削除できる。
+   */
+  setVisible(v: boolean): void {
+    this.setStyle(v ? 'full' : 'off');
   }
 }

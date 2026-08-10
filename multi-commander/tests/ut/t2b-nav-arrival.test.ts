@@ -19,7 +19,7 @@ import { VEIL_CH04 } from '../../src/content/veil/missions/ch04';
 import { VEIL_CH06 } from '../../src/content/veil/missions/ch06';
 import { VEIL_CH07 } from '../../src/content/veil/missions/ch07';
 import { reseed } from '../../src/core/rng';
-import { MissionRunner } from '../../src/mission/MissionRunner';
+import { LAUNCH_SPEED, MissionRunner } from '../../src/mission/MissionRunner';
 import {
   NAV_ARRIVE_TARGET_RANGE,
   navArrivalRanges,
@@ -344,12 +344,17 @@ describe('出撃時のスロットル', () => {
     }
   });
 
-  it('やさしいの初速はいちばん速い (難易度の差は残る)', () => {
-    const easy = start(VEIL_CH01, 'easy').world.player!.vel.length();
-    const normal = start(VEIL_CH01, 'normal').world.player!.vel.length();
-    const hard = start(VEIL_CH01, 'hard').world.player!.vel.length();
-    expect(easy).toBeGreaterThan(normal);
-    expect(normal).toBe(hard);
+  // W1（07_更なる改善）で実初速は難易度に依らず LAUNCH_SPEED になった。
+  // 難易度の差は速度設定（やさしいがいちばん高い）に残る。
+  it('実初速は難易度共通で、速度設定はやさしいがいちばん高い', () => {
+    const easy = start(VEIL_CH01, 'easy').world.player!;
+    const normal = start(VEIL_CH01, 'normal').world.player!;
+    const hard = start(VEIL_CH01, 'hard').world.player!;
+    for (const p of [easy, normal, hard]) {
+      expect(p.vel.length()).toBeCloseTo(LAUNCH_SPEED, 6);
+    }
+    expect(easy.input!.throttle).toBeGreaterThan(normal.input!.throttle);
+    expect(normal.input!.throttle).toBe(hard.input!.throttle);
   });
 });
 

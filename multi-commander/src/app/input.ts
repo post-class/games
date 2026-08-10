@@ -5,9 +5,12 @@ import { DEFAULT_KEY_BINDINGS, settings, type ControlBinding } from './settings'
 /** エッジ入力 (押した瞬間に1回だけ効くもの) */
 export type InputAction =
   | 'fireMissile'
+  | 'manualLock'
+  | 'speedMatch'
   | 'targetNext'
   | 'targetNearest'
   | 'targetFront'
+  | 'targetReticle'
   | 'autopilot'
   | 'comms'
   | 'damageDisplay'
@@ -35,6 +38,32 @@ export type InputAction =
 
 const THROTTLE_KEY_RATE = 0.9; // 毎秒
 const THROTTLE_KEY_STEP = 0.1; // キーを1回押すごとの変化量
+
+/**
+ * 速度設定キーの別名 (W7-2)。
+ *
+ * 方針書どおり `+` `-` を既定にしつつ、これまでの `]` `[` と
+ * テンキーの `+` `-` も従来どおり効かせる。
+ * **既定から割り当てを変えた人には別名を効かせない**（自分で選んだキーだけが効く）。
+ * 単押し (`handleEdge`) と押しっぱなし (`update`) の両方が同じ表を見るので、
+ * 「押し続けたときだけ `+` が効く」という以前のずれが起きない。
+ */
+const THROTTLE_ALIASES: Record<'throttleUp' | 'throttleDown', readonly string[]> = {
+  throttleUp: ['Equal', 'NumpadAdd', 'BracketRight'],
+  throttleDown: ['Minus', 'NumpadSubtract', 'BracketLeft'],
+};
+
+/**
+ * Alt + キー → 通信メニューの項目番号 (1..5)。方針書の Alt+F/A/B/H/R に対応する (W7-6)。
+ * メニューを開かずに僚機命令を出すためのショートカット。
+ */
+const ALT_WING_ORDERS: Record<string, number> = {
+  KeyF: 1,
+  KeyA: 2,
+  KeyB: 3,
+  KeyH: 4,
+  KeyR: 5,
+};
 
 /**
  * 操縦を代行する入力 (チュートリアルのお手本モード)。
@@ -268,17 +297,37 @@ export class InputManager {
       return;
     }
 
-    for (const [binding, action] of EDGE_BINDINGS) {
-      if (this.bound(binding, code)) this.actions.push(action);
+    /*
+     * 修飾キー付きの入力は「別の操作」として扱う (W7-6)。
+     *
+     * Alt+A / Alt+F / Alt+R は僚機命令だが、`EDGE_BINDINGS` は修飾キーを見ないので
+     * ここで分けないと Alt+A でオートパイロットも同時に走ってしまう。
+     * 脱出が Alt/Ctrl + E をロール (KeyE) と二重に走らせない現状の作りとも整合する。
+     */
+    const modified = ev.altKey || ev.ctrlKey;
+    if (!modified) {
+      for (const [binding, action] of EDGE_BINDINGS) {
+        if (this.bound(binding, code)) this.actions.push(action);
+      }
     }
     // 脱出は誤操作が致命的なので、従来どおり Alt/Ctrl + E に固定する。
-    if (code === 'KeyE' && (ev.altKey || ev.ctrlKey)) this.actions.push('eject');
+    if (code === 'KeyE' && modified) this.actions.push('eject');
+    // 僚機命令の Alt 系ショートカット。数字キー経路と同じ action を積むので、
+    // 実際の処理は `Game.handleActions()` の 1 か所のまま。
+    if (ev.altKey && !ev.ctrlKey) {
+      const index = ALT_WING_ORDERS[code];
+      if (index !== undefined) {
+        ev.preventDefault();
+        this.actions.push(`comms${index}` as InputAction);
+      }
+    }
+    if (modified) return;
     if (this.bound('throttleMax', code)) this.throttle = 1;
     if (this.bound('throttleStop', code)) this.throttle = 0;
     // キーを短くタップした場合も操作として成立させる。押しっぱなし時は
     // update() の連続入力も加わるため、細かい調整と大きな変更の両方に対応できる。
-    if (this.bound('throttleUp', code)) this.throttle = clamp01(this.throttle + THROTTLE_KEY_STEP);
-    if (this.bound('throttleDown', code)) this.throttle = clamp01(this.throttle - THROTTLE_KEY_STEP);
+    if (this.throttleKeyHit('throttleUp', code)) this.throttle = clamp01(this.throttle + THROTTLE_KEY_STEP);
+    if (this.throttleKeyHit('throttleDown', code)) this.throttle = clamp01(this.throttle - THROTTLE_KEY_STEP);
 
     if (code.startsWith('Digit')) {
       const n = Number(code.slice(5));
@@ -306,14 +355,8 @@ export class InputManager {
     }
     this.pendingInputEvents.length = 0;
     if (this.uiMode) return;
-    const up =
-      this.keys.has(settings.keyBindings.throttleUp) ||
-      (settings.keyBindings.throttleUp === DEFAULT_KEY_BINDINGS.throttleUp &&
-        (this.keys.has('Equal') || this.keys.has('NumpadAdd')));
-    const down =
-      this.keys.has(settings.keyBindings.throttleDown) ||
-      (settings.keyBindings.throttleDown === DEFAULT_KEY_BINDINGS.throttleDown &&
-        (this.keys.has('Minus') || this.keys.has('NumpadSubtract')));
+    const up = this.throttleKeyHeld('throttleUp');
+    const down = this.throttleKeyHeld('throttleDown');
     if (up) this.throttle = clamp01(this.throttle + THROTTLE_KEY_RATE * dt);
     if (down) this.throttle = clamp01(this.throttle - THROTTLE_KEY_RATE * dt);
     if (this.gamepad && settings.gamepadThrottle && this.gamepadThrottleAxis !== 0) {
@@ -425,6 +468,16 @@ export class InputManager {
     return this.keys.has(settings.keyBindings.afterburner) || this.gamepadHeld(10);
   }
 
+  /**
+   * 後方視点キーを押しているか (W7-7)。
+   *
+   * エッジ入力ではなく押しっぱなしで読む (アフターバーナーと同じ扱い)。
+   * `onBlur` で `keys` を空にするので、押したままタブを離れても前向きへ戻る。
+   */
+  get rearView(): boolean {
+    return this.keys.has(settings.keyBindings.rearView);
+  }
+
   get firePrimary(): boolean {
     if (this.scripted) return this.scripted.firePrimary;
     return this.keys.has(settings.keyBindings.firePrimary) || this.mouseButtons.has(0) || this.gamepadValue(7) > 0.12;
@@ -448,6 +501,21 @@ export class InputManager {
     return settings.keyBindings[binding] === code;
   }
 
+  /** 速度設定キー (別名込み) が押されたか。単押しの判定に使う。 */
+  private throttleKeyHit(binding: 'throttleUp' | 'throttleDown', code: string): boolean {
+    if (this.bound(binding, code)) return true;
+    // 割り当てを変えている人には別名を効かせない
+    if (settings.keyBindings[binding] !== DEFAULT_KEY_BINDINGS[binding]) return false;
+    return THROTTLE_ALIASES[binding].includes(code);
+  }
+
+  /** 速度設定キー (別名込み) を押しているか。押しっぱなしの判定に使う。 */
+  private throttleKeyHeld(binding: 'throttleUp' | 'throttleDown'): boolean {
+    if (this.keys.has(settings.keyBindings[binding])) return true;
+    if (settings.keyBindings[binding] !== DEFAULT_KEY_BINDINGS[binding]) return false;
+    return THROTTLE_ALIASES[binding].some((code) => this.keys.has(code));
+  }
+
   private shouldPreventDefault(code: string): boolean {
     if (
       code === 'Tab' ||
@@ -465,6 +533,10 @@ export class InputManager {
       code === 'Minus' ||
       code === 'NumpadAdd' ||
       code === 'NumpadSubtract' ||
+      // 速度設定の別名 (W7-2)。既定が `+` `-` になったので、`]` `[` は
+      // keyBindings に載らなくなった。ブラウザ既定動作を出さないため明示する。
+      code === 'BracketRight' ||
+      code === 'BracketLeft' ||
       code.startsWith('Digit')
     ) {
       return true;
@@ -603,9 +675,12 @@ function axis(n: number): number {
 
 const EDGE_BINDINGS: Array<[ControlBinding, InputAction]> = [
   ['fireMissile', 'fireMissile'],
+  ['manualLock', 'manualLock'],
+  ['speedMatch', 'speedMatch'],
   ['targetNext', 'targetNext'],
   ['targetNearest', 'targetNearest'],
   ['targetFront', 'targetFront'],
+  ['targetReticle', 'targetReticle'],
   ['autopilot', 'autopilot'],
   ['comms', 'comms'],
   ['damageDisplay', 'damageDisplay'],
@@ -633,6 +708,9 @@ const KEY_LABELS: Record<string, string> = {
   KeyV: 'V',
   BracketRight: ']',
   BracketLeft: '[',
-  Equal: '=',
+  // 速度設定のキーとして読ませるので、`=` ではなく `+` と出す (W7-2)
+  Equal: '+',
   Minus: '-',
+  Semicolon: ';',
+  Slash: '/',
 };

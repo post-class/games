@@ -3,6 +3,9 @@ import { bus } from '../core/events';
 import { forwardOf } from '../core/math';
 import { shipDef } from '../content/ships';
 import { newAi } from '../sim/ai';
+// 発艦初速は MissionRunner の spawn と同じ値を使う（同じ値を2か所に書かない）。
+// MissionRunner は DeckSequence を参照していないので循環 import にはならない。
+import { LAUNCH_SPEED } from '../mission/MissionRunner';
 import type { Entity } from '../world/entity';
 import { spawnShip, type World } from '../world/world';
 
@@ -59,8 +62,9 @@ export class DeckSequence {
     });
     this.carrierId = carrier.id;
 
-    // 発艦直後の初速。カタパルトで押し出される
-    player.vel.copy(_fwd).multiplyScalar(60);
+    // 発艦直後の初速。カタパルトで押し出されるが、母艦の至近で高速だと
+    // 擦った瞬間に致命傷になる（質量比が上限 14 に張り付く）ため 10 kps とする
+    player.vel.copy(_fwd).multiplyScalar(LAUNCH_SPEED);
     if (player.input) player.input.throttle = 0;
   }
 

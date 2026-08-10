@@ -15,8 +15,22 @@ const BASE_FOV = 70;
 /** メッシュの前方基準 */
 const FORWARD = new Vector3(0, 0, -1);
 
+/**
+ * 後方視点の回転 (W7-7)。機体姿勢のまま真後ろを向く。
+ *
+ * バックミラー (画面内の小窓) ではなく視点の反転を採ったのは、
+ * 小窓はシーンを2回描くことになり、至近距離のコクピット内装・ブルーム・宇宙塵を含む
+ * 現在の描画コストがほぼ倍になるため。本家 WC も後方確認は「視点」で行う。
+ */
+const REAR_TURN = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), Math.PI);
+
 export class CameraRig {
   mode: ViewMode = 'cockpit';
+  /**
+   * 後方視点 (押している間だけ true)。
+   * コクピット視点のときだけ効く (追尾視点は既に機体の外にいるので何もしない)。
+   */
+  rearView = false;
   private shake = 0;
   private fovKick = 0;
   private warpFov = 0;
@@ -86,6 +100,8 @@ export class CameraRig {
       eye.applyQuaternion(q).add(target.pos);
       this.camera.position.copy(eye);
       this.camera.quaternion.copy(q);
+      // 目の位置は変えず、向きだけ真後ろへ回す (W7-7)
+      if (this.rearView) this.camera.quaternion.multiply(REAR_TURN);
     } else {
       const back = forwardOf(q, this.tmpV).multiplyScalar(-target.radius * 4.2);
       const up = upOf(q, this.tmpV2).multiplyScalar(target.radius * 1.15);

@@ -1,4 +1,5 @@
 import { Quaternion, Vector3 } from 'three';
+import { clamp01 } from '../core/math';
 import type { Faction, ShipDef } from '../content/ships';
 import { gunDef, gunPresentation, missileDef, missilePresentation, type SeekerKind } from '../content/weapons';
 import { newSubsystems } from '../sim/subsystems';
@@ -118,6 +119,8 @@ export function makeShipRuntime(def: ShipDef, fuelScale = 1): ShipRuntime {
     flares: def.flares,
     flareCooldown: 0,
     lockProgress: 0,
+    // 手動ロックは L を押すまで進まない (自動ロック設定では未参照)
+    lockArmed: false,
     lockedByEnemy: false,
     kills: 0,
     // 部位損傷は戦闘機だけが持つ (艦艇は砲塔単位の別モデルにするまで対象外)
@@ -133,6 +136,12 @@ export interface SpawnShipOptions {
   quat?: Quaternion;
   /** 初速 (未指定なら前方へ maxSpeed*0.5) */
   speed?: number;
+  /**
+   * 出撃直後の速度設定 (0..1)。
+   * 未指定なら `speed` から逆算する（従来挙動）。
+   * 実速度と速度設定を別に決めたいとき（カタパルト発艦: 実速度 10 / 速度設定は巡航）に使う。
+   */
+  throttle?: number;
   /** 飛行モデルの最高速倍率 */
   speedScale?: number;
   label?: string;
@@ -175,7 +184,11 @@ export function spawnShip(world: World, o: SpawnShipOptions): Entity {
 
   const speed = (o.speed ?? o.def.maxSpeed * 0.5) * rt.speedScale;
   e.vel.set(0, 0, -1).applyQuaternion(quat).multiplyScalar(speed);
-  e.input.throttle = Math.min(1, speed / (o.def.maxSpeed * rt.speedScale));
+  // 速度設定は明示指定を優先する。未指定のときだけ実速度から逆算する（従来挙動）。
+  e.input.throttle =
+    o.throttle !== undefined
+      ? clamp01(o.throttle)
+      : Math.min(1, speed / (o.def.maxSpeed * rt.speedScale));
   return world.add(e);
 }
 

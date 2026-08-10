@@ -1,4 +1,10 @@
 import type { FlightMode } from '../sim/flight';
+import {
+  isMusicChoice,
+  isMusicCue,
+  type MusicChoice,
+  type MusicTrackId,
+} from '../audio/musicCues';
 
 export type DifficultyId = 'easy' | 'normal' | 'hard';
 
@@ -30,7 +36,16 @@ export type ControlBinding =
   | 'throttleMax'
   | 'throttleStop'
   | 'throttleUp'
-  | 'throttleDown';
+  | 'throttleDown'
+  // ───── 07_更なる改善 W7 で追加した操作 ─────
+  /** ミサイルの手動ロック（設定「ミサイルロック: 手動」のときロックを進める） */
+  | 'manualLock'
+  /** 速度設定を目標の速度へ同期する */
+  | 'speedMatch'
+  /** 照準の射線上にいる相手をターゲットにする */
+  | 'targetReticle'
+  /** 押している間だけ後方を見る */
+  | 'rearView';
 
 export type KeyBindings = Record<ControlBinding, string>;
 
@@ -45,24 +60,30 @@ export const CONTROL_BINDINGS: Array<{ id: ControlBinding; label: string }> = [
   { id: 'afterburner', label: 'アフターバーナー' },
   { id: 'firePrimary', label: '主砲' },
   { id: 'fireMissile', label: 'ミサイル' },
+  { id: 'manualLock', label: 'ミサイル手動ロック' },
   { id: 'targetNext', label: 'ターゲット 次' },
   { id: 'targetNearest', label: 'ターゲット 最至近' },
   { id: 'targetFront', label: 'ターゲット 正面' },
+  { id: 'targetReticle', label: 'ターゲット 照準下' },
   { id: 'autopilot', label: 'オートパイロット' },
   { id: 'comms', label: '通信メニュー' },
   { id: 'damageDisplay', label: '被害状況' },
   { id: 'hudPanelToggle', label: 'HUD情報切替' },
   { id: 'viewToggle', label: '視点切替' },
+  { id: 'rearView', label: '後方視点（押している間）' },
   { id: 'navMap', label: 'Nav マップ' },
   { id: 'nextSecondary', label: '副兵装切替' },
   { id: 'flare', label: 'フレア' },
   { id: 'mouseToggle', label: 'マウス操縦 ON/OFF' },
   { id: 'flightModeToggle', label: '飛行モード切替' },
   { id: 'pause', label: 'ポーズ' },
-  { id: 'throttleMax', label: '全速' },
-  { id: 'throttleStop', label: '停止' },
-  { id: 'throttleUp', label: 'スロットル増' },
-  { id: 'throttleDown', label: 'スロットル減' },
+  // 用語は「速度設定」（目標速度の割合）で統一する。W7-1。
+  // 推力割合を直接表す Newton 型の「スロットル」と混同しないため。
+  { id: 'throttleMax', label: '速度設定 100%' },
+  { id: 'throttleStop', label: '速度設定 0%' },
+  { id: 'throttleUp', label: '速度設定を上げる' },
+  { id: 'throttleDown', label: '速度設定を下げる' },
+  { id: 'speedMatch', label: '目標速度へ同期' },
 ];
 
 export const DEFAULT_KEY_BINDINGS: KeyBindings = {
@@ -91,9 +112,136 @@ export const DEFAULT_KEY_BINDINGS: KeyBindings = {
   pause: 'Escape',
   throttleMax: 'Backquote',
   throttleStop: 'Backspace',
-  throttleUp: 'BracketRight',
-  throttleDown: 'BracketLeft',
+  // 本家 WC の `+` `-` を既定にする（W7-2）。
+  // 従来の `]` `[` とテンキーの `+` `-` は `input.ts` の別名で従来どおり効く。
+  throttleUp: 'Equal',
+  throttleDown: 'Minus',
+  // `L` は本家の手動ロックと同じ位置。艦内の名鑑パネル切替 (`ui/HubPanels.ts` の 'KeyL') と
+  // コードは同じだが、画面が排他（艦内 / 出撃中）なので衝突しない。
+  manualLock: 'KeyL',
+  // `L` の隣で右手で押せて、未割り当てだったキー。
+  // 方針書の「資料上は V 系」は本作の V（HUD情報切替）と衝突するため採らない。
+  speedMatch: 'Semicolon',
+  // 方針書の「I 系」に合わせる。
+  targetReticle: 'KeyI',
+  // 押しっぱなしで使うので、右手の小指で押し続けられるキーにする。
+  // `B` は訓練の送り (`Tutorial.ts` / `TutorialDemo.ts` の 'KeyB') と飛行中に衝突するため採らない。
+  rearView: 'Slash',
 };
+
+/**
+ * コクピットの表示方法（W4）。
+ * 'full'  … 骨組み + ガラス + 計器盤（既定。機体に乗っている構図）
+ * 'glass' … ガラスと計器盤のみ（骨組みを消して視界を最大にする）
+ * 'frame' … 骨組みと計器盤のみ（ガラスの映り込みを消す）
+ * 'dash'  … 計器盤のみ（旧「コクピット表示 OFF」に近い見え方）
+ * 'off'   … 何も出さない
+ */
+export type CockpitStyle = 'full' | 'glass' | 'frame' | 'dash' | 'off';
+
+export const COCKPIT_STYLES: CockpitStyle[] = ['full', 'glass', 'frame', 'dash', 'off'];
+
+export const COCKPIT_STYLE_LABEL: Record<CockpitStyle, string> = {
+  full: '風防ぜんぶ',
+  glass: 'ガラスのみ',
+  frame: '骨組みのみ',
+  dash: '計器盤のみ',
+  off: '非表示',
+};
+
+/** ミサイルロックの方式（W7-3）。手動では `L` を押した目標だけロックが進む。 */
+export type MissileLockMode = 'auto' | 'manual';
+
+/** 効果音のカテゴリ（W5-B）。 */
+export type SfxCategory =
+  | 'gun'
+  | 'missile'
+  | 'impact'
+  | 'explosion'
+  | 'warning'
+  | 'lock'
+  | 'ui'
+  | 'voice'
+  | 'engine';
+
+/**
+ * 音源の選び方。
+ * 'sample' … 同梱の wav（`public/audio/weapons/*-after3.wav`）
+ * 'synth'  … Web Audio による合成音
+ * 'soft'   … 合成音の控えめ版（音量 0.5 倍・長さ 0.7 倍）
+ * 'off'    … 鳴らさない
+ */
+export type SfxSource = 'sample' | 'synth' | 'soft' | 'off';
+
+export interface SfxSetting {
+  source: SfxSource;
+  /** 0..1 のカテゴリ音量倍率（`volumeSfx` に掛かる） */
+  gain: number;
+}
+
+export const SFX_CATEGORIES: SfxCategory[] = [
+  'gun',
+  'missile',
+  'impact',
+  'explosion',
+  'warning',
+  'lock',
+  'ui',
+  'voice',
+  'engine',
+];
+
+export const SFX_CATEGORY_LABEL: Record<SfxCategory, string> = {
+  gun: '主砲',
+  missile: 'ミサイル',
+  impact: '被弾',
+  explosion: '爆発',
+  warning: '警報',
+  lock: 'ロック音',
+  ui: 'UI・通知',
+  voice: '無線の声',
+  engine: 'エンジン',
+};
+
+export const SFX_SOURCE_LABEL: Record<SfxSource, string> = {
+  sample: '実音声',
+  synth: '合成音',
+  soft: '控えめ',
+  off: '無音',
+};
+
+/**
+ * カテゴリごとに選べる音源。
+ * **設定画面の選択肢もこの表から作る**（表示と実挙動を同じ出所にするため）。
+ * 実音声を持つのは主砲とミサイルだけ（同梱 wav がこの2種のみ）。
+ */
+export const SFX_SOURCE_OPTIONS: Record<SfxCategory, SfxSource[]> = {
+  gun: ['sample', 'synth', 'off'],
+  missile: ['sample', 'synth', 'off'],
+  impact: ['synth', 'off'],
+  explosion: ['synth', 'off'],
+  warning: ['synth', 'soft', 'off'],
+  lock: ['synth', 'soft', 'off'],
+  ui: ['synth', 'off'],
+  voice: ['synth', 'off'],
+  engine: ['synth', 'off'],
+};
+
+export const DEFAULT_SFX: Record<SfxCategory, SfxSetting> = {
+  gun: { source: 'sample', gain: 1 },
+  missile: { source: 'sample', gain: 1 },
+  impact: { source: 'synth', gain: 1 },
+  explosion: { source: 'synth', gain: 1 },
+  warning: { source: 'synth', gain: 1 },
+  lock: { source: 'synth', gain: 1 },
+  ui: { source: 'synth', gain: 1 },
+  voice: { source: 'synth', gain: 1 },
+  engine: { source: 'synth', gain: 1 },
+};
+
+/** 「控えめ」の係数。音量と長さの両方を落として耳に刺さらないようにする。 */
+export const SFX_SOFT_GAIN = 0.5;
+export const SFX_SOFT_DURATION = 0.7;
 
 export interface Settings {
   difficulty: DifficultyId;
@@ -119,16 +267,34 @@ export interface Settings {
   /** 無線ログの表示時間 (秒)。読む速さに合わせて調整できる */
   radioDuration: number;
   /**
-   * コクピット表示 (風防の枠・柱・天蓋・計器盤の筐体)。
-   * 既定は ON。切ると「機体に乗っている」構図が無くなるので、
-   * 見た目の負荷を下げたい人向けの逃げ道として残している。
+   * 旧: コクピット表示の ON/OFF。
+   * **W4 で `cockpitStyle` へ移行したので、実装からは読まない。**
+   * 古い保存データをそのまま読めるようにするためフィールドだけ残している。
    */
   cockpitDecorations: boolean;
+  /** コクピットの表示方法（W4。旧 `cockpitDecorations` の後継） */
+  cockpitStyle: CockpitStyle;
+  /**
+   * 風防ガラスの映り込みの濃さ (0..1)。
+   * 実際の不透明度は `GLASS_OPACITY_MAX` に掛けた値になる。
+   * 0 でガラス面を描かない（完全な素通し）。
+   */
+  glassOpacity: number;
+  /** ミサイルロックの方式（W7-3） */
+  missileLock: MissileLockMode;
+  /**
+   * 場面ごとに鳴らす BGM（W5-A）。
+   * 未設定の場面は `DEFAULT_MUSIC_ASSIGNMENT` の曲を使う。
+   */
+  musicAssignment: Partial<Record<MusicTrackId, MusicChoice>>;
+  /** 効果音のカテゴリごとの音源と音量（W5-B） */
+  sfx: Record<SfxCategory, SfxSetting>;
   /**
    * 保存データの版。既定値の意味が変わったときの移行に使う (UI には出さない)。
    * 1: 版が無い時代の保存データ (cockpitDecorations の既定が false だった)
    * 2: コクピット表示を既定 ON にした
    * 3: マウス操縦を既定 OFF にした (キーボード操縦を基準の操作にした)
+   * 4: コクピット表示を boolean から `cockpitStyle` の5段階へ移した
    */
   settingsVersion: number;
   /** カメラの揺れ、追従遅延、アフターバーナー画角の強さ (0 で無効) */
@@ -173,7 +339,13 @@ export const DEFAULT_SETTINGS: Settings = {
   volumeSfx: 0.9,
   radioDuration: 9,
   cockpitDecorations: true,
-  settingsVersion: 3,
+  cockpitStyle: 'full',
+  // 0.4 × GLASS_OPACITY_MAX(0.25) = 実効 0.1（`render/Cockpit.ts` の GLASS_OPACITY と一致）
+  glassOpacity: 0.4,
+  missileLock: 'auto',
+  musicAssignment: {},
+  sfx: cloneSfx(DEFAULT_SFX),
+  settingsVersion: 4,
   cameraShake: 1,
   cameraFollowLag: 1,
   cameraFovKick: 1,
@@ -190,9 +362,17 @@ export const DEFAULT_SETTINGS: Settings = {
 
 const KEY = 'multi-commander.settings.v1';
 
+/** 効果音設定の複製。参照を共有すると既定値が書き換わってしまう。 */
+function cloneSfx(source: Record<SfxCategory, SfxSetting>): Record<SfxCategory, SfxSetting> {
+  const out = {} as Record<SfxCategory, SfxSetting>;
+  for (const category of SFX_CATEGORIES) out[category] = { ...source[category] };
+  return out;
+}
+
 export const settings: Settings = {
   ...DEFAULT_SETTINGS,
   keyBindings: { ...DEFAULT_KEY_BINDINGS },
+  sfx: cloneSfx(DEFAULT_SFX),
 };
 
 const listeners = new Set<(s: Settings) => void>();
@@ -201,6 +381,7 @@ export function loadSettings(): void {
   const loaded: Settings = {
     ...DEFAULT_SETTINGS,
     keyBindings: { ...DEFAULT_KEY_BINDINGS },
+    sfx: cloneSfx(DEFAULT_SFX),
   };
   try {
     const raw = localStorage.getItem(KEY);
@@ -242,6 +423,12 @@ function migrateSettings(loaded: Settings, parsed: Partial<Settings>): void {
   // 版2以前: マウス操縦の既定が true だった。既定 OFF へ引き下げる
   // (版3以降で自分で ON にした人の選択は尊重する)。
   if (version < 3) loaded.mouseFlight = DEFAULT_SETTINGS.mouseFlight;
+  // 版3以前: コクピット表示は boolean だった。ON→'full' / OFF→'dash' へ写す。
+  // OFF を 'off' にしないのは、旧 OFF でも DOM の計器盤は出ていたため
+  // （3D の筐体だけが消えていた）。見え方をそのまま引き継ぐのは 'dash' である。
+  if (version < 4) {
+    loaded.cockpitStyle = parsed.cockpitDecorations === false ? 'dash' : 'full';
+  }
   loaded.settingsVersion = DEFAULT_SETTINGS.settingsVersion;
 }
 
@@ -265,7 +452,11 @@ export function updateSettings(patch: Partial<Settings>): void {
 }
 
 export function resetSettings(): void {
-  Object.assign(settings, DEFAULT_SETTINGS, { keyBindings: { ...DEFAULT_KEY_BINDINGS } });
+  Object.assign(settings, DEFAULT_SETTINGS, {
+    keyBindings: { ...DEFAULT_KEY_BINDINGS },
+    sfx: cloneSfx(DEFAULT_SFX),
+    musicAssignment: {},
+  });
   saveSettings();
   for (const l of listeners) l(settings);
 }
@@ -310,6 +501,41 @@ function normalizeSettings(): void {
     if (typeof settings[key] !== 'boolean') settings[key] = DEFAULT_SETTINGS[key];
   }
   settings.subtitleScale = clampSetting(settings.subtitleScale, 0.8, 1.8, 1);
+  // ───── W4: コクピット表示 ─────
+  if (!COCKPIT_STYLES.includes(settings.cockpitStyle)) {
+    settings.cockpitStyle = DEFAULT_SETTINGS.cockpitStyle;
+  }
+  settings.glassOpacity = clampSetting(settings.glassOpacity, 0, 1, DEFAULT_SETTINGS.glassOpacity);
+  // ───── W7-3: ミサイルロック ─────
+  if (settings.missileLock !== 'auto' && settings.missileLock !== 'manual') {
+    settings.missileLock = DEFAULT_SETTINGS.missileLock;
+  }
+  // ───── W5-A: 場面ごとの BGM ─────
+  // 未知の場面キー・未知の曲 id は捨てる。壊れた保存データで全場面が無音になると
+  // 「音が出ない不具合」に見えるため、ここで必ず落とす。
+  const assignment: Partial<Record<MusicTrackId, MusicChoice>> = {};
+  const rawAssignment = settings.musicAssignment;
+  if (rawAssignment && typeof rawAssignment === 'object') {
+    for (const [cue, choice] of Object.entries(rawAssignment)) {
+      if (isMusicCue(cue) && isMusicChoice(choice)) assignment[cue] = choice;
+    }
+  }
+  settings.musicAssignment = assignment;
+  // ───── W5-B: 効果音 ─────
+  const sfx = cloneSfx(DEFAULT_SFX);
+  const rawSfx = settings.sfx as unknown;
+  if (rawSfx && typeof rawSfx === 'object') {
+    for (const category of SFX_CATEGORIES) {
+      const value = (rawSfx as Partial<Record<SfxCategory, Partial<SfxSetting>>>)[category];
+      if (!value || typeof value !== 'object') continue;
+      // そのカテゴリが持てない音源（実音声を持たない被弾に 'sample' など）は既定へ戻す
+      if (typeof value.source === 'string' && SFX_SOURCE_OPTIONS[category].includes(value.source as SfxSource)) {
+        sfx[category].source = value.source as SfxSource;
+      }
+      sfx[category].gain = clampSetting(Number(value.gain), 0, 1, 1);
+    }
+  }
+  settings.sfx = sfx;
   if (
     !Number.isFinite(settings.settingsVersion) ||
     settings.settingsVersion < DEFAULT_SETTINGS.settingsVersion
@@ -396,6 +622,16 @@ export interface DifficultyProfile extends PlayerWeaponModifiers {
    * 部位損傷は強力なので、難易度でここを絞らないと「ふつう」が急に厳しくなる。
    */
   playerSubsystemRate: number;
+  /**
+   * 非敵対勢力（母艦・輸送船・救難ポッド・僚機・中立艦）との接触ダメージ倍率。
+   *
+   * 接触ダメージは質量比 `min(14, 0.6 + 相手半径/自半径 × 1.6)` を掛けるので、
+   * 母艦のような大質量に触れると 1回で 100 前後（ホーネットの hull と同値）になる。
+   * 「発艦直後に母艦を擦って沈む」を「やさしい」で起こさないため、ここだけ 0 にできるようにした。
+   * **プレイヤー機が当事者の接触にだけ掛かる**（AI 同士の接触・敵機との接触・誤射には掛からない）。
+   * NORMAL / HARD は 1（据え置き）。
+   */
+  friendlyCollisionDamage: number;
 }
 
 export const DIFFICULTIES: Record<DifficultyId, DifficultyProfile> = {
@@ -414,6 +650,9 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyProfile> = {
     // 追いつけない・振り切られる状態を無くしている。
     enemySpeedScale: 0.25,
     playerSubsystemRate: 0.35,
+    // 母艦・輸送船・ポッド・僚機との接触は無傷にする（07_更なる改善 W2）。
+    // 敵機との体当たりは据え置き（Easy でも危険）。
+    friendlyCollisionDamage: 0,
     playerGunSpeedScale: 1.35,
     playerGunHitRadiusScale: 1.8,
     playerMissileSpeedScale: 1.35,
@@ -434,6 +673,7 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyProfile> = {
     enemyMissileRate: 1,
     enemySpeedScale: 1,
     playerSubsystemRate: 0.7,
+    friendlyCollisionDamage: 1,
     ...DEFAULT_PLAYER_WEAPON_MODIFIERS,
   },
   hard: {
@@ -449,6 +689,7 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyProfile> = {
     enemyMissileRate: 1.4,
     enemySpeedScale: 1,
     playerSubsystemRate: 1.15,
+    friendlyCollisionDamage: 1,
     ...DEFAULT_PLAYER_WEAPON_MODIFIERS,
   },
 };
@@ -468,4 +709,38 @@ export function difficulty(): DifficultyProfile {
 export function aimAssistStrength(enabled: boolean, strongAimHelp: boolean): number {
   if (!enabled) return 0;
   return strongAimHelp ? 1 : 0.45;
+}
+
+// ───────── 効果音の設定を読む（W5-B） ─────────
+
+/** カテゴリの設定を読む。壊れた保存データでも既定へ落ちる。 */
+export function sfxSetting(category: SfxCategory, from: Settings = settings): SfxSetting {
+  const value = from.sfx?.[category];
+  if (!value || typeof value !== 'object') return DEFAULT_SFX[category];
+  return value;
+}
+
+/**
+ * カテゴリの音量倍率。鳴らさないときは null を返す。
+ *
+ * **`settings` を直接読まない純関数**にしてあるのは、`AudioManager` とテストが
+ * 同じ式を使えるようにするため（`aimAssistStrength` と同じ方針）。
+ * 「控えめ」は音量を `SFX_SOFT_GAIN` 倍にする（長さは `sfxDurationScale` 側）。
+ */
+export function sfxGain(category: SfxCategory, from: Settings = settings): number | null {
+  const setting = sfxSetting(category, from);
+  if (setting.source === 'off') return null;
+  const gain = Number.isFinite(setting.gain) ? Math.max(0, Math.min(1, setting.gain)) : 1;
+  if (gain <= 0) return null;
+  return setting.source === 'soft' ? gain * SFX_SOFT_GAIN : gain;
+}
+
+/** カテゴリの長さ倍率。「控えめ」だけ短くする。 */
+export function sfxDurationScale(category: SfxCategory, from: Settings = settings): number {
+  return sfxSetting(category, from).source === 'soft' ? SFX_SOFT_DURATION : 1;
+}
+
+/** 同梱 wav（実音声）を使うカテゴリか。合成音・無音のときは false。 */
+export function sfxUsesSample(category: SfxCategory, from: Settings = settings): boolean {
+  return sfxSetting(category, from).source === 'sample';
 }

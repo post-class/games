@@ -207,7 +207,13 @@ const FLED_DISTANCE = 14000;
  * 出撃時のスロットル (最高速に対する割合。やさしい以外の難易度。T2-⑤)。
  * 0 だと発艦後に止まったまま時間が過ぎるので、必ず巡航状態から始める。
  */
-const LAUNCH_THROTTLE = 0.35;
+export const LAUNCH_THROTTLE = 0.35;
+/**
+ * 発艦時の実初速 (kps)。
+ * 速度設定 (`LAUNCH_THROTTLE`) とは別で、こちらは「カタパルトから出た瞬間の速度」。
+ * `DeckSequence.startLaunch()` の射出速度と同じ値を使う（出所を1つにするため export する）。
+ */
+export const LAUNCH_SPEED = 10;
 /** 味方の大型艦に近づきすぎたと判断する中心間距離 */
 const FRIENDLY_LARGE_SHIP_WARNING_DISTANCE = 900;
 /** 一度離れたあと、再接近時にもう一度警告できるようにする距離 */
@@ -533,14 +539,14 @@ export class MissionRunner {
       faction: 'confed',
       pos: new Vector3(0, 0, 0),
       quat: facing,
-      // 出撃時の速度 = 出撃時のスロットル (`spawnShip` が speed から throttle を作る)。
-      // ふつう / むずかしいは 0 だったため、スロットルも 0% から始まっていた。
-      // 3本のタイマーが同時に走る作戦 (第1章) で「気づかないと 100 秒失う」のは
-      // 難易度ではなく事故なので、どの難易度でも巡航速度から始める (T2-⑤)。
-      // やさしいの初速は据え置きなので、難易度の差 (50% / 35%) は残る。
-      speed:
-        shipDef(this.loadout.shipId).maxSpeed *
-        (this.difficulty.id === 'easy' ? 0.5 : LAUNCH_THROTTLE),
+      // 発艦の実初速。カタパルトから押し出された直後はほぼ静止で、
+      // そこからエンジンが速度設定 (下の throttle) まで伸ばす。
+      // 母艦・待機列の民間船と擦ったときの相対速度を下げるため、10 kps に固定する
+      // （07_更なる改善 W1。従来は巡航速度そのままで出現していた）。
+      speed: LAUNCH_SPEED,
+      // 速度設定は従来どおり巡航値。T2-⑤ で決めた
+      // 「どの難易度でも巡航速度から始める（気づかないと 100 秒失う事故を無くす）」を維持する。
+      throttle: this.difficulty.id === 'easy' ? 0.5 : LAUNCH_THROTTLE,
       label: '自機',
       pilot: 'あなた',
       gunOverride: this.loadout.gunId,

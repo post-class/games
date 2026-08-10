@@ -150,11 +150,18 @@ export const PAGER_KEYS = {
   next: 'Period',
 } as const;
 
-/** 絞り込みの切り替えキー。J / K / L はどの既存操作にも割り当てが無い。 */
+/**
+ * 絞り込みの切り替えキー。H / J / K はどの既存操作にも割り当てが無い。
+ *
+ * 07_更なる改善 W7-3 で飛行操作に `L`（ミサイル手動ロック）を入れたので、
+ * 3つを1つ左へずらした（本家 WC のロックキーが `L` なので、そちらを優先した）。
+ * 画面は排他（艦内 / 出撃中）だが、`tests/ut/t3a-hub-panels-pager.test.ts` が
+ * 「飛行操作の割り当てと重ならない」を固定しているため、重複そのものを作らない。
+ */
 export const PAGER_FILTER_CODES = {
-  faction: 'KeyJ',
-  life: 'KeyK',
-  chapter: 'KeyL',
+  faction: 'KeyH',
+  life: 'KeyJ',
+  chapter: 'KeyK',
 } as const;
 
 /** 項目のタグが絞り込み条件に合うか。値が未指定（''）の鍵は無条件で通す。 */

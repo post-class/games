@@ -105,6 +105,16 @@ export class MusicDirector {
   }
 
   private ensurePlayback(id: MusicTrackId): void {
+    // 設定でこの場面を「無音」にしている（W5-A）。鳴っている曲は落とす。
+    // requested は更新済みなので、別の場面へ移れば普通に鳴り出す。
+    if (musicPath(id) === '') {
+      if (this.active) {
+        this.active.target = 0;
+        this.fading.push(this.active);
+        this.active = undefined;
+      }
+      return;
+    }
     if (
       (this.active?.id === id ||
         (this.active && !this.active.failed && musicPath(this.active.id) === musicPath(id))) ||

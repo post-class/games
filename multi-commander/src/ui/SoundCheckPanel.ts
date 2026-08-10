@@ -1,4 +1,4 @@
-import { MUSIC_TRACKS, type MusicTrackId } from '../audio/musicCues';
+import { MUSIC_CUES, MUSIC_CUE_LABEL, type MusicTrackId } from '../audio/musicCues';
 
 export interface SoundCheckActions {
   playMusic: (track: MusicTrackId) => void;
@@ -25,22 +25,12 @@ export function buildSoundCheckPanel(actions: SoundCheckActions): HTMLElement {
 
   const music = document.createElement('div');
   music.className = 'mc-sound-check-grid';
-  const labels: Partial<Record<MusicTrackId, string>> = {
-    title: 'タイトル',
-    hub: '母艦',
-    briefing: 'ブリーフィング',
-    patrol: '哨戒',
-    tension: '緊張',
-    combat: '戦闘',
-    intenseCombat: '激戦',
-    boss: '宿敵',
-    victory: '勝利',
-    defeat: '敗北',
-  };
-  (Object.keys(MUSIC_TRACKS) as Array<keyof typeof MUSIC_TRACKS>).forEach((track) => {
+  // 場面の表示名は `musicCues.ts` の `MUSIC_CUE_LABEL` を唯一の出所にする
+  // （設定画面の BGM セクションと同じ文字列を使うため。W5-A）
+  MUSIC_CUES.forEach((track: MusicTrackId) => {
     const button = document.createElement('button');
     button.type = 'button';
-    button.textContent = labels[track] ?? track;
+    button.textContent = MUSIC_CUE_LABEL[track];
     button.addEventListener('click', () => actions.playMusic(track));
     music.appendChild(button);
   });

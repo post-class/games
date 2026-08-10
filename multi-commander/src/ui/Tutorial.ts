@@ -28,7 +28,7 @@ interface Step {
    * 完了条件 (T2-⑭)。**表示している操作をやったら進む**ようにする。
    *
    * 「操作イベントを受け取った」だけでは完了にせず、操作後のゲーム状態
-   * (スロットル値・ターゲット・オートパイロット) を見る。
+   * (速度設定の値・ターゲット・オートパイロット) を見る。
    */
   done: (ctx: TutorialContext, self: Tutorial) => boolean;
   /** この秒数は読ませる (条件を満たしていても早送りしない) */
@@ -40,8 +40,8 @@ const TUTORIAL_NEXT_CODE = 'KeyB';
 
 const SIMPLE_STEPS: Step[] = [
   {
-    text: 'まずスロットルを上げる。<b>]</b> キー（10%ずつ）かマウスホイール、または数字の <b>5</b> で 50%。',
-    // 「] で上げる」と書いてあるのだから **1回上げたら完了** にする。
+    text: 'まず速度設定を上げる。<b>+</b> キー（10%ずつ）かマウスホイール、または数字の <b>5</b> で 50%。',
+    // 「+ で上げる」と書いてあるのだから **1回上げたら完了** にする。
     // 50%→60% のような小さな増加でも進む (以前は 35% 超という別条件で止まっていた)。
     done: (c, self) => self.throttleRaised && c.input.throttle > 0,
   },
@@ -73,7 +73,7 @@ const SIMPLE_STEPS: Step[] = [
 
 const DETAILED_STEPS: Step[] = [
   {
-    text: 'スロットルを確認する。<b>]</b>／<b>[</b> は10%ずつ、数字 <b>1〜9</b> は割合指定、<b>0</b> は停止。ホイールでも調整できる。',
+    text: '速度設定を確認する。<b>+</b>／<b>-</b> は10%ずつ、数字 <b>1〜9</b> は割合指定、<b>0</b> は停止。ホイールでも調整できる。',
     done: (c, self) => self.throttleRaised && c.input.throttle > 0,
   },
   {
@@ -151,11 +151,11 @@ export class Tutorial {
   turnAmount = 0;
   shotsFired = 0;
   missilesFired = 0;
-  /** スロットルを一度でも上げたか (押した瞬間ではなく、値が増えたことで判定する) */
+  /** 速度設定を一度でも上げたか (押した瞬間ではなく、値が増えたことで判定する) */
   throttleRaised = false;
   /** 最後のステップまで通したか */
   completed = false;
-  /** 前フレームのスロットル値。出撃直後の値を「上げた」と誤判定しないため未取得を分ける */
+  /** 前フレームの速度設定。出撃直後の値を「上げた」と誤判定しないため未取得を分ける */
   private lastThrottle?: number;
   private mode: TutorialMode = 'simple';
   private usedActions = new Set<string>();
@@ -247,7 +247,7 @@ export class Tutorial {
     this.stepElapsed += dt;
     this.turnAmount += (Math.abs(ctx.input.pitch) + Math.abs(ctx.input.yaw) + Math.abs(ctx.input.roll)) * dt;
 
-    // スロットルは「上がったこと」を値の変化で見る。キー入力を数えると、
+    // 速度設定は「上がったこと」を値の変化で見る。キー入力を数えると、
     // キーリピートや上限で止まっている操作まで数えてしまう。
     if (this.lastThrottle !== undefined && ctx.input.throttle > this.lastThrottle + 1e-6) {
       this.throttleRaised = true;

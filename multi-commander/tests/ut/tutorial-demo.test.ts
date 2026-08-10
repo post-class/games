@@ -127,12 +127,12 @@ describe('お手本モード', () => {
     const before = input.throttle;
     for (let i = 0; i < 60; i++) frame(demo, world, input);
 
-    // 代行入力が挿し込まれ、スロットルが上がっている
+    // 代行入力が挿し込まれ、速度設定が上がっている
     expect(input.scripted).toBeDefined();
     expect(input.throttle).toBeGreaterThan(before);
-    // 点灯キーは「スロットル増」。表示は割り当て (既定 `]`) から作る
+    // 点灯キーは「速度設定+」。表示は割り当て (既定 `+`) から作る
     expect(litKeys(container)).toContain(keyChipLabel('throttleUp'));
-    expect(keyChipLabel('throttleUp')).toContain(']');
+    expect(keyChipLabel('throttleUp')).toContain('+');
     // 実際に機体が加速している (表示だけ動いていない)
     expect(world.player!.vel.length()).toBeGreaterThan(0);
     demo.stop(input);

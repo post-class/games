@@ -491,7 +491,7 @@ export class HudView {
     this.speedEl = el('div', 'mc-speed');
     gauges.appendChild(this.speedEl);
     for (const g of [
-      { id: 'throttle', label: 'THROTTLE' },
+      { id: 'throttle', label: 'SET SPD' },
       { id: 'energy', label: 'GUN PWR' },
       { id: 'fuel', label: 'AB FUEL' },
     ]) {
@@ -1164,7 +1164,7 @@ export class HudView {
       : '—';
     const objective = f.objectives?.find((o) => o.state === 'active')?.text ?? '—';
     const text =
-      `外部視点 [F]　SPD ${speed.toFixed(0)} KPS　THR ${(f.throttle * 100) | 0}%\n` +
+      `外部視点 [F]　SPD ${speed.toFixed(0)} KPS　SET ${(f.throttle * 100) | 0}%\n` +
       `TGT ${targetText}　NAV ${navText}\n目標 ${objective}`;
     if (this.extHud.textContent !== text) this.extHud.textContent = text;
   }

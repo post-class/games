@@ -14,7 +14,7 @@ import type { World } from '../world/world';
  *
  * ■ 何をするものか
  * 「このキーを押すとこうなる」を**実際に操縦して見せる**課程。
- * スロットル・ピッチ・ヨー・ロール・アフターバーナー・ターゲット・主砲・
+ * 速度設定・ピッチ・ヨー・ロール・アフターバーナー・ターゲット・主砲・
  * ミサイル・フレア・HUD操作を順に実演し、最後に敵とのドッグファイトを行う。
  * 実演中は、いま押しているキーを画面に出す。
  *
@@ -49,10 +49,10 @@ interface DemoStepContext {
 }
 
 /**
- * スロットルを目標値へ「レバーを動かす速さで」寄せる。
+ * 速度設定を目標値へ「レバーを動かす速さで」寄せる。
  *
- * 目標値を直接代入すると、実機の出撃時スロットル (難易度で変わる) から
- * 1フレームで飛び、点灯キーが一瞬逆向き (増やしたいのに「スロットル-」) に出る。
+ * 目標値を直接代入すると、実機の出撃時の速度設定 (難易度で変わる) から
+ * 1フレームで飛び、点灯キーが一瞬逆向き (増やしたいのに「速度設定-」) に出る。
  * 人がキーを押している速さ (`THROTTLE_KEY_RATE` 相当) で動かす。
  */
 function throttleToward(current: number, target: number, dt: number, rate = 0.5): number {
@@ -209,8 +209,8 @@ function searchDrive(d: DemoDrive, dt: number): void {
 const DEMO_STEPS: DemoStep[] = [
   {
     id: 'throttle-up',
-    title: 'スロットルを上げる',
-    detail: 'スロットルを上げると加速する。押しっぱなしで上がり続け、離しても値は保たれる。',
+    title: '速度設定を上げる',
+    detail: '速度設定を上げると目標速度が上がり、機体がそこまで加速する。押しっぱなしで上がり続け、離しても値は保たれる。',
     keys: ['throttleUp'],
     seconds: 6,
     drive: (d, c) => {
@@ -219,8 +219,8 @@ const DEMO_STEPS: DemoStep[] = [
   },
   {
     id: 'throttle-down',
-    title: 'スロットルを下げる',
-    detail: '速度を落とすと旋回が効くようになる。重い機体は「曲がりたければ絞る」。',
+    title: '速度設定を下げる',
+    detail: '速度設定を下げると目標速度が下がり、機体が減速する。速度を落とすと旋回が効く。離しても値は保たれる。',
     keys: ['throttleDown'],
     seconds: 5,
     drive: (d, c) => {
@@ -693,8 +693,13 @@ const BINDING_LABEL: Record<ControlBinding, string> = {
   mouseToggle: 'マウス',
   flightModeToggle: '飛行モード',
   pause: 'ポーズ',
-  throttleMax: '全速',
-  throttleStop: '停止',
-  throttleUp: 'スロットル+',
-  throttleDown: 'スロットル-',
+  // 用語は「速度設定」で統一する（W7-1）。チップは幅が限られるので記号で短く出す。
+  throttleMax: '速度設定 100%',
+  throttleStop: '速度設定 0%',
+  throttleUp: '速度設定+',
+  throttleDown: '速度設定-',
+  manualLock: '手動ロック',
+  speedMatch: '速度同期',
+  targetReticle: '照準下',
+  rearView: '後方視点',
 };

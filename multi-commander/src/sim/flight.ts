@@ -1,3 +1,17 @@
+/**
+ * 飛行計算。
+ *
+ * ■ 用語「速度設定」(内部識別子は `throttle`)
+ * `wc` モードの `throttle` は推力割合ではなく、**最高速度に対する目標速度の割合**である。
+ * 0% は停止を目標にし、100% は通常最高速度を目標にする。アフターバーナーを押している間だけ
+ * 通常最高速度を超える。キーを離しても値が維持されるのは、キーが「レバーを動かす」入力であり、
+ * 推進噴射を直接押し続ける操作ではないためである。
+ * 宇宙物理に近い `newton` モードでは、推力を出している間は加速を続け、止めると慣性で速度を保つ。
+ * 既定の `wc` モードは、操作を簡潔にするため、設定した目標速度へ収束する飛行支援型の挙動を採る。
+ * そのため人間が読む文字列（HUD・チュートリアル・設定画面）では「スロットル」ではなく
+ * 「速度設定」と表記する（W7-1）。
+ */
+
 import { Vector3 } from 'three';
 import { clamp, clamp01, dampVec, forwardOf, integrateRotation } from '../core/math';
 import type { Entity } from '../world/entity';
@@ -202,4 +216,32 @@ export function updateShipPower(e: Entity, dt: number): void {
 /** HUD 表示用の現在速度 */
 export function speedOf(e: Entity): number {
   return e.vel.length();
+}
+
+/**
+ * 目標の速度に合わせる速度設定（0..1）を返す（W7-4 `;`）。
+ *
+ * `throttle = clamp01(目標の速度 / 自機の最高速度)`。
+ * 速度設定は「最高速度に対する目標速度の割合」なので、割り算がそのまま答えになる。
+ *
+ * ■ なぜアフターバーナーを自動化しないか
+ * 目標が自機の通常最高速度より速いときは 1（100%）で止める。
+ * ここで AB を自動で焚くと、燃料と旋回性能（`AB_TURN_PENALTY`）を
+ * プレイヤーの意図なしに消費してしまう。
+ * 「追いつけない」ことは HUD の速度差（自機 SPD と目標の速度）で読めるので、
+ * AB を焚くかどうかは操縦者の判断に残す。
+ *
+ * @param selfMaxSpeed 自機の通常最高速度（アフターバーナーを除く）
+ * @param targetSpeed 合わせたい目標の現在速度
+ * @returns 0..1 の速度設定。合わせられないときは undefined（呼び出し側が案内を出す）
+ */
+export function speedMatchThrottle(
+  selfMaxSpeed: number,
+  targetSpeed: number,
+): number | undefined {
+  // 最高速度が 0 以下・非有限のときは割り算が成り立たない
+  if (!Number.isFinite(selfMaxSpeed) || selfMaxSpeed <= 0) return undefined;
+  // 目標の速度が取れない（ターゲット無し相当）ときも案内へ回す
+  if (!Number.isFinite(targetSpeed)) return undefined;
+  return clamp01(targetSpeed / selfMaxSpeed);
 }

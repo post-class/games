@@ -27,12 +27,20 @@ export interface CombatOptions {
   playerDamageDealt: number;
   /** プレイヤー機の部位故障の発生率倍率 */
   playerSubsystemRate?: number;
+  /**
+   * 非敵対勢力（母艦・輸送船・救難ポッド・僚機・中立艦）とプレイヤー機の接触ダメージ倍率。
+   * 0 で無傷。未指定は 1（従来挙動）。
+   * `playerSubsystemRate` と同じく省略可にしてあるのは、既存の `setCombatOptions` 呼び出しを
+   * 壊さないため（渡し漏れても 1 として扱う）。
+   */
+  friendlyCollisionDamage?: number;
 }
 
 const DEFAULT_OPTS: CombatOptions = {
   playerDamageTaken: 1,
   playerDamageDealt: 1,
   playerSubsystemRate: 1,
+  friendlyCollisionDamage: 1,
 };
 
 /**
@@ -420,8 +428,26 @@ export function resolveShipCollisions(world: World): void {
 /** 接触ダメージを再判定するまでの間隔 (秒) */
 const COLLISION_DAMAGE_INTERVAL = 0.5;
 
+/**
+ * 自機が当事者で、相手が非敵対勢力の接触か。
+ * 「味方」は自陣営に限らず敵対していない相手すべて（母艦は `neutral` なので陣営一致では拾えない）。
+ */
+function isPlayerFriendlyPair(world: World, a: Entity, b: Entity): boolean {
+  const player = a.id === world.playerId ? a : b.id === world.playerId ? b : undefined;
+  if (!player) return false;
+  const other = player === a ? b : a;
+  return !isHostile(player.faction, other.faction);
+}
+
 /** 1回の接触ぶんのダメージを両者に与える */
 function applyCollisionDamage(world: World, a: Entity, b: Entity, mid: Vector3): void {
+  // 「やさしい」では、自機と非敵対勢力の接触を無傷にする（07_更なる改善 W2）。
+  // 母艦との質量比は上限 14 に張り付くので、擦っただけで致命傷になっていた。
+  // 倍率として base に掛けるのではなく早期 return にしているのは、
+  // 0 のときに爆発演出まで出さないためである（下の explosion は hullDamage > 0 で出る）。
+  // 0 < x < 1 が必要になったら base に掛ける形へ変え、この <= 0 の早期 return は残す。
+  // 押し戻し (separate) は呼び出し側で行うので、めり込んだままにはならない。
+  if ((combatOpts.friendlyCollisionDamage ?? 1) <= 0 && isPlayerFriendlyPair(world, a, b)) return;
   const rel = _sep.copy(a.vel).sub(b.vel).length();
   // 低速の接触は擦り傷。相対速度が上がると急に危険になる
   const impact = Math.max(0, rel - 40);

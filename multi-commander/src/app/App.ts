@@ -4,6 +4,8 @@ import {
   campaignMap,
   campaignNode,
   campaignStart,
+  chapterPosition,
+  chapterProgressText,
   gateOutcomeFromChoice,
   isTerminal,
   totalChapters,
@@ -253,7 +255,8 @@ export class App {
     ];
     const saved = loadSave();
     const progress = saved
-      ? `前回の記録: ${this.modeLabel(saved.campaignMode)}・第 ${this.chapterOf(saved.node, saved.campaignMode)} 章 / 勝利点 ${saved.seriesScore} / 通算撃墜 ${saved.totalKills} 機`
+      // 章の語順は progressLabel（`第N章 / 全K章`）と揃える。保存データの形式は変えない
+      ? `前回の記録: ${this.modeLabel(saved.campaignMode)}・第${this.chapterOf(saved.node, saved.campaignMode)}章 / 全${totalChapters(saved.campaignMode)}章 / 勝利点 ${saved.seriesScore} / 通算撃墜 ${saved.totalKills} 機`
       : '記録なし';
     const veil = this.newCampaignMode === 'veil';
     this.screens.show({
@@ -288,6 +291,18 @@ export class App {
   private chapterOf(node: CampaignNodeId, mode: CampaignMode = this.save.campaignMode): number {
     if (isTerminal(node)) return totalChapters(mode);
     return campaignNode(node, mode).chapter;
+  }
+
+  /**
+   * 「いま何章の何本目か」の表示文（W6）。
+   *
+   * ポーズ画面とブリーフィング画面が同じ文字列を使う。文言の組み立ては
+   * `chapterProgressText()`（campaign.ts の純関数）に置き、ここは現在ノードから
+   * 位置を引くだけにしている。終端では章内位置が無いので空文字を返す。
+   */
+  private progressLabel(): string {
+    if (isTerminal(this.save.node)) return '';
+    return chapterProgressText(chapterPosition(this.save.node, this.save.campaignMode));
   }
 
   private showHelp(): void {
@@ -737,7 +752,8 @@ export class App {
     const rows = slots.map(({ slot, save }) =>
       `<div class="mc-save-slot ${save ? 'filled' : 'empty'}"><b>SLOT ${slot + 1}</b>` +
       (save
-        ? `<span>${escapeHtml(this.modeLabel(save.campaignMode))}　${this.chapterOf(save.node, save.campaignMode)}章　勝利点 ${save.seriesScore}　撃墜 ${save.totalKills}</span>`
+        // 章の語順は progressLabel（`第N章 / 全K章`）と揃える。保存データの形式は変えない
+        ? `<span>${escapeHtml(this.modeLabel(save.campaignMode))}　第${this.chapterOf(save.node, save.campaignMode)}章 / 全${totalChapters(save.campaignMode)}章　勝利点 ${save.seriesScore}　撃墜 ${save.totalKills}</span>`
         : '<span class="dim">空きスロット</span>') +
       `</div>`).join('');
     this.screens.show({
@@ -1315,11 +1331,13 @@ export class App {
       background: this.chapterBackground(),
       title: def.title,
       // ヘッダは最低限にする（横に溢れるとメインの領域を食う）。
-      // veil は題名に「第N章 …」が入っているので、副題では章番号を繰り返さない。
+      // veil は題名に「第N章 …」が入っていて章番号が二重になるが、副題は
+      // 「/ 全10章」を持つので情報が違う（あと何章あるかが分かる）ため残す。
       subtitle:
         this.save.campaignMode === 'veil'
-          ? `${node.seriesName}　${node.chapter}/${totalChapters('veil')}　—　${def.system}`
-          : `${this.modeLabel(this.save.campaignMode)}　${node.seriesName}　${node.chapter}/${totalChapters(this.save.campaignMode)}　—　${def.system} 星系${node.losingRoute ? '　(戦況悪化)' : ''}`,
+          ? `${this.progressLabel()}　${node.seriesName}　—　${def.system}`
+          : `${this.modeLabel(this.save.campaignMode)}　${this.progressLabel()}　${node.seriesName}` +
+            `　—　${def.system} 星系${node.losingRoute ? '　(戦況悪化)' : ''}`,
       content: scene.el,
       items: [
         {
@@ -2171,7 +2189,11 @@ export class App {
     this.screens.show({
       title: 'ポーズ',
       transparent: true,
-      bodyHtml: `<div class="dim">${escapeHtml(this.currentMission().title)}</div>`,
+      // 1行目に進行、2行目に題名、3行目に星系と難易度。項目が6つあるので3行を超えない
+      bodyHtml:
+        `<div class="mc-progress">${escapeHtml(this.progressLabel())}</div>` +
+        `<div class="dim">${escapeHtml(this.currentMission().title)}</div>` +
+        `<div class="dim">${escapeHtml(this.currentMission().system)}　難易度: ${escapeHtml(difficulty().label)}</div>`,
       items: [
         { label: '再開', onSelect: resume },
         {

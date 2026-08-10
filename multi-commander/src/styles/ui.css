@@ -228,6 +228,14 @@
   }
 }
 
+/* 進行表示（W6）: ポーズ画面とブリーフィングで使う「第N章 / 全K章」の1行。
+   基準サイズ 16px のまま、色だけアクセントにする（ヘッダを大きくしない） */
+.mc-progress {
+  font-size: 16px;
+  color: var(--friend);
+  margin-bottom: 4px;
+}
+
 /* 戦役マップ / バラックのセーブスロット */
 .mc-campaign-map {
   border-left: 2px solid rgba(95, 216, 255, 0.45);

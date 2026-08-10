@@ -1,4 +1,10 @@
-import { onSettingsChanged, settings } from '../app/settings';
+import {
+  onSettingsChanged,
+  settings,
+  sfxDurationScale,
+  sfxGain,
+  sfxUsesSample,
+} from '../app/settings';
 import type { DamageStage } from '../hud/damageStage';
 
 type ExplosionSize = 'small' | 'large' | 'torpedo' | 'shield' | 'breach';
@@ -129,10 +135,14 @@ export class AudioManager {
 
   /** 宿敵・救難・母艦帰投など、記憶に残す短い音型。 */
   motif(kind: 'nemesis' | 'wingman' | 'carrier' | 'return'): void {
+    const scale = sfxGain('ui');
+    if (scale === null) return;
     if (!this.ctx) return;
     if (this.throttled(`motif-${kind}`, 1.2)) return;
     const notes = kind === 'nemesis' ? [196, 155, 116] : kind === 'wingman' ? [660, 523, 440] : [392, 523, 784];
-    notes.forEach((frequency, i) => this.delayedBeep(i * 125, frequency, 0.18, 0.16, kind === 'nemesis' ? 'sawtooth' : 'triangle'));
+    notes.forEach((frequency, i) =>
+      this.delayedBeep(i * 125, frequency, 0.18, 0.16 * scale, kind === 'nemesis' ? 'sawtooth' : 'triangle'),
+    );
   }
 
   /** 連続発音を間引く (同じ音が1フレームに大量に鳴るのを防ぐ) */
@@ -163,10 +173,14 @@ export class AudioManager {
     return this.reserveVoice(duration);
   }
 
+  /**
+   * 少し遅らせてビープを鳴らす。
+   * カテゴリ判定は呼び出し側で終わっている前提なので、実体の `emitBeep()` を呼ぶ。
+   */
   private delayedBeep(delayMs: number, freq: number, duration: number, gain: number, type: OscillatorType): void {
     const timer = setTimeout(() => {
       this.timers.delete(timer);
-      this.beep(freq, duration, gain, type);
+      this.emitBeep(freq, duration, gain, type);
     }, delayMs);
     this.timers.add(timer);
   }
@@ -249,12 +263,15 @@ export class AudioManager {
 
   /** 砲撃。武装によって音色を変える。 */
   gun(weaponId: string, distance: number, pan: number): void {
-    const after3 = this.weaponAudioBuffers.get(weaponId);
+    const scale = sfxGain('gun');
+    if (scale === null) return;
+    const useSample = sfxUsesSample('gun');
+    const after3 = useSample ? this.weaponAudioBuffers.get(weaponId) : undefined;
     const voiceDuration = after3 ? Math.min(after3.duration + 0.05, 2.5) : 0.24;
     if (!this.ctx || !this.claimVoice(`gun-${weaponId}`, weaponId === 'particle-cannon' ? 0.035 : 0.06, voiceDuration)) return;
-    if (this.playAfter3WeaponAudio(weaponId, distance, pan, 0.35)) return;
+    if (useSample && this.playAfter3WeaponAudio(weaponId, distance, pan, 0.35 * scale)) return;
     const t = this.ctx.currentTime;
-    const out = this.spatial(0.35, distance, pan);
+    const out = this.spatial(0.35 * scale, distance, pan);
     if (!out) return;
 
     const osc = this.ctx.createOscillator();
@@ -371,9 +388,11 @@ export class AudioManager {
 
   /** シールドで弾かれた金属音 */
   shieldHit(distance: number, pan: number, weaponId?: string): void {
+    const scale = sfxGain('impact');
+    if (scale === null) return;
     if (!this.ctx || !this.claimVoice(`shield-${weaponId ?? 'generic'}`, 0.03, 0.28)) return;
     const t = this.ctx.currentTime;
-    const out = this.spatial(0.4, distance, pan);
+    const out = this.spatial(0.4 * scale, distance, pan);
     if (!out) return;
     const osc = this.ctx.createOscillator();
     osc.type = 'triangle';
@@ -400,10 +419,12 @@ export class AudioManager {
 
   /** 装甲/船体への被弾。船体まで抜けたときは低く重い音にする。 */
   armorHit(distance: number, pan: number, layer: 'armor' | 'hull' = 'armor', weaponId?: string): void {
+    const scale = sfxGain('impact');
+    if (scale === null) return;
     const key = layer === 'hull' ? 'hull' : 'armor';
     if (!this.ctx || !this.claimVoice(key, 0.03, layer === 'hull' ? 0.34 : 0.24)) return;
     const t = this.ctx.currentTime;
-    const out = this.spatial(layer === 'hull' ? 0.65 : 0.5, distance, pan);
+    const out = this.spatial((layer === 'hull' ? 0.65 : 0.5) * scale, distance, pan);
     if (!out) return;
     const src = this.noise(0.2);
     const filter = this.ctx.createBiquadFilter();
@@ -430,6 +451,8 @@ export class AudioManager {
 
   /** 爆発。大きさで長さと低音の量を変える。 */
   explosion(distance: number, pan: number, size: ExplosionSize | boolean): void {
+    const scale = sfxGain('explosion');
+    if (scale === null) return;
     const profile: ExplosionSize = size === true ? 'large' : size === false ? 'small' : size;
     const key = `boom-${profile}`;
     const duration =
@@ -440,7 +463,7 @@ export class AudioManager {
     const big = profile !== 'small';
     const torpedo = profile === 'torpedo';
     const out = this.spatial(
-      torpedo ? 1 : profile === 'breach' ? 0.72 : profile === 'shield' ? 0.62 : big ? 0.9 : 0.55,
+      (torpedo ? 1 : profile === 'breach' ? 0.72 : profile === 'shield' ? 0.62 : big ? 0.9 : 0.55) * scale,
       distance,
       pan,
     );
@@ -487,7 +510,10 @@ export class AudioManager {
     const weaponId: MissileId = typeof weaponOrDistance === 'string' ? weaponOrDistance : 'dumbfire';
     const distance = typeof weaponOrDistance === 'number' ? weaponOrDistance : distanceOrPan;
     const pan = typeof weaponOrDistance === 'number' ? distanceOrPan : (maybePan ?? 0);
-    const after3 = this.weaponAudioBuffers.get(weaponId);
+    const scale = sfxGain('missile');
+    if (scale === null) return;
+    const useSample = sfxUsesSample('missile');
+    const after3 = useSample ? this.weaponAudioBuffers.get(weaponId) : undefined;
     const duration = after3
       ? Math.min(after3.duration + 0.05, 2.5)
       : weaponId === 'torpedo'
@@ -500,9 +526,13 @@ export class AudioManager {
               ? 0.82
               : 0.9;
     if (!this.ctx || !this.claimVoice(`missile-${weaponId}`, 0.08, duration)) return;
-    if (this.playAfter3WeaponAudio(weaponId, distance, pan, weaponId === 'torpedo' ? 0.8 : 0.6)) return;
+    if (useSample && this.playAfter3WeaponAudio(weaponId, distance, pan, (weaponId === 'torpedo' ? 0.8 : 0.6) * scale)) return;
     const t = this.ctx.currentTime;
-    const out = this.spatial(weaponId === 'torpedo' ? 0.8 : weaponId === 'armor-breacher' ? 0.68 : 0.6, distance, pan);
+    const out = this.spatial(
+      (weaponId === 'torpedo' ? 0.8 : weaponId === 'armor-breacher' ? 0.68 : 0.6) * scale,
+      distance,
+      pan,
+    );
     if (!out) return;
     const src = this.noise(duration);
     const filter = this.ctx.createBiquadFilter();
@@ -540,8 +570,21 @@ export class AudioManager {
     }
   }
 
-  /** UI・警報のビープ */
+  /**
+   * UI・通知のビープ (W5-B: `ui` カテゴリ)。
+   *
+   * 実体は `emitBeep()` に分けてある。警報やロック音も内部でビープを鳴らすが、
+   * それらは自分のカテゴリ (`warning` / `lock`) で判定して `emitBeep()` を直接呼ぶ。
+   * ここで `ui` を見てしまうと「UI を無音にしたら警報も消える」ことになるため。
+   */
   beep(freq: number, duration = 0.08, gain = 0.25, type: OscillatorType = 'square'): void {
+    const scale = sfxGain('ui');
+    if (scale === null) return;
+    this.emitBeep(freq, duration, gain * scale, type);
+  }
+
+  /** ビープの実体。カテゴリ判定は呼び出し側で済ませる。 */
+  private emitBeep(freq: number, duration: number, gain: number, type: OscillatorType): void {
     if (!this.ctx || !this.sfxBus || !this.reserveVoice(duration + 0.03)) return;
     const t = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
@@ -549,7 +592,8 @@ export class AudioManager {
     osc.frequency.value = freq;
     const env = this.ctx.createGain();
     env.gain.setValueAtTime(0.0001, t);
-    env.gain.exponentialRampToValueAtTime(gain, t + 0.01);
+    // exponentialRamp は 0 を受け付けないため下限を入れる (音量倍率が極小のとき)
+    env.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain), t + 0.01);
     env.gain.exponentialRampToValueAtTime(0.0001, t + duration);
     osc.connect(env);
     env.connect(this.sfxBus);
@@ -558,6 +602,9 @@ export class AudioManager {
   }
 
   lockTone(complete: boolean, weaponId?: string): void {
+    const scale = sfxGain('lock');
+    if (scale === null) return;
+    const lengthScale = sfxDurationScale('lock');
     if (this.throttled(`lock-${weaponId ?? 'unknown'}`, complete ? 0.4 : 0.22)) return;
     const torpedo = weaponId === 'torpedo';
     const frequency = complete
@@ -579,7 +626,12 @@ export class AudioManager {
             : weaponId === 'heat-seeker'
               ? 820
               : 900;
-    this.beep(frequency, complete ? (torpedo ? 0.24 : 0.14) : torpedo ? 0.1 : 0.06, torpedo ? 0.28 : 0.22, torpedo ? 'triangle' : 'square');
+    this.emitBeep(
+      frequency,
+      (complete ? (torpedo ? 0.24 : 0.14) : torpedo ? 0.1 : 0.06) * lengthScale,
+      (torpedo ? 0.28 : 0.22) * scale,
+      torpedo ? 'triangle' : 'square',
+    );
   }
 
   /**
@@ -591,35 +643,50 @@ export class AudioManager {
    */
   damageStageCue(stage: DamageStage): void {
     if (stage === 'shield-ok') return;
+    // 警報カテゴリ。UI ビープを無音にしても、ここは鳴り続ける。
+    const scale = sfxGain('warning');
+    if (scale === null) return;
+    const len = sfxDurationScale('warning');
     if (this.throttled(`stage-${stage}`, 0.6)) return;
     if (stage === 'shield-down') {
-      this.beep(880, 0.1, 0.2, 'square');
-      this.delayedBeep(110, 660, 0.1, 0.2, 'square');
+      this.emitBeep(880, 0.1 * len, 0.2 * scale, 'square');
+      this.delayedBeep(110, 660, 0.1 * len, 0.2 * scale, 'square');
     } else if (stage === 'armor-hit') {
-      this.beep(520, 0.14, 0.22, 'square');
+      this.emitBeep(520, 0.14 * len, 0.22 * scale, 'square');
     } else if (stage === 'hull-hit') {
-      this.beep(320, 0.2, 0.26, 'sawtooth');
+      this.emitBeep(320, 0.2 * len, 0.26 * scale, 'sawtooth');
     } else {
       // ハル危険域。低く長い三連で「もう持たない」ことを伝える
-      [260, 220, 180].forEach((f, i) => this.delayedBeep(i * 140, f, 0.22, 0.3, 'sawtooth'));
+      [260, 220, 180].forEach((f, i) => this.delayedBeep(i * 140, f, 0.22 * len, 0.3 * scale, 'sawtooth'));
     }
   }
 
   warning(kind: 'missile' | 'lock' | 'shield' | 'hull', weaponId?: string): void {
+    const scale = sfxGain('warning');
+    if (scale === null) return;
+    const len = sfxDurationScale('warning');
     if (this.throttled(`warn-${kind}-${weaponId ?? 'unknown'}`, weaponId === 'torpedo' ? 0.62 : 0.85)) return;
     if (kind === 'missile') {
       const torpedo = weaponId === 'torpedo';
       const frequency = torpedo ? 320 : weaponId === 'image-rec' ? 980 : 1200;
-      this.beep(frequency, torpedo ? 0.18 : 0.1, torpedo ? 0.34 : 0.3, torpedo ? 'triangle' : 'square');
-      this.delayedBeep(torpedo ? 220 : 130, frequency, torpedo ? 0.18 : 0.1, torpedo ? 0.34 : 0.3, torpedo ? 'triangle' : 'square');
+      const duration = (torpedo ? 0.18 : 0.1) * len;
+      const gain = (torpedo ? 0.34 : 0.3) * scale;
+      const type: OscillatorType = torpedo ? 'triangle' : 'square';
+      this.emitBeep(frequency, duration, gain, type);
+      this.delayedBeep(torpedo ? 220 : 130, frequency, duration, gain, type);
     } else if (kind === 'lock') {
-      this.beep(weaponId === 'torpedo' ? 430 : 760, weaponId === 'torpedo' ? 0.18 : 0.12, 0.2, 'triangle');
+      this.emitBeep(
+        weaponId === 'torpedo' ? 430 : 760,
+        (weaponId === 'torpedo' ? 0.18 : 0.12) * len,
+        0.2 * scale,
+        'triangle',
+      );
     } else if (kind === 'hull') {
       // ハル危険域の連続警報。シールド警報より低く、間隔を詰めて鳴らす。
-      this.beep(300, 0.16, 0.28, 'sawtooth');
-      this.delayedBeep(190, 240, 0.16, 0.28, 'sawtooth');
+      this.emitBeep(300, 0.16 * len, 0.28 * scale, 'sawtooth');
+      this.delayedBeep(190, 240, 0.16 * len, 0.28 * scale, 'sawtooth');
     } else {
-      this.beep(420, 0.18, 0.22, 'sawtooth');
+      this.emitBeep(420, 0.18 * len, 0.22 * scale, 'sawtooth');
     }
   }
 
@@ -628,6 +695,8 @@ export class AudioManager {
    * 開始で上がり、終了で下がる。鳴っている間は低い唸りを保つ。
    */
   warpTone(on: boolean): void {
+    const scale = sfxGain('ui');
+    if (scale === null) return;
     if (!this.ctx || !this.sfxBus || !this.reserveVoice(on ? 0.85 : 0.7)) return;
     const t = this.ctx.currentTime;
 
@@ -650,7 +719,7 @@ export class AudioManager {
     }
     const dur = on ? 0.8 : 0.65;
     env.gain.setValueAtTime(0.0001, t);
-    env.gain.exponentialRampToValueAtTime(0.16, t + 0.08);
+    env.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.16 * scale), t + 0.08);
     env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     osc.connect(filter);
     filter.connect(env);
@@ -668,7 +737,7 @@ export class AudioManager {
       bp.Q.value = 0.7;
       const g = this.ctx.createGain();
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.09, t + 0.12);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.09 * scale), t + 0.12);
       g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
       src.connect(bp);
       bp.connect(g);
@@ -686,6 +755,10 @@ export class AudioManager {
    * 戻り値は喋り終わるまでの秒数 (顔の口の動きと合わせるために返す)。
    */
   radioVoice(text: string, tone: 'friendly' | 'enemy' | 'command' = 'friendly', speaker = ''): number {
+    // 無音設定でも 0 を返して即座に抜ける。戻り値は HUD の口の動きを駆動するだけで、
+    // 字幕は別経路なので「声を切っても字幕は残る」挙動になる。
+    const scale = sfxGain('voice');
+    if (scale === null) return 0;
     if (!this.ctx || !this.sfxBus || text.trim().length === 0) return 0;
     const t0 = this.ctx.currentTime;
 
@@ -702,10 +775,10 @@ export class AudioManager {
     if (!this.reserveVoice(dur + 0.2)) return 0;
 
     // 無線のスケルチ (開くカチッという音)
-    this.squelch(t0, 0.035);
+    this.squelch(t0, 0.035, scale);
 
     const out = this.ctx.createGain();
-    out.gain.value = 0.5;
+    out.gain.value = 0.5 * scale;
     // 電話帯域に絞ると「無線越し」に聞こえる
     const band = this.ctx.createBiquadFilter();
     band.type = 'bandpass';
@@ -743,8 +816,8 @@ export class AudioManager {
       hp.type = 'highpass';
       hp.frequency.value = 1800;
       const g = this.ctx.createGain();
-      g.gain.setValueAtTime(0.02, t0);
-      g.gain.setValueAtTime(0.02, t0 + dur);
+      g.gain.setValueAtTime(0.02 * scale, t0);
+      g.gain.setValueAtTime(0.02 * scale, t0 + dur);
       g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur + 0.1);
       hiss.connect(hp);
       hp.connect(g);
@@ -752,12 +825,12 @@ export class AudioManager {
     }
 
     // 閉じるスケルチ
-    this.squelch(t0 + dur + 0.05, 0.05);
+    this.squelch(t0 + dur + 0.05, 0.05, scale);
     return dur + 0.1;
   }
 
   /** 無線を開閉するときの短いノイズ */
-  private squelch(at: number, dur: number): void {
+  private squelch(at: number, dur: number, scale = 1): void {
     if (!this.ctx || !this.sfxBus) return;
     const src = this.noise(dur + 0.05, at);
     if (!src) return;
@@ -766,7 +839,7 @@ export class AudioManager {
     hp.frequency.value = 2200;
     const env = this.ctx.createGain();
     env.gain.setValueAtTime(0.0001, at);
-    env.gain.exponentialRampToValueAtTime(0.06, at + 0.005);
+    env.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.06 * scale), at + 0.005);
     env.gain.exponentialRampToValueAtTime(0.0001, at + dur);
     src.connect(hp);
     hp.connect(env);
@@ -798,7 +871,9 @@ export class AudioManager {
       this.engine = { osc, noise, gain, filter };
     }
     const e = this.engine;
-    const target = alive ? 0.05 + power * 0.09 + (afterburner ? 0.12 : 0) : 0;
+    // 無音設定ではノードを残したままゲインだけ 0 へ寄せる (再開時に作り直さない)
+    const scale = sfxGain('engine') ?? 0;
+    const target = alive ? (0.05 + power * 0.09 + (afterburner ? 0.12 : 0)) * scale : 0;
     e.gain.gain.setTargetAtTime(target, t, 0.12);
     const capital = profile.startsWith('capital:') || profile.startsWith('transport:');
     let hash = 0;

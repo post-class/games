@@ -144,6 +144,19 @@ export class CommsMenu {
     this.onPick(item.action);
   }
 
+  /**
+   * 基本項目（1..5 固定）を、メニューを開かずに実行する。
+   * Alt 系ショートカット（W7-6）用。エースページの項目は対象にしない
+   * （交渉は「相手を選んで開いてから」の操作なので、ショートカットにしない）。
+   */
+  invokeBaseItem(index: number): boolean {
+    const item = BASE_ITEMS[index];
+    if (!item) return false;
+    // `open` / `page` は触らない。メニューを開かずに命令だけ流す
+    this.onPick(item.action as CommsAction);
+    return true;
+  }
+
   /** 数字キーによる直接選択 (1-6) */
   pickIndex(i: number): void {
     if (!this.open || i < 0 || i >= this.items().length) return;

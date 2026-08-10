@@ -78,6 +78,8 @@ describe('コクピット構造物の構図', () => {
       [
         'frame',
         'frameDark',
+        // W3: 天蓋と側壁を気密風防のガラスへ置き換えたぶん 1種増える (ドローコール +1)
+        'glass',
         'lampA',
         'lampG',
         'lampR',

@@ -13,7 +13,7 @@ export interface ThrusterInput {
   yaw: number;
   /** -1..1 (+ = 右ロール) */
   roll: number;
-  /** 0..1 のスロットル指令 (レバー式: 保持される) */
+  /** 0..1 の速度設定 (目標速度の割合。レバー式で保持される) */
   throttle: number;
   afterburner: boolean;
   firePrimary: boolean;
@@ -77,6 +77,11 @@ export interface ShipRuntime {
   lockProgress: number;
   /** ロック完了しているターゲット id */
   lockedId?: number;
+  /**
+   * 手動ロック (設定「ミサイルロック: 手動」) で L を押してロックを開始したか。
+   * 自動ロック時は参照されない。ターゲット変更・副兵装切替・発射・脱出で false へ戻す。
+   */
+  lockArmed: boolean;
 
   /** 自機に向かっているミサイル (警告用) */
   incomingMissileId?: number;

@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { MusicDirector, type MusicMedia } from '../../src/audio/MusicDirector';
-import { combatMusicCue, musicPath, MUSIC_TRACKS } from '../../src/audio/musicCues';
+import {
+  combatMusicCue,
+  musicPath,
+  MUSIC_CUES,
+  MUSIC_FILES,
+  setMusicAssignment,
+} from '../../src/audio/musicCues';
 
 class FakeMedia implements MusicMedia {
   src = '';
@@ -36,10 +42,18 @@ function musicHarness() {
 }
 
 describe('MP3 BGMキュー', () => {
-  it('用途別の10曲すべてにpublic配下のMP3を割り当てる', () => {
-    expect(Object.keys(MUSIC_TRACKS)).toHaveLength(10);
-    for (const path of Object.values(MUSIC_TRACKS)) {
+  it('同梱の10曲すべてにpublic配下のMP3を割り当てる', () => {
+    expect(Object.keys(MUSIC_FILES)).toHaveLength(10);
+    for (const path of Object.values(MUSIC_FILES)) {
       expect(path).toMatch(/^\/audio\/music\/.*\.mp3$/);
+    }
+  });
+
+  it('11の場面すべてに既定の曲が割り当たっている', () => {
+    setMusicAssignment(undefined);
+    expect(MUSIC_CUES).toHaveLength(11);
+    for (const cue of MUSIC_CUES) {
+      expect(musicPath(cue)).toMatch(/^\/audio\/music\/.*\.mp3$/);
     }
   });
 
@@ -61,7 +75,7 @@ describe('MP3再生器', () => {
 
     expect(director.current).toBe('title');
     expect(media).toHaveLength(1);
-    expect(media[0].src).toBe(MUSIC_TRACKS.title);
+    expect(media[0].src).toBe(MUSIC_FILES['title-space-fighter']);
     expect(media[0].loop).toBe(true);
     expect(media[0].play).toHaveBeenCalledOnce();
     expect(media[0].volume).toBeCloseTo(1);
@@ -108,7 +122,7 @@ describe('MP3再生器', () => {
 
     director.playBattle('nemesis');
 
-    expect(musicPath('nemesis')).toBe(MUSIC_TRACKS.boss);
+    expect(musicPath('nemesis')).toBe(MUSIC_FILES['boss-black-vortex']);
     expect(director.current).toBe('nemesis');
     expect(media).toHaveLength(1);
   });
