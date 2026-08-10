@@ -2243,7 +2243,7 @@
 .mc-bar-talk {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   margin-top: 3px;
 }
 .mc-bar-turn {
@@ -2284,6 +2284,207 @@
 .mc-bar-relation i.on {
   background: var(--warn);
   border-color: var(--warn);
+}
+
+/* ───────── 酒場の席（T8-①）─────────
+ *
+ * 隊員の一次元リストをやめ、「入った瞬間にすでに固まっている連中がいる」
+ * 部屋にする。席は 4 つ固定（カウンター / テーブル×2 / ビリヤード台）。
+ * 席の数は `src/app/barSeats.ts` の BAR_SEAT_SLOTS が唯一の出所。
+ */
+/*
+ * 席は「1行に4つ」を基本にする。2行に折り返すとパネル内スクロールが出て、
+ * 部屋を一望できなくなる（席を並べた意図が消える）。
+ * 1つ 240px を下限にして、狭い画面では折り返す。
+ */
+.mc-bar-room {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  align-items: start;
+  gap: 8px;
+}
+/* 席が埋まって立ち飲みになった隊員。1行に収める */
+.mc-bar-standing {
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+/* 近づいた席。会話が入るので全幅で、同席の二人は横に並べる */
+.mc-bar-focus {
+  margin-bottom: 4px;
+}
+.mc-bar-focus .mc-bar-seat-people {
+  flex-direction: row;
+  gap: 14px;
+}
+.mc-bar-focus .mc-bar-person {
+  flex: 1 1 0;
+}
+/* 近づいた席は本文（掛け合い）が主役。相関の説明は行間を詰めて場所を譲る */
+.mc-bar-focus .mc-bar-bond-title {
+  line-height: 1.35;
+}
+.mc-bar-seat {
+  border: 1px solid rgba(127, 227, 176, 0.18);
+  border-left-width: 3px;
+  padding: 6px 8px;
+  background: rgba(8, 20, 16, 0.45);
+  min-width: 0;
+}
+/* 会話中の席だけ、部屋の中で明るくする */
+.mc-bar-seat.active {
+  border-color: var(--warn);
+  background: rgba(30, 24, 10, 0.5);
+}
+/* 空席は枠だけ残す（誰が減ったかが席の形で分かる） */
+.mc-bar-seat.vacant {
+  opacity: 0.45;
+  border-style: dashed;
+}
+.mc-bar-seat-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  margin-bottom: 4px;
+  color: #cdefdd;
+}
+.mc-bar-seat-head .dim {
+  font-size: 11px;
+}
+/* 席が縦長なので、同席の二人は横並びではなく上下に置く */
+.mc-bar-seat-people {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.mc-bar-person {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  min-width: 0;
+}
+.mc-bar-person-name {
+  color: #cdefdd;
+  font-size: 13px;
+}
+.mc-bar-person-sub {
+  color: var(--hud-dim);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+/* 同席の理由になっている固定相関。種類ごとに左の色を変える */
+.mc-bar-bond {
+  margin-top: 4px;
+  padding-top: 3px;
+  border-top: 1px solid rgba(127, 227, 176, 0.14);
+  font-size: 12px;
+  color: #b9dcc8;
+}
+.mc-bar-bond-kind {
+  display: inline-block;
+  padding: 0 5px;
+  margin-right: 6px;
+  border: 1px solid currentColor;
+  font-size: 11px;
+}
+.mc-bar-bond-title {
+  color: var(--hud-dim);
+  font-size: 11px;
+}
+.mc-bar-seat[data-kind='friction'] {
+  border-left-color: #d98a72;
+}
+.mc-bar-seat[data-kind='rival'] {
+  border-left-color: #e7c39a;
+}
+.mc-bar-seat[data-kind='mentor'] {
+  border-left-color: #9fc7e7;
+}
+.mc-bar-seat[data-kind='pair'] {
+  border-left-color: #7fe3b0;
+}
+.mc-bar-seat[data-kind='loss'] {
+  border-left-color: #b3a8d9;
+}
+.mc-bar-seat[data-kind='past'] {
+  border-left-color: #c8c8a8;
+}
+.mc-bar-bond[data-kind='friction'] .mc-bar-bond-kind {
+  color: #d98a72;
+}
+.mc-bar-bond[data-kind='rival'] .mc-bar-bond-kind {
+  color: #e7c39a;
+}
+.mc-bar-bond[data-kind='mentor'] .mc-bar-bond-kind {
+  color: #9fc7e7;
+}
+.mc-bar-bond[data-kind='pair'] .mc-bar-bond-kind {
+  color: #7fe3b0;
+}
+.mc-bar-bond[data-kind='loss'] .mc-bar-bond-kind {
+  color: #b3a8d9;
+}
+.mc-bar-bond[data-kind='past'] .mc-bar-bond-kind {
+  color: #c8c8a8;
+}
+
+/* 掛け合い（二人の会話にプレイヤーが割り込む）*/
+.mc-bar-turn.b span:last-child {
+  color: #b9dcc8;
+}
+.mc-bar-outcome {
+  margin-top: 3px;
+  color: var(--warn);
+  font-size: 11px;
+}
+
+/* 酒保の一言と、噂の出所ラベル */
+.mc-bar-tender {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+.mc-rumor {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 13px;
+}
+.mc-rumor-src {
+  color: var(--hud-dim);
+  font-size: 11px;
+}
+/* 噂の伝播（プレイヤーの行動が別の隊員の口から出る） */
+.mc-bar-gossip {
+  margin-top: 4px;
+  color: #e7d3a8;
+  font-size: 12px;
+}
+
+/* 私信（自室のメール端末）*/
+.mc-mail {
+  border-left: 2px solid rgba(127, 227, 176, 0.25);
+  padding: 4px 0 4px 8px;
+  margin-bottom: 8px;
+}
+.mc-mail-head {
+  color: #cdefdd;
+  font-size: 13px;
+}
+.mc-mail-from {
+  color: var(--hud-dim);
+  font-size: 11px;
+}
+.mc-mail-body {
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-line;
 }
 
 /* 格納庫: 機体の性格の一言 */

@@ -22,11 +22,12 @@
  * 「相手の文明」も**視界に敵が入って初めて**分かる（見ていないうちは推定なし）。
  */
 
-import type { CivId } from '@/shared/types';
+import type { CivId, EntityId } from '@/shared/types';
 import { CIV_IDS, EntityKind } from '@/shared/types';
 import type { Command } from '@/sim/command';
 import { TICK_RATE, cfgArray, cfgInt, cfgNum, cfgTiles } from '@/sim/core/config';
 import {
+  BUILDING_DEFS,
   CIV_DEFS,
   ROLE_COUNT,
   ROLE_IDS,
@@ -42,7 +43,7 @@ import {
   unitDefById,
 } from '@/sim/core/defs';
 import type { Fx } from '@/sim/core/fx';
-import { FX_ONE, distSq, idiv } from '@/sim/core/fx';
+import { FX_ONE, distSq, fxFromInt, idiv } from '@/sim/core/fx';
 
 import { MAP_TYPE_IDS } from '@/shared/types';
 import { mapParams } from '@/sim/systems/mapgen';
@@ -308,6 +309,7 @@ export function planMilitary(ctx: AiContext): Command[] {
   if (inBuildup && !underAttack) {
     // 兵は作らないが、**手空きの兵を前に出す判断だけは続ける**
     // （既にいる兵を放置すると戦域が立たない）。
+    pushSiege(ctx, cmds);
     pushDispatch(ctx, cmds);
     return cmds;
   }
@@ -319,7 +321,11 @@ export function planMilitary(ctx: AiContext): Command[] {
   // 2) 生産元ごとに、そこで作れるいちばん点数の高い兵を 1 体積む。
   pushUnitProduction(ctx, mix, cmds);
 
-  // 3) 手空きの兵をまとめて前に出す / 到着した兵を令の管理下に戻す。
+  // 3) **拠点を落としに行く**（守り手のいない建物を名指しで殴る）。
+  //    `pushDispatch` より先。ここで攻城に就いた兵は派遣の対象から外れる。
+  pushSiege(ctx, cmds);
+
+  // 4) 手空きの兵をまとめて前に出す / 到着した兵を令の管理下に戻す。
   pushDispatch(ctx, cmds);
 
   return cmds;
@@ -498,6 +504,327 @@ export function attackTargets(ctx: AiContext): { x: Fx; y: Fx }[] {
   return out.map((t) => ({ x: t.x, y: t.y }));
 }
 
+// ---------------------------------------------------------------- 攻城（拠点を落とす）
+
+/**
+ * 攻める建物 1 件（並びは決定論的な全順序）。
+ */
+export interface SiegeTarget {
+  /** `attackTarget` に載せる目標（`SeenEntity.id`。視界を通った敵だけ）。 */
+  readonly id: EntityId;
+  readonly x: Fx;
+  readonly y: Fx;
+  /** 優先度の段（0 = 町の中心、1 = 生産元、2 = その他）。 */
+  readonly rank: number;
+}
+
+/**
+ * 「ユニットの生産元になる建物」の旗（`BUILDING_DEFS` の index を添字にする）。
+ *
+ * **`buildings.json` の `produces` だけでは足りない。** 兵舎・射場・厩の `produces` は
+ * 空で、生産の対応は逆側（`units.json` の `producedAt`）に書かれているため
+ * （実測: `produces` だけで判定したら兵舎が「その他」の段に落ちた）。
+ * 文明固有の置き換え（`replaces`）も同じ生産元として数える。
+ */
+const PRODUCER_FLAG: Uint8Array = buildProducerFlag();
+
+function buildProducerFlag(): Uint8Array {
+  const flag = new Uint8Array(BUILDING_DEFS.length);
+  for (let b = 0; b < BUILDING_DEFS.length; b++) {
+    const bd = BUILDING_DEFS[b]!;
+    if (bd.produces.length > 0) {
+      flag[b] = 1;
+      continue;
+    }
+    for (let u = 0; u < UNIT_DEFS.length; u++) {
+      const at = UNIT_DEFS[u]!.producedAt;
+      if (at === bd.id || (bd.replaces !== null && at === bd.replaces)) {
+        flag[b] = 1;
+        break;
+      }
+    }
+  }
+  return flag;
+}
+
+/**
+ * 建物の優先度の段。
+ *  - 0: **町の中心**（`lossCausesDefeat`）。根拠は勝利条件そのもの
+ *       ―― `03§10`「相手の町の中心をすべて破壊」。ここを落とさないと試合は終わらない。
+ *  - 1: **生産元**（兵舎・射場・厩など）。落とせば相手の兵の湧きが止まる。
+ *  - 2: それ以外（家・資源施設・壁など）。
+ */
+function siegeRank(typeId: number): number {
+  const b = buildingDef(typeId);
+  if (b.lossCausesDefeat) return 0;
+  return PRODUCER_FLAG[b.index] === 1 ? 1 : 2;
+}
+
+/**
+ * 見えている敵の建物を攻める順に並べる。
+ *
+ * 全順序（同値のときの決め方まで固定する。§0.3。ここが揺れると全端末でデシンクする）:
+ *   `rank` 昇順 → **自軍の町の中心からの平方距離**昇順 → y 昇順 → x 昇順 → `EntityId` 昇順
+ * 平方距離のまま比べる（平方根を取らない）。
+ */
+export function siegeTargets(ctx: AiContext): SiegeTarget[] {
+  const view = ctx.view;
+  const tc = findTownCenter(ctx);
+  const ox = tc === null ? 0 : tc.x;
+  const oy = tc === null ? 0 : tc.y;
+  const rows: { t: SiegeTarget; d: number }[] = [];
+  for (let k = 0; k < view.seenEnemies.length; k++) {
+    const s = view.seenEnemies[k]!;
+    if (s.kind !== EntityKind.Building) continue;
+    rows.push({
+      t: { id: s.id, x: s.x, y: s.y, rank: siegeRank(s.typeId) },
+      d: distSq(ox, oy, s.x, s.y),
+    });
+  }
+  rows.sort((a, b) =>
+    a.t.rank !== b.t.rank
+      ? a.t.rank - b.t.rank
+      : a.d !== b.d
+        ? a.d - b.d
+        : a.t.y !== b.t.y
+          ? a.t.y - b.t.y
+          : a.t.x !== b.t.x
+            ? a.t.x - b.t.x
+            : a.t.id - b.t.id
+  );
+  return rows.map((r) => r.t);
+}
+
+/** マス数（`ai.json` の整数）を Fx に直す。 */
+function tilesToFx(tiles: number): Fx {
+  return fxFromInt(tiles);
+}
+
+/** その地点の付近に敵の**戦闘**ユニットがいるか（いるなら攻城しない）。 */
+function enemyCombatNear(ctx: AiContext, x: Fx, y: Fx, radius: Fx): boolean {
+  const list = ctx.view.seenEnemies;
+  const r2 = radius * radius;
+  for (let k = 0; k < list.length; k++) {
+    const s = list[k]!;
+    if (s.kind !== EntityKind.Unit) continue;
+    if (unitDef(s.typeId).lineIdx === 0) continue; // 村人・斥候・伝令は守り手ではない
+    if (distSq(x, y, s.x, s.y) <= r2) return true;
+  }
+  return false;
+}
+
+/**
+ * **拠点を攻め落としに行く**（`attackTarget` を出す唯一の場所）。
+ *
+ * ■ なぜこれが必要になったか（実測。30 分・AI 段階 4 同士 × 112 試合が**全部時間切れ**）
+ * ```
+ *  5分 兵 0/0  建物 8/10  町中心HP 2400/2400 敵拠点まで  -/-  マス 戦域 0
+ * 15分 兵 5/7  建物 17/18 町中心HP 2400/2400 敵拠点まで 67/50 マス 戦域 0
+ * 25分 兵 20/4 建物 21/17 町中心HP 2400/2400 敵拠点まで 14/137マス 戦域 1
+ * 30分 兵 24/5 建物 19/14 町中心HP 2400/2400 敵拠点まで 18/107マス 戦域 1
+ * ```
+ * **町の中心の HP が 30 分間まったく減らない。** 兵は敵拠点の 14〜18 マスまで
+ * 寄っているのに、そこで固まっていた。理由は 2 段:
+ *  1. AI が出していたのは `moveUnits` と `releaseManual` だけで、
+ *     `attackTarget` を一度も出していなかった（建物を名指しできなかった）。
+ *  2. `pushDispatch` は目標の `ARRIVE_RADIUS`（= `front.spawnRadiusTiles` = 15 マス）まで
+ *     来たら「着いた」と見なして `releaseManual` で令に返す。ところが戦域は
+ *     「双方が 15 マス内に `spawnMinUnits` 体」で初めて立つので（`07§3`）、
+ *     **守り手のいない拠点の前では戦域が立たず、令の受け皿が無い**。
+ *     兵は令を待つ場所も攻める相手も無いまま立ち続ける。
+ * 勝利条件は `03§10`「相手の町の中心をすべて破壊」なので、これでは永久に決着しない。
+ *
+ * ■ 判断（`07§11` の「ズルなし」の範囲内。使うのは `AiView` だけ）
+ *  - 目標のそばに自軍の戦闘ユニットが `siegeMinSquads` 隊ぶん集まっている
+ *    （半径は `siegeStageRadiusTiles`。15 では 18 マスで止まった兵を数え落とす）
+ *  - かつ **その付近に敵の戦闘ユニットがいない**（`siegeClearRadiusTiles`）。
+ *    敵兵がいるなら既存の挙動（交戦 → 戦域が立つ → 令で戦う）に任せる。
+ *  - **戦域に入っている兵は 1 体も抜かない**（`frontId !== 0` を外す）。
+ *    戦っている隊から兵を引き抜くと戦域が崩れる。
+ *
+ * ■ APM（`07§11` / `tests/balance/apm.test.ts`）
+ * 命令は **1 判断につき 1 件**、しかも「目標が変わった」「新しい兵が加わった」ときだけ。
+ * すでに全員がその建物に就いているなら何も出さない（`memory.siegeTarget` で照合）。
+ * 目標が視界から消えた（落ちた・見失った）ときだけ `releaseManual` を 1 件出して令に返す。
+ */
+export function pushSiege(ctx: AiContext, out: Command[]): void {
+  const need = ctx.cfg.siegeMinSquads * SQUAD_MIN_UNITS;
+  if (need <= 0) return; // 段階 1（素人）は拠点を攻めない（`07§11`「内政のみ」）
+  const m = ctx.memory;
+  const view = ctx.view;
+  const stageR = tilesToFx(ctx.cfg.siegeStageRadiusTiles);
+  const clearR = tilesToFx(ctx.cfg.siegeClearRadiusTiles);
+  const stage2 = stageR * stageR;
+
+  const units = combatUnits(view);
+  const targets = siegeTargets(ctx);
+
+  // 1) 目標が視界から消えた兵を令に返す（落とした建物・見失った建物の記憶を捨てる）。
+  //    ここを **`releaseManual` で締める**のが大事: `manual = 1` のままだと
+  //    `frontEnrollment` が編入しないので、兵が二度と戦域に入れなくなる。
+  const stale: EntityId[] = [];
+  for (let k = 0; k < units.length; k++) {
+    const oe = units[k]!;
+    const held = memGet(m.siegeTarget, oe.index);
+    if (held === 0) continue;
+    let stillThere = false;
+    for (let t = 0; t < targets.length; t++) {
+      if (targets[t]!.id === held) {
+        stillThere = true;
+        break;
+      }
+    }
+    if (stillThere) continue;
+    memSet(m.siegeTarget, oe.index, 0);
+    const id = ctx.idOf(oe.index);
+    if (id > 0) stale.push(id);
+  }
+  if (stale.length > 0) out.push({ t: 'releaseManual', p: ctx.playerId, units: stale });
+
+  // 2) 攻める建物を 1 つ選ぶ（優先度順に見て、条件を満たす最初のもの）。
+  for (let t = 0; t < targets.length; t++) {
+    const tg = targets[t]!;
+    // 守り手がいるなら攻城しない（交戦と戦域の既存の流れを壊さない）。
+    if (enemyCombatNear(ctx, tg.x, tg.y, clearR)) continue;
+
+    // そばに集まっている手空きの兵（index 昇順。`combatUnits` がその順に返す）。
+    const nearIdx: number[] = [];
+    for (let k = 0; k < units.length; k++) {
+      const oe = units[k]!;
+      if (oe.frontId !== 0) continue; // 戦っている兵は抜かない
+      const id = ctx.idOf(oe.index);
+      if (id <= 0) continue;
+      // **一度送って着いた兵だけ**（`pushDispatch` が令に返した兵）を攻城に使う。
+      //
+      // ここを「手空きの兵すべて」にすると、拠点で生産した直後の兵まで
+      // 攻城に取られ、`pushDispatch` の派遣と `planDecoy` の囮が動かなくなる
+      // （実測: `tests/unit/ai.front.test.ts` の囮のテストが 2 隊 → 0 隊になった）。
+      // 攻める順は「送る（`moveUnits`）→ 着く（`releaseManual`）→ 攻める（`attackTarget`）」。
+      if (memGet(m.released, oe.index) !== id) continue;
+      if (distSq(oe.x, oe.y, tg.x, tg.y) > stage2) continue;
+      nearIdx.push(oe.index);
+    }
+    if (nearIdx.length < need) continue;
+
+    // まだこの建物に就いていない兵だけに命じる（同じ命令を出し直さない = APM を食わない）。
+    const ids: EntityId[] = [];
+    const idx: number[] = [];
+    for (let k = 0; k < nearIdx.length; k++) {
+      const i = nearIdx[k]!;
+      if (memGet(m.siegeTarget, i) === tg.id) continue;
+      ids.push(ctx.idOf(i));
+      idx.push(i);
+    }
+    // 全員すでに攻城中 → 命令は出さない（攻城は続いている）。
+    if (ids.length === 0) return;
+    for (let k = 0; k < idx.length; k++) memSet(m.siegeTarget, idx[k]!, tg.id);
+    out.push({
+      t: 'attackTarget',
+      p: ctx.playerId,
+      units: ids,
+      target: tg.id,
+    });
+    return; // 1 判断 1 目標
+  }
+
+  // 3) 攻める建物が 1 件も見えていない → **敵の拠点へ寄せ直す**（進軍）。
+  pushSiegeMarch(ctx, units, out);
+}
+
+/**
+ * **敵の拠点へ進軍する**（攻城の前段）。
+ *
+ * ■ なぜ必要か（これが無いと攻城の判断が一度も働かない。実測で確認済み）
+ * `pushDispatch` は兵を「いちばん近い攻撃目標」へ 1 度だけ送り、
+ * `ARRIVE_RADIUS`（= `front.spawnRadiusTiles` = 15 マス）まで来たら `releaseManual` で
+ * 令に返す。ところが:
+ *  - いちばん近い目標は多くの場合**自陣の近くをうろつく敵の兵**なので、
+ *    軍は敵の拠点へ向かわない（実測で敵拠点まで 67 / 107 マスに散っていた）。
+ *  - 15 マス手前で令に返された兵は、**戦域が立たないので受け皿が無く**そこで止まる。
+ *    ユニットの視界は 4〜6 マスなので、15 マス先の町の中心は**視界に入らない**
+ *    ―― 実測で `seenEnemies` に町の中心が 30 分間 1 度も現れなかった。
+ *    名指しできない建物は攻められない（`attackTarget` は `EntityId` を要る）。
+ *
+ * そこで「返されたまま手が空いている兵」を**敵の開始位置**へまとめて送り直す。
+ * 開始位置（`AiView.map.starts`）は人間も知っている情報で（`07§13` のマップの席）、
+ * `attackTargets` も既に候補に入れている ―― 新しく覗く情報は無い。
+ * 拠点まで歩けば周りの建物が視界に入り、そこから 2) の攻城が働く。
+ *
+ * APM: 送るのは**まだその拠点へ向けていない兵だけ**なので、1 拠点につき実質 1 回。
+ */
+function pushSiegeMarch(ctx: AiContext, units: readonly OwnEntity[], out: Command[]): void {
+  const need = ctx.cfg.siegeMinSquads * SQUAD_MIN_UNITS;
+  const m = ctx.memory;
+  const base = nearestEnemyBase(ctx);
+  if (base === null) return;
+
+  const ids: EntityId[] = [];
+  const idx: number[] = [];
+  for (let k = 0; k < units.length; k++) {
+    const oe = units[k]!;
+    if (oe.frontId !== 0) continue; // 戦っている兵は抜かない（戦域を崩さない）
+    if (memGet(m.siegeTarget, oe.index) !== 0) continue; // 攻城中
+    const id = ctx.idOf(oe.index);
+    if (id <= 0) continue;
+    // **一度送って返された兵だけ**を対象にする（= 目標に着いて手が空いている兵）。
+    // まだ移動中の兵を横取りすると、`pushDispatch` の派遣と喧嘩して往復する。
+    if (memGet(m.released, oe.index) !== id) continue;
+    // すでにこの拠点へ向けてある兵は数えるが命じ直さない（APM を食わない）。
+    if (memGet(m.dispatchX, oe.index) === base.x && memGet(m.dispatchY, oe.index) === base.y) {
+      idx.push(-1);
+      continue;
+    }
+    ids.push(id);
+    idx.push(oe.index);
+  }
+  // 拠点に殴り込むのだから、戦域 1 本ぶんでは足りない（攻城と同じ人数を要求する）。
+  if (idx.length < need) return;
+  if (ids.length === 0) return; // 全員すでに進軍中
+  for (let k = 0; k < idx.length; k++) {
+    const i = idx[k]!;
+    if (i < 0) continue;
+    memSet(m.dispatched, i, ctx.idOf(i));
+    memSet(m.dispatchX, i, base.x);
+    memSet(m.dispatchY, i, base.y);
+  }
+  out.push({ t: 'moveUnits', p: ctx.playerId, units: ids, x: base.x, y: base.y, queued: false });
+}
+
+/**
+ * 味方でないプレイヤーの開始位置のうち、**自軍の町の中心にいちばん近いもの**。
+ * 全順序: 平方距離昇順 → 席番号（`starts` の index）昇順。
+ */
+function nearestEnemyBase(ctx: AiContext): { x: Fx; y: Fx } | null {
+  const view = ctx.view;
+  const tc = findTownCenter(ctx);
+  const ox = tc === null ? 0 : tc.x;
+  const oy = tc === null ? 0 : tc.y;
+  const starts = view.map.starts;
+  let bx = 0;
+  let by = 0;
+  let best = -1;
+  for (let p = 0; p * 2 + 1 < starts.length; p++) {
+    const sx = starts[p * 2]!;
+    const sy = starts[p * 2 + 1]!;
+    if (sx === 0 && sy === 0) continue; // 未使用の席
+    if (view.isAlly(p as never)) continue;
+    const d = distSq(ox, oy, sx, sy);
+    if (best >= 0 && d >= best) continue; // 同値は席番号の小さい方（先に見た方）
+    best = d;
+    bx = sx;
+    by = sy;
+  }
+  return best < 0 ? null : { x: bx, y: by };
+}
+
+/** 攻城に就いている兵の数（テストと HUD の検証用）。 */
+export function siegeCount(ctx: AiContext): number {
+  const m = ctx.memory;
+  let n = 0;
+  for (let i = 0; i < m.siegeTarget.length; i++) if (memGet(m.siegeTarget, i) !== 0) n++;
+  return n;
+}
+
 /**
  * 手空きの兵を前に出し、着いた兵を令の管理下に戻す。
  *
@@ -512,9 +839,12 @@ function pushDispatch(ctx: AiContext, out: Command[]): void {
   const targets = attackTargets(ctx);
 
   // 1) 着いた兵を令に返す。
+  //    **攻城中の兵は対象外。** `releaseManual` は `manual` を下ろすので、
+  //    攻城中に掛けると目標を忘れて建物を殴るのをやめてしまう（`pushSiege` の注記）。
   const release: number[] = [];
   for (let k = 0; k < units.length; k++) {
     const oe = units[k]!;
+    if (memGet(m.siegeTarget, oe.index) !== 0) continue;
     const id = ctx.idOf(oe.index);
     if (id < 0) continue;
     if (memGet(m.dispatched, oe.index) !== id) continue;
@@ -534,6 +864,7 @@ function pushDispatch(ctx: AiContext, out: Command[]): void {
   for (let k = 0; k < units.length; k++) {
     const oe = units[k]!;
     if (oe.frontId !== 0) continue;
+    if (memGet(m.siegeTarget, oe.index) !== 0) continue; // 攻城中の兵は動かさない
     const id = ctx.idOf(oe.index);
     if (id < 0) continue;
     if (memGet(m.dispatched, oe.index) === id) continue;

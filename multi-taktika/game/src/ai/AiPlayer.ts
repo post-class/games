@@ -114,6 +114,33 @@ export interface AiLevelConfig {
    * 立つ／立たないの差になった）。
    */
   readonly armyFloorSquads: number;
+  /**
+   * **攻城を始めるのに必要な兵の量**を「戦域 1 本ぶんの何倍か」で表す
+   * （`front.spawnMinUnits` の倍数）。0 なら拠点を攻めない（段階 1）。
+   *
+   * なぜ攻城の判断が必要になったかは `militaryGoals.ts` の `planSiege` の注記
+   * （30 分 × 112 試合が全部時間切れ・町の中心の HP が 1 も減らなかった実測）を参照。
+   */
+  readonly siegeMinSquads: number;
+  /**
+   * 「目標の建物のそばに集まっている」と見なす半径（マス）。
+   *
+   * **`front.spawnRadiusTiles`（15）より広い 20 にしている。** 理由は実測:
+   * 兵は目標の **14〜18 マス**で止まっていた（`militaryGoals.ts` の `ARRIVE_RADIUS`
+   * = 15 マスで「着いた」と見なして `releaseManual` で令に返すが、守り手のいない
+   * 拠点の前には戦域が立たないので**令の受け皿が無く**、そこで固まる）。
+   * 15 のままだと 18 マスで止まった兵を数え落として永久に攻城が始まらない。
+   */
+  readonly siegeStageRadiusTiles: number;
+  /**
+   * 「目標の付近に敵兵がいない」と見なす半径（マス）。
+   * ここに敵の戦闘ユニットが 1 体でもいれば攻城しない ―― 交戦は戦域（`07§3`）に任せる。
+   *
+   * 10 マスは `front.spawnRadiusTiles`（15）より**小さく**取っている。
+   * 戦域が立つ範囲より広く取ると、戦域が立つより前に攻城を諦めてしまい、
+   * 「攻城もしない・戦域も立たない」という元の状態に戻る。
+   */
+  readonly siegeClearRadiusTiles: number;
 }
 
 /** `ai.json` を level 昇順に並べた表。 */
@@ -147,6 +174,9 @@ function buildLevels(): AiLevelConfig[] {
       ageReserveRatioAfterFirst: num(a['ageReserveRatioAfterFirst'], 0.5),
       ageReserveRatioFirst: num(a['ageReserveRatioFirst'], 1),
       armyFloorSquads: int(a['armyFloorSquads'], 2),
+      siegeMinSquads: int(a['siegeMinSquads'], 2),
+      siegeStageRadiusTiles: int(a['siegeStageRadiusTiles'], 20),
+      siegeClearRadiusTiles: int(a['siegeClearRadiusTiles'], 10),
     });
   }
   // level 昇順（`Object.keys` の順に依存しない。§0.3）。
@@ -252,6 +282,20 @@ export interface AiMemory {
   readonly dispatchY: number[];
   /** 囮として送り出した兵の EntityId（`dispatched` と同じ添字。0 = 本命）。 */
   readonly decoy: number[];
+  /**
+   * **その兵にいま攻めさせている建物の `EntityId`**（0 = 攻城していない）。
+   *
+   * これを持つ理由は 2 つあり、どちらも「同じ命令を出し直さない」ため:
+   *  - `attackTarget` を毎判断ごとに出すと APM（`07§11` / `tests/balance/apm.test.ts`）を
+   *    無駄に食う。**目標が変わったときと、新しい兵が加わったときだけ**出したい。
+   *  - `pushDispatch` の「着いたら `releaseManual`」が攻城中の兵にも掛かると、
+   *    `manual` が下りて目標を忘れ、建物を殴るのをやめてしまう。
+   *    攻城中の兵はここを見て**派遣の対象から外す**。
+   *
+   * 値に `EntityId` を入れるのは他の記憶と同じ理由（目標が死んで index が
+   * 再利用されても `EntityId` が変わるので「別物」と分かる）。
+   */
+  readonly siegeTarget: number[];
   /** 直近に囮を仕込んだ tick（-1 = まだ）。テストと連打防止に使う。 */
   decoyTick: number;
   /** 直近に建設を命じた tick（-1 = まだ）。 */
@@ -282,6 +326,7 @@ function createMemory(): AiMemory {
     dispatchX: [],
     dispatchY: [],
     decoy: [],
+    siegeTarget: [],
     decoyTick: -1,
     buildTick: -1,
   };

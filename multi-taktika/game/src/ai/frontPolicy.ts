@@ -223,6 +223,7 @@ export function planDecoy(ctx: AiContext): Command | null {
   for (let k = 0; k < units.length && ids.length < SQUAD_MIN_UNITS; k++) {
     const oe = units[k]!;
     if (oe.frontId !== 0) continue; // 戦っている兵は抜かない
+    if (memGet(m.siegeTarget, oe.index) !== 0) continue; // 攻城中の兵も抜かない
     const id = ctx.idOf(oe.index);
     if (id < 0) continue;
     if (memGet(m.dispatched, oe.index) === id) continue;

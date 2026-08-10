@@ -22,8 +22,9 @@
 
 import { EntityKind, NEUTRAL_OWNER, type PlayerId } from '@/shared/types';
 import { cfgInt } from '@/sim/core/config';
-import { buildingDef, unitDef } from '@/sim/core/defs';
+import { buildingDef } from '@/sim/core/defs';
 import { FX_ONE } from '@/sim/core/fx';
+import { entitySightFx } from '@/sim/core/sight';
 import { hasTerrain, tileIndex } from '@/sim/core/terrain';
 import type { MapState, World } from '@/sim/core/world';
 import { areAllies } from '@/sim/core/world';
@@ -155,12 +156,11 @@ export class VisionBuffer {
       const owner = e.owner[i]!;
       if (owner === NEUTRAL_OWNER) continue;
       if (owner !== viewer && !areAllies(w, owner, viewer)) continue;
-      const kind = e.kind[i]!;
-      let sightFx = 0;
-      if (kind === EntityKind.Unit) sightFx = unitDef(e.typeId[i]!).sight;
-      else if (kind === EntityKind.Building || kind === EntityKind.Attachment) {
-        sightFx = buildingDef(e.typeId[i]!).sight;
-      } else continue;
+      // 視界の求め方は `sim/core/sight.ts` に集めてある。
+      // ここで `buildingDef(...).sight` を直に読んでいたころ、研究「測量」（建物の視界 +4）が
+      // 効かなかった。**AI 側（`ai/view.ts`）と同じ関数を使う**のが大事で、
+      // 片方だけ広いと「画面には見えないのに AI は知っている」（＝ズル）になる。
+      const sightFx = entitySightFx(w, i);
       const r = sightFx / FX_ONE;
       if (r <= 0) continue;
       this.stampCircle(map, Math.floor(e.x[i]! / FX_ONE), Math.floor(e.y[i]! / FX_ONE), r);

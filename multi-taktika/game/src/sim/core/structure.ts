@@ -242,6 +242,10 @@ function spawnFarmNodeIfFarm(w: World, i: number): void {
     if (e.kind[k] !== EntityKind.Resource) continue;
     if (e.homeId[k] === id) return;
   }
+  // 埋蔵量（食料 400）は渡さない。**`amount` を明示すると `farmYieldMul`
+  // （犂 1.3 / 輪作 1.4 / 勧農 1.2）が掛からない**ので、既定値 + 倍率の計算は
+  // `spawnResourceNode`（`gather.ts` の `depositForNewNodeFx`）に任せる。
+  // 倍率は「農地が完成したこの瞬間」の研究状況で決まる（＝先に研究した分だけ得をする）。
   spawnResourceNode(w, FARM_NODE_TYPE, e.x[i]!, e.y[i]!, {
     owner: e.owner[i]! as PlayerId,
     parent: id,

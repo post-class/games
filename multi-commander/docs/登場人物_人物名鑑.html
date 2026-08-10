@@ -139,10 +139,10 @@
       .relation-tabs button.active, .relation-tabs button:hover { border-color: var(--cyan); color: var(--cyan); }
       .relation-legend { display: flex; flex-wrap: wrap; gap: 7px 14px; margin: 0 0 10px; color: var(--muted); font-size: 12px; }
       .relation-legend i { display: inline-block; width: 22px; height: 0; margin-right: 5px; border-top: 3px solid var(--cyan); vertical-align: middle; }
-      .relation-legend .kin { border-color: #ffb07d; } .relation-legend .love { border-color: #ff7da7; border-top-style: dashed; } .relation-legend .rival { border-color: #ffdf75; border-top-style: dotted; } .relation-legend .friend { border-color: #73d7ff; }
+      .relation-legend .kin { border-color: #ffb07d; } .relation-legend .love { border-color: #ff7da7; border-top-style: dashed; } .relation-legend .rival { border-color: #ffdf75; border-top-style: dotted; } .relation-legend .friend { border-color: #73d7ff; } .relation-legend .friction { border-color: #ff8a6a; border-top-style: dashed; }
       .relation-chart-wrap { overflow-x: auto; padding-bottom: 5px; border: 1px solid var(--line); border-radius: 10px; background: radial-gradient(ellipse at 50% 0%, rgba(40, 75, 119, .22), transparent 60%), #07101e; }
       .relation-chart { display: block; min-width: 1080px; width: 100%; height: auto; }
-      .relation-chart .edge { fill: none; stroke-width: 2.3; opacity: .8; } .relation-chart .edge.kin { stroke: #ffb07d; } .relation-chart .edge.love { stroke: #ff7da7; stroke-dasharray: 7 5; } .relation-chart .edge.rival { stroke: #ffdf75; stroke-dasharray: 2 5; } .relation-chart .edge.friend { stroke: #73d7ff; }
+      .relation-chart .edge { fill: none; stroke-width: 2.3; opacity: .8; } .relation-chart .edge.kin { stroke: #ffb07d; } .relation-chart .edge.love { stroke: #ff7da7; stroke-dasharray: 7 5; } .relation-chart .edge.rival { stroke: #ffdf75; stroke-dasharray: 2 5; } .relation-chart .edge.friend { stroke: #73d7ff; } .relation-chart .edge.friction { stroke: #ff8a6a; stroke-dasharray: 9 4; }
       .relation-chart .faction-frame { fill: rgba(13, 28, 48, .6); stroke-width: 1.5; } .relation-chart .faction-frame.external-frame { opacity: .58; stroke-dasharray: 5 5; }
       .relation-chart .faction-label { fill: #dbeaff; font: 700 13px var(--mono); letter-spacing: .04em; } .relation-chart .faction-count { fill: #91a7c5; font: 11px var(--mono); }
       .relation-chart .node { cursor: pointer; } .relation-chart .node rect { fill: #12233c; stroke: #426890; stroke-width: 1.2; } .relation-chart .node.external { opacity: .58; } .relation-chart .node:hover rect, .relation-chart .node:focus rect { fill: #1b4261; stroke: var(--cyan); stroke-width: 2; } .relation-chart .node text { pointer-events: none; fill: #edf4ff; font-size: 12px; font-weight: 700; } .relation-chart .node .node-epithet { fill: #ffd27d; font-size: 10px; font-weight: 400; }
@@ -205,8 +205,8 @@
       <div class="scope"><strong style="color:var(--gold)">人物設計の基準：</strong> 人類36名は、日本・イギリス・イタリア・ガーナ・ケニア・レバノン・エジプト・タイ・韓国・ナイジェリア・エチオピアの各文化圏から配置。主人公は固定せず、朝倉澪、神谷隼人、アミナ・オカフォー、マーカス・ジョンソン、プロイ・スリスックのF-54専任パイロット5名から選択する。非人類は獣人、宇宙人、アンドロイド・ロボット系、エネルギー・不定体系に分類し、各勢力10名・最高権力者を左上に配置する。</div>
 
       <section id="relationships">
-        <div class="section-head"><div><div class="kicker">Relationship atlas / interactive</div><h2>人物相関関連図</h2></div><p>勢力ごとの枠内に、肖像・名前・二つ名を表示する。線は親子・兄弟姉妹、恋人・伴侶、友人・同期、ライバルを示す。ノードをクリックすると人物詳細を開く。</p></div>
-        <div class="panel"><div id="relationship-tabs" class="relation-tabs" role="tablist" aria-label="相関図の表示範囲"></div><div class="relation-legend"><span><i class="kin"></i>親子・兄弟姉妹</span><span><i class="love"></i>恋人・伴侶</span><span><i class="friend"></i>友人・同期・師弟</span><span><i class="rival"></i>ライバル</span></div><div class="relation-chart-wrap"><svg id="relationship-chart" class="relation-chart" viewBox="0 0 1312 640" role="img" aria-label="人物相関関連図"></svg></div></div>
+        <div class="section-head"><div><div class="kicker">Relationship atlas / interactive</div><h2>人物相関関連図</h2></div><p>勢力ごとの枠内に、肖像・名前・二つ名を表示する。線は親子・兄弟姉妹、恋人・伴侶、友人・同期・師弟・相棒、ライバル、不和を示す。ノードをクリックすると人物詳細を開く。<br><strong>〈タイガーズ・クロー〉飛行隊の8名を結ぶ10本は、ゲーム内で実際に動く相関である。</strong>酒場では相関を持つ二人が同じ席に着き、その掛け合いへプレイヤーが割り込むと、二人の仲そのものが動く。</p></div>
+        <div class="panel"><div id="relationship-tabs" class="relation-tabs" role="tablist" aria-label="相関図の表示範囲"></div><div class="relation-legend"><span><i class="kin"></i>親子・兄弟姉妹</span><span><i class="love"></i>恋人・伴侶</span><span><i class="friend"></i>友人・同期・師弟・相棒</span><span><i class="rival"></i>ライバル</span><span><i class="friction"></i>不和</span></div><div class="relation-chart-wrap"><svg id="relationship-chart" class="relation-chart" viewBox="0 0 1312 640" role="img" aria-label="人物相関関連図"></svg></div></div>
       </section>
 
       <dialog id="persona-dialog" aria-labelledby="dialog-title">
@@ -475,9 +475,23 @@
         ,['neurowm-0', 'neurowm-7', '親子個体。クラウンはサイレンスの基幹設計者であり、親機として初期人格の形成を担った。']
         ,['neurowm-0', 'neurowm-8', '親子個体。クラウンはミミックの設計親でもあり、旧式の知覚体系を守るよう教育した。']
         ,['neurowm-7', 'neurowm-9', 'ライバル個体。サイレンスとグラフトは隠密性と自己修復効率の記録を競い、相手の更新ログを常に分析している。']
+        // ── 〈タイガーズ・クロー〉飛行隊の相関（ゲーム実装 src/content/pilotBonds.ts と対応）──
+        // 実装で酒場の同席と掛け合いを決めている 10 本。索引は名鑑の連番なので、
+        // 実装の人物id（confed-13〜32）から 13 を引いた値になる。
+        ,['confed-4', 'confed-13', '不和。桐谷 綾は持ち場を離れず、藤堂 悠真は独断で囮に出る。三度目に護衛対象の輸送艇が被弾してから、二人は作戦前の打ち合わせをしなくなった。']
+        ,['confed-5', 'confed-15', '師弟。黒瀬 日和は久世 朔の飛行記録を毎回勝手に読み、赤で書き込んで返す。「機体は替えが効く。お前は効かない」はこの一人へ向けた言葉である。']
+        ,['confed-12', 'confed-10', 'ライバル。榊 恒一は「当てに行く」と言い、橘 蒼真は「当たる位置で待つ」と言う。撃墜数はいまも数機差で入れ替わり続けている。']
+        ,['confed-2', 'confed-4', '喪失を共有する二人。柊 奏と桐谷 綾は前の配置で同じ僚機を失った。奏はその名を名簿に書き、綾はその席をまだ空けたままにしている。']
+        ,['confed-7', 'confed-12', '旧同僚。東雲 澪はかつて榊 恒一の突撃艇隊にいた。ある封鎖線突破のあと偵察へ移り、理由をいまも説明していない。']
+        ,['confed-2', 'confed-10', '相棒。柊 奏が敵の索敵を落とし、橘 蒼真がその数秒で当てる。この連携で二人合わせて十七機。作戦中の無線は「入る」「見えた」の二語で済む。']
+        ,['confed-13', 'confed-15', '相棒。藤堂 悠真は二度撃墜され、二度とも久世 朔の救難艇に拾われた。礼は言わないが、出撃前に必ず朔の機の外装を叩いていく。']
+        ,['confed-5', 'confed-12', '不和。黒瀬 日和は榊 恒一の独断交戦を艦の記録に一件ずつ残している。処分を求めたことはなく「いつか要る」と言うだけで、恒一はそれを脅しと受け取っている。']
+        ,['confed-7', 'confed-15', '師弟。東雲 澪が久世 朔に教えているのは撃ち方ではなく、単独で航路を割り出して戻る手順である。「助ける側が帰れなかったら、助けた意味がない」が理由。']
+        ,['confed-4', 'confed-10', '相棒。護衛の桐谷 綾が動かないから、迎撃の橘 蒼真は射線を計算できる。二人は互いを名前で呼ばず、担当宙域の番号で呼ぶ。']
       ];
-      const relationshipKind = (description) => /親子|兄妹|姉妹|兄弟|家門|親核/.test(description) ? 'kin' : /恋人|伴侶|誓約/.test(description) ? 'love' : /ライバル|競い/.test(description) ? 'rival' : 'friend';
-      const relationshipKindLabel = { kin: '親子・兄弟姉妹', love: '恋人・伴侶', friend: '友人・同期・師弟', rival: 'ライバル' };
+      // 飛行隊の「不和」は既存4種では表せないので線種を1つ足す。friend より先に判定する。
+      const relationshipKind = (description) => /親子|兄妹|姉妹|兄弟|家門|親核/.test(description) ? 'kin' : /恋人|伴侶|誓約/.test(description) ? 'love' : /ライバル|競い/.test(description) ? 'rival' : /不和|確執/.test(description) ? 'friction' : 'friend';
+      const relationshipKindLabel = { kin: '親子・兄弟姉妹', love: '恋人・伴侶', friend: '友人・同期・師弟・相棒', rival: 'ライバル', friction: '不和' };
       const relationshipEdges = relationshipPairs.map(([left, right, description]) => ({ left, right, description, kind: relationshipKind(description) }));
       const relationshipMap = {};
       relationshipEdges.forEach((edge) => {

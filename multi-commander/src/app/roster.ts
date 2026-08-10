@@ -51,6 +51,33 @@ export interface PilotState {
   transferredIn?: boolean;
 }
 
+/**
+ * 酒場での出来事の記憶（T8-①）。
+ *
+ * 「プレイヤーが誰と何をしたか」を出撃をまたいで持ち越し、**別の隊員の口から
+ * 噂として出す**ために保持する。ここが無いと、酒場での行動が本人との関係値にしか
+ * 効かず、隊の中で伝わらない（＝人物が絡み合わない）。
+ *
+ * 保存データに乗るので、`normalizeRoster` で必ず正規化する。
+ */
+export interface BarMemory {
+  /** 直近に会話を終えた隊員 id。新しい順、最大 `BAR_MEMORY_LIMIT` 件。 */
+  talkedWith: string[];
+  /** 直近に掛け合いへ介入したペアと、どちらに味方したか。 */
+  intervened?: { bondKey: string; side: 'a' | 'b' | 'defuse' };
+  /** 直近に一杯奢った相手。 */
+  boughtDrink?: string;
+  /** 直前の出撃以降に奢った回数（1出撃につき `DRINKS_PER_SORTIE` 回まで）。 */
+  drinksThisSortie: number;
+  /** 直前の出撃以降に、空いた席へグラスを置いたか（1出撃1回まで）。 */
+  toasted?: boolean;
+}
+
+/** 噂として遡れる会話の件数。 */
+export const BAR_MEMORY_LIMIT = 4;
+/** 1回の帰艦で奢れる回数。 */
+export const DRINKS_PER_SORTIE = 1;
+
 export interface RosterState {
   pilots: PilotState[];
   /** 補充候補の残り */
@@ -59,6 +86,15 @@ export interface RosterState {
   lastWingman?: string;
   /** 僚機同士の関係値。未登録の組み合わせは 0。 */
   relations: Record<string, number>;
+  /** 酒場での出来事の記憶。古い保存データには無いので省略可。 */
+  bar?: BarMemory;
+}
+
+export function newBarMemory(): BarMemory {
+  // `toasted` は明示的に false から始める。`bar` が欠けた保存データを
+  // 正規化したときと同じ形にしておく（片方だけ undefined になると、
+  // 追悼欄の案内文が出る/出ないが保存データの世代で変わってしまう）。
+  return { talkedWith: [], drinksThisSortie: 0, toasted: false };
 }
 
 export function newRoster(): RosterState {
@@ -66,6 +102,7 @@ export function newRoster(): RosterState {
     pilots: STARTING_SQUADRON.map((id) => freshPilot(id)),
     reserves: [...REPLACEMENT_POOL],
     relations: {},
+    bar: newBarMemory(),
   };
 }
 
@@ -138,7 +175,88 @@ export function normalizeRoster(raw: unknown): RosterState {
       if (typeof value === 'number' && Number.isFinite(value)) relations[key] = Math.max(-1, Math.min(1, value));
     }
   }
-  return { pilots, reserves, lastWingman: typeof r.lastWingman === 'string' ? r.lastWingman : undefined, relations };
+  return {
+    pilots,
+    reserves,
+    lastWingman: typeof r.lastWingman === 'string' ? r.lastWingman : undefined,
+    relations,
+    bar: normalizeBarMemory(r.bar, pilotIds),
+  };
+}
+
+/**
+ * 酒場の記憶を正規化する。
+ *
+ * 名簿から消えた（＝未知の id の）隊員は噂の対象から落とす。落とさないと、
+ * 保存データを跨いだときに存在しない相手の噂が出る。
+ */
+function normalizeBarMemory(raw: unknown, pilotIds: ReadonlySet<string>): BarMemory {
+  const fallback = newBarMemory();
+  if (!raw || typeof raw !== 'object') return fallback;
+  const b = raw as Partial<BarMemory>;
+  const talkedWith: string[] = [];
+  if (Array.isArray(b.talkedWith)) {
+    for (const id of b.talkedWith) {
+      if (typeof id !== 'string' || !pilotIds.has(id) || talkedWith.includes(id)) continue;
+      talkedWith.push(id);
+      if (talkedWith.length >= BAR_MEMORY_LIMIT) break;
+    }
+  }
+  const side = b.intervened?.side;
+  const intervened =
+    b.intervened && typeof b.intervened.bondKey === 'string' && (side === 'a' || side === 'b' || side === 'defuse')
+      ? { bondKey: b.intervened.bondKey, side }
+      : undefined;
+  return {
+    talkedWith,
+    intervened,
+    boughtDrink: typeof b.boughtDrink === 'string' && pilotIds.has(b.boughtDrink) ? b.boughtDrink : undefined,
+    drinksThisSortie: Math.min(DRINKS_PER_SORTIE, nonNegativeInt(b.drinksThisSortie, 0)),
+    toasted: b.toasted === true,
+  };
+}
+
+/** 酒場の記憶。古い保存データで未定義なら作って差し込む。 */
+export function barMemory(roster: RosterState): BarMemory {
+  roster.bar ??= newBarMemory();
+  return roster.bar;
+}
+
+/** 会話を終えた相手を記憶する（新しい順に積み、同じ相手は先頭へ寄せる）。 */
+export function rememberBarTalk(roster: RosterState, pilotId: string): void {
+  const bar = barMemory(roster);
+  bar.talkedWith = [pilotId, ...bar.talkedWith.filter((id) => id !== pilotId)].slice(0, BAR_MEMORY_LIMIT);
+}
+
+/** 掛け合いへ介入した記録。噂として他の隊員の口に出る。 */
+export function rememberIntervention(roster: RosterState, bondKey: string, side: 'a' | 'b' | 'defuse'): void {
+  barMemory(roster).intervened = { bondKey, side };
+}
+
+/** いま奢れるか（1回の帰艦につき `DRINKS_PER_SORTIE` 回まで）。 */
+export function canBuyDrink(roster: RosterState): boolean {
+  return barMemory(roster).drinksThisSortie < DRINKS_PER_SORTIE;
+}
+
+/**
+ * 一杯奢る。奢れないときは false を返して**何も変えない**。
+ *
+ * bond を動かすのは呼び出し側（`shiftBond`）。ここは回数と記憶だけを扱う。
+ */
+export function buyDrink(roster: RosterState, pilotId: string): boolean {
+  const bar = barMemory(roster);
+  if (bar.drinksThisSortie >= DRINKS_PER_SORTIE) return false;
+  bar.drinksThisSortie += 1;
+  bar.boughtDrink = pilotId;
+  return true;
+}
+
+/** 空いた席へグラスを置く。すでに置いていれば false。 */
+export function toastFallen(roster: RosterState): boolean {
+  const bar = barMemory(roster);
+  if (bar.toasted) return false;
+  bar.toasted = true;
+  return true;
 }
 
 function nonNegativeInt(v: unknown, d: number): number {
@@ -289,6 +407,13 @@ export interface SortieOutcome {
  * - 助けた／置き去りにしたで関係値が動く
  */
 export function applySortie(roster: RosterState, outcome: SortieOutcome): void {
+  // 酒場の「1回の帰艦につき1回」枠を戻す。誰と話したか・誰に味方したかの
+  // 記憶（噂の種）は残す。噂は次の帰艦で他の隊員の口から出るものなので、
+  // ここで消すと伝播しない。
+  const bar = barMemory(roster);
+  bar.drinksThisSortie = 0;
+  bar.toasted = false;
+
   // 欠場カウントを進める。酒場で話した効果は1回の出撃で使い切る。
   for (const p of roster.pilots) {
     p.talkedSinceSortie = false;
@@ -390,7 +515,14 @@ export function relationBetween(roster: RosterState, a: string, b: string): numb
   return Math.max(-1, Math.min(1, roster.relations[relationKey(a, b)] ?? 0));
 }
 
-function shiftRelation(roster: RosterState, a: string, b: string, amount: number): void {
+/**
+ * 隊員同士の関係値を動かす（-1..+1 に収める）。
+ *
+ * 酒場の掛け合いへの介入（`src/app/barBanter.ts` の `relationDelta`）を反映するため
+ * 公開している。掛け合い側は**一切書き換えず delta だけを返す**設計なので、
+ * 反映はここを通す。
+ */
+export function shiftRelation(roster: RosterState, a: string, b: string, amount: number): void {
   if (a === b) return;
   roster.relations ??= {};
   const key = relationKey(a, b);

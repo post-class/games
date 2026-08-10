@@ -29,20 +29,26 @@
  */
 
 import type { EntityId, PlayerId } from '@/shared/types';
-import { EntityKind, INVALID_ENTITY, RESOURCE_COUNT } from '@/shared/types';
+import { EntityKind, INVALID_ENTITY, RESOURCE_COUNT, RESOURCE_IDS } from '@/shared/types';
 
 import { UnitState, idOfIndex, isAliveIndex, resolveIndex } from '../core/entity';
 import { unitDef } from '../core/defs';
+import {
+  auraGatherMul,
+  destroyedSites,
+  getPlayerModifiers,
+  tradeIncomeMul,
+} from '../core/effects';
 import type { Fx } from '../core/fx';
-import { distSq } from '../core/fx';
+import { FX_ONE, distSq, fxMul } from '../core/fx';
 import {
   interactReachTo,
   TRADE_CART_TYPE,
   carryCapacityFx,
-  civGatherMulFx,
   depleteNode,
   distanceFx,
   effectiveGatherRatePerSecFx,
+  gatherMulFx,
   findNearestDropOffIndex,
   findNearestResourceNodeAnyIndex,
   findNearestResourceNodeIndex,
@@ -51,7 +57,6 @@ import {
   isDropOffIndex,
   isResourceNode,
   isVillagerIndex,
-  researchGatherMulFx,
   resourceDepletionEnabled,
   resourceNodeDef,
   setVillagerState,
@@ -77,6 +82,17 @@ interface EconomyTickContext {
   readonly depletion: boolean;
   /** 村人の運搬容量（Fx。10 単位）。 */
   readonly carryCap: Fx;
+  /**
+   * 座標依存の採集オーラ（地下水路 +15% / 壊された井戸の跡地 0.8）を
+   * **この tick で計算する必要があるか**。
+   * 誰も持っていなければ全村人ぶんの範囲判定をまるごと省ける（結果は変わらない）。
+   */
+  readonly gatherAuraActive: boolean;
+  /**
+   * オーラ倍率のメモ（プレイヤー席ごと。キーは資源ノードの `EntityId`）。
+   * `gatherAuraActive` が false のときは空配列（確保もしない）。
+   */
+  readonly auraMemo: readonly Map<EntityId, Fx>[];
 }
 
 export function economy(w: World): void {
@@ -85,10 +101,13 @@ export function economy(w: World): void {
 
   // 2) ユニットの経済行動。index 昇順（§0.3）。
   const e = w.entities;
+  const auraActive = gatherAuraActive(w);
   const ctx: EconomyTickContext = {
     fleeEnabled: villagerFleeEnabled(),
     depletion: resourceDepletionEnabled(),
     carryCap: carryCapacityFx(),
+    gatherAuraActive: auraActive,
+    auraMemo: auraActive ? createAuraMemo(w.playerCount) : [],
   };
   for (let i = 0; i < e.highWater; i++) {
     if (!isAliveIndex(e, i) || e.kind[i] !== EntityKind.Unit) continue;
@@ -236,11 +255,14 @@ function gatherTick(w: World, i: number, ctx: EconomyTickContext): void {
   }
 
   const oneWay = di >= 0 ? distanceFx(e.x[ni]!, e.y[ni]!, e.x[di]!, e.y[di]!) : 0;
+  // 倍率は文明・研究・建物を畳んだ 1 本（`core/gather.ts` の `gatherMulFx`）と、
+  // **座標依存のオーラ**（地下水路 / 壊された井戸の跡地）の 2 本。
+  // オーラは `PlayerModifiers` に畳めない（建物との距離で変わる）ので別引数で渡す。
   const rate = effectiveGatherRatePerSecFx(
     e.typeId[ni]!,
     oneWay,
-    researchGatherMulFx(w, owner, nodeDef.resource),
-    civGatherMulFx(w, owner, nodeDef.resource)
+    gatherMulFx(w, owner, e.typeId[ni]!),
+    gatherAuraMulFor(w, ctx, owner, ni, nodeDef.resource)
   );
 
   const cap = ctx.carryCap;
@@ -283,6 +305,76 @@ function gatherTick(w: World, i: number, ctx: EconomyTickContext): void {
   }
 
   if (e.carryAmount[i]! >= cap) startHaul(w, i);
+}
+
+// ------------------------------------------------- 採集オーラ（地下水路 / 井戸の跡地）
+
+/**
+ * 採集オーラの倍率を計算する必要があるか（1 tick に 1 回だけ判定する）。
+ *
+ * `core/effects.ts` の `auraGatherMul` は
+ *  - 自軍の建物に付いた `gatherRateAura`（ペルシア「地下水路」＝ 周囲の村人 +15%）
+ *  - 壊された井戸の跡地（`onDestroyEffects` 由来の 0.8）
+ * の 2 つを見る。前者を持つ席が 1 つも無く、跡地も無いなら結果は必ず 1.0 なので、
+ * 村人ごとの範囲判定をまるごと省く。
+ */
+function gatherAuraActive(w: World): boolean {
+  if (destroyedSites(w).length > 0) return true;
+  for (let p = 0; p < w.playerCount; p++) {
+    if (getPlayerModifiers(w, p).hasGatherRateAura) return true;
+  }
+  return false;
+}
+
+/** メモ用の Map をプレイヤー席ぶん確保する（オーラが有効な tick だけ）。 */
+function createAuraMemo(playerCount: number): Map<EntityId, Fx>[] {
+  const out: Map<EntityId, Fx>[] = [];
+  for (let p = 0; p < playerCount; p++) out.push(new Map<EntityId, Fx>());
+  return out;
+}
+
+/**
+ * その資源ノードで働く村人に掛かるオーラ倍率（Fx）。
+ *
+ * ■ ここも未結線だった
+ * `auraGatherMul` は M6 から実装済みだったのに誰も呼んでおらず、
+ * 「地下水路（ペルシア固有）が周囲の村人の採集速度を上げる」が死んでいた。
+ * `effectiveGatherRatePerSecFx` の 4 番目の引数（`mul2Fx`）がまさにこの用途。
+ *
+ * ■ 判定点を**村人ではなく資源ノード**にした理由（性能）
+ * `auraGatherMul` はプレイヤーの全建物を index 昇順に走査する（`core/grid.ts` の
+ * `queryCircle` は使えない ―― グリッドの中身は「その座標にいる者」であって
+ * 「その座標を覆う建物」ではないので、オーラ側から村人を引くしかない）。
+ * これを毎 tick 全村人ぶん回すと、村人 60 体 × 建物 40 棟 = 毎 tick 2400 回になる。
+ *
+ * そこで判定点をノードの座標に固定した。こうすると
+ *  - **同じノードを採る村人の間で結果が一致する**ので tick 内でメモが効く
+ *    （キーはノードの `EntityId`。generation を含むので index 再利用と混ざらない。
+ *     資源ノードは動かないので tick 内で値が変わることもない）
+ *  - 採集速度はもともと「ノード → 搬入点の距離」で決まる量（運搬損失と同じ考え方）なので、
+ *    「どのノードが地下水路の圏内か」で決まるほうが挙動としても分かりやすい
+ *    （村人が搬入で往復するたびに倍率が点いたり消えたりしない）。
+ * 実質のコストは「オーラを持つ席がいる試合の、採られているノードの数 × 建物数」まで落ちる。
+ */
+function gatherAuraMulFor(
+  w: World,
+  ctx: EconomyTickContext,
+  owner: PlayerId,
+  ni: number,
+  nodeResource: number
+): Fx {
+  if (!ctx.gatherAuraActive) return FX_ONE;
+  const e = w.entities;
+  const memo = ctx.auraMemo[owner];
+  const nodeId = idOfIndex(e, ni);
+  if (memo !== undefined) {
+    const hit = memo.get(nodeId);
+    if (hit !== undefined) return hit;
+  }
+  // `scope` に資源 ID を書いた効果を絞れるよう、採っている資源も渡す。
+  const v = auraGatherMul(w, owner, e.x[ni]!, e.y[ni]!, RESOURCE_IDS[nodeResource] ?? null);
+  memo?.set(nodeId, v);
+  return v;
 }
 
 /** 搬入中の 1 tick。 */
@@ -505,7 +597,15 @@ function tradeCartTick(w: World, i: number): void {
     }
     const oneWay = distanceFx(e.x[home]!, e.y[home]!, e.x[partner]!, e.y[partner]!);
     e.carryKind[i] = GOLD_RESOURCE + 1;
-    e.carryAmount[i] = tradeGoldPerRoundTripFx(oneWay);
+    // 交易収入の倍率（研究「隊商」/ 建物「塩蔵」）。
+    //
+    // **ここが未結線だった。** `core/effects.ts` の `tradeIncomeMul` は実装済みで、
+    // 市場パネル（`ui/hud/marketPanel.ts`）は「1 往復で入る金」に倍率を掛けて
+    // 表示していたのに、sim 側は素の `tradeGoldPerRoundTripFx` を積んでいた。
+    // つまり**表示された額より実際に入る金が少ない**（隊商を入れても増えない）。
+    // 掛ける場所と順序も UI と揃えてある（`fxMul` は切り捨てなので順序で 1 単位ずれる）。
+    const m = getPlayerModifiers(w, e.owner[i]! as PlayerId);
+    e.carryAmount[i] = fxMul(tradeGoldPerRoundTripFx(oneWay), tradeIncomeMul(m));
     e.destX[i] = e.x[home]!;
     e.destY[i] = e.y[home]!;
     return;

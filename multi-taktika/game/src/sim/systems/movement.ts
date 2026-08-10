@@ -7,6 +7,16 @@
  *    **経路点（曲がり角）だけ**を保持して毎 tick は直進追従する（局所回避）。
  *  - ユニット同士の重なりを押し出す（近傍は grid で取る）。
  *  - 地形による速度補正（浅瀬の騎兵 -30%。`config.combat.shallowCavSpeed`）。
+ *  - **効果適用エンジン（`core/effects.ts`）由来の速度補正**（研究の `unitStat.speed`、
+ *    交易荷車の `cartSpeedMul`、敷設物の `moveSpeedOnTile` = ローマ「街道」+30%）。
+ *
+ * ■ 効果適用エンジンの結線（`core/effects.ts` が読まれていなかった）
+ *  `core/effects.ts` は `unitStat`（speed）/ `cartSpeedMul` / `moveSpeedOnTile` を
+ *  正しく集約していたのに、**このファイルはそれを一切読んでいなかった**（import すら無かった）。
+ *  そのため「研究で足が速くならない」「荷駄が効かない」だけでなく、
+ *  ローマの勝ち筋である**街道（上を通る自軍 +30%。`03§4`「街道で戦域間の増援が最速」）が
+ *  完全に死んでいた**。ここで `speedOf` に 3 つとも通した。
+ *  倍率はすべて Fx（Q8）の乗算で、素の速度表（`SPEED_BY_TYPE`）は基準値として残している。
  *
  * 担当マイルストーン: **M3**（経路追従・押し出し）+ **M7**（陣形・門の通行制限）。
  *
@@ -25,13 +35,22 @@
  *  「途中状態のセーブ / ロード」を作るときは `Entities` 側へ移すこと。
  */
 
+import type { PlayerId } from '@/shared/types';
 import { EntityKind } from '@/shared/types';
 import type { Entities } from '../core/entity';
 import { UnitState, idOfIndex } from '../core/entity';
 import type { Fx } from '../core/fx';
 import { FX_ONE, fx, fxMul, idiv, isqrt } from '../core/fx';
 import { TICK_RATE, cfgFx, cfgNum } from '../core/config';
-import { UNIT_DEFS } from '../core/defs';
+import { BUILDING_DEFS, UNIT_DEFS } from '../core/defs';
+import type { PlayerModifiers } from '../core/effects';
+import {
+  applyUnitStat,
+  cartSpeedMul,
+  getPlayerModifiers,
+  isBuildingComplete,
+  tileMoveSpeedMul,
+} from '../core/effects';
 import { cellCol, cellRow } from '../core/grid';
 import type { MoveMask } from '../core/terrain';
 import { Move, Tile, hasTerrain, isPassableFor } from '../core/terrain';
@@ -132,6 +151,14 @@ function computeStep(dx: number, dy: number, maxStep: Fx): Fx {
 const SPEED_BY_TYPE: Int32Array = new Int32Array(UNIT_DEFS.length);
 const MASK_BY_TYPE: Uint8Array = new Uint8Array(UNIT_DEFS.length);
 const MOUNTED_BY_TYPE: Uint8Array = new Uint8Array(UNIT_DEFS.length);
+/** 1 = 交易荷車（`cartSpeedMul` = 研究「荷駄」が掛かる相手）。 */
+const CART_BY_TYPE: Uint8Array = new Uint8Array(UNIT_DEFS.length);
+
+/**
+ * 交易の特性名（`units.json` の `traits`）。
+ * **ユニットの id では分岐しない**（`combat.ts` と同じ流儀。手順書 §0.5）。
+ */
+const TRAIT_TRADE = 'trade';
 
 for (let i = 0; i < UNIT_DEFS.length; i++) {
   const def = UNIT_DEFS[i]!;
@@ -143,10 +170,116 @@ for (let i = 0; i < UNIT_DEFS.length; i++) {
         ? Move.Wheeled
         : Move.Land;
   MOUNTED_BY_TYPE[i] = def.role === 'cavalry' || def.role === 'camel' ? 1 : 0;
+  CART_BY_TYPE[i] = def.traits.includes(TRAIT_TRADE) ? 1 : 0;
 }
 
 /** 浅瀬の騎兵の速度倍率（Fx）。`combat.shallowCavSpeed` は負の比率なので 1 + 比率。 */
 const SHALLOW_MOUNTED_MUL: Fx = FX_ONE + cfgFx('combat.shallowCavSpeed');
+
+// ---------------------------------------------------------------- 敷設物（街道）の索引
+
+/** 敷設物の速度効果の型名（`core/effects.ts` の登録簿と同じ綴り）。 */
+const EFFECT_MOVE_SPEED_ON_TILE = 'moveSpeedOnTile';
+
+/** 1 = その建物種別が `moveSpeedOnTile` を持つ（街道）。データから作るので id を書かない。 */
+const TILE_SPEED_TYPES: Uint8Array = (() => {
+  const out = new Uint8Array(BUILDING_DEFS.length);
+  for (let b = 0; b < BUILDING_DEFS.length; b++) {
+    for (const eff of BUILDING_DEFS[b]!.effects) {
+      if (eff['type'] === EFFECT_MOVE_SPEED_ON_TILE) out[b] = 1;
+    }
+  }
+  return out;
+})();
+
+/** データに敷設物が 1 種も無ければ以下の処理を丸ごと省く（他ゲーム設定への保険）。 */
+const HAS_TILE_SPEED_BUILDING: boolean = TILE_SPEED_TYPES.some((v) => v === 1);
+
+/**
+ * 街道の索引（**World の状態ではない**。純粋な派生物）。
+ *
+ * ■ なぜ索引を作るか（性能）
+ *  素直に毎 tick 全ユニットで `tileMoveSpeedMul` を呼ぶと、あれは
+ *  **中で全エンティティを走査する**ので 1,200 体 × 数千エンティティ = 数百万回/tick になり、
+ *  perf の完了条件（8 人 1,200 体で 4ms/tick）を単独で食い潰す。
+ *  そこで
+ *   1. 敷設物が乗っているマス番号の集合（`tiles`）を作り、
+ *      **足元がそのマスでないユニットは Set 1 回引きで終わらせる**（大多数がこちら）、
+ *   2. 街道の上に乗っているユニットだけ `tileMoveSpeedMul` を呼び、
+ *      結果を `(マス, 通行者)` で覚える（`muls`）。
+ *      街道は 1 本を大勢が行進するので、実際に呼ばれるのは 1 マス 1 プレイヤーにつき 1 回だけ。
+ *  効果の意味（`scope: ownerAndAlly` や倍率の読み方）は `core/effects.ts` に置いたまま
+ *  ここへは複製していない。判定条件を二重に持つと片方だけ直されるため。
+ *
+ * ■ いつ作り直すか
+ *  街道は「建てられる / 壊される」まで動かないので、毎 tick 作り直す必要はない。
+ *  `PlayerModifiers.signature` は**完成済み自軍建物の種別と座標から作られている**ので、
+ *  全プレイヤーの署名を混ぜた値が変わったときだけ作り直せば足りる
+ *  （署名は `getPlayerModifiers` のキャッシュにぶら下がっており、引くのは O(1)）。
+ *  建物の完成を他システムが `markModifiersDirty` し忘れても
+ *  `refreshModifiers` が次の tick で自己修復するので、遅れは最大 1 tick。
+ */
+interface TileSpeedIndex {
+  /** 作った時点の署名（-1 = 未作成）。 */
+  sig: number;
+  /** 敷設物が乗っているマス番号（所有者は問わない。ここは絞り込みの網）。 */
+  readonly tiles: Set<number>;
+  /** `マス番号 * playerCount + 通行者` → 倍率（Fx）。遅延で埋める。 */
+  readonly muls: Map<number, Fx>;
+}
+
+const tileSpeedIndices = new WeakMap<World, TileSpeedIndex>();
+
+/** 署名を混ぜる（整数のみ。`Math.imul` は決定論）。 */
+function mixSig(h: number, v: number): number {
+  return Math.imul(h ^ (v | 0), 0x01000193) >>> 0;
+}
+
+/** 街道の索引を得る（署名が変わっていたら作り直す）。 */
+function tileSpeedIndexOf(w: World): TileSpeedIndex {
+  let idx = tileSpeedIndices.get(w);
+  if (idx === undefined) {
+    idx = { sig: -1, tiles: new Set<number>(), muls: new Map<number, Fx>() };
+    tileSpeedIndices.set(w, idx);
+  }
+  let sig = 0x811c9dc5;
+  for (let p = 0; p < w.playerCount; p++) sig = mixSig(sig, getPlayerModifiers(w, p as PlayerId).signature);
+  if (idx.sig === sig) return idx;
+
+  idx.sig = sig;
+  idx.tiles.clear();
+  idx.muls.clear();
+  const e = w.entities;
+  // 走査は index 昇順（`Set` は「入っているか」しか見ないので反復順に依存しない）。
+  for (let i = 0; i < e.highWater; i++) {
+    if (e.alive[i] !== 1) continue;
+    if (e.kind[i] !== EntityKind.Building) continue;
+    const t = e.typeId[i]!;
+    if (t >= TILE_SPEED_TYPES.length || TILE_SPEED_TYPES[t] !== 1) continue;
+    if (!isBuildingComplete(w, i)) continue; // 未完成の街道は効かない（effects 側と同じ判定）
+    const tx = idiv(e.x[i]!, FX_ONE);
+    const ty = idiv(e.y[i]!, FX_ONE);
+    idx.tiles.add(ty * w.map.widthTiles + tx);
+  }
+  return idx;
+}
+
+/**
+ * 足元の敷設物による速度倍率（Fx）。街道が無い場所は `FX_ONE` を返す。
+ * 倍率の中身は `core/effects.ts` の `tileMoveSpeedMul` に任せ、ここは呼ぶ回数だけ削る。
+ */
+function tileSpeedMulAt(w: World, idx: TileSpeedIndex, mover: PlayerId, tx: number, ty: number): Fx {
+  if (idx.tiles.size === 0) return FX_ONE;
+  const tile = ty * w.map.widthTiles + tx;
+  if (!idx.tiles.has(tile)) return FX_ONE;
+  const key = tile * w.playerCount + mover;
+  const hit = idx.muls.get(key);
+  if (hit !== undefined) return hit;
+  // マス中心の座標で問い合わせる（`tileMoveSpeedMul` はマス単位で判定する）。
+  const v = tileMoveSpeedMul(w, mover, tx * FX_ONE + (FX_ONE >> 1), ty * FX_ONE + (FX_ONE >> 1));
+  idx.muls.set(key, v);
+  return v;
+}
 
 /**
  * 経路の保管領域（`Entities` ごとに 1 つ）。**World の状態ではない**。
@@ -221,13 +354,38 @@ function moveMaskOf(e: Entities, i: number): MoveMask {
   return t < MASK_BY_TYPE.length ? MASK_BY_TYPE[t]! : Move.Land;
 }
 
-/** そのユニットの 1 tick 速度（Fx）。浅瀬の騎兵は減速する（`combat.shallowCavSpeed`）。 */
-function speedOf(e: Entities, i: number, tileValue: number): Fx {
+/**
+ * そのユニットの 1 tick 速度（Fx）。掛ける順は
+ *  素の速度（`units.json`）→ 研究などの `unitStat.speed`（加算 → 乗算）
+ *  → 交易荷車の `cartSpeedMul` → 浅瀬の騎兵 → 足元の敷設物（街道）。
+ *
+ * ■ 単位の注意（`unitStat.speed` の `add`）
+ *  素の速度は `defs.ts` が `speedTilesPerSec / TICK_RATE` を Fx にしたもの = **Fx/tick**。
+ *  `applyUnitStat` は `(base + add) * mul` を素の値と同じ単位で行うため、
+ *  `add` は「マス/秒」ではなく **Fx/tick** として解釈される。
+ *  現状データに speed の `add` は 1 件も無く（倍率だけ）、実害は無い。
+ *  マス/秒 で書きたくなったら `core/effects.ts` 側に換算を入れること（このファイルではない）。
+ *
+ * @param m そのユニットの所有者の集約結果（無所有 = null）
+ * @param tileMul 足元の敷設物の倍率（Fx。街道が無ければ FX_ONE）
+ */
+function speedOf(
+  e: Entities,
+  i: number,
+  tileValue: number,
+  m: PlayerModifiers | null,
+  tileMul: Fx
+): Fx {
   const t = e.typeId[i]!;
   let sp = t < SPEED_BY_TYPE.length ? SPEED_BY_TYPE[t]! : FALLBACK_SPEED;
+  if (m !== null && t < UNIT_DEFS.length) {
+    sp = applyUnitStat(m, UNIT_DEFS[t]!, 'speed', sp);
+    if (CART_BY_TYPE[t] === 1) sp = fxMul(sp, cartSpeedMul(m));
+  }
   if (tileValue === Tile.Shallow && t < MOUNTED_BY_TYPE.length && MOUNTED_BY_TYPE[t] === 1) {
     sp = fxMul(sp, SHALLOW_MOUNTED_MUL);
   }
+  if (tileMul !== FX_ONE) sp = fxMul(sp, tileMul);
   return sp < 1 ? 1 : sp;
 }
 
@@ -238,6 +396,14 @@ export function movement(w: World): void {
   const maxX = w.map.widthTiles * FX_ONE - 1;
   const maxY = w.map.heightTiles * FX_ONE - 1;
   let budget = REPATH_BUDGET;
+  const tileSpeed = HAS_TILE_SPEED_BUILDING ? tileSpeedIndexOf(w) : null;
+
+  // 効果の集約結果はプレイヤー単位で 1 つあれば足りる。`getPlayerModifiers` は
+  // `core/effects.ts` 側でキャッシュ済み（O(1)）だが、毎ユニットで WeakMap を引くのも無駄なので
+  // **1 tick に 1 回だけ引いて持ち回す**（配列はプレイヤー数ぶんだけの小さな確保）。
+  const modsByPlayer: (PlayerModifiers | null)[] = new Array<PlayerModifiers | null>(
+    w.playerCount
+  ).fill(null);
 
   for (let i = 0; i < e.highWater; i++) {
     if (e.alive[i] !== 1) continue;
@@ -298,7 +464,27 @@ export function movement(w: World): void {
     const dy = tgtY - py;
     const tx = clampInt(idiv(px, FX_ONE), 0, w.map.widthTiles - 1);
     const ty = clampInt(idiv(py, FX_ONE), 0, w.map.heightTiles - 1);
-    const sp = speedOf(e, i, terrain ? w.map.tiles[ty * w.map.widthTiles + tx]! : Tile.Grass);
+    // 所有者（無所有 = 効果なし）。同じプレイヤーが連続するので配列引きで十分に速い。
+    const owner = e.owner[i]!;
+    let mods: PlayerModifiers | null = null;
+    if (owner >= 0 && owner < w.playerCount) {
+      mods = modsByPlayer[owner] ?? null;
+      if (mods === null) {
+        mods = getPlayerModifiers(w, owner as PlayerId);
+        modsByPlayer[owner] = mods;
+      }
+    }
+    const tileMul =
+      tileSpeed !== null && mods !== null
+        ? tileSpeedMulAt(w, tileSpeed, owner as PlayerId, tx, ty)
+        : FX_ONE;
+    const sp = speedOf(
+      e,
+      i,
+      terrain ? w.map.tiles[ty * w.map.widthTiles + tx]! : Tile.Grass,
+      mods,
+      tileMul
+    );
     const dist = computeStep(dx, dy, sp);
     if (dist <= 0) {
       advanceWaypoint(s, i);

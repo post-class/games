@@ -29,6 +29,8 @@ import type { Loadout, MissionDef } from '../mission/types';
 import { MISSION_GRADE_LABEL, objectiveRewardPrefix, type MissionGrade } from '../mission/MissionRunner';
 import {
   barracksHtml,
+  bondBoardHtml,
+  mailHtml,
   hangarHtml,
   killBoardHtml,
   recRoomHtml,
@@ -55,12 +57,20 @@ import {
   applyProtagonistInitialBond,
   applySortie,
   availablePilots,
+  barMemory,
+  buyDrink,
+  canBuyDrink,
   defaultWingman,
   defOf,
   fallen,
   hasWingman,
   pilotState,
+  relationBetween,
+  rememberBarTalk,
+  rememberIntervention,
   shiftBond,
+  shiftRelation,
+  toastFallen,
   type PilotState,
   type SortieOutcome,
 } from './roster';
@@ -72,6 +82,24 @@ import {
   type BarTalkState,
   type BarTalkView,
 } from './barTalk';
+import { banterSeats, seatBondKey, seatPlan, type BarSeat } from './barSeats';
+import {
+  buildBanter,
+  chooseBanterReply,
+  newBanter,
+  type BanterFacts,
+  type BanterState,
+  type BanterView,
+} from './barBanter';
+import { bondKey, PILOT_BOND_KINDS } from '../content/pilotBonds';
+import {
+  bartenderName,
+  bartenderLine,
+  gossipLine,
+  rumorsFor,
+  RUMOR_SOURCE_LABELS,
+} from '../content/barRumors';
+import { mailFor } from '../content/mail';
 import { Game } from './game';
 import type { TutorialCourse } from '../ui/Tutorial';
 import {
@@ -207,6 +235,11 @@ export class App {
   private barPilotId?: string;
   /** 酒場の往復会話の進行（T3-⑪）。出撃を挟むとリセットされる。 */
   private barTalk?: BarTalkState;
+  /**
+   * 酒場の掛け合いへの割り込みの進行（T8-①）。
+   * 1対1の会話（`barTalk`）とは同時に開かない（どちらかを開くと他方を閉じる）。
+   */
+  private barBanter?: BanterState;
 
   constructor(canvas: HTMLCanvasElement, overlay: HTMLElement) {
     this.game = new Game(canvas, overlay);
@@ -667,43 +700,242 @@ export class App {
    * が持ち、表示物は `barTalk.ts` が `BarTalkView` として組み立てる。
    */
   private showRecRoom(): void {
-    const talkers = this.save.roster.pilots.filter((p) => p.status === 'active' || p.status === 'wounded');
+    const roster = this.save.roster;
+    const talkers = roster.pilots.filter((p) => p.status === 'active' || p.status === 'wounded');
     const active = talkers.find((p) => p.id === this.barPilotId);
     const view = active ? this.barTalkView(active) : undefined;
-    // HubContext への barTalk 追加は HubPanels 側の担当なので、
-    // まだ宣言が無い状態でも通るように交差型で渡す（追加後もそのまま動く）。
+
+    // ① 席割り。乱数を使わないので、同じ帰艦のあいだ席は動かない。
+    //    種は「通算出撃回数」なので、出撃するたびに一人席の顔ぶれが入れ替わる。
+    const plan = seatPlan(roster, { wingmanId: this.selection?.wingmanId, seed: this.save.sorties });
+
+    // ② 割り込み中の掛け合い。席から二人が消えていたら会話を破棄する
+    //    （負傷・戦死・転属で片方が席を離れることがある）。
+    const banterSeat = banterSeats(plan).find((s) => seatBondKey(s) === this.barBanter?.bondKey);
+    const banterView = banterSeat ? this.banterView(banterSeat) : undefined;
+    if (this.barBanter && !banterSeat) this.barBanter = undefined;
+
     const ctx = {
       ...this.hubContext(),
       barPilotId: this.barPilotId,
       barTalk: view,
-    } as HubContext & { barTalk?: BarTalkView };
+      barSeats: plan.seats,
+      barStanding: plan.standing,
+      barBanter: banterView,
+      bondKinds: PILOT_BOND_KINDS,
+      bartender: { name: bartenderName(), line: bartenderLine(this.rumorContext(), this.save.sorties) },
+      // 噂は2件。3件だとパネルに収まらず、席の一覧までスクロールが出る。
+      rumors: rumorsFor(this.rumorContext(), this.save.sorties, 2).map((r) => ({
+        source: RUMOR_SOURCE_LABELS[r.source],
+        text: r.text,
+      })),
+      gossip: this.barGossip(talkers),
+      canBuyDrink: canBuyDrink(roster),
+      toasted: barMemory(roster).toasted === true,
+    } as HubContext;
+
+    const dead = fallen(roster);
     this.screens.show({
       background: artUrl('tex/bg-bar', 'jpg'),
       title: '酒場',
       bodyHtml: recRoomHtml(ctx),
       items: [
-        // 返事を先頭に置く（会話中は返事が既定フォーカスになる）
+        // 返事・割り込みを先頭に置く（会話中はそれが既定フォーカスになる）
+        ...(banterView?.replies ?? []).map((reply) => ({
+          label: `→ ${escapeHtml(reply.label)}`,
+          onSelect: () => this.answerBanter(banterSeat!, reply.id),
+        })),
         ...(view?.replies ?? []).map((reply) => ({
           label: `→ ${escapeHtml(reply.label)}`,
           onSelect: () => this.answerBarTalk(active!, reply.id),
         })),
-        ...talkers.map((pilot) => ({
-          label:
-            pilot.id === this.barPilotId
-              ? `${escapeHtml(pilotDef(pilot.id).callsign)} との会話を最初から`
-              : `${escapeHtml(pilotDef(pilot.id).callsign)} と話す`,
-          onSelect: () => {
-            this.barPilotId = pilot.id;
-            this.barTalk = newBarTalk(pilot.id);
-            writeSave(this.save);
-            this.showRecRoom();
-          },
+        // 席ごとの操作。同席なら「二人の話に割り込む」、一人席なら「話す」。
+        ...plan.seats.flatMap((seat) => this.seatMenuItems(seat)),
+        ...plan.standing.map((pilot) => ({
+          label: `${escapeHtml(pilotDef(pilot.id).callsign)} と話す（立ち飲み）`,
+          onSelect: () => this.startBarTalk(pilot.id),
         })),
-        { label: '噂を聞く', onSelect: () => this.showRecRoom() },
+        // 一杯奢る。1回の帰艦につき1回だけ。
+        ...(canBuyDrink(roster) && active
+          ? [
+              {
+                label: `${escapeHtml(pilotDef(active.id).callsign)} に一杯奢る`,
+                onSelect: () => this.buyBarDrink(active),
+              },
+            ]
+          : []),
+        ...(dead.length && !barMemory(roster).toasted
+          ? [{ label: `空いた席にグラスを置く（${dead.length} 名）`, onSelect: () => this.toastTheFallen() }]
+          : []),
+        { label: '噂を聞き直す', onSelect: () => this.showRecRoom() },
         { label: '戻る', onSelect: () => this.showHub() },
       ],
       onCancel: () => this.showHub(),
     });
+  }
+
+  /** 噂の出方を決める文脈（章・4状態・隊の被害）。 */
+  private rumorContext() {
+    return {
+      chapter: this.chapterOf(this.save.node),
+      gauges: {
+        returnees: returneeScore(this.save.narrative),
+        routeTrust: this.save.narrative.routeTrust,
+        commandTrust: this.save.narrative.commandTrust,
+        aceOath: this.save.narrative.aceOath,
+      },
+      hasFallen: fallen(this.save.roster).length > 0,
+      hasWounded: this.save.roster.pilots.some((p) => p.status === 'wounded'),
+    };
+  }
+
+  /**
+   * 席1つ分のメニュー項目。
+   *
+   * 同席（2名）なら掛け合いへの割り込みと、各人との1対1の会話を両方出す。
+   * 「二人の話を聞く」だけにすると、ペアに入っている隊員と個別に話せなくなる。
+   */
+  private seatMenuItems(seat: BarSeat): Array<{ label: string; onSelect: () => void }> {
+    if (seat.occupants.length === 0) return [];
+    const call = (id: string) => escapeHtml(pilotDef(id).callsign);
+    const items: Array<{ label: string; onSelect: () => void }> = [];
+    if (seat.occupants.length === 2 && seat.bond) {
+      const key = seatBondKey(seat)!;
+      items.push({
+        label:
+          this.barBanter?.bondKey === key
+            ? `${call(seat.bond.a)} と ${call(seat.bond.b)} の話を最初から`
+            : `${call(seat.bond.a)} と ${call(seat.bond.b)} の話に近づく（${escapeHtml(seat.label)}）`,
+        onSelect: () => {
+          this.barBanter = newBanter(seat.bond!);
+          // 掛け合いに寄ると1対1の会話は閉じる（同時に二つ開いていると読めない）
+          this.barPilotId = undefined;
+          this.barTalk = undefined;
+          writeSave(this.save);
+          this.showRecRoom();
+        },
+      });
+    }
+    for (const p of seat.occupants) {
+      items.push({
+        label:
+          p.id === this.barPilotId
+            ? `${call(p.id)} との会話を最初から`
+            : `${call(p.id)} と話す`,
+        onSelect: () => this.startBarTalk(p.id),
+      });
+    }
+    return items;
+  }
+
+  private startBarTalk(pilotId: string): void {
+    this.barPilotId = pilotId;
+    this.barTalk = newBarTalk(pilotId);
+    // 1対1に移ったら掛け合いは閉じる
+    this.barBanter = undefined;
+    writeSave(this.save);
+    this.showRecRoom();
+  }
+
+  /** 掛け合いの表示物。二人の現在の仲を `relations` から読んで渡す。 */
+  private banterView(seat: BarSeat): BanterView {
+    const bond = seat.bond!;
+    return buildBanter({
+      bond,
+      relation: relationBetween(this.save.roster, bond.a, bond.b),
+      sorties: this.save.sorties,
+      facts: this.banterFacts(),
+      state: this.barBanter,
+    });
+  }
+
+  private banterFacts(): BanterFacts {
+    const s = this.lastSummary;
+    return {
+      wingmanId: s ? this.selection?.wingmanId : undefined,
+      rescued: !!s?.wingmanRescued,
+      abandoned: !!s?.wingmanAbandoned,
+      fallenName: this.lastLostWingman ? pilotDef(this.lastLostWingman).callsign : undefined,
+    };
+  }
+
+  /**
+   * 掛け合いへ割り込む。
+   *
+   * `barBanter.ts` は一切書き換えないので、ここで
+   * 「二人それぞれの bond」と「二人の仲（relations）」の両方へ反映する。
+   * 介入は1回だけなので、`talkedSinceSortie` のような重複防止は要らない。
+   */
+  private answerBanter(seat: BarSeat, replyId: string): void {
+    const bond = seat.bond;
+    if (!bond) return;
+    const result = chooseBanterReply(
+      {
+        bond,
+        relation: relationBetween(this.save.roster, bond.a, bond.b),
+        sorties: this.save.sorties,
+        facts: this.banterFacts(),
+        state: this.barBanter,
+      },
+      replyId,
+    );
+    this.barBanter = result.state;
+    for (const { pilotId, delta } of result.effect.bondDelta) {
+      const p = pilotState(this.save.roster, pilotId);
+      if (p) shiftBond(p, delta);
+    }
+    shiftRelation(this.save.roster, bond.a, bond.b, result.effect.relationDelta);
+    if (result.finished) {
+      const side = replyId === 'side-a' ? 'a' : replyId === 'side-b' ? 'b' : 'defuse';
+      rememberIntervention(this.save.roster, bondKey(bond.a, bond.b), side);
+    }
+    writeSave(this.save);
+    this.showRecRoom();
+  }
+
+  /**
+   * 一杯奢る（1回の帰艦につき1回）。
+   *
+   * 会話と違って選択肢が無い代わりに、**奢った相手の相棒・弟子が次の帰艦で
+   * それを口にする**（`gossipLine`）。関係を伸ばす手段としては小さいが、
+   * 隊の中に伝わるのはこちらだけである。
+   */
+  private buyBarDrink(pilot: PilotState): void {
+    if (!buyDrink(this.save.roster, pilot.id)) return;
+    shiftBond(pilot, 0.08);
+    writeSave(this.save);
+    this.showRecRoom();
+  }
+
+  /**
+   * 空いた席へグラスを置く（1回の帰艦につき1回）。
+   *
+   * 戦死者を悼む行為なので、**生存者全員**の bond がわずかに動く。
+   * 誰か一人に取り入る行為ではないことを、効果の形で示している。
+   */
+  private toastTheFallen(): void {
+    if (!toastFallen(this.save.roster)) return;
+    for (const p of this.save.roster.pilots) {
+      if (p.status === 'dead' || p.status === 'transferred') continue;
+      shiftBond(p, 0.04);
+    }
+    writeSave(this.save);
+    this.showRecRoom();
+  }
+
+  /**
+   * 噂の伝播。前回の帰艦でプレイヤーが酒場で何をしたかを、別の隊員が口にする。
+   *
+   * 対象は「いま席にいる隊員」だけ。自分の話は返らない（`gossipLine` の仕様）。
+   */
+  private barGossip(talkers: PilotState[]): Array<{ pilotId: string; text: string }> {
+    const memory = barMemory(this.save.roster);
+    const out: Array<{ pilotId: string; text: string }> = [];
+    for (const p of talkers) {
+      const text = gossipLine(p.id, memory, this.save.sorties + p.sorties);
+      if (text) out.push({ pilotId: p.id, text });
+    }
+    return out;
   }
 
   /** 会話中の相手の表示物。`HubContext.barTalk` に渡す。 */
@@ -752,22 +984,73 @@ export class App {
     this.barTalk = result.state;
     if (!already) shiftBond(pilot, result.bondDelta);
     // 会話を終えた相手は、次の出撃で指示に早く応える（loadoutFor の obedience）
-    if (result.finished) pilot.talkedSinceSortie = true;
+    if (result.finished) {
+      pilot.talkedSinceSortie = true;
+      // 誰と話したかを艦の記憶に残す。次の帰艦で、その人の相棒や弟子が口にする。
+      rememberBarTalk(this.save.roster, pilot.id);
+    }
     writeSave(this.save);
     this.showRecRoom();
   }
 
+  /**
+   * 自室（T8-①で私信を追加）。
+   *
+   * 『Wing Commander: Prophecy』の barracks が持っていたメール端末に相当する。
+   * 章・4状態・隊員の生死で受信箱の中身が変わるので、名簿と同じ画面に置く。
+   */
   private showBarracks(): void {
     this.screens.show({
       background: artUrl('tex/bg-quarters', 'jpg'),
       title: '自室',
       bodyHtml: barracksHtml(this.hubContext()),
       items: [
+        {
+          label: `私信 — ${this.mailItems().length} 通`,
+          onSelect: () => this.showMail(),
+        },
+        { label: '隊内の相関 — 誰と誰が繋がっているか', onSelect: () => this.showBondBoard() },
         { label: 'セーブスロットへ — 現在の戦役を保存', onSelect: () => this.showSaveSlots('save') },
         { label: 'セーブスロットからロード', onSelect: () => this.showSaveSlots('load') },
         { label: '戻る', onSelect: () => this.showHub() },
       ],
       onCancel: () => this.showHub(),
+    });
+  }
+
+  /** いま届いている私信。章・4状態・隊員の生死で変わる。 */
+  private mailItems() {
+    const roster = this.save.roster;
+    const dead = fallen(roster);
+    return mailFor({
+      ...this.rumorContext(),
+      activePilots: availablePilots(roster).map((p) => p.id),
+      fallenPilots: dead.map((p) => p.id),
+      fallenNames: dead.map((p) => pilotDef(p.id).callsign),
+    });
+  }
+
+  /** 私信（WCP の barracks のメール端末に相当）。 */
+  private showMail(): void {
+    this.screens.show({
+      background: artUrl('tex/bg-quarters', 'jpg'),
+      title: '私信',
+      subtitle: 'QUARTERS / PERSONAL TERMINAL',
+      bodyHtml: mailHtml({ ...this.hubContext(), mail: this.mailItems() }),
+      items: [{ label: '戻る', onSelect: () => this.showBarracks() }],
+      onCancel: () => this.showBarracks(),
+    });
+  }
+
+  /** 隊内の相関の一覧。酒場で席に着かなくても、隊の繋がりを一望できる。 */
+  private showBondBoard(): void {
+    this.screens.show({
+      background: artUrl('tex/bg-quarters', 'jpg'),
+      title: '隊内の相関',
+      subtitle: 'SQUADRON TIES',
+      bodyHtml: bondBoardHtml(this.hubContext()),
+      items: [{ label: '戻る', onSelect: () => this.showBarracks() }],
+      onCancel: () => this.showBarracks(),
     });
   }
 
@@ -1585,6 +1868,7 @@ export class App {
     // 帰艦したら酒場の会話は最初から（近況が新しい出撃結果に入れ替わる）
     this.barPilotId = undefined;
     this.barTalk = undefined;
+    this.barBanter = undefined;
   }
 
   /**

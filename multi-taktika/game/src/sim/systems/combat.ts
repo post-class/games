@@ -42,6 +42,7 @@ import { UnitState, entityIndex, idOfIndex, isAlive, markDeadIndex } from '../co
 import {
   ORDER_DEFS,
   UNIT_DEFS,
+  type UnitDef,
   buildingDef,
   orderDefById,
   roleToIndex,
@@ -54,11 +55,20 @@ import {
   type DamageModifiers,
   type FormationId,
   NO_MODIFIERS,
+  armorForAttackClass,
   computeDamage,
   formationFromString,
   friendlyFireDamage,
   rangeWithTerrain,
 } from '../core/damage';
+import {
+  type PlayerModifiers,
+  applyUnitStat,
+  getPlayerModifiers,
+  healSpeedMul,
+  lowHpAtkBonus,
+  rangedResistAdd,
+} from '../core/effects';
 import { TICK_RATE, cfgArray, cfgFx, cfgInt, cfgNum } from '../core/config';
 import {
   type OrderPair,
@@ -153,6 +163,83 @@ function hasTrait(typeId: number, bit: number): boolean {
 
 /** `units.json` の `line` が elite の兵か（`anti_elite` の相手判定。名前では判定しない）。 */
 const LINE_ELITE = 'elite';
+
+/**
+ * 建物（塔・城）の攻撃クラス。矢や弾を放つので貫通装甲で受ける。
+ * `contextOf` と `buildingAttackCycle` の両方から見るので定数にしてある
+ * （2 箇所に文字列を書くと「綿甲が塔の矢に効かない」ようなズレが生まれる）。
+ */
+const BUILDING_ATTACK_CLASS = 'arrow';
+
+// ---------------------------------------------------------------- 効果（研究・文明・建物）の結線
+//
+// **ここは 2026-08 に後から繋いだ配線である。**
+// `core/effects.ts`（効果適用エンジン）は完成していたのに combat が import すらしておらず、
+// 研究「打刃・鋼刃・鏃・鋼鏃（攻撃 +1）」「革鎧・鎖鎧・板金鎧・馬鎧・鍛錬（防御 +1〜2）」
+// 「火薬術（攻撃 ×1.25）」「射法（射程 +1）」、アステカ「綿甲（遠隔耐性 +3）」、
+// ヴァイキング「狂戦（瀕死で攻撃 ×1.5）」、「薬草（治療 ×1.5）」が
+// **1 つも戦闘に効いていなかった**。素の `units.json` の値を読んでいた箇所すべてを
+// `applyUnitStat` などの取り出し関数に通すのが以下の helper 群の役目。
+//
+// 掛ける段は「素の値 → 効果（add → mul）→ ダメージ式」の順に固定する。
+// ダメージ式の中（`damage.ts`）に持ち込まないのは、あちらを
+// 「手計算と 1 対 1 で突き合わせられる純関数」に保つため（`damage.ts` 冒頭の方針）。
+
+/**
+ * そのエンティティの所有者の効果集約を引く。中立（`NEUTRAL_OWNER`）や
+ * 範囲外の owner は効果を持たないので null（`getPlayerModifiers` を無駄に呼ばない）。
+ *
+ * **毎撃・毎 tick 素直に呼んでよい。** `core/effects.ts` が World ごとに
+ * `PlayerModifiers` をキャッシュしていて（`refreshModifiers` が毎 tick 1 回だけ
+ * 署名を検査し、変わったプレイヤーだけ捨てる）、ここの費用は
+ * WeakMap 1 回引き + 配列 1 要素読みに落ちている。
+ * 逆に combat 側で「1 tick 分を引いて持ち回す」形にすると、tick の途中で建物が壊れて
+ * `markModifiersDirty` が走ったときに古い集約を使ってしまい、
+ * 「集約は World から一意に決まる派生物」という effects の前提（デシンク検出の土台）が崩れる。
+ */
+function modsOfOwner(w: World, owner: number): PlayerModifiers | null {
+  if (owner < 0 || owner >= w.playerCount) return null;
+  return getPlayerModifiers(w, owner as PlayerId);
+}
+
+/** 効果を通した実効攻撃力（Fx）。研究「打刃」〜「火薬術」がここで乗る。 */
+function effectiveAtk(w: World, owner: number, d: UnitDef): Fx {
+  const m = modsOfOwner(w, owner);
+  return m === null ? d.atk : applyUnitStat(m, d, 'atk', d.atk);
+}
+
+/** 効果を通した実効射程（Fx）。研究「射法」（+1 マス）がここで乗る。 */
+function effectiveRange(w: World, owner: number, d: UnitDef): Fx {
+  const m = modsOfOwner(w, owner);
+  return m === null ? d.range : applyUnitStat(m, d, 'rangeTiles', d.range);
+}
+
+/**
+ * その攻撃が **貫通装甲**（`pierceDef`）で受けられるか。
+ * `rangedResistAdd`（綿甲 = 遠隔耐性）を足してよいかの判定に使う。
+ *
+ * 判定を自前の attackClass 列挙で書かず `damage.ts` の装甲選択に委ねているのは、
+ * 装甲の選び方が 2 箇所に分かれると「矢は遠隔耐性で受けるのに投石も受けてしまう」
+ * ようなズレが静かに入るため（装甲選択の唯一の持ち主は `armorForAttackClass`）。
+ * 番兵として def = 0 / pierceDef = 1.0 を渡し、返ってきた側で判別する。
+ */
+function usesPierceArmor(attackClass: string): boolean {
+  return armorForAttackClass(attackClass, 0, FX_ONE) === FX_ONE;
+}
+
+/**
+ * 欠損体力比（Fx、0..FX_ONE）。研究「狂戦」（`lowHpAtkBonus`）の入力。
+ * `hp / hpMax` ではなく **欠損側** を渡す規約は `effects.lowHpAtkBonus` が決めている。
+ */
+function missingHpRatioOf(w: World, i: number): Fx {
+  const e = w.entities;
+  const max = e.hpMax[i]!;
+  if (max <= 0) return 0;
+  const missing = max - e.hp[i]!;
+  if (missing <= 0) return 0;
+  if (missing >= max) return FX_ONE;
+  return idiv(missing * FX_ONE, max);
+}
 
 /** 特性のパラメータ（`config.json` の `traits.*`）。1 度だけ読む。 */
 interface TraitParams {
@@ -355,6 +442,17 @@ interface AttackContext {
   readonly pair: OrderPair;
   /** 攻撃側が浅瀬・湿地に立っているか（令「上陸」の判定）。 */
   readonly onWet: boolean;
+  /**
+   * 攻撃側の `attackClass`（建物は `BUILDING_ATTACK_CLASS`）。
+   * 受け側がどちらの装甲で受けるかが決まるので、`rangedResistAdd`（綿甲）の判定に使う。
+   */
+  readonly attackClass: string;
+  /**
+   * 攻撃側の欠損体力比（Fx。研究「狂戦」= `lowHpAtkBonus` の入力）。
+   * **撃った瞬間の値を写し取る**。投射物の着弾では射手が既に死んでいることがあり、
+   * その場合は 0（弾に射手の HP を載せる列が SoA に無い。矢の飛翔中の HP 変動は無視する）。
+   */
+  readonly missingHpRatio: Fx;
   /** 着弾点（`knockback` で弾く向きの基準）。 */
   readonly x: Fx;
   readonly y: Fx;
@@ -372,6 +470,8 @@ function contextOf(w: World, i: number, isUnit: boolean): AttackContext {
     elevation: elevationOf(w, i),
     pair: orderPairOfEntity(w, i),
     onWet: isWet(w.map, fxToInt(x), fxToInt(y)),
+    attackClass: isUnit ? unitDef(e.typeId[i]!).attackClass : BUILDING_ATTACK_CLASS,
+    missingHpRatio: isUnit ? missingHpRatioOf(w, i) : 0,
     x,
     y,
   };
@@ -414,6 +514,20 @@ function modifiersFor(w: World, ctx: AttackContext, victimIndex: number): Damage
       attackerMul = fxMul(attackerMul, p.antiInfantryAtkMul);
     }
   }
+  // 研究「狂戦」（`lowHpAtkBonus`）: 攻撃側の欠損体力比に応じて攻撃が上がる。
+  // 段の位置は **特性の後・令の前** に固定した。理由は 2 つ:
+  //  - `fxMul` は切り捨てなので順序が結果に出る。出どころの「内側から外側」
+  //    （兵に生えた特性 → プレイヤーの研究 → その場の令）で並べておくと、
+  //    どの段を足しても既存の順序が動かない。
+  //  - 効果が無ければ `lowHpAtkBonus` は FX_ONE を返すので、
+  //    研究していないプレイヤーの結果は 1 bit も変わらない（既存リプレイの互換）。
+  if (ctx.typeId >= 0) {
+    const am = modsOfOwner(w, ctx.owner);
+    if (am !== null) {
+      const bonus = lowHpAtkBonus(am, unitDef(ctx.typeId), ctx.missingHpRatio);
+      if (bonus !== FX_ONE) attackerMul = fxMul(attackerMul, bonus);
+    }
+  }
   // 上陸: 水際（浅瀬・湿地）に足を置いて攻めているときだけ「強襲」が乗る。
   const assault = ctx.onWet && hasWaterAssault(ctx.pair);
   if (assault) attackerMul = fxMul(attackerMul, waterAssaultDamageMul());
@@ -429,10 +543,20 @@ function modifiersFor(w: World, ctx: AttackContext, victimIndex: number): Damage
 
   // ---- 受け側 ----
   const defenderTakenMul = damageTakenMulOf(victimPair);
-  const defenderArmorAdd =
+  let defenderArmorAdd =
     victimIsUnit && hasTrait(e.typeId[victimIndex]!, TRAIT_BIT.FormationDefense)
       ? formationDefenseArmor(w, victimIndex, p)
       : 0;
+  // アステカ「綿甲」（`rangedResistAdd`）: 遠隔（貫通装甲で受ける）攻撃にだけ効く。
+  // `defenderArmorAdd` は `damage.ts` が **選んだ側の装甲** に足されるので、
+  // 無条件に足すと近接の受けまで固くなってしまう（綿甲は「矢に強い」研究）。
+  // 特性 `formation_defense` の加算とは足し算で合流させる（どちらも装甲そのものの加算）。
+  if (victimIsUnit && usesPierceArmor(ctx.attackClass)) {
+    const vm = modsOfOwner(w, e.owner[victimIndex]!);
+    if (vm !== null) {
+      defenderArmorAdd += rangedResistAdd(vm, unitDef(e.typeId[victimIndex]!));
+    }
+  }
 
   const attackerPushThrough = hasPushThrough(ctx.pair);
   const defenderPushThrough = hasPushThrough(victimPair);
@@ -623,12 +747,24 @@ function elevationOf(w: World, i: number): number {
   return elevationAt(w.map, fxToInt(e.x[i]!), fxToInt(e.y[i]!));
 }
 
-/** 防御側の装甲と role。建物は `buildings.json` に装甲値が無いので 0。 */
+/**
+ * 防御側の装甲と role。建物は `buildings.json` に装甲値が無いので 0。
+ *
+ * 装甲は **受け側の所有者の効果** を通す（研究「革鎧・鎖鎧・板金鎧・馬鎧・鍛錬」）。
+ * 遠隔耐性（綿甲）は攻撃クラスによって効くかが変わるため、ここではなく
+ * `modifiersFor` の `defenderArmorAdd` 側で足している。
+ */
 function armorOf(w: World, i: number): { def: Fx; pierceDef: Fx; role: number } {
   const e = w.entities;
   if (e.kind[i] === EntityKind.Unit) {
     const d = unitDef(e.typeId[i]!);
-    return { def: d.def, pierceDef: d.pierceDef, role: d.roleIdx };
+    const m = modsOfOwner(w, e.owner[i]!);
+    if (m === null) return { def: d.def, pierceDef: d.pierceDef, role: d.roleIdx };
+    return {
+      def: applyUnitStat(m, d, 'def', d.def),
+      pierceDef: applyUnitStat(m, d, 'pierceDef', d.pierceDef),
+      role: d.roleIdx,
+    };
   }
   // 建物・付属物は HP だけで硬さを表す（`buildings.json` に def が無い）。
   return { def: 0, pierceDef: 0, role: BUILDING_ROLE };
@@ -666,17 +802,23 @@ function unitAttackCycle(w: World, i: number): void {
 
   const d = unitDef(e.typeId[i]!);
 
+  // 射程は効果を通した値を使う（研究「射法」で遠隔 +1 マス）。
+  // 祈祷師の治療範囲も同じ `range` 列なので、こちらも効果後の値で届く。
+  const range = effectiveRange(w, e.owner[i]!, d);
+
   // 祈祷師（trait: heal）は攻撃ではなく治療を行う（T-M7-08）。
   if (d.traits.includes(TRAIT_HEAL)) {
-    healCycle(w, i, d.range, d.attackTicks);
+    healCycle(w, i, range, d.attackTicks);
     return;
   }
+  // 攻撃するかの判定は **素の atk** で行う。効果後の値で判定すると、
+  // 攻撃力 0 の非戦闘ユニット（井楼など）が研究「打刃」の +1 で殴り始めてしまう。
   if (d.atk <= 0) return;
 
-  const ranged = d.range > 0;
+  const ranged = range > 0;
   // 森の中の遠隔は射程 −25%（式には掛からない補正。`07§6`）。
   const reach = ranged
-    ? rangeWithTerrain(d.range, isForest(w.map, fxToInt(e.x[i]!), fxToInt(e.y[i]!)), true)
+    ? rangeWithTerrain(range, isForest(w.map, fxToInt(e.x[i]!), fxToInt(e.y[i]!)), true)
     : meleeReach();
 
   const victim = pickVictim(w, i, reach);
@@ -894,7 +1036,8 @@ function applySingleHit(w: World, ctx: AttackContext, victimIndex: number): void
   const d = unitDef(ctx.typeId);
   const a = armorOf(w, victimIndex);
   const dmg = computeDamage({
-    atk: d.atk,
+    // 攻撃力は攻撃側の所有者の効果を通す（打刃・鋼刃・鏃・鋼鏃 +1、火薬術 ×1.25）。
+    atk: effectiveAtk(w, ctx.owner, d),
     def: a.def,
     pierceDef: a.pierceDef,
     attackClass: d.attackClass,
@@ -923,6 +1066,10 @@ function applyAreaHit(w: World, ctx: AttackContext, cx: Fx, cy: Fx): void {
   const d = unitDef(ctx.typeId);
   const ff = d.traits.includes(TRAIT_FRIENDLY_FIRE);
 
+  // 攻撃力は 1 発ぶんなので、巻き込む相手ごとに引き直さず外で 1 回だけ効果を通す
+  // （相手が変わっても攻撃側の研究は変わらない）。
+  const atk = effectiveAtk(w, ctx.owner, d);
+
   const out = w.scratch.neighbors2;
   const n = queryCircle(w.grid, e, cx, cy, d.aoeRadius, out);
   for (let k = 0; k < n; k++) {
@@ -936,7 +1083,7 @@ function applyAreaHit(w: World, ctx: AttackContext, cx: Fx, cy: Fx): void {
 
     const a = armorOf(w, t);
     const dmg = computeDamage({
-      atk: d.atk,
+      atk,
       def: a.def,
       pierceDef: a.pierceDef,
       attackClass: d.attackClass,
@@ -1040,6 +1187,11 @@ function applyProjectileImpact(w: World, pi: number): void {
     onWet:
       shooterIndex >= 0 &&
       isWet(w.map, fxToInt(e.x[shooterIndex]!), fxToInt(e.y[shooterIndex]!)),
+    attackClass: d.attackClass,
+    // 研究「狂戦」は近接（line=melee）向けなので実際に矢へ乗ることは今のデータでは無いが、
+    // 「射手が生きていれば着弾時の体力を見る / 死んでいれば 0」で首尾を揃えておく
+    //（弾に射手の体力を載せる列が SoA に無いため、生存時の値で近似する）。
+    missingHpRatio: shooterIndex >= 0 ? missingHpRatioOf(w, shooterIndex) : 0,
     x: e.x[pi]!,
     y: e.y[pi]!,
   };
@@ -1087,8 +1239,8 @@ function buildingAttackCycle(w: World, i: number): void {
     atk: d.attackDamage,
     def: a.def,
     pierceDef: a.pierceDef,
-    // 塔・城は矢や弾を放つので貫通装甲で受ける。
-    attackClass: 'arrow',
+    // 塔・城は矢や弾を放つので貫通装甲で受ける（`BUILDING_ATTACK_CLASS`）。
+    attackClass: ctx.attackClass,
     pierce: false,
     attackerRole: BUILDING_ROLE,
     defenderRole: a.role,
@@ -1139,6 +1291,13 @@ function selfHealTick(w: World, i: number): void {
  * 射程内で **最も HP の欠けている味方** を 1 体だけ治す。
  * タイブレークは「欠損が大きい → index が小さい」。
  * 士気の維持は `morale.ts` 側（`morale.priestRadiusTiles`）で扱う。
+ *
+ * 研究「薬草」（`healSpeedMul` ×1.5）はここで効く。**掛けるのは治療間隔だけ**:
+ *  - 効果型の説明は「祈祷師の治療速度に ×mul」。速度 = 1 回の量 / 間隔なので、
+ *    間隔と量の両方に掛けると 1.5 × 1.5 = 2.25 倍になって JSON の意図から外れる。
+ *  - 量ではなく間隔を縮める方を選んだのは、量を増やすと HP 上限で切り捨てられて
+ *    「上限間際の味方に使うと効果が消える」ため（間隔なら取りこぼしが出ない）。
+ * 間隔は `idiv` の切り捨てで最低 1 tick に留める（0 にすると毎 tick 治療になる）。
  */
 function healCycle(w: World, i: number, range: Fx, attackTicks: number): void {
   const e = w.entities;
@@ -1169,6 +1328,16 @@ function healCycle(w: World, i: number, range: Fx, attackTicks: number): void {
   const heal = healPerAction();
   const add = heal < bestMissing ? heal : bestMissing;
   e.hp[best] = e.hp[best]! + add;
-  e.cooldown[i] = attackTicks;
+  e.cooldown[i] = healIntervalTicks(w, e.owner[i]!, attackTicks);
   e.target[i] = idOfIndex(e, best);
+}
+
+/** 治療 1 回ぶんの間隔（tick）。研究「薬草」の `healSpeedMul` で縮む。 */
+function healIntervalTicks(w: World, owner: number, base: number): number {
+  const m = modsOfOwner(w, owner);
+  if (m === null) return base;
+  const mul = healSpeedMul(m);
+  if (mul === FX_ONE || mul <= 0) return base;
+  const t = idiv(base * FX_ONE, mul);
+  return t < 1 ? 1 : t;
 }

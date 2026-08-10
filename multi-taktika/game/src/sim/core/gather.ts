@@ -38,6 +38,8 @@ import {
   spawnEntity,
 } from './entity';
 import { buildingDef, buildingIndex, roleToIndex, unitDef, unitIndex } from './defs';
+import type { GatherFrom } from './effects';
+import { depositMul, farmYieldMul, gatherRateMul, getPlayerModifiers } from './effects';
 import type { Fx } from './fx';
 import { FX_ONE, distSq, fx, fxMul, fxToInt, idiv, isqrt } from './fx';
 import type { World } from './world';
@@ -215,45 +217,130 @@ export function haulLossRatioFx(oneWayDistFx: Fx): Fx {
   return bpToFx(lossBp > maxBp ? maxBp : lossBp);
 }
 
-// ---------------------------------------------------------------- 倍率（M6 の結線点）
+// ---------------------------------------------------------------- 倍率（研究・文明）
 
 /**
- * 研究による採集倍率（Fx）。
+ * 資源ノード ID → 効果側の「採集元」（`GatherFrom`）。
  *
- * **M6 への申し送り**: 研究・文明の効果適用エンジン（`techs.json` / `civs.json` の
- * `effects`）が入ったら、この関数の中身を「効果の集計結果を引く」実装に差し替えるだけで
- * `07§8` の式に結線される。呼び出し側（`effectiveGatherRatePerSecFx`）は
- * **倍率を引数で受け取る**形にしてあるので、テストから任意の倍率を差し込める。
- * 既定は 1.0（FX_ONE）。
+ * **名前が一致しないものがある**ので表で持つ。`resources.json` は羊を `sheep` と書き、
+ * 効果側（`techs.json:_meta.effectTypes`）は `herd`（畜獣）と書く。
+ * 石切場と金鉱はどちらも効果側では `mine`（採掘）にまとまる。
+ *
+ * 表に無いノードが増えたら**起動時に落とす**（黙って倍率 1.0 になると、
+ * 「研究したのに速くならない」が誰にも気付かれないまま残る ―― 実際にそれが起きた）。
  */
-export function researchGatherMulFx(_w: World, _p: PlayerId, _resource: number): Fx {
-  return FX_ONE;
+const GATHER_FROM_OF_NODE: Readonly<Record<string, GatherFrom>> = {
+  farm: 'farm',
+  hunt: 'hunt',
+  fish: 'fish',
+  fruit: 'fruit',
+  sheep: 'herd',
+  forest: 'forest',
+  stone_quarry: 'mine',
+  gold_mine: 'mine',
+};
+
+/** ノード typeId ごとの `GatherFrom`（起動時に 1 回だけ引く）。 */
+const gatherFromByNodeType: readonly GatherFrom[] = RESOURCE_NODE_DEFS.map((n) => {
+  const from = GATHER_FROM_OF_NODE[n.id];
+  if (from === undefined) {
+    throw new Error(
+      `gather: 資源ノード "${n.id}" に対応する採集元（GatherFrom）が GATHER_FROM_OF_NODE にない`
+    );
+  }
+  return from;
+});
+
+/**
+ * そのノードを採るときの採集倍率（Fx）＝ **文明 × 研究 × 建物**の積。
+ *
+ * ■ ここが長く空いていた（実装漏れ）
+ * この関数はもともと `researchGatherMulFx` / `civGatherMulFx` という
+ * **1.0 を返すだけのスタブ 2 本**で、「M6 で中身を差し替える」と書いてあった。
+ * ところが M6（`core/effects.ts`）で適用エンジンを作ったとき、
+ * **ここを差し替えるのを忘れた**。結果:
+ *  - ヤマトの「農地の食料 +15%」も、地下水路の「村人の採集 +15%」も、
+ *    採集速度を上げる研究も、**すべて効いていなかった**。
+ *  - 気付いたきっかけは文明バランスの実測で、ヤマト・唐・ヴァイキング・マリ・モンゴルの
+ *    30 分後の数値（人口 32.4 / 建物 19.0 / 資源計 1598.6）が**小数点まで完全に一致**したこと。
+ *    5 文明が同じ動きをするのは「文明の差がゲームに届いていない」ということだった。
+ * 教訓: **既定値を返すスタブは、忘れても何も壊れないので気付けない。**
+ * 未結線を残すなら、既定値ではなく落とすか、結線を検算するテストを先に書く。
+ *
+ * ■ なぜ倍率をまとめて 1 本にしたか
+ * `PlayerModifiers`（`core/effects.ts`）は文明・研究・建物を**すでに 1 つに畳んで**持つ。
+ * 分けて取り出す API は無く、分ける意味も無い（`07§8` の式では積になるだけ）。
+ */
+export function gatherMulFx(w: World, p: PlayerId, nodeTypeId: number): Fx {
+  const def = resourceNodeDef(nodeTypeId);
+  const from = gatherFromByNodeType[nodeTypeId];
+  if (from === undefined) throw new Error(`gather: 範囲外の資源ノード typeId ${nodeTypeId}`);
+  const resource = RESOURCE_IDS[def.resource];
+  if (resource === undefined) throw new Error(`gather: 範囲外の resource ${def.resource}`);
+  return gatherRateMul(getPlayerModifiers(w, p), resource, from);
 }
 
 /**
- * 文明による採集倍率（Fx）。`civs.json` の `econBonus` を集計する予定。
- * **M6 への申し送り**: 上記 `researchGatherMulFx` と同じ結線点。既定は 1.0。
+ * これから置く資源ノードの埋蔵量（Fx）= 既定値 × `depositMul` ×（農地なら）`farmYieldMul`。
+ *
+ * ■ ここも未結線だった（`gatherMulFx` と同じ穴）
+ * `core/effects.ts` は `depositMul`（坑道: 石材・金の鉱脈 1.3）と
+ * `farmYieldMul`（犂 1.3 / 輪作 1.4 / 勧農 1.2）を正しく畳んで持っていたのに、
+ * `spawnResourceNode` が `def.deposit` を**固定で**渡していたため、
+ * 研究しても埋蔵量が 1 も増えていなかった。適用エンジン側に手を入れる必要はなく、
+ * 「ノードを置く 1 箇所」で読めば全経路（mapgen / `spawnFarm` / `rebuildFarm` /
+ * `structure.ts` の農地完成時）に同時に届くので、ここに結線した。
+ *
+ * ■ なぜ「生成する瞬間」に決めるのか（遡って増やさない）
+ * 埋蔵量は `Entities.amount` に置かれた**残量そのもの**で、採った分だけ減っていく。
+ * 研究完了時に既存ノードの `amount` を増やすと、
+ *  - 半分採った畑の残量が突然増える（プレイヤーから見て「湧いた」ように見える）
+ *  - 増やす基準が「残量 × 倍率」か「上限 × 倍率 − 採った分」かで結果が変わり、
+ *    どちらも「総産出量 × 倍率」にならない（後者は残量が負にもなり得る）
+ *  - 研究を跨いだ順序で残量が変わるので、再計算のタイミング違いがそのままデシンクになる
+ * ので採らなかった。**研究後に作った農地・置かれた鉱脈だけが増える**。
+ * 「犂を入れてから畑を張り直す」が意味を持つのは、内政の判断としても自然。
+ *
+ * ■ 中立ノード
+ * mapgen が置く森・鉱脈は所有者が中立（`NEUTRAL_OWNER`）で、倍率を掛ける相手が
+ * 存在しない。所有者を特定できないときは**倍率 1.0**（= 既定値そのまま）を返す。
+ * ここで例外を投げるとマップ生成が落ちるので、静かに既定値にする。
  */
-export function civGatherMulFx(_w: World, _p: PlayerId, _resource: number): Fx {
-  return FX_ONE;
+export function depositForNewNodeFx(w: World, nodeTypeId: number, owner?: PlayerId): Fx {
+  const def = resourceNodeDef(nodeTypeId);
+  // 中立 / 席の外 / まだ PlayerState が無い（生成順の都合）→ 倍率なし。
+  if (owner === undefined || owner === NEUTRAL_OWNER || owner >= w.playerCount) return def.deposit;
+  if (getPlayer(w, owner) === undefined) return def.deposit;
+  const resource = RESOURCE_IDS[def.resource];
+  if (resource === undefined) throw new Error(`gather: 範囲外の resource ${def.resource}`);
+  const m = getPlayerModifiers(w, owner);
+  // 掛ける順序は固定（`fxMul` は切り捨てなので順序が結果を決める。§0.3）。
+  let v = fxMul(def.deposit, depositMul(m, resource));
+  // 農地 1 面の総産出量だけに掛かる倍率（犂・輪作・勧農）。
+  if (nodeTypeId === FARM_NODE_TYPE) v = fxMul(v, farmYieldMul(m));
+  return v;
 }
 
 // ---------------------------------------------------------------- 実効収集速度
 
 /**
- * 実効収集速度（**毎秒** Fx）= 基礎速度 × 研究倍率 × 文明倍率 × (1 − 運搬損失)。
- * 倍率は引数（既定 1.0）。運搬損失は資源ノード → 搬入点の片道距離から求める。
+ * 実効収集速度（**毎秒** Fx）= 基礎速度 × 倍率 × 倍率 × (1 − 運搬損失)。
+ * 運搬損失は資源ノード → 搬入点の片道距離から求める。
+ *
+ * 倍率を 2 つ受けるのは**テストから任意の値を差し込めるようにするため**。
+ * 実戦の呼び出し（`systems/economy.ts`）は `gatherMulFx` の 1 本で足りる
+ * （文明・研究・建物は `PlayerModifiers` の中で既に積になっている）。
  */
 export function effectiveGatherRatePerSecFx(
   nodeTypeId: number,
   oneWayDistFx: Fx,
-  researchMulFx: Fx = FX_ONE,
-  civMulFx: Fx = FX_ONE
+  mulFx: Fx = FX_ONE,
+  mul2Fx: Fx = FX_ONE
 ): Fx {
   const def = resourceNodeDef(nodeTypeId);
   const loss = haulLossRatioFx(oneWayDistFx);
-  let r = fxMul(def.baseRatePerSec, researchMulFx);
-  r = fxMul(r, civMulFx);
+  let r = fxMul(def.baseRatePerSec, mulFx);
+  r = fxMul(r, mul2Fx);
   r = fxMul(r, FX_ONE - loss);
   return r > 0 ? r : 0;
 }
@@ -429,6 +516,10 @@ export interface ResourceNodeSpawnOptions {
 /**
  * 資源ノードを 1 つ置く。M3 の mapgen と M4 のテストが共通で使う入口。
  * HP は「壊せない」ことを表すため 1（Fx）固定。埋蔵量は `amount` に入る。
+ *
+ * 埋蔵量を明示しなかった場合は `depositForNewNodeFx`（既定値 × 研究・文明の倍率）を使う。
+ * `opts.amount` を渡した場合は**そのままの値**にする（mapgen が塊の大きさを決めたり、
+ * テストが特定の残量から始めたりするので、そこに倍率を重ねると意図が壊れる）。
  */
 export function spawnResourceNode(
   w: World,
@@ -437,7 +528,6 @@ export function spawnResourceNode(
   y: Fx,
   opts?: ResourceNodeSpawnOptions
 ): EntityId {
-  const def = resourceNodeDef(nodeTypeId);
   const id = spawnEntity(w.entities, {
     kind: EntityKind.Resource,
     owner: opts?.owner ?? NEUTRAL_OWNER,
@@ -447,7 +537,7 @@ export function spawnResourceNode(
     hpMax: FX_ONE,
   });
   const i = resolveIndex(w.entities, id);
-  w.entities.amount[i] = opts?.amount ?? def.deposit;
+  w.entities.amount[i] = opts?.amount ?? depositForNewNodeFx(w, nodeTypeId, opts?.owner);
   if (opts?.parent !== undefined) w.entities.homeId[i] = opts.parent;
   return id;
 }
@@ -466,6 +556,9 @@ export interface FarmPair {
  * 農地は「建物」でありながら「採集対象」でもあるので、埋蔵量を持つノードを
  * 同座標に置き、ノードの `homeId` に建物 EntityId を入れて紐付ける。
  * こうしておくと、枯れたときにノードだけ差し替えれば再建になる（T-M4-04）。
+ *
+ * 埋蔵量は `spawnResourceNode` が `farmYieldMul`（犂・輪作・勧農）を掛けて決める。
+ * `amount` を渡さないのは意図的（ここで固定値を渡すと倍率がまた死ぬ）。
  */
 export function spawnFarm(w: World, owner: PlayerId, x: Fx, y: Fx): FarmPair {
   const def = buildingDef(FARM_BUILDING_TYPE);
@@ -531,6 +624,8 @@ export function rebuildFarm(w: World, farmBuildingId: EntityId): EntityId {
     if (pl.resources[r]! < cost[r]!) return INVALID_ENTITY;
   }
   for (let r = 0; r < cost.length; r++) pl.resources[r] = pl.resources[r]! - cost[r]!;
+  // 埋蔵量は「再建した瞬間」の `farmYieldMul` で決まる（`spawnResourceNode` 側で掛かる）。
+  // 研究が終わったあとに建て直した畑から効き始めるのが自然なので、これで正しい。
   return spawnResourceNode(w, FARM_NODE_TYPE, e.x[bi]!, e.y[bi]!, {
     owner,
     parent: farmBuildingId,

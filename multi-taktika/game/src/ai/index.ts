@@ -40,8 +40,11 @@ export {
   producibleUnits,
   attackTargets,
   combatUnits,
+  pushSiege,
+  siegeTargets,
+  siegeCount,
   COMBAT_ROLES,
   SQUAD_MIN_UNITS,
 } from './militaryGoals';
-export type { EnemyRead } from './militaryGoals';
+export type { EnemyRead, SiegeTarget } from './militaryGoals';
 export { planFronts, planDecoy, pickAbandonedFront, canUseOrder, decoyCount } from './frontPolicy';

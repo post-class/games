@@ -18,7 +18,9 @@
  *
  * ■ 何が見えるか（`07§7` の規則そのまま）
  *  - 自軍のすべて（座標・HP・資源・研究・時代・忠誠度）
- *  - **視界内**の敵ユニット・敵建物（位置・種類・HP）
+ *  - **視界内**の敵ユニット・敵建物（位置・種類・HP・`EntityId`）
+ *    `EntityId` は「見えているものを名指しで撃つ」ためだけの名前。
+ *    視界を通った敵しか入らないので情報量は増えない（`SeenEntity.id` の注記参照）。
  *  - 敵の戦域は **輪の数と位置だけ**（中の兵種・数は見えない ＝ 囮が成立する根拠）
  *  - 市場の相場（全プレイヤー共通なので誰でも見える。`07§8`）
  *  - 地形（探索済みかどうかまでは区別しない。**AI は地形を記憶している扱い**にする。
@@ -34,7 +36,7 @@
 
 import type { EntityId, PlayerId } from '@/shared/types';
 import { EntityKind } from '@/shared/types';
-import { unitDef, buildingDef } from '@/sim/core/defs';
+import { entitySightFx } from '@/sim/core/sight';
 import type { Fx } from '@/sim/core/fx';
 import { distSq } from '@/sim/core/fx';
 import { idOfIndex, isAliveIndex } from '@/sim/core/entity';
@@ -76,6 +78,31 @@ export interface OwnEntity {
 
 /** 視界内の敵 1 件（**位置・種類・HP まで**。それ以上は見えない）。 */
 export interface SeenEntity {
+  /**
+   * `EntityId`。**「見えているものを名指しで撃つ」ためだけに持つ。**
+   *
+   * ■ なぜこれを足してよいのか（`07§11` の「ズルなし」と矛盾しない理由）
+   * `07§11` が禁じているのは **視界の透視と資源の増量**であって、
+   * 「見えているものをクリックして攻撃する」のは人間が普通に行う操作そのもの
+   * （`06§5` の「選択して指示した部隊は令から外れて手動になる」）。
+   * ここに入るのは**視界の判定を通った敵だけ**なので、見えていないものの
+   * `EntityId` は 1 件も漏れない ―― 情報量は増えず、
+   * 「見えているあれ」を `Command` に載せる**名前**が手に入るだけ。
+   *
+   * ■ 無いと何が起きたか（実測。30 分・AI 段階 4 同士）
+   * ```
+   *  5分 兵 0/0  建物 8/10  町中心HP 2400/2400 敵拠点まで  -/-  戦域 0
+   * 15分 兵 5/7  建物 17/18 町中心HP 2400/2400 敵拠点まで 67/50 戦域 0
+   * 25分 兵 20/4 建物 21/17 町中心HP 2400/2400 敵拠点まで 14/137 戦域 1
+   * 30分 兵 24/5 建物 19/14 町中心HP 2400/2400 敵拠点まで 18/107 戦域 1
+   * ```
+   * 兵は敵拠点の 14〜18 マスまで寄るのに、**町の中心の HP が 30 分間 1 も減らない**。
+   * `attackTarget` は目標の `EntityId` を要求するのに `SeenEntity` が
+   * `id` を持たず、AI が拠点を名指しできなかったのが原因（112 試合すべて時間切れ）。
+   * 勝利条件は `03§10`「相手の町の中心をすべて破壊」なので、
+   * これが名指しできないと**永久に決着しない**。
+   */
+  readonly id: EntityId;
   readonly owner: PlayerId;
   readonly kind: number;
   readonly typeId: number;
@@ -202,12 +229,16 @@ export function createAiView(w: World, p: PlayerId): AiView {
     // 自軍が所有する `EntityKind.Resource`（**農地が載せる食料ノード**は所有者付き）が
     // 建物として読まれ、資源ノードの typeId を `buildingDef` に渡して
     // 「範囲外の building typeId」で落ちた。
+    //
+    // 視界の値そのものは `sim/core/sight.ts` の `entitySightFx` で求める
+    // （**画面の霧（`render/vision.ts`）と同じ関数**）。以前はここで
+    // `buildingDef(...).sight` を直に読んでいたため、研究「測量」（建物の視界 +4）が
+    // AI にも画面にも効いていなかった。片方だけ直すと視界がずれ、
+    // AI 側が広ければ `07§11` の「ズルなし」を破ることになる。
+    //
+    // 未完成の建物を視界に数えないのはここだけの判定（画面は建てかけも見せる）。
     const sight =
-      kind === EntityKind.Unit
-        ? unitDef(e.typeId[i]!).sight
-        : (kind === EntityKind.Building || kind === EntityKind.Attachment) && complete
-          ? buildingDef(e.typeId[i]!).sight
-          : 0;
+      kind === EntityKind.Unit || complete ? entitySightFx(w, i) : 0;
     if (sight > 0) {
       sightX.push(e.x[i]!);
       sightY.push(e.y[i]!);
@@ -233,6 +264,7 @@ export function createAiView(w: World, p: PlayerId): AiView {
     }
     if (!visible) continue;
     seenEnemies.push({
+      id: idOfIndex(e, i),
       owner: owner as PlayerId,
       kind: e.kind[i]!,
       typeId: e.typeId[i]!,

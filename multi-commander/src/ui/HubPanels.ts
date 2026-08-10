@@ -5,6 +5,7 @@ import {
   defOf,
   fallen,
   killBoard,
+  relationBetween,
   relationStage,
   rosterForDisplay,
   type PilotState,
@@ -17,6 +18,14 @@ import { protagonistDisplayName } from './PilotSelectScene';
 import { VEIL_FACTIONS, VEIL_THEATERS } from '../content/veil/world';
 import { VEIL_CHAPTERS } from '../content/veil/chapters';
 import { PERSONALITIES, PILOTS, type PortraitSpec } from '../content/pilots';
+import {
+  bondLevel,
+  bondsOf,
+  bondPartner,
+  PILOT_BOND_KINDS,
+  PILOT_BONDS,
+  type PilotBondKind,
+} from '../content/pilotBonds';
 import { PLAYABLE_SHIPS, SHIPS, shipDef } from '../content/ships';
 import { gunDef, missileDef } from '../content/weapons';
 import { aceDef, type AceState } from '../content/aces';
@@ -53,6 +62,40 @@ export interface BarTalkView {
   relation: { label: string; step: number; max: number; reason?: string };
 }
 
+/**
+ * 掛け合い（二人の会話への割り込み）の表示データ（T8-①）。
+ *
+ * 実体は `src/app/barBanter.ts` の `BanterView`。`BarTalkView` と同じ理由で、
+ * 描画側は app 層へ import 依存せず構造的部分型で受ける。
+ * **形を変えるときは両方を合わせること。**
+ */
+export interface BarBanterView {
+  bond: { a: string; b: string; kind: string; title: string };
+  turns: Array<{ speaker: 'a' | 'b' | 'player'; pilotId?: string; text: string }>;
+  /** 空配列なら介入済み（会話終了） */
+  replies: Array<{ id: string; label: string }>;
+  level: { label: string; step: number; max: number };
+  reason?: string;
+  /** 介入の結果（「Sable +0.14 / Raven −0.07 / 二人の仲 −0.06」の形） */
+  outcome?: string;
+}
+
+/**
+ * 席1つ分の表示データ。実体は `src/app/barSeats.ts` の `BarSeat`。
+ *
+ * `occupants` は席にいる隊員（0=空席 / 1=一人席 / 2=同席）。
+ * 2名のときだけ `bond`（同席の理由になっている固定相関）が付く。
+ */
+export interface BarSeatView {
+  id: string;
+  label: string;
+  note: string;
+  occupants: PilotState[];
+  bond?: { a: string; b: string; kind: string; title: string; history: string };
+  /** 二人の現在の仲 -1..+1 */
+  relation?: number;
+}
+
 /** 章末選択で動く4状態（0..100）。`src/app/narrative.ts` の同名フィールドの写し。 */
 export interface NarrativeGauges {
   /** 帰還者（名簿の人数ではなく指標） */
@@ -78,6 +121,27 @@ export interface HubContext {
   barPilotId?: string;
   /** 酒場の往復会話。無いときは従来の1行表示にする */
   barTalk?: BarTalkView;
+  /**
+   * 酒場の席割り（T8-①）。無いときは従来の一次元リストへ落とす
+   * （古い保存データ・テストからの呼び出しでも描画が成立するようにしておく）。
+   */
+  barSeats?: BarSeatView[];
+  /** 立ち飲み（席が足りなかった隊員） */
+  barStanding?: PilotState[];
+  /** 割り込み中の掛け合い */
+  barBanter?: BarBanterView;
+  /** 酒保の一言 */
+  bartender?: { name: string; line: string };
+  /** 噂（出所ラベル付き） */
+  rumors?: Array<{ source: string; text: string }>;
+  /** プレイヤーの酒場での行動が、別の隊員の口から出る1行 */
+  gossip?: Array<{ pilotId: string; text: string }>;
+  /** 一杯奢れるか（1回の帰艦につき1回） */
+  canBuyDrink?: boolean;
+  /** すでに空いた席へグラスを置いたか */
+  toasted?: boolean;
+  /** 自室の私信 */
+  mail?: Array<{ from: string; subject: string; body: string }>;
   /** 戦況マップに重ねる4状態。無いときは「記録なし」を出す */
   narrative?: NarrativeGauges;
   lastSortie?: LastSortieCondition;
@@ -327,10 +391,235 @@ export function pilotDisplayName(def: { personId?: string; name: string }): stri
   return protagonistDisplayName({ id: def.personId, name: def.name } as VeilPerson);
 }
 
+// ───────── 酒場: 席の描画（T8-①）─────────
+
+/** 相関の種類のラベル。未知の種類（保存データ由来）は id をそのまま出す。 */
+function bondKindLabel(kind: string): string {
+  return PILOT_BOND_KINDS[kind as PilotBondKind]?.label ?? kind;
+}
+
+/** その席で掛け合いが開いているか。席の二人と `barBanter` の二人が一致するときだけ。 */
+function barSeatBanter(seat: BarSeatView, ctx: HubContext): BarBanterView | undefined {
+  const bond = seat.bond;
+  if (!bond || !ctx.barBanter) return undefined;
+  return ctx.barBanter.bond.a === bond.a && ctx.barBanter.bond.b === bond.b ? ctx.barBanter : undefined;
+}
+
+/** その席で1対1の会話が開いているか。 */
+function barSeatSoloTalk(seat: BarSeatView, ctx: HubContext): BarTalkView | undefined {
+  if (!ctx.barTalk) return undefined;
+  return seat.occupants.some((p) => p.id === ctx.barTalk!.pilotId) ? ctx.barTalk : undefined;
+}
+
+/** 会話が開いている席（無ければ undefined）。 */
+function focusedSeat(ctx: HubContext): BarSeatView | undefined {
+  return (ctx.barSeats ?? []).find((seat) => !!barSeatBanter(seat, ctx) || !!barSeatSoloTalk(seat, ctx));
+}
+
+/**
+ * 席1つ。中身は「そこにいる人」＋「同席の理由（固定相関）」＋「開いている会話」。
+ *
+ * 一人席なら1対1の往復会話（`barTalk`）、同席なら掛け合い（`barBanter`）を
+ * その席の中に描く。会話が別の場所に出ると、誰と話しているのか見失うため。
+ */
+function barSeatHtml(seat: BarSeatView, ctx: HubContext, focused = false): string {
+  const bond = seat.bond;
+  // 会話は「近づいた席」にだけ描く。列の中の席に長い会話を入れると、
+  // グリッドの行の高さが会話に引っ張られて 4 席ぶん背が伸びる。
+  const banter = focused ? barSeatBanter(seat, ctx) : undefined;
+  const soloTalk = focused ? barSeatSoloTalk(seat, ctx) : undefined;
+  const active = !!banter || !!soloTalk;
+
+  if (seat.occupants.length === 0) {
+    return (
+      `<div class="mc-bar-seat vacant"><div class="mc-bar-seat-head">` +
+      `<b>${escapeHtml(seat.label)}</b><span class="dim">誰もいない。</span></div></div>`
+    );
+  }
+
+  const people = seat.occupants
+    .map((p) => {
+      const def = defOf(p);
+      const stage = relationStage(p);
+      const status = p.status === 'wounded' ? ` <span class="ng">負傷 (あと${p.benchedFor}回欠場)</span>` : '';
+      // 表情は「プレイヤーとの関係」で決める（相関の相手との仲ではない）
+      const expression = p.bond > 0.35 ? 'grin' : p.bond < -0.2 ? 'grim' : 'talk';
+      // 噂の伝播（あなたが前回ここで何をしたか）は**近づいた席でだけ**聞ける。
+      // 全席に出すと、部屋の 4 席すべてが 1〜2 行ぶん背が伸びてスクロールが出る。
+      const gossip = focused ? (ctx.gossip ?? []).find((g) => g.pilotId === p.id) : undefined;
+      return (
+        `<div class="mc-bar-person">` +
+        `<div class="mc-bar-face">${portraitFace(def.id, def.portrait, { size: 46, expression })}</div>` +
+        `<div>` +
+        `<div class="mc-bar-person-name">${escapeHtml(def.callsign)}` +
+        ` <span class="mc-bar-person-sub">${escapeHtml(PERSONALITIES[def.personality].label)}</span>${status}</div>` +
+        `<div class="mc-bar-person-sub">${escapeHtml(pilotDisplayName(def))}</div>` +
+        `<div class="mc-bar-person-sub">関係 ${escapeHtml(stage.label)} ${relationGauge(stage.step, stage.max)}</div>` +
+        (gossip ? `<div class="mc-bar-gossip">${escapeHtml(gossip.text)}</div>` : '') +
+        `</div></div>`
+      );
+    })
+    .join('');
+
+  // 同席の理由。相関の種類と、二人の現在の仲を並べて出す。
+  //
+  // 二人の間にあった出来事（`history`）は**近づいた席だけ**に出す。全席に出すと
+  // 部屋が文字で埋まって席が一望できなくなるうえ、近づく動機も無くなる。
+  const bondBlock = bond
+    ? `<div class="mc-bar-bond" data-kind="${escapeHtml(bond.kind)}">` +
+      `<span class="mc-bar-bond-kind">${escapeHtml(bondKindLabel(bond.kind))}</span>` +
+      `${escapeHtml(bond.title)}` +
+      (banter
+        ? // 仲の段階と「直前の出撃で何が効いたか」は1行に畳む。ここが2行に増えると、
+          // その分だけ掛け合いの本文が画面外へ押し出される。
+          `<div class="mc-bar-bond-title">二人の仲 ${escapeHtml(banter.level.label)} ${relationGauge(banter.level.step, banter.level.max)}` +
+          `${banter.reason ? `　${escapeHtml(banter.reason)}` : ''}</div>` +
+          // 二人の間にあった出来事は、割り込む前の判断材料。介入後は結果（`outcome`）と
+          // 二人の反応に場所を譲る。
+          (banter.replies.length ? `<div class="mc-bar-bond-title">${escapeHtml(bond.history)}</div>` : '')
+        : '') +
+      `</div>`
+    : '';
+
+  const body = banter ? barBanterBody(banter, seat) : soloTalk ? barTalkBody(soloTalk) : '';
+
+  return (
+    `<div class="mc-bar-seat${active ? ' active' : ''}"${bond ? ` data-kind="${escapeHtml(bond.kind)}"` : ''}>` +
+    // 近づいた席では、席の名前はパネルの見出し（「酒場 — カウンター」）に出ているので繰り返さない
+    (focused
+      ? ''
+      : `<div class="mc-bar-seat-head"><b>${escapeHtml(seat.label)}</b><span class="dim">${escapeHtml(seat.note)}</span></div>`) +
+    `<div class="mc-bar-seat-people">${people}</div>` +
+    bondBlock +
+    body +
+    `</div>`
+  );
+}
+
+/**
+ * 掛け合いの本文。
+ *
+ * 話者を「相手」ではなく**コールサインで**出す。二人が喋っているので、
+ * どちらの発言かが分からないと介入の3択が選べない。
+ */
+function barBanterBody(view: BarBanterView, seat: BarSeatView): string {
+  const nameOf = (pilotId?: string) => {
+    const p = seat.occupants.find((o) => o.id === pilotId);
+    return p ? defOf(p).callsign : '';
+  };
+  const turns = view.turns
+    .map((t) => {
+      const who = t.speaker === 'player' ? '自分' : nameOf(t.pilotId) || (t.speaker === 'a' ? '相手' : 'もう一人');
+      return (
+        `<div class="mc-bar-turn ${t.speaker === 'player' ? 'player' : t.speaker}">` +
+        `<span class="mc-bar-turn-who">${escapeHtml(who)}</span>` +
+        `<span>${escapeHtml(t.text)}</span></div>`
+      );
+    })
+    .join('');
+  // `reason`（直前の出撃で何が効いたか）は相関の行へ畳んであるので、ここでは出さない。
+  const outcome = view.outcome ? `<div class="mc-bar-outcome">${escapeHtml(view.outcome)}</div>` : '';
+  // 「肩入れすると二人の仲が削れる」の説明は部屋の見出しに出しているので繰り返さない
+  // （ここで2行に伸びると、その分だけ会話が押し出される）。
+  const cue = view.replies.length
+    ? `<div class="dim mc-bar-replies">下の「→」から割り込む（${view.replies.length} 択）。</div>`
+    : `<div class="dim mc-bar-replies">もう口を挟む場面ではない。</div>`;
+  return `<div class="mc-bar-talk">${turns}${outcome}${cue}</div>`;
+}
+
+/**
+ * 会話中に、他の席を1行へ畳んだもの。
+ *
+ * 会話に高さを譲るために席のカードは出さないが、「部屋に誰がどこにいるか」は
+ * 見えたままにする（近づく相手を選び直せないと、席にした意味が薄れる）。
+ */
+function otherSeatsLine(ctx: HubContext, focus: BarSeatView, standing: PilotState[]): string {
+  const others = (ctx.barSeats ?? [])
+    .filter((seat) => seat !== focus && seat.occupants.length > 0)
+    .map(
+      (seat) =>
+        `${escapeHtml(seat.label)}: ${seat.occupants.map((p) => escapeHtml(defOf(p).callsign)).join('・')}`,
+    );
+  if (standing.length) others.push(`立ったまま: ${standing.map((p) => escapeHtml(defOf(p).callsign)).join('・')}`);
+  if (others.length === 0) return '';
+  return `<div class="block"><h3>店の他の席</h3><div class="dim">${others.join('　/　')}</div></div>`;
+}
+
+/** 噂の一覧。出所ラベル付きで並べる。 */
+function rumorsBlock(ctx: HubContext): string {
+  const rumors = ctx.rumors;
+  // 噂の供給が無い環境（テスト・古い呼び出し）では従来の rumor() に落とす
+  if (!rumors || rumors.length === 0) {
+    return `<div class="block"><h3>噂</h3><div>${escapeHtml(rumor())}</div><div>${escapeHtml(rumor())}</div></div>`;
+  }
+  return (
+    `<div class="block"><h3>噂</h3>` +
+    rumors
+      .map(
+        (r) =>
+          `<div class="mc-rumor"><span class="mc-rumor-src">${escapeHtml(r.source)}</span>` +
+          `<span>${escapeHtml(r.text)}</span></div>`,
+      )
+      .join('') +
+    `</div>`
+  );
+}
+
 export function recRoomHtml(ctx: HubContext): string {
   const alive = ctx.roster.pilots.filter((p) => p.status === 'active' || p.status === 'wounded');
   const dead = fallen(ctx.roster);
   const fallenName = dead.length ? defOf(dead[dead.length - 1]).callsign : undefined;
+
+  // 会話が開いている席。あるときは画面をその席に寄せる（下の分岐で使う）。
+  const focus = ctx.barSeats ? focusedSeat(ctx) : undefined;
+
+  // 見出しは1ブロックに畳む。酒保の一言を別ブロックにすると、それだけで
+  // 席1つ分の高さを食ってパネル内スクロールが出る。
+  // 会話中は説明とアイコンを落とし、その高さを会話に回す。
+  const head = focus
+    ? `<div class="block"><h3>酒場 — ${escapeHtml(focus.label)}</h3></div>`
+    : `<div class="block"><h3>酒場 / レクリエーション室</h3>` +
+      `<div class="mc-board-head">` +
+      artImg(artUrl('icon-bar'), { height: 40, alt: '' }) +
+      `<span class="dim">出撃と出撃の合間。` +
+      `${ctx.barSeats ? '同じ席にいる二人は、互いに何かがある。割り込めば、二人の仲まで動く。' : '誰が何を考えているかは、ここでしか分からない。'}</span>` +
+      `</div>` +
+      (ctx.bartender
+        ? `<div class="mc-bar-tender"><span class="mc-rumor-src">${escapeHtml(ctx.bartender.name)}</span>` +
+          `<span>${escapeHtml(ctx.bartender.line)}</span></div>`
+        : '') +
+      `</div>`;
+
+  // 席割りがあるときは「部屋」として描く。無いときは従来の一次元リストへ落とす。
+  if (ctx.barSeats) {
+    const standing = ctx.barStanding ?? [];
+
+    // 会話中は、その席だけを全幅で出し、他の席は1行に畳む。
+    // 列の中に会話を入れると、グリッドの行が会話の長さに引っ張られて
+    // 4 席ぶん背が伸びる。噂・追悼は会話を閉じれば戻るので、ここでは出さない。
+    if (focus) {
+      return (
+        head +
+        `<div class="mc-bar-focus">${barSeatHtml(focus, ctx, true)}</div>` +
+        otherSeatsLine(ctx, focus, standing)
+      );
+    }
+
+    return (
+      head +
+      // 立ち飲みは1行に畳む。独立ブロックにすると、席が埋まっている
+      // （＝立ち飲みが出る）ときに限ってパネルのはみ出しが増える。
+      (standing.length
+        ? `<div class="mc-bar-standing dim">立ったまま: ` +
+          standing.map((p) => escapeHtml(defOf(p).callsign)).join('・') +
+          `　— 席が足りない。声を掛ければ相手をする。</div>`
+        : '') +
+      `<div class="mc-bar-room">${ctx.barSeats.map((seat) => barSeatHtml(seat, ctx)).join('')}</div>` +
+      rumorsBlock(ctx) +
+      aceRumorBlock(ctx) +
+      emptySeatBlock(ctx, dead)
+    );
+  }
 
   // 会話中の相手を先頭に置く（ページ送りしなくても開いた会話が見える）
   const ordered = ctx.barTalk?.pilotId
@@ -364,10 +653,7 @@ export function recRoomHtml(ctx: HubContext): string {
   });
 
   return (
-    `<div class="block"><h3>酒場 / レクリエーション室</h3>` +
-    `<div class="mc-board-head">` +
-    artImg(artUrl('icon-bar'), { height: 64, alt: '' }) +
-    `<span class="dim">出撃と出撃の合間。誰が何を考えているかは、ここでしか分からない。</span></div></div>` +
+    head +
     (ctx.barPilotId && alive.some((p) => p.id === ctx.barPilotId)
       ? `<div class="block"><h3>会話中</h3><div class="dim">${escapeHtml(defOf(alive.find((p) => p.id === ctx.barPilotId)! ).callsign)} の話を聞いた。関係値は次の出撃へ持ち越される。</div></div>`
       : '') +
@@ -392,29 +678,154 @@ export function recRoomHtml(ctx: HubContext): string {
       ],
       emptyText: '条件に合う隊員がいない。',
     }) +
-    `<div class="block"><h3>噂</h3><div>${escapeHtml(rumor())}</div>` +
-    `<div>${escapeHtml(rumor())}</div></div>` +
-    ((ctx.aceStates ?? []).some((a) => a.escaped > 0 && a.status !== 'killed')
-      ? `<div class="block"><h3>宿敵の噂</h3>${(ctx.aceStates ?? []).filter((a) => a.escaped > 0 && a.status !== 'killed').map((a) => {
-          const ace = aceDef(a.id);
-          return ace ? `<div class="ng">${escapeHtml(ace.callsign)} がまた現れた。${a.lastVictim ? `${escapeHtml(a.lastVictim)} の名を口にしている。` : ''}</div>` : '';
-        }).join('')}</div>`
-      : '') +
-    (dead.length
-      ? `<div class="block"><h3>空いた席</h3>` +
-        dead
-          .map(
-            (p) =>
-              `<div class="ng">${escapeHtml(defOf(p).callsign)} — ${escapeHtml(pilotDisplayName(defOf(p)))}` +
-              `${p.diedIn ? `　（${escapeHtml(p.diedIn)}）` : ''}</div>`,
-          )
-          .join('') +
-        `</div>`
-      : '')
+    rumorsBlock(ctx) +
+    aceRumorBlock(ctx) +
+    emptySeatBlock(ctx, dead)
+  );
+}
+
+/** 宿敵の噂。逃した敵エースが名前を集めている件。 */
+function aceRumorBlock(ctx: HubContext): string {
+  const live = (ctx.aceStates ?? []).filter((a) => a.escaped > 0 && a.status !== 'killed');
+  if (live.length === 0) return '';
+  return (
+    `<div class="block"><h3>宿敵の噂</h3>` +
+    live
+      .map((a) => {
+        const ace = aceDef(a.id);
+        return ace
+          ? `<div class="ng">${escapeHtml(ace.callsign)} がまた現れた。${a.lastVictim ? `${escapeHtml(a.lastVictim)} の名を口にしている。` : ''}</div>`
+          : '';
+      })
+      .join('') +
+    `</div>`
+  );
+}
+
+/**
+ * 空いた席（追悼）。
+ *
+ * 席として描くようになったので、ここも「席が空いている」ことを本文で言う。
+ * グラスを置いたかどうかを出すのは、同じ帰艦で二度置けないことを示すため。
+ */
+function emptySeatBlock(ctx: HubContext, dead: PilotState[]): string {
+  if (dead.length === 0) return '';
+  return (
+    `<div class="block"><h3>空いた席 — ${dead.length} 名</h3>` +
+    dead
+      .map(
+        (p) =>
+          `<div class="ng">${escapeHtml(defOf(p).callsign)} — ${escapeHtml(pilotDisplayName(defOf(p)))}` +
+          `${p.diedIn ? `　（${escapeHtml(p.diedIn)}）` : ''}${p.diedChapter ? `　第${p.diedChapter}章` : ''}</div>`,
+      )
+      .join('') +
+    (ctx.toasted === true
+      ? `<div class="dim">卓の端にグラスを置いた。誰も片付けない。</div>`
+      : ctx.toasted === false
+        ? `<div class="dim">席はそのままにしてある。グラスを置けば、隊の全員がそれを見る。</div>`
+        : '') +
+    `</div>`
   );
 }
 
 // ───────── バラック (名簿・戦績) ─────────
+
+/**
+ * 名簿1行に足す「隊内の相関」（T8-①）。
+ *
+ * 名簿はこれまで、その人の**技量と戦績しか**書いていなかった。誰と組んでいて
+ * 誰と反りが合わないのかは、酒場で席に着くまで分からなかった。ここに1行足すことで
+ * 「この人を僚機に選ぶと、誰が反応するか」が出撃前に読める。
+ *
+ * 相手が戦死している場合は、その事実を出す（相関は消えない）。
+ */
+function rosterBondLine(ctx: HubContext, p: PilotState): string {
+  const bonds = bondsOf(p.id);
+  if (bonds.length === 0) return '';
+  const parts = bonds
+    .map((bond) => {
+      const otherId = bondPartner(bond, p.id);
+      if (!otherId) return '';
+      const other = ctx.roster.pilots.find((x) => x.id === otherId);
+      const callsign = PILOTS.find((x) => x.id === otherId)?.callsign ?? otherId;
+      // 名簿にまだ来ていない補充候補は相関だけ出す（関係値はまだ無い）
+      if (!other) return `${escapeHtml(bondKindLabel(bond.kind))}: ${escapeHtml(callsign)}<span class="dim">（未着任）</span>`;
+      if (other.status === 'dead') return `${escapeHtml(bondKindLabel(bond.kind))}: <span class="ng">${escapeHtml(callsign)}（戦死）</span>`;
+      const level = bondLevel(relationBetween(ctx.roster, p.id, otherId));
+      return `${escapeHtml(bondKindLabel(bond.kind))}: ${escapeHtml(callsign)} — ${escapeHtml(level.label)}`;
+    })
+    .filter(Boolean);
+  return parts.length ? `<div class="mc-bar-person-sub">隊内 ${parts.join('　/　')}</div>` : '';
+}
+
+/**
+ * 隊内の相関の一覧（自室から開く独立画面）。
+ *
+ * 席に着かないと見えない情報を、一覧としても置いておく。
+ * 現在の仲（`relations`）は出撃結果と酒場での介入で動くので、
+ * 「どの関係を自分が壊し、どれを繋いだか」がここで振り返れる。
+ *
+ * **自室の本文へ足さずに独立画面にしている。** 名簿・勲章と同じパネルへ積むと
+ * 1000px 以上はみ出してパネル内スクロールになる（`キルボード` や `統計` と同じ扱い）。
+ */
+export function bondBoardHtml(ctx: HubContext): string {
+  const call = (id: string) => PILOTS.find((x) => x.id === id)?.callsign ?? id;
+  const known = PILOT_BONDS.filter((bond) =>
+    ctx.roster.pilots.some((p) => p.id === bond.a) && ctx.roster.pilots.some((p) => p.id === bond.b),
+  );
+  if (known.length === 0) return '';
+  const rows = known
+    .map((bond) => {
+      const level = bondLevel(relationBetween(ctx.roster, bond.a, bond.b));
+      const gone = ctx.roster.pilots.filter(
+        (p) => (p.id === bond.a || p.id === bond.b) && p.status === 'dead',
+      );
+      return (
+        `<div class="mc-bar-bond" data-kind="${escapeHtml(bond.kind)}">` +
+        `<span class="mc-bar-bond-kind">${escapeHtml(bondKindLabel(bond.kind))}</span>` +
+        `${escapeHtml(call(bond.a))} × ${escapeHtml(call(bond.b))}　` +
+        (gone.length
+          ? `<span class="ng">片方が戦死。この関係はもう動かない。</span>`
+          : `${escapeHtml(level.label)} ${relationGauge(level.step, level.max)}`) +
+        `<div class="mc-bar-bond-title">${escapeHtml(bond.title)}</div>` +
+        // 独立画面なので高さに余裕がある。酒場では席へ近づかないと読めない
+        // 「二人の間に何があったか」も、ここでは全組ぶん出す。
+        `<div class="mc-bar-bond-title">${escapeHtml(bond.history)}</div>` +
+        `</div>`
+      );
+    })
+    .join('');
+  return (
+    `<div class="block"><h3>隊内の相関 — ${known.length} 組</h3>` +
+    `<div class="dim">仲は出撃結果と、酒場で二人の話に割り込んだときに動く。` +
+    `片方に肩入れすればその人との関係は伸びるが、この欄の段階は下がる。</div>${rows}</div>`
+  );
+}
+
+/**
+ * 私信（自室から開く独立画面。WCP の barracks のメール端末に相当）。
+ *
+ * 本文が長いので `pagerHtml` で 2 通ずつに割る。積み上げるとパネルからはみ出す。
+ */
+export function mailHtml(ctx: HubContext): string {
+  const mail = ctx.mail ?? [];
+  if (mail.length === 0) {
+    return `<div class="block"><h3>私信</h3><div class="dim">受信箱は空だ。</div></div>`;
+  }
+  return pagerHtml({
+    id: 'quarters-mail',
+    title: `私信 — ${mail.length} 通`,
+    note: '艦務課の事務連絡から、隊員の私信まで。章が進むと届くものが変わる。',
+    pageSize: 3,
+    layout: 'list',
+    entries: mail.map((m) => ({
+      html:
+        `<div class="mc-mail"><div class="mc-mail-head">${escapeHtml(m.subject)}</div>` +
+        `<div class="mc-mail-from">差出人: ${escapeHtml(m.from)}</div>` +
+        `<div class="mc-mail-body">${escapeHtml(m.body)}</div></div>`,
+    })),
+  });
+}
 
 export function barracksHtml(ctx: HubContext): string {
   const rank = rankFor(ctx.sorties, ctx.totalKills);
@@ -444,6 +855,8 @@ export function barracksHtml(ctx: HubContext): string {
           (p.status === 'dead' && p.diedIn
             ? `<div class="ng">${escapeHtml(p.diedIn)} で戦死</div>`
             : `<div class="dim">${escapeHtml(def.bio)}</div>`) +
+          // 隊内の相関（T8-①）。誰と繋がっている人なのかが名簿で分かるようにする。
+          rosterBondLine(ctx, p) +
           `</div><div>${st}</div></div>`,
         tags: { life: [p.status === 'dead' ? 'dead' : p.status === 'transferred' ? 'transferred' : 'alive'] },
       };
@@ -472,7 +885,9 @@ export function barracksHtml(ctx: HubContext): string {
     pagerHtml({
       id: 'barracks-roster',
       title: `飛行隊名簿 — ${rosterEntries.length} 名`,
-      pageSize: 4,
+      // 1行あたりに「隊内の相関」の1行が増えたので、1ページの件数を1つ減らす
+      // （行が高くなった分だけページを薄くして、パネルのはみ出しを増やさない）。
+      pageSize: 3,
       layout: 'list',
       entries: rosterEntries,
       filters: [

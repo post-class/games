@@ -314,8 +314,48 @@ function matchesUnit(e: Effect, def: UnitDef): boolean {
   const units = oneOrMany(e['unit'], e['units']);
   if (lines.length === 0 && roles.length === 0 && units.length === 0) return true;
   if (lines.includes(def.line)) return true;
+  // **エリートは「自分の系統」も兼ねる。**
+  //
+  // `units.json` はエリート兵（武士・レギオン・ベルセルク・連弩兵…）の `line` を
+  // `elite` にしている。系統が 1 列しか無いので、そう書くと
+  // **エリートが近接でも遠隔でもなくなる**。すると `03§9` の
+  // 「打刃 ― 近接兵の攻撃 +1」「革鎧 ― 歩兵の防御 +1」がエリートに効かず、
+  // 城で作った切り札が、研究を積んだ通常兵より弱いという逆転が起きる。
+  // 資料はエリートを除外していない（除外するとも書いていない）ので、
+  // **役割（`role`）から本来の系統を補って判定する**。
+  //
+  // 一律に `elite` を `melee` 扱いにはできない ―― エリートは
+  // 近接（武士）・遠隔（連弩兵）・騎兵（親衛弓騎兵）・獣（親衛象）に跨っているので、
+  // 「打刃が連弩兵の攻撃を上げる」ような取り違えになる。
+  if (def.line === 'elite' && lines.includes(eliteImpliedLine(def.role))) return true;
   if (roles.includes(def.role)) return true;
   return units.includes(def.id);
+}
+
+/**
+ * エリート兵の `role` から本来の系統を求める（表に無い役割は 'none' ＝ どの系統にも属さない）。
+ * `role` は `config.json` の `counterMatrix` のキー（相性の輪の役割）。
+ */
+function eliteImpliedLine(role: string): string {
+  switch (role) {
+    case 'spear':
+    case 'sword':
+      return 'melee';
+    case 'ranged':
+    case 'gunpowder':
+      return 'ranged';
+    case 'cavalry':
+    case 'camel':
+      return 'cavalry';
+    case 'beast':
+      return 'beast';
+    case 'siege':
+      return 'siege';
+    case 'ship':
+      return 'ship';
+    default:
+      return 'none';
+  }
 }
 
 /** `at`（生産建物・研究建物）の列添字（ワイルドカードは [0]）。 */
