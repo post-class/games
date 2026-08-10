@@ -20,6 +20,12 @@ export interface StepOptions {
   playerGunAimPitchOffset?: number;
   /** プレイヤー発射物だけに適用する難易度補正 */
   playerWeaponModifiers?: PlayerWeaponModifiers;
+  /**
+   * プレイヤーのミサイルロックを手動 (L でロック開始) にする。
+   * 設定「ミサイルロック: 手動」から渡す。AI には適用しない
+   * (手動ロック待ちになると敵が撃たなくなる)。
+   */
+  playerManualMissileLock?: boolean;
 }
 
 /**
@@ -35,7 +41,8 @@ export function simulateStep(world: World, dt: number, opts: StepOptions): void 
   for (const e of world.entities) {
     if (!e.alive || e.kind !== 'ship' || !e.ship) continue;
     pruneTarget(world, e);
-    updateMissileLock(world, e, dt);
+    // 手動ロックはプレイヤー機だけ。AI は常に自動 (false)。
+    updateMissileLock(world, e, dt, e.id === world.playerId && !!opts.playerManualMissileLock);
     updateFlight(e, dt, opts.flightMode);
     updateShipPower(e, dt);
     // 照準アシストはプレイヤー機にだけ掛ける

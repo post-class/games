@@ -173,6 +173,9 @@ export class HudView {
   /** 外部視点用の最小 HUD (ダッシュボードを隠した代わりに出す) */
   private extHud!: HTMLElement;
   private externalView = false;
+  /** 後方視点 (押している間だけ true)。照準とターゲット枠を出さない。 */
+  private rearView = false;
+  private rearViewEl!: HTMLElement;
   private stickEl: HTMLElement;
   private autopilotEl: HTMLElement;
   private mouseHintEl!: HTMLElement;
@@ -456,6 +459,12 @@ export class HudView {
     this.mouseHintEl.style.display = 'none';
     this.hud.appendChild(this.mouseHintEl);
 
+    // 後方視点の表示 (W7-7)。押している間だけ出す。
+    this.rearViewEl = el('div', 'mc-rearview');
+    this.rearViewEl.textContent = '後方視点';
+    this.rearViewEl.style.display = 'none';
+    this.hud.appendChild(this.rearViewEl);
+
     // 通信遅延の表示。CSS を増やさずに済むよう、位置と色はここで指定する
     // (遅延を宣言していない作戦では display:none のまま一度も出ない)。
     this.commsDelayEl = el('div', 'mc-commsdelay');
@@ -588,6 +597,30 @@ export class HudView {
   }
 
   /**
+   * 後方視点 (`/` を押している間) を伝える (W7-7)。
+   *
+   * 後ろを向いている間は**照準・リード表示・ターゲット枠・矢印を出さない**。
+   * 後方へは撃てないので、そこに照準があると「撃てる」と誤読させる。
+   * 速度・速度設定・被害・目標一覧は出したまま
+   * (情報を消すと操作不能になる、という既存の方針どおり)。
+   *
+   * 非表示は CSS 側 (`.mc-hud.rear-view`) の 1 ルールで行う。
+   * 毎フレームの描画処理から要素を間引くと、投影計算の分岐が増えて
+   * 「後方視点のときだけ座標がずれる」種の不具合を作りやすい。
+   */
+  setRearView(on: boolean): void {
+    if (this.rearView === on) return;
+    this.rearView = on;
+    this.hud.classList.toggle('rear-view', on);
+    this.rearViewEl.style.display = on ? '' : 'none';
+  }
+
+  /** 後方視点かどうか (テスト・確認用) */
+  get isRearView(): boolean {
+    return this.rearView;
+  }
+
+  /**
    * お手本モードの実演中かを伝える。
    * 実演中は操縦を代行しているので、マウス操縦の促しは出さない。
    */
@@ -716,6 +749,8 @@ export class HudView {
     this.dangerFrame.style.opacity = '0';
     this.dangerPhase = 0;
     this.externalView = false;
+    // 後方視点は押している間だけの状態なので、任務をまたいで残さない (W7-7)
+    this.setRearView(false);
     this.applyChromeVisibility();
   }
 

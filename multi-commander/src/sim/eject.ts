@@ -85,6 +85,7 @@ export function eject(world: World, e: Entity): EjectResult {
   ship.targetId = undefined;
   ship.lockedId = undefined;
   ship.lockProgress = 0;
+  ship.lockArmed = false;
 
   // 機体から前方へ射出される勢いを付ける
   forwardOf(e.quat, _fwd);

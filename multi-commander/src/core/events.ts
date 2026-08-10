@@ -78,7 +78,11 @@ export interface GameEvents {
     target?: Entity;
     progress?: number;
     missileId?: string;
-    reason?: 'target-lost' | 'out-of-cone' | 'out-of-range' | 'complete';
+    /**
+     * 'not-armed' は手動ロック設定で L を押していない状態、
+     * 'rearm' は L でロックをやり直したときの理由。
+     */
+    reason?: 'target-lost' | 'out-of-cone' | 'out-of-range' | 'complete' | 'not-armed' | 'rearm';
   };
   /** 入力に対して武器が撃てなかった理由。HUD と音声の共通入口。 */
   weaponDenied: {

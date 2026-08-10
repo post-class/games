@@ -138,6 +138,9 @@ export function setTarget(self: Entity, target: Entity | undefined): void {
   if (ship.targetId !== target?.id) {
     ship.lockProgress = 0;
     ship.lockedId = undefined;
+    // 手動ロック (W7-3) は目標を変えたら押し直しを要求する。
+    // 前の目標に付けたロックを新しい目標へ引き継がせない。
+    ship.lockArmed = false;
   }
   ship.targetId = target?.id;
 }
@@ -150,6 +153,7 @@ export function pruneTarget(world: World, self: Entity): void {
     ship.targetId = undefined;
     ship.lockProgress = 0;
     ship.lockedId = undefined;
+    ship.lockArmed = false;
   }
 }
 

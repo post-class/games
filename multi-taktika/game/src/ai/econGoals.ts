@@ -27,6 +27,7 @@ import { EntityKind, RESOURCE_IDS } from '@/shared/types';
 import type { Command } from '@/sim/command';
 import { cfgAges, cfgInt, cfgNum } from '@/sim/core/config';
 import {
+  BUILDING_DEFS,
   buildingDef,
   buildingDefById,
   canCivBuild,
@@ -376,6 +377,14 @@ export function planEconBuilding(ctx: AiContext): Command | null {
 function pickEconBuilding(ctx: AiContext): string | null {
   const m = ctx.memory;
   const civ = ctx.view.own.civ as CivId;
+  // **次の世に上がるための建物条件を先に満たす。**
+  //
+  // `cfgAges` の `requireBuildingsOfPrevAge` は「**いまの世の建物を N 種類**持つこと」。
+  // 実測では食料 1,414 / 金 250 と費用を満たしているのに鉄器に上がれなかった
+  // ―― 青銅の世の建物を 1 種しか持っていなかった（`countCurrentAgeBuildingKinds`）。
+  // 費用だけ見て建物条件を見ていないと、貯め続けるだけで永久に上がらない。
+  const gate = pickAgeGateBuilding(ctx);
+  if (gate !== null) return gate;
   if (needsHouse(ctx)) {
     const house = resolveBuildingForCiv(civ, 'house');
     if (house !== null && canCivBuild(civ, house)) return house;
@@ -412,8 +421,18 @@ function pickEconBuilding(ctx: AiContext): string | null {
     // 木材を農地に吸われて家が建たず、人口 30 で詰まって
     // **青銅の世に一度も上がらなかった**（席 0 側は農地 6 面で上がった）。
     // 誰も働かない農地は木材を捨てているのと同じ。
+    // 農地は「食料が足りない」かつ「働き手の数以内」かつ
+    // **進化用の建物 1 棟ぶんの木材を残せる**ときだけ建て増す。
+    //
+    // 木材の予備を見ないと、食料が細っている時期に農地を建て続けて
+    // **木材が 25 まで枯れ、青銅の世の建物（木材 150〜175）が建てられなくなる**。
+    // すると進化の建物条件（いまの世の建物 2 種）を満たせず、
+    // 食料が 3,206 余っていても鉄器に上がれない（実測）。
     const canGrowFarms =
-      id === 'farm' && scarce === FOOD && have < memGet(m.assignedByResource, FOOD);
+      id === 'farm' &&
+      scarce === FOOD &&
+      have < memGet(m.assignedByResource, FOOD) &&
+      hasWoodForAgeGate(ctx, bdef.cost);
     if (have > 0 && !canGrowFarms) continue;
     return resolved;
   }
@@ -775,7 +794,7 @@ export function nextAgeDeficitResource(ctx: AiContext): number {
   const age = ctx.view.own.age;
   const next = cfgAges()[age + 1];
   const res = ctx.view.own.resources;
-  if (next === undefined) return FOOD;
+  if (next === undefined) return scarcestResource(res);
   let best = -1;
   let bestDeficit = 0;
   for (let r = 0; r < RESOURCE_IDS.length; r++) {
@@ -787,7 +806,13 @@ export function nextAgeDeficitResource(ctx: AiContext): number {
       best = r;
     }
   }
-  return best < 0 ? FOOD : best;
+  // **次の世の費用が全部足りているなら、手持ちがいちばん少ない資源へ回す。**
+  //
+  // 以前はここで食料に落としていた。そのせいで食料が 3,206 まで余っているのに
+  // 人を食料に足し続け、**木材が 25 まで枯れて青銅の世の建物（木材 150〜175）が
+  // 建てられず、進化の建物条件（いまの世の建物 2 種）を満たせなかった**。
+  // 足りているものをさらに採る意味はない。
+  return best < 0 ? scarcestResource(res) : best;
 }
 
 /**
@@ -858,6 +883,66 @@ export function reassignForNextAge(ctx: AiContext): Command[] {
 }
 
 /**
+ * 農地などを建てたあとも「進化用の建物 1 棟ぶん」の木材が残るか。
+ *
+ * 進化の建物条件（`requireBuildingsOfPrevAge`）を満たすには、いまの世の建物を
+ * 建てる必要がある。その木材まで農地に使ってしまうと進化そのものが止まる。
+ */
+function hasWoodForAgeGate(ctx: AiContext, cost: Int32Array): boolean {
+  const gate = pickAgeGateBuilding(ctx);
+  if (gate === null) return true; // 建物条件は満たしている
+  const wood = RESOURCE_IDS.indexOf('wood');
+  const need = (cost[wood] ?? 0) + buildingDefById(gate).cost[wood]!;
+  return (ctx.view.own.resources[wood] ?? 0) >= need;
+}
+
+/**
+ * 次の世に上がるために足りない「いまの世の建物」を 1 つ選ぶ（足りていなければ null）。
+ *
+ * `03§2` の進化条件は「前の世の建物 N 種」。AI は費用（食料・金）だけを見ていたので、
+ * 条件を満たさないまま貯め続けることがあった。**安いものから建てる**
+ * （進化のためだけに建てるので、高い軍事建物を選ぶ理由がない）。
+ */
+function pickAgeGateBuilding(ctx: AiContext): string | null {
+  const age = ctx.view.own.age;
+  const next = cfgAges()[age + 1];
+  if (next === undefined) return null;
+  const needKinds = next.requireBuildingsOfPrevAge;
+  if (needKinds <= 0) return null;
+
+  // いま持っている「この世の建物」の種類数（完成済みだけ数えるのは sim と同じ）。
+  const civ = ctx.view.own.civ as CivId;
+  const owned = new Set<number>();
+  for (const oe of ctx.view.ownEntities) {
+    if (oe.kind !== EntityKind.Building || !oe.complete) continue;
+    const def = buildingDef(oe.typeId);
+    if (def.age === age) owned.add(def.index);
+  }
+  if (owned.size >= needKinds) return null;
+
+  // この世で建てられる建物のうち、まだ持っていないものを**安い順**に。
+  const candidates: { id: string; cost: number }[] = [];
+  for (const def of BUILDING_DEFS) {
+    if (def.age !== age) continue;
+    if (owned.has(def.index)) continue;
+    const resolved = resolveBuildingForCiv(civ, def.id);
+    if (resolved === null || !canCivBuild(civ, resolved)) continue;
+    const rdef = buildingDefById(resolved);
+    if (rdef.age !== age || owned.has(rdef.index)) continue;
+    // 壁や門は「種類」としては数えられるが、進化のために建てるものではない
+    // （`kind` が normal でないものは除く）。
+    if (rdef.kind !== 'normal') continue;
+    let total = 0;
+    for (let r = 0; r < rdef.cost.length; r++) total += rdef.cost[r]!;
+    candidates.push({ id: resolved, cost: total });
+  }
+  if (candidates.length === 0) return null;
+  // 同じ額なら ID 昇順（乱数を使わない）。
+  candidates.sort((a, b) => (a.cost !== b.cost ? a.cost - b.cost : a.id < b.id ? -1 : 1));
+  return candidates[0]!.id;
+}
+
+/**
  * 遊んでいる村人を採集に戻す。
  *
  * ■ なぜ必要か（実測）
@@ -879,7 +964,12 @@ export function planIdleVillagers(ctx: AiContext): Command[] {
   if (targets.length === 0) return [];
   const villagerType = unitDefById(VILLAGER_ID).index;
   const list = ctx.view.ownEntities;
-  const cmds: Command[] = [];
+
+  // **同じノードへ行く村人は 1 つの命令にまとめる。**
+  // 人間なら「遊休の村人をまとめて選んで資源をクリック」＝ 1 操作なので、
+  // 1 人ずつコマンドを出すと操作量（APM）を過大に数えることになる
+  // （実測で APM が 86.5 まで上がり、`01`「手数で勝たない」の 60 を超えた）。
+  const byTarget = new Map<number, EntityId[]>();
   let sent = 0;
   for (let k = 0; k < list.length && sent < IDLE_REASSIGN_PER_DECISION; k++) {
     const oe = list[k]!;
@@ -892,13 +982,23 @@ export function planIdleVillagers(ctx: AiContext): Command[] {
     const want = targets[(memGet(m.idleAssignSeq, 0) + sent) % targets.length]!;
     const target = nearestNodeOf(ctx, oe, want) ?? nearestNodeOf(ctx, oe, -1);
     if (target === null) break;
-    cmds.push({ t: 'gather', p: ctx.playerId, units: [id], target });
+    const bucket = byTarget.get(target);
+    if (bucket === undefined) byTarget.set(target, [id]);
+    else bucket.push(id);
     memSet(m.assignedByResource, want, memGet(m.assignedByResource, want) + 1);
     sent++;
   }
   memSet(m.idleAssignSeq, 0, memGet(m.idleAssignSeq, 0) + sent);
+
+  // **`Map` の反復順に依存しない**（§0.3）。対象の EntityId 昇順で出す。
+  const ids = Array.from(byTarget.keys()).sort((a, b) => a - b);
+  const cmds: Command[] = [];
+  for (const target of ids) {
+    cmds.push({ t: 'gather', p: ctx.playerId, units: byTarget.get(target)!, target: target as EntityId });
+  }
   return cmds;
 }
+
 
 /**
  * その建物が「いま採っている資源の搬入点」か。搬入点でない建物（家・農地・市場）は常に true。

@@ -344,6 +344,26 @@
   text-align: right;
   color: var(--hud-dim);
 }
+/* 設定「オーディオ」タブの BGM は 11 場面あって縦に長い。
+   広い画面では 2列に畳んで、パネル (max-height: 74vh) の中の移動量を減らす。
+   狭い画面では下の media query で 1列へ戻す（情報は隠さない）。 */
+.mc-setting-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 18px;
+}
+.mc-setting-grid > .mc-setting-wide {
+  grid-column: 1 / -1;
+}
+@media (max-width: 1000px) {
+  .mc-setting-grid {
+    grid-template-columns: 1fr;
+  }
+}
+/* [試聴] は行の右端に並ぶ補助ボタン。折り返して縦に伸びないようにする */
+.mc-setting .mc-preview {
+  white-space: nowrap;
+}
 
 .mc-sound-check {
   margin-top: 12px;

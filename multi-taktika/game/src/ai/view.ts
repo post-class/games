@@ -196,11 +196,16 @@ export function createAiView(w: World, p: PlayerId): AiView {
       complete,
       state: e.state[i]!,
     });
-    // 視界を持つのはユニットと完成した建物。
+    // 視界を持つのはユニットと完成した建物だけ。
+    //
+    // **`kind` を明示して分岐する。** 以前は「ユニットでなければ建物」と決めつけていたが、
+    // 自軍が所有する `EntityKind.Resource`（**農地が載せる食料ノード**は所有者付き）が
+    // 建物として読まれ、資源ノードの typeId を `buildingDef` に渡して
+    // 「範囲外の building typeId」で落ちた。
     const sight =
       kind === EntityKind.Unit
         ? unitDef(e.typeId[i]!).sight
-        : complete
+        : (kind === EntityKind.Building || kind === EntityKind.Attachment) && complete
           ? buildingDef(e.typeId[i]!).sight
           : 0;
     if (sight > 0) {

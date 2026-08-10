@@ -305,6 +305,7 @@ export function selectMissileFor(e: Entity, target: Entity): void {
     ship.activeMissile = best;
     ship.lockProgress = 0;
     ship.lockedId = undefined;
+    ship.lockArmed = false;
   }
 }
 
@@ -332,6 +333,7 @@ export function cycleMissile(e: Entity): void {
       ship.activeMissile = i;
       ship.lockProgress = 0;
       ship.lockedId = undefined;
+      ship.lockArmed = false;
       return;
     }
   }
@@ -340,19 +342,24 @@ export function cycleMissile(e: Entity): void {
 /**
  * ミサイルロックの進行。
  * 誘導ミサイル選択中に、ターゲットが機首正面かつ射程内にいる時間でロックが進む。
+ *
+ * manual = true (設定「ミサイルロック: 手動」) のときは、
+ * L でロックを開始した目標 (ship.lockArmed) だけロックが進む。
+ * AI には常に false を渡す (手動ロック待ちになると敵が撃たなくなる)。
  */
-export function updateMissileLock(world: World, e: Entity, dt: number): void {
+export function updateMissileLock(world: World, e: Entity, dt: number, manual = false): void {
   const ship = e.ship;
   if (!ship) return;
   const slot = activeMissileSlot(e);
   if (!slot) {
     ship.lockProgress = 0;
     ship.lockedId = undefined;
+    ship.lockArmed = false;
     return;
   }
   const def = missileDef(slot.missileId);
   if (def.seeker === 'none' || def.lockTime <= 0) {
-    // 無誘導は常に「ロック済み」扱い
+    // 無誘導は常に「ロック済み」扱い (手動ロックでも L は不要)
     ship.lockProgress = 1;
     ship.lockedId = ship.targetId;
     return;
@@ -379,13 +386,18 @@ export function updateMissileLock(world: World, e: Entity, dt: number): void {
   _dir.divideScalar(Math.max(1e-6, distance));
   const cone = _dir.dot(forwardOf(e.quat, _fwd));
 
-  const inLock = distance < LOCK_RANGE && cone > LOCK_CONE;
+  // 手動ロックでは L を押した目標 (lockArmed) だけロックが進む。
+  const armed = !manual || ship.lockArmed;
+  const inRange = distance < LOCK_RANGE && cone > LOCK_CONE;
+  const inLock = inRange && armed;
   if (inLock) {
     ship.lockProgress = clamp01(ship.lockProgress + dt / def.lockTime);
     if (ship.lockProgress >= 1) ship.lockedId = target.id;
   } else {
     ship.lockProgress = Math.max(0, ship.lockProgress - (dt / def.lockTime) * 1.5);
     ship.lockedId = undefined;
+    // 条件を外れたら手動ロックの許可も落とす (再度 L を押し直させる)
+    if (manual) ship.lockArmed = false;
   }
   if (before !== ship.lockedId) {
     bus.emit('lockChanged', {
@@ -393,7 +405,13 @@ export function updateMissileLock(world: World, e: Entity, dt: number): void {
       target: ship.lockedId ? target : undefined,
       progress: ship.lockProgress,
       missileId: def.id,
-      reason: ship.lockedId ? 'complete' : distance >= LOCK_RANGE ? 'out-of-range' : 'out-of-cone',
+      reason: ship.lockedId
+        ? 'complete'
+        : distance >= LOCK_RANGE
+          ? 'out-of-range'
+          : cone <= LOCK_CONE
+            ? 'out-of-cone'
+            : 'not-armed',
     });
   }
 }
@@ -504,6 +522,8 @@ export function fireMissile(
   if (def.seeker !== 'none') {
     ship.lockProgress = 0;
     ship.lockedId = undefined;
+    // 撃ったら手動ロックは解除する (次の1発はもう一度 L を押す)
+    ship.lockArmed = false;
   }
   return { fired: true };
 }

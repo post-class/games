@@ -63,9 +63,10 @@ import { setCombatOptions } from '../sim/combat';
 import { ACE_POD_TAG_PREFIX, canEject, eject } from '../sim/eject';
 import { commsAvailable, hasDamage } from '../sim/subsystems';
 import { canAutopilot, nextNav, updateAutopilot } from '../sim/nav';
+import { speedMatchThrottle } from '../sim/flight';
 import { simulateStep, snapshotForRender } from '../sim/step';
-import { targetFront, targetNearest, targetNext } from '../sim/targeting';
-import { cycleMissile, dropFlare, fireMissile } from '../sim/weapons';
+import { targetFront, targetNearest, targetNext, targetUnderReticle } from '../sim/targeting';
+import { activeMissileSlot, cycleMissile, dropFlare, fireMissile } from '../sim/weapons';
 import type { Entity, WingmanOrder } from '../world/entity';
 import { spawnShip, World } from '../world/world';
 import { DeckSequence } from './DeckSequence';
@@ -481,6 +482,9 @@ export class Game {
       playerDamageTaken: this.tutorialSafe ? 0 : d.playerDamageTaken,
       playerDamageDealt: d.playerDamageDealt,
       playerSubsystemRate: d.playerSubsystemRate,
+      // 「やさしい」では自機と非敵対勢力の接触を無傷にする（W2）。
+      // 訓練中の無敵扱い (tutorialSafe) と同じ考えで、難易度側の値をそのまま渡す。
+      friendlyCollisionDamage: d.friendlyCollisionDamage,
     });
     this.input.mouseFlight = settings.mouseFlight;
     this.scene.setBloom(settings.bloom);
@@ -1046,6 +1050,8 @@ export class Game {
         ai: this.aiOptions(),
         playerGunAimPitchOffset: AIM_PITCH_OFFSET,
         playerWeaponModifiers: difficulty(),
+        // 手動ロック (W7-3) はプレイヤーだけに適用する。AI へ渡すと敵が撃たなくなる。
+        playerManualMissileLock: settings.missileLock === 'manual',
       });
       if (this.endDelay <= 0) {
         const outcome = this.endedOutcome;
@@ -1077,6 +1083,8 @@ export class Game {
         ai: this.aiOptions(),
         playerGunAimPitchOffset: AIM_PITCH_OFFSET,
         playerWeaponModifiers: difficulty(),
+        // 手動ロック (W7-3) はプレイヤーだけに適用する。AI へ渡すと敵が撃たなくなる。
+        playerManualMissileLock: settings.missileLock === 'manual',
       });
       this.runner?.update(dt);
       return;
@@ -1120,6 +1128,7 @@ export class Game {
       aimAssist: this.aimAssistStrength(),
       playerGunAimPitchOffset: AIM_PITCH_OFFSET,
       playerWeaponModifiers: difficulty(),
+      playerManualMissileLock: settings.missileLock === 'manual',
     });
     this.runner?.update(dt);
     this.replay.record(this.world, this.input, dt);
@@ -1271,15 +1280,31 @@ export class Game {
     const player = this.world.player;
     const frozen = this.paused || !this.active;
     this.sync.hidePlayer = this.rig.mode === 'cockpit';
-    this.scene.cockpit.setVisible(this.active && this.rig.mode === 'cockpit' && settings.cockpitDecorations);
+    // 後方視点は「押している間だけ」なので、押しっぱなしの入力から毎フレーム決める (W7-7)。
+    // 撃墜の余韻中 (inputLocked) は操作を受け付けないので前向きへ戻す。
+    this.rig.rearView = this.active && !this.inputLocked && this.input.rearView;
+    /*
+     * コクピットの表示方法 (W4)。
+     * 外部視点・非戦闘中・後方視点では出さない
+     * (後方を向いているのに前向きの風防が重なると、何が見えているのか読めなくなる)。
+     */
+    this.scene.cockpit.setStyle(
+      this.active && this.rig.mode === 'cockpit' && !this.rig.rearView ? settings.cockpitStyle : 'off',
+    );
+    this.scene.cockpit.setGlassOpacity(settings.glassOpacity);
     // 機内灯をハル残量に追従させる (被弾が深いほど橙へ寄る)。点滅はしない。
     this.scene.cockpit.update(
       player?.ship ? player.ship.hull / Math.max(1, player.ship.def.hull) : 1,
     );
-    this.hud.setCockpitDecorations(settings.cockpitDecorations);
+    // DOM 側の計器盤の枠は「計器盤が出ている表示方法」のときだけ合わせる (W4)。
+    // 'off' 以外はすべて計器盤を出すので、旧 cockpitDecorations と同じ意味になる。
+    this.hud.setCockpitDecorations(settings.cockpitStyle !== 'off');
     // 外部視点 (F) では DOM の計器盤を隠し、最小 HUD に置き換える。
     // 視点を切り替えたことが一目で分かるようにする。
     this.hud.setExternalView(this.rig.mode !== 'cockpit');
+    // 後方視点では照準・リード表示を出さない (後ろは撃てない)。
+    // 速度・速度設定・被害・目標は出したまま (情報を消すと操作不能になる)。
+    this.hud.setRearView(this.rig.rearView);
     this.hud.setDemoMode(this.demo.active);
     this.scene.dust.setVisible(this.active);
     // ジャンプ演出は描画側の時間で滑らかに立ち上げる
@@ -1416,6 +1441,57 @@ export class Game {
             bus.emit('announce', { text: '正面にターゲット可能な敵影なし', kind: 'info', durationMs: 1200 });
           }
           break;
+        // 照準の射線上にいる相手を掴む (W7-5)。
+        // `targetFront` (Y) は前方 41° の広い円錐から選ぶので、役割が違う。
+        case 'targetReticle':
+          if (player && !targetUnderReticle(this.world, player, AIM_PITCH_OFFSET)) {
+            bus.emit('announce', { text: '照準下に目標なし', kind: 'info', durationMs: 1200 });
+          }
+          break;
+        // ミサイルの手動ロック (W7-3)。
+        // 「手動」設定では L を押した目標だけロックが進む。
+        // 「自動」でもロックのやり直しとして働かせる (古い目標に張り付いたと感じたとき用)。
+        case 'manualLock': {
+          const ship = player?.ship;
+          const target = this.world.byId(ship?.targetId);
+          if (!ship || !target) {
+            bus.emit('announce', { text: 'ロックする目標がない', kind: 'info', durationMs: 1200 });
+            break;
+          }
+          ship.lockArmed = true;
+          ship.lockProgress = 0;
+          ship.lockedId = undefined;
+          bus.emit('lockChanged', {
+            locked: false,
+            progress: 0,
+            missileId: activeMissileSlot(player!)?.missileId,
+            reason: 'rearm',
+          });
+          break;
+        }
+        // 目標の速度へ速度設定を合わせる (W7-4)。
+        // アフターバーナーは自動化しない (追いつけないことは HUD の速度差で読める)。
+        case 'speedMatch': {
+          const ship = player?.ship;
+          const target = this.world.byId(ship?.targetId);
+          if (!ship || !target) {
+            bus.emit('announce', { text: '同期する目標がない', kind: 'info', durationMs: 1200 });
+            break;
+          }
+          const maxSpeed = ship.def.maxSpeed * ship.speedScale;
+          const want = speedMatchThrottle(maxSpeed, target.vel.length());
+          if (want === undefined) {
+            bus.emit('announce', { text: '同期する目標がない', kind: 'info', durationMs: 1200 });
+            break;
+          }
+          this.input.throttle = want;
+          bus.emit('announce', {
+            text: `速度同期 ${target.vel.length().toFixed(0)} KPS（${Math.round(want * 100)}%）`,
+            kind: 'info',
+            durationMs: 1600,
+          });
+          break;
+        }
         case 'nextSecondary':
           this.tutorial.noteAction(a);
           if (player) cycleMissile(player);
