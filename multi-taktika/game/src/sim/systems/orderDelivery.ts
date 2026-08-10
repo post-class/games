@@ -46,10 +46,23 @@ export function orderDelivery(w: World): void {
 
     if (w.tick < pending.deliverAtTick) continue;
 
-    // 発効。上段・下段はそれぞれ 1 枚ずつなので、同じ段は上書きになる
-    // （= 同段の重ね掛けは成立しない。`07§4`。入力段でも `command.ts` が段を検査する）。
-    if (pending.tier === 'lower') f.orderLower = pending.id;
-    else f.order = pending.id;
+    // 発効。
+    //
+    // `single`（二重旗を持っていない）なら**この戦域の令は 1 枚だけ**なので、
+    // 段に関係なく前の令を置き換える（`05§10`「各戦域に 1 枚」）。
+    // 置く先は上段側（`order`）に固定する ―― 読み手（`unitDecision` など）は
+    // 上段・下段の両方を見るので、どちらに入れても効果は同じ。
+    // 1 か所に決めておくことで「1 枚しか無いのに 2 枚に見える」状態を作らない。
+    if (pending.single) {
+      f.order = pending.id;
+      f.orderLower = null;
+    } else if (pending.tier === 'lower') {
+      // 二重旗を持っている戦域は上段・下段それぞれ 1 枚ずつ。同じ段は上書きになる
+      // （= 同段の重ね掛けは成立しない。`07§4`）。
+      f.orderLower = pending.id;
+    } else {
+      f.order = pending.id;
+    }
 
     f.lastSwitchTick = w.tick;
     f.pendingOrder = null;

@@ -146,9 +146,10 @@ export function canSetOrder(
   const pl = getPlayer(w, viewer);
   if (pl === undefined) return CardReason.NoFront;
   if (def.civ !== null && def.civ !== pl.civ) return CardReason.CivRestricted;
-  if (def.tier === 'lower' && stackSlotsOf(w, viewer) < DOUBLE_FLAG_SLOTS) {
-    return CardReason.NeedDoubleFlag;
-  }
+  // **下段の令も二重旗なしで押せる**（`05§10`「各戦域に 1 枚。二重旗で 2 枚まで」）。
+  // 段は「2 枚を重ねるときの組み合わせ」を決めるもので、使用の可否ではない。
+  // 以前ここで弾いていたため、包囲と略奪が帝国の世まで一度も押せなかった
+  // （`06§13` は第 1 章で略奪と包囲を教える）。`sim/command.ts` も同じ扱いに直した。
   if (slot < 1 || slot > pl.frontSlots) return CardReason.SlotLocked;
   const f = getFront(w, viewer, slot);
   if (f === undefined || !f.active) return CardReason.NoFront;

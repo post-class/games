@@ -187,31 +187,43 @@ describe('やさしいで敵機を1機以上撃墜できる (AI が自機を操�
   });
 
   /**
-   * 「やさしいの補正を渡さないと落とせない」ことも一緒に固定しておく。
-   * これが崩れたら、上のテストが実機と違う条件で通っている可能性がある
-   * （難易度の中身が `DIFFICULTIES` から `simulateStep` へ届いていない）。
+   * 難易度の中身が `DIFFICULTIES` から `simulateStep` へ届いていることを固定する。
+   * これが崩れたら、上のテストが実機と違う条件で通っている可能性がある。
+   *
+   * ■ 判定を「落とせない」から「弾に補正が乗っている」へ変えた理由
+   * 以前は「補正を渡さないと 120 秒で1機も落ちない」ことを根拠にしていたが、
+   * (1) 照準環と射線を一致させた (`core/aim.ts`: 弾が照準の上へ飛ばなくなった)
+   * (2) やさしいの敵速度を 25% にした (`DIFFICULTIES.easy.enemySpeedScale`)
+   * の2点で、補正なしでも当たるようになった。
+   * 「当たらないこと」に依存した判定は、命中性の改善で必ず壊れるので、
+   * **補正そのものが弾へ乗っているか**を直接見る。
    */
-  it('難易度補正と照準補助を渡さないと、同じ時間では落とせない', () => {
-    reseed(0x5eed0003);
-    const def = missionDef('m1-patrol');
-    const { world, runner } = start(def, easy);
-    world.player!.ai = newAi(PILOT_SKILL);
-    const bare = { flightMode: 'wc' as const, ai: { maxAttackersOnPlayer: easy.maxAttackers } };
+  it('難易度補正が simulateStep から弾へ届いている', () => {
+    const fireOneShot = (
+      opts: ReturnType<typeof stepOptions> | { flightMode: 'wc'; ai: { maxAttackersOnPlayer: number } },
+    ) => {
+      reseed(0x5eed0003);
+      const def = missionDef('m1-patrol');
+      const { world, runner } = start(def, easy);
+      const player = world.player!;
+      player.input!.firePrimary = true;
+      simulateStep(world, DT, opts);
+      const shot = world.entities.find((e) => e.kind === 'projectile' && e.projectile?.fromPlayer);
+      expect(shot).toBeDefined();
+      const result = {
+        // 母機の速度を引いた、砲そのものの弾速
+        speed: shot!.vel.clone().sub(player.vel).length(),
+        hitRadiusScale: shot!.projectile!.hitRadiusScale,
+      };
+      runner.dispose();
+      return result;
+    };
 
-    jumpToNav(world, def, 0);
-    for (let i = 0; i < 30; i++) {
-      simulateStep(world, DT, bare);
-      runner.update(DT);
-    }
-    jumpToNav(world, def, 1);
-    for (let i = 0; i < Math.round(120 / DT); i++) {
-      simulateStep(world, DT, bare);
-      runner.update(DT);
-      if (runner.state !== 'running') break;
-    }
-    // 弾は出ているのに落ちない（＝補正が効いていないことが見える）
-    expect(runner.summary().shotsFired).toBeGreaterThan(0);
-    expect(runner.kills).toBe(0);
-    runner.dispose();
+    const bare = fireOneShot({ flightMode: 'wc', ai: { maxAttackersOnPlayer: easy.maxAttackers } });
+    const withEasy = fireOneShot(stepOptions(easy));
+
+    expect(withEasy.speed).toBeCloseTo(bare.speed * easy.playerGunSpeedScale, 6);
+    expect(bare.hitRadiusScale).toBe(1);
+    expect(withEasy.hitRadiusScale).toBe(easy.playerGunHitRadiusScale);
   });
 });

@@ -228,7 +228,7 @@ describe('`05§14` の注記（1 本のレーンだけ切り替わっている =
 /** `TimelineRecorder` が読む部分だけを持つ最小の World（sim を回さずに検算する）。 */
 function stubWorld(playerCount = 1): {
   w: World;
-  set(slot: number, v: Partial<{ active: boolean; order: OrderId | null; pending: { id: OrderId; tier: Tier; deliverAtTick: number } | null }>): void;
+  set(slot: number, v: Partial<{ active: boolean; order: OrderId | null; pending: { id: OrderId; tier: Tier; single: boolean; deliverAtTick: number } | null }>): void;
 } {
   const fronts = [];
   for (let p = 0; p < playerCount; p++) {
@@ -279,7 +279,7 @@ describe('TimelineRecorder（レーンの区間と、令の「出した / 届い
     for (let t = 0; t <= 100; t++) {
       s.w.tick = t;
       s.set(1, { active: true });
-      if (t === 10) s.set(1, { pending: { id: 'charge', tier: 'upper', deliverAtTick: 60 } });
+      if (t === 10) s.set(1, { pending: { id: 'charge', tier: 'upper', single: true, deliverAtTick: 60 } });
       if (t === 60) s.set(1, { pending: null, order: 'charge' });
       rec.observe(s.w);
     }
@@ -297,9 +297,9 @@ describe('TimelineRecorder（レーンの区間と、令の「出した / 届い
     for (let t = 0; t <= 200; t++) {
       s.w.tick = t;
       s.set(1, { active: true });
-      if (t === 10) s.set(1, { pending: { id: 'charge', tier: 'upper', deliverAtTick: 40 } });
+      if (t === 10) s.set(1, { pending: { id: 'charge', tier: 'upper', single: true, deliverAtTick: 40 } });
       if (t === 40) s.set(1, { pending: null, order: 'charge' });
-      if (t === 100) s.set(1, { pending: { id: 'hold', tier: 'upper', deliverAtTick: 130 } });
+      if (t === 100) s.set(1, { pending: { id: 'hold', tier: 'upper', single: true, deliverAtTick: 130 } });
       if (t === 130) s.set(1, { pending: null, order: 'hold' });
       rec.observe(s.w);
     }
@@ -314,10 +314,10 @@ describe('TimelineRecorder（レーンの区間と、令の「出した / 届い
     for (let t = 0; t <= 200; t++) {
       s.w.tick = t;
       s.set(1, { active: true });
-      if (t === 10) s.set(1, { pending: { id: 'charge', tier: 'upper', deliverAtTick: 40 } });
+      if (t === 10) s.set(1, { pending: { id: 'charge', tier: 'upper', single: true, deliverAtTick: 40 } });
       if (t === 40) s.set(1, { pending: null, order: 'charge' });
       // 6 秒後に同じ令をもう 1 回（`07§4` の切り替え間隔）
-      if (t === 190) s.set(1, { pending: { id: 'charge', tier: 'upper', deliverAtTick: 195 } });
+      if (t === 190) s.set(1, { pending: { id: 'charge', tier: 'upper', single: true, deliverAtTick: 195 } });
       if (t === 195) s.set(1, { pending: null, order: 'charge' });
       rec.observe(s.w);
     }
@@ -333,7 +333,7 @@ describe('TimelineRecorder（レーンの区間と、令の「出した / 届い
     for (let t = 0; t <= 100; t++) {
       s.w.tick = t;
       s.set(1, { active: t < 50 });
-      if (t === 10) s.set(1, { pending: { id: 'charge', tier: 'upper', deliverAtTick: 80 } });
+      if (t === 10) s.set(1, { pending: { id: 'charge', tier: 'upper', single: true, deliverAtTick: 80 } });
       if (t === 50) s.set(1, { pending: null }); // 戦域が閉じて配達中の令が捨てられた
       rec.observe(s.w);
     }

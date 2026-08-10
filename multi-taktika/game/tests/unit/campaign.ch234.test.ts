@@ -16,6 +16,7 @@
  * ミッション固有の数値はこのファイルに書かない（すべて定義から引く）。
  */
 
+import { orderDefById } from '@/sim/core/defs';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -106,7 +107,16 @@ function play(missionId: string, budget = TICK_BUDGET): MissionRun {
       const order = want[wi]!;
       wi += 1;
       if (f.order === order || f.pendingOrder !== null) continue;
-      cmds.push({ t: 'setOrder', p: run.self, front: f.slot, order, tier: 'upper' });
+      // **段は令の定義から引く**（`orders.json`）。`upper` 固定で送っていたため
+      // 下段の令（包囲・略奪）が入力段で弾かれ、それを要求するミッションが
+      // 勝てなくなっていた。段が違う `setOrder` は `command.ts` が黙って捨てる。
+      cmds.push({
+        t: 'setOrder',
+        p: run.self,
+        front: f.slot,
+        order,
+        tier: orderDefById(order).tier,
+      });
     }
     if (want.length === 0 && tc >= 0 && w.tick % PRODUCE_INTERVAL === 0) {
       cmds.push({ t: 'produce', p: run.self, building: tc, unit: 'villager', count: 1 });

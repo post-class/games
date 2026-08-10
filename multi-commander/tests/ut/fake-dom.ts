@@ -70,6 +70,14 @@ export class FakeElement {
     nodes.forEach((n) => this.appendChild(n));
   }
 
+  /** 子をまとめて差し替える (実DOMの replaceChildren 相当) */
+  replaceChildren(...nodes: FakeElement[]): void {
+    this.children.splice(0, this.children.length).forEach((c) => {
+      c.parent = null;
+    });
+    nodes.forEach((n) => this.appendChild(n));
+  }
+
   remove(): void {
     if (this.parent) {
       const i = this.parent.children.indexOf(this);

@@ -379,6 +379,14 @@ export interface DifficultyProfile extends PlayerWeaponModifiers {
   /** 敵のミサイル使用頻度倍率 */
   enemyMissileRate: number;
   /**
+   * 敵機の速度倍率 (初速・最高速・アフターバーナー速度に掛かる)。
+   *
+   * `MissionRunner` が敵対勢力の機体だけに `speedScale` として渡す。
+   * 味方・護衛対象・自機には掛けない。
+   * NORMAL/HARD は 1 (据え置き)。
+   */
+  enemySpeedScale: number;
+  /**
    * プレイヤー機の部位故障の発生率倍率。
    * 部位損傷は強力なので、難易度でここを絞らないと「ふつう」が急に厳しくなる。
    */
@@ -397,6 +405,9 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyProfile> = {
     waveDelayBonus: 12,
     fuelScale: 1.6,
     enemyMissileRate: 0.4,
+    // 敵機の速度は「ふつう」の 25%。旧値 0.5 からさらに半分に落とし、
+    // 追いつけない・振り切られる状態を無くしている。
+    enemySpeedScale: 0.25,
     playerSubsystemRate: 0.35,
     playerGunSpeedScale: 1.35,
     playerGunHitRadiusScale: 1.8,
@@ -416,6 +427,7 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyProfile> = {
     waveDelayBonus: 4,
     fuelScale: 1,
     enemyMissileRate: 1,
+    enemySpeedScale: 1,
     playerSubsystemRate: 0.7,
     ...DEFAULT_PLAYER_WEAPON_MODIFIERS,
   },
@@ -430,6 +442,7 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyProfile> = {
     waveDelayBonus: 0,
     fuelScale: 0.85,
     enemyMissileRate: 1.4,
+    enemySpeedScale: 1,
     playerSubsystemRate: 1.15,
     ...DEFAULT_PLAYER_WEAPON_MODIFIERS,
   },

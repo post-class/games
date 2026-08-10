@@ -37,11 +37,35 @@ const THROTTLE_KEY_RATE = 0.9; // 毎秒
 const THROTTLE_KEY_STEP = 0.1; // キーを1回押すごとの変化量
 
 /**
+ * 操縦を代行する入力 (チュートリアルのお手本モード)。
+ *
+ * `InputManager` へ差し込むと、人間の操縦入力の代わりにこの値が返る。
+ * お手本モードが「画面に出すキー」と「実際にゲームへ渡す値」を
+ * 同じ場所から作れるようにするための口で、`undefined` に戻せば人間の操作へ戻る。
+ * エッジ入力 (ミサイル・ターゲットなど) は `pushAction()` で同じ列へ積む。
+ */
+export interface ScriptedFlightInput {
+  /** -1..1 (+ = 機首上げ) */
+  pitch: number;
+  /** -1..1 (+ = 右) */
+  yaw: number;
+  /** -1..1 (+ = 右ロール) */
+  roll: number;
+  afterburner: boolean;
+  firePrimary: boolean;
+}
+
+/**
  * キーボード + マウスの入力集約。
  * - 操縦は「マウスだけ」でも「キーボードだけ」でも完結する。
  * - スロットルはレバー式で、キーを離しても値を保持する。
  */
 export class InputManager {
+  /**
+   * 操縦を代行する入力。設定されている間は人間の操縦入力を無視する。
+   * 案内の送りやポーズなどのエッジ入力は、人間の側も従来どおり受け付ける。
+   */
+  scripted?: ScriptedFlightInput;
   private keys = new Set<string>();
   private actions: InputAction[] = [];
   private mouseButtons = new Set<number>();
@@ -299,6 +323,15 @@ export class InputManager {
     }
   }
 
+  /**
+   * エッジ入力を外から1件積む (お手本モードが人間と同じ経路で操作するため)。
+   * 実際の処理は `Game.handleActions()` が受け持つので、
+   * 「お手本が押した」と「人が押した」で結果が変わらない。
+   */
+  pushAction(action: InputAction): void {
+    this.actions.push(action);
+  }
+
   /** 溜まったエッジ入力を取り出す (取り出すと消える) */
   consumeActions(): InputAction[] {
     if (this.actions.length === 0) return EMPTY;
@@ -332,6 +365,8 @@ export class InputManager {
 
   /** -1..1 (+ = 機首上げ) */
   get pitch(): number {
+    // 代行入力は既にゲーム側の規約 (+ = 機首上げ) なので、Y反転設定は掛けない
+    if (this.scripted) return clamp(this.scripted.pitch, -1, 1);
     let v = 0;
     if (this.keys.has(settings.keyBindings.pitchUp)) v += 1;
     if (this.keys.has(settings.keyBindings.pitchDown)) v -= 1;
@@ -345,6 +380,7 @@ export class InputManager {
 
   /** -1..1 (+ = 右) */
   get yaw(): number {
+    if (this.scripted) return clamp(this.scripted.yaw, -1, 1);
     let v = 0;
     if (this.keys.has(settings.keyBindings.yawRight)) v += 1;
     if (this.keys.has(settings.keyBindings.yawLeft)) v -= 1;
@@ -358,6 +394,7 @@ export class InputManager {
 
   /** -1..1 (+ = 右ロール) */
   get roll(): number {
+    if (this.scripted) return clamp(this.scripted.roll, -1, 1);
     let v = 0;
     if (this.keys.has(settings.keyBindings.rollRight)) v += 1;
     if (this.keys.has(settings.keyBindings.rollLeft)) v -= 1;
@@ -384,10 +421,12 @@ export class InputManager {
   }
 
   get afterburner(): boolean {
+    if (this.scripted) return this.scripted.afterburner;
     return this.keys.has(settings.keyBindings.afterburner) || this.gamepadHeld(10);
   }
 
   get firePrimary(): boolean {
+    if (this.scripted) return this.scripted.firePrimary;
     return this.keys.has(settings.keyBindings.firePrimary) || this.mouseButtons.has(0) || this.gamepadValue(7) > 0.12;
   }
 

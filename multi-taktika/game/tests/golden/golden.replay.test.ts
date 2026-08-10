@@ -118,18 +118,17 @@ describe('T-M15-06: ゴールデンリプレイ（代表 3 試合を CI で毎�
         expect(back).toEqual(fixture.hashes.map((h) => ({ tick: h.tick, hash: h.hash })));
       });
 
-      it('入力を 1 つ書き換えると落ちる（この検証が効いている証明）', () => {
+      it('入力を取り除くと落ちる（この検証が効いている証明）', () => {
         if (fixture.inputs.length === 0) return; // 入力の無いシナリオは対象外
-        const first = fixture.inputs[0]!;
-        const pid = Number(Object.keys(first.byPlayer)[0]);
-        const tampered: Replay = {
-          ...fixture,
-          inputs: [
-            { tick: first.tick + 1, byPlayer: first.byPlayer },
-            ...fixture.inputs.slice(1),
-          ],
-        };
-        expect(pid).toBeGreaterThanOrEqual(0);
+        // ■ 改ざんの仕方を一度変えている
+        // 元は「最初の入力を 1 tick ずらす」形だった。これは**効かない場合がある**
+        // ―― ずらした先でも同じ結果になると（令が両方とも入力段で弾かれる、
+        // 同じ令を出し直しているなど）ハッシュが変わらず落ちる。実際に落ちた。
+        //
+        // いまは「**記録した入力を全部取り除く**」形。固定したハッシュは
+        // 入力ありの試合のものなので、入力なしの試合とは必ず違う。
+        // 見たいこと（＝この検証が入力に反応している）はこれで示せる。
+        const tampered: Replay = { ...fixture, inputs: [] };
         const back = replayScenario(sc, tampered);
         expect(back).not.toEqual(fixture.hashes.map((h) => ({ tick: h.tick, hash: h.hash })));
       });

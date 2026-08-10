@@ -1499,7 +1499,9 @@ export class MissionRunner {
         label: unitName,
         quat,
         speed: g.speed ?? def.maxSpeed * 0.6,
-        speedScale: isHostile(g.faction, 'confed') && this.difficulty.id === 'easy' ? 0.5 : 1,
+        // 敵機の速度倍率は難易度プロファイルが唯一の出所 (設定画面の表示も同じ値)。
+        // 味方・護衛対象には掛けない。
+        speedScale: isHostile(g.faction, 'confed') ? this.difficulty.enemySpeedScale : 1,
         tag: g.tag,
         pilot,
         ace: isAce,

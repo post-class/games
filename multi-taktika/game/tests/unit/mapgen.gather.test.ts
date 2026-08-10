@@ -49,7 +49,7 @@ describe('mapgen ↔ gather の資源ノード規約', () => {
     expect(count).toBeGreaterThan(0);
   });
 
-  it('ノードの種類と資源の対応が mapgen の意図どおり（森=木材, 石切場=石材, 金鉱=金, 果樹=食料）', () => {
+  it('ノードの種類と資源の対応が mapgen の意図どおり（食料だけは 3 種類）', () => {
     const e = w.entities;
     const byResource = new Map<number, Set<string>>();
     for (let i = 0; i < e.highWater; i++) {
@@ -63,7 +63,11 @@ describe('mapgen ↔ gather の資源ノード規約', () => {
     expect([...(byResource.get(idx('wood')) ?? [])]).toEqual(['forest']);
     expect([...(byResource.get(idx('stone')) ?? [])]).toEqual(['stone_quarry']);
     expect([...(byResource.get(idx('gold')) ?? [])]).toEqual(['gold_mine']);
-    expect([...(byResource.get(idx('food')) ?? [])]).toEqual(['fruit']);
+    // **食料だけはノードの種類が複数ある**（`03§1`「農地・狩猟・漁・果樹・羊」）。
+    // マップに置くのは果樹・羊・狩猟の 3 種（農地はプレイヤーが建てる、漁は水域のみ）。
+    // 以前は果樹だけを置いていたため、果樹が枯れたあとの食料源が農地しか無く、
+    // 農地は木材 60 を食うので木材が細ると食料も止まっていた。
+    expect([...(byResource.get(idx('food')) ?? [])].sort()).toEqual(['fruit', 'hunt', 'sheep']);
   });
 
   it('4 資源すべてが「拠点の近くで見つかる」（収入がゼロになる資源がない）', () => {

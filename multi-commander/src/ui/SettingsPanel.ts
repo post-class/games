@@ -67,6 +67,7 @@ export function buildSettingsPanel(onChange: () => void): HTMLElement {
         }),
         note(
           `敵技量 ${Math.round(DIFFICULTIES[settings.difficulty].enemySkill * 100)}% ／ ` +
+            `敵速度 ${Math.round(DIFFICULTIES[settings.difficulty].enemySpeedScale * 100)}% ／ ` +
             `被ダメ ×${DIFFICULTIES[settings.difficulty].playerDamageTaken} ／ ` +
             `同時攻撃 ${DIFFICULTIES[settings.difficulty].maxAttackers} 機まで ／ ` +
             `主砲弾速 ${Math.round(DIFFICULTIES[settings.difficulty].playerGunSpeedScale * 100)}% ／ ` +

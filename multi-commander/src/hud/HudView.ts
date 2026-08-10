@@ -1,6 +1,7 @@
 import { Quaternion, Vector3, type PerspectiveCamera } from 'three';
 import { bus } from '../core/events';
 import { settings } from '../app/settings';
+import { AIM_ORIGIN_Y } from '../core/aim';
 import { clamp01 } from '../core/math';
 import { FACTION_HEX, factionColorVar, factionLabel, isHostile } from '../content/factions';
 import { gunDef, gunPresentation, missileDef } from '../content/weapons';
@@ -175,6 +176,8 @@ export class HudView {
   private stickEl: HTMLElement;
   private autopilotEl: HTMLElement;
   private mouseHintEl!: HTMLElement;
+  /** お手本モードの実演中か (マウス操縦の促しを抑える) */
+  private demoMode = false;
   /** 操縦ヒントの残り表示時間 (0 で消す)。促しが終わっても出しっぱなしにしない。 */
   private mouseHintLeft = 0;
   /** 促しが立ち上がった瞬間を拾うための前フレームの値 */
@@ -575,6 +578,15 @@ export class HudView {
     if (this.externalView === external) return;
     this.externalView = external;
     this.applyChromeVisibility();
+  }
+
+  /**
+   * お手本モードの実演中かを伝える。
+   * 実演中は操縦を代行しているので、マウス操縦の促しは出さない。
+   */
+  setDemoMode(on: boolean): void {
+    this.demoMode = on;
+    if (on) this.mouseHintEl.style.display = 'none';
   }
 
   /** 外部視点かどうか (テスト・確認用) */
@@ -1010,7 +1022,9 @@ export class HudView {
     this.mouseHintArmed = armPending;
     if (!armPending) this.mouseHintLeft = 0;
     else this.mouseHintLeft = Math.max(0, this.mouseHintLeft - dtReal);
-    const hintVisible = this.mouseHintLeft > 0 && !this.navMap.open;
+    // お手本モード中は操縦を代行しているので、マウス操縦の促しは出さない
+    // (実演の説明帯と同じ高さに出て重なる)。
+    const hintVisible = !this.demoMode && this.mouseHintLeft > 0 && !this.navMap.open;
     this.mouseHintEl.style.display = hintVisible ? '' : 'none';
 
     this.renderHitDirection(dtReal);
@@ -1826,6 +1840,9 @@ function escapeHtml(s: string): string {
 
 function reticleSvg(): HTMLElement {
   const wrap = el('div', 'mc-reticle');
+  // 照準環の縦位置は射線と同じ定数から作る (`core/aim.ts`)。
+  // CSS 側に数値を書くと、射線だけ直して照準環が取り残される。
+  wrap.style.top = `${AIM_ORIGIN_Y * 100}%`;
   wrap.innerHTML = `
     <svg viewBox="0 0 46 46" width="46" height="46">
       <g fill="none" stroke="#7fe3b0" stroke-width="1.2">

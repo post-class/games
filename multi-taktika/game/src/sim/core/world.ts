@@ -71,7 +71,11 @@ export interface Front {
   /** 下段の令（二重旗のみ）。 */
   orderLower: OrderId | null;
   /** 配達中の令。null = なし。 */
-  pendingOrder: { id: OrderId; tier: Tier; deliverAtTick: number } | null;
+  /**
+   * 配達中の令。`single` は「**この 1 枚だけを置く**」（二重旗が無い戦域）。
+   * `05§10`「各戦域に 1 枚。帝国の世の研究『二重旗』で 2 枚まで重ねられます」。
+   */
+  pendingOrder: { id: OrderId; tier: Tier; single: boolean; deliverAtTick: number } | null;
   /** 切り替え間隔（6 秒 / 早馬 4.2 秒）の判定用。 */
   lastSwitchTick: number;
   /** 消滅判定（15 秒）用。最後に実ダメージが発生した tick。 */

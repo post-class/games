@@ -71,7 +71,7 @@ import {
   type BarTalkView,
 } from './barTalk';
 import { Game } from './game';
-import type { TutorialMode } from '../ui/Tutorial';
+import type { TutorialCourse } from '../ui/Tutorial';
 import {
   advanceCampaignSave,
   loadSave,
@@ -191,7 +191,7 @@ export class App {
   private trainingActive = false;
   /** タイトルから起動したチュートリアル。キャンペーン進行を変更しない */
   private tutorialActive = false;
-  private tutorialMode: TutorialMode = 'simple';
+  private tutorialMode: TutorialCourse = 'simple';
   private trainingKind: DynamicMissionKind = 'patrol';
   private trainingEnemyCount = 3;
   private trainingSkill = 0.55;
@@ -322,8 +322,13 @@ export class App {
         `キャンペーンの戦果・補給・名簿を変更せず、専用の訓練空域で操作を確認できます。` +
         `簡易チュートリアルは初回出撃時の案内と同じ内容です。` +
         `詳細チュートリアルでは、戦闘以外の入力も順番に確認します。</div>` +
+        `<div class="block"><h3>お手本モード</h3>` +
+        `操作をこちらが実演します。押しているキーを画面に表示しながら、` +
+        `スロットル・機首・アフターバーナー・ターゲット・主砲・ミサイル・フレア・HUD操作を順に見せ、` +
+        `最後に敵機とのドッグファイトを行います。<b>B</b> で次の実演へ飛ばせます。</div>` +
         `<div class="dim">訓練中は Esc →「タイトルへ戻る」でいつでも終了できます。</div>`,
       items: [
+        { label: 'お手本モード — 操作とドッグファイトを見る', onSelect: () => this.launchTutorial('demo') },
         { label: '簡易チュートリアル — 基本6ステップ', onSelect: () => this.launchTutorial('simple') },
         { label: '詳細チュートリアル — 全操作を確認', onSelect: () => this.launchTutorial('detailed') },
         { label: '戻る', onSelect: () => this.showTitle() },
@@ -963,7 +968,7 @@ export class App {
     return { ...base, id: `training-${this.trainingKind}`, title: `訓練室 — ${base.title}`, spawns, debriefWin: ['訓練終了。実戦では、敵も弾も戻ってこない。'], debriefLoss: ['訓練を中断した。機体を点検してもう一度試せる。'] };
   }
 
-  private tutorialDef(mode: TutorialMode): MissionDef {
+  private tutorialDef(mode: TutorialCourse): MissionDef {
     const base = dynamicMissionDef({
       id: `tutorial-${mode}`,
       system: 'orion-port',
@@ -971,28 +976,58 @@ export class App {
       seed: 707,
       returnNode: this.save.node,
     });
-    const tutorialSpawns = base.spawns.map((group) => ({
+    const tutorialSpawns: MissionDef['spawns'] = base.spawns.map((group) => ({
       ...group,
       // ターゲット操作の案内が出る前に敵を配置し、T/R/Y をすぐ試せるようにする。
       atNav: undefined,
       delay: 0,
       offset: group.offset ?? [0, 0, -1800],
     }));
+    if (mode === 'demo') {
+      /*
+       * お手本モードは実演の途中で敵を落としてしまうので、
+       * 最後のドッグファイトに相手が残るよう増援を宣言する。
+       *
+       * 前半 (スロットル〜HUD操作) で約100秒使うため、`delay` はそれに合わせる。
+       * 実演を B で飛ばした場合は増援の到着前にドッグファイトへ入るが、
+       * その場合は「敵が出るまで待つ」ようになっている
+       * (`ui/TutorialDemo.ts` の `sawHostiles`)。
+       */
+      tutorialSpawns.push(
+        { shipId: 'ke04-mirage', count: 2, faction: 'kilrathi', delay: 0, offset: [900, 200, -2400], tag: 'demo-first' },
+        { shipId: 'kf03-greyhaul', count: 2, faction: 'kilrathi', delay: 88, offset: [-1200, -300, -2600], tag: 'demo-wave' },
+      );
+    }
     return {
       ...base,
       id: `tutorial-${mode}`,
-      title: mode === 'detailed' ? '詳細チュートリアル — 操作訓練空域' : '簡易チュートリアル — 操作訓練空域',
+      title:
+        mode === 'demo'
+          ? 'お手本モード — 操作訓練空域'
+          : mode === 'detailed'
+            ? '詳細チュートリアル — 操作訓練空域'
+            : '簡易チュートリアル — 操作訓練空域',
       briefing: [
         'これは独立した訓練空域だ。キャンペーンの記録や補給は変化しない。',
-        mode === 'detailed'
-          ? '画面下の指示に従い、入力・HUD・戦闘・航法を順番に確認せよ。'
-          : '画面下の指示に従い、まずは飛行と戦闘の基本を確認せよ。',
+        mode === 'demo'
+          ? '操作はこちらで実演する。押しているキーが画面に出るので、それを見てから自分で試せ。'
+          : mode === 'detailed'
+            ? '画面下の指示に従い、入力・HUD・戦闘・航法を順番に確認せよ。'
+            : '画面下の指示に従い、まずは飛行と戦闘の基本を確認せよ。',
       ],
       playerShipId: 'hornet',
-      playerMissiles: [
-        { missileId: 'dumbfire', count: 3 },
-        { missileId: 'heat-seeker', count: 3 },
-      ],
+      // お手本モードは実演とドッグファイトで撃ち続けるので、弾数を多めに積む。
+      // (搭載数・HUD の残弾・実際の消費はすべてこの宣言から作られる)
+      playerMissiles:
+        mode === 'demo'
+          ? [
+              { missileId: 'dumbfire', count: 6 },
+              { missileId: 'heat-seeker', count: 8 },
+            ]
+          : [
+              { missileId: 'dumbfire', count: 3 },
+              { missileId: 'heat-seeker', count: 3 },
+            ],
       spawns: tutorialSpawns,
       debriefWin: ['訓練を終了した。'],
       debriefLoss: ['訓練を中断した。'],
@@ -1001,13 +1036,13 @@ export class App {
     };
   }
 
-  private launchTutorial(mode: TutorialMode): void {
+  private launchTutorial(mode: TutorialCourse): void {
     const def = this.tutorialDef(mode);
     const load: Loadout = {
       shipId: def.playerShipId,
       gunId: 'laser',
       missiles: def.playerMissiles,
-      flares: 12,
+      flares: mode === 'demo' ? 20 : 12,
       wingmanSlot: 2,
     };
     this.tutorialActive = true;
@@ -1020,7 +1055,7 @@ export class App {
   private showTutorialEnd(outcome: 'win' | 'loss'): void {
     this.game.sound.music.play(outcome === 'win' ? 'victory' : 'defeat');
     this.screens.show({
-      title: outcome === 'win' ? 'チュートリアル終了' : 'チュートリアル中断',
+      title: outcome === 'win' ? '訓練終了' : '訓練中断',
       bodyHtml: `<div class="block">訓練空域を離れた。キャンペーンの記録・補給・名簿は変更されていない。</div>`,
       items: [
         { label: '同じチュートリアルをもう一度', onSelect: () => this.launchTutorial(this.tutorialMode) },

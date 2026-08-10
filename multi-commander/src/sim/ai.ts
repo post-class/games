@@ -1,5 +1,5 @@
-import { Quaternion, Vector3 } from 'three';
-import { clamp, clamp01, forwardOf, leadPoint } from '../core/math';
+import { Vector3 } from 'three';
+import { clamp01, forwardOf, leadPoint } from '../core/math';
 import { bus } from '../core/events';
 import { rng } from '../core/rng';
 import { isHostile } from '../content/factions';
@@ -7,6 +7,7 @@ import type { Faction } from '../content/ships';
 import { gunDef, missileDef } from '../content/weapons';
 import type { AiRuntime, Entity, WingmanOrder } from '../world/entity';
 import type { World } from '../world/world';
+import { steerCommand, type SteerCommand } from './steer';
 import { fireMissile, fireTurrets, selectMissileFor } from './weapons';
 
 export interface AiOptions {
@@ -21,10 +22,10 @@ const DEFAULT_AI_OPTIONS: AiOptions = { maxAttackersOnPlayer: 2, enemyMissileRat
 const _fwd = new Vector3();
 const _to = new Vector3();
 const _lead = new Vector3();
-const _axis = new Vector3();
-const _invQ = new Quaternion();
 const _tmp = new Vector3();
 const _formation = new Vector3();
+/** 操縦入力の受け皿 (`steerCommand` の結果を写す) */
+const _steer: SteerCommand = { pitch: 0, yaw: 0, roll: 0 };
 /** 学習した群体が進入をずらすための横方向ベクトル (第6章) */
 const _swarmSide = new Vector3();
 
@@ -678,23 +679,17 @@ function isForcedToFight(world: World, e: Entity): boolean {
 
 /**
  * 機首を目標方向へ向ける PD 制御。
- * 必要な回転軸をローカル系に変換し、そのまま操縦入力に落とす。
+ *
+ * 式そのものは `sim/steer.ts` に置き、ここでは結果を操縦入力へ写すだけにする。
+ * チュートリアルのお手本モードが同じ式で飛ぶため、
+ * 「AI の動き」と「お手本の動き」が別物にならない。
  */
 function steerToDirection(e: Entity, desiredDir: Vector3, gain: number, bank = 0.5): void {
   const input = e.input!;
-  const def = e.ship!.def;
-  forwardOf(e.quat, _fwd);
-  _axis.copy(_fwd).cross(desiredDir); // 長さ = sin(角度)
-  _axis.applyQuaternion(_invQ.copy(e.quat).invert());
-  const dot = _fwd.dot(desiredDir);
-  // 真後ろ (dot<0) では sin が小さくなるので、旋回量を最大に押し上げる
-  const boost = dot < 0 ? 1 / Math.max(0.25, _axis.length()) : 1;
-
-  const kd = 0.28;
-  input.pitch = clamp(_axis.x * gain * boost - (e.angVel.x / def.turn[0]) * kd, -1, 1);
-  input.yaw = clamp(-_axis.y * gain * boost + (e.angVel.y / def.turn[1]) * kd, -1, 1);
-  // ヨー方向へバンクさせて航空機らしい旋回に見せる
-  input.roll = clamp(-_axis.z * gain - _axis.y * bank * boost, -1, 1);
+  steerCommand(e, desiredDir, gain, bank, _steer);
+  input.pitch = _steer.pitch;
+  input.yaw = _steer.yaw;
+  input.roll = _steer.roll;
 }
 
 function steerToPoint(e: Entity, point: Vector3, gain: number, bank = 0.5): void {

@@ -227,7 +227,7 @@ describe('§6.5 減少要因', () => {
     openFront(w, 1, 0);
     const f = w.fronts[0]!;
     f.advantage = -fx(0.1); // 警告しきい値には届かないが劣勢
-    f.pendingOrder = { id: 'charge', tier: 'upper', deliverAtTick: 999 };
+    f.pendingOrder = { id: 'charge', tier: 'upper', single: true, deliverAtTick: 999 };
     const a = putUnit(w, 'y-nagae', 0, 30, 30);
     putUnit(w, 'y-nagae', 0, 31, 30);
     const e = w.entities;

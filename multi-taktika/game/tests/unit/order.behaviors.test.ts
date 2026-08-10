@@ -419,12 +419,31 @@ describe('T-M9-07: 二重旗（上段 1 + 下段 1、同段は拒否）', () => 
     expect(f.pendingOrder).toBeNull();
   });
 
-  it('二重旗を取るまで下段は使えない', () => {
+  it('二重旗が無くても下段の令は使える。二重旗を取ると 2 枚重ねられる', () => {
+    // `05§10`「各戦域に 1 枚。帝国の世の研究『二重旗』で 2 枚まで重ねられます」。
+    // **段は「重ねるときの組み合わせ」を決めるもので、使用の可否ではない。**
+    // 以前は下段を丸ごと弾いていたため、包囲と略奪が帝国の世まで使えなかった。
     const w = makeWorld();
-    makeFront(w, 0, 1, 30, 30);
-    expect(setAndDeliver(w, 'siege', 'lower')).toBe(false);
-    research(w, 0, 'nijuuhata');
+    const f = makeFront(w, 0, 1, 30, 30);
+    // 二重旗なし: 下段の令も置ける。ただし**1 枚だけ**（上段側に入り、下段は空）
     expect(setAndDeliver(w, 'siege', 'lower')).toBe(true);
+    expect(f.order).toBe('siege');
+    expect(f.orderLower).toBeNull();
+    // 二重旗あり: 上段 1 + 下段 1 の 2 枚になる。
+    // **令の切り替え間隔（6 秒）を空ける**（空けないと入力段で弾かれる。`06§4`）。
+    research(w, 0, 'nijuuhata');
+    const wait = (): void => {
+      for (let k = 0; k < 200; k++) {
+        orderDelivery(w);
+        w.tick++;
+      }
+    };
+    wait();
+    expect(setAndDeliver(w, 'hold', 'upper')).toBe(true);
+    wait();
+    expect(setAndDeliver(w, 'siege', 'lower')).toBe(true);
+    expect(f.order).toBe('hold');
+    expect(f.orderLower).toBe('siege');
   });
 
   it('上段が移動、下段が攻撃目標を担当する（死守 + 包囲の実挙動）', () => {

@@ -5,6 +5,15 @@ import type { World } from '../world/world';
 
 export type TutorialMode = 'simple' | 'detailed';
 
+/**
+ * チュートリアルの課程。
+ *
+ * `'demo'` (お手本モード) は案内の帯ではなく `ui/TutorialDemo.ts` が受け持つ。
+ * 「読ませて操作させる課程」と「操作を見せる課程」で担当を分けているので、
+ * `Tutorial` 側のステップ判定に 'demo' は入れない。
+ */
+export type TutorialCourse = TutorialMode | 'demo';
+
 export interface TutorialContext {
   world: World;
   input: InputManager;

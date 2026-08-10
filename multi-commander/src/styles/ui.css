@@ -474,6 +474,63 @@
   color: var(--good);
 }
 
+/*
+ * お手本モードの実演帯 (`ui/TutorialDemo.ts`)。
+ *
+ * 計器盤 (`.mc-cockpit`) と最下部バーの上に置く。高さの式は計器盤と同じものを使い、
+ * 前方視界と計器の両方に食い込ませない。左右の余白は 20px。
+ */
+.mc-demo {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: calc(var(--message-bar-height) + clamp(150px, 16vh, 170px) + 10px);
+  padding: 8px 12px;
+  background: rgba(6, 14, 18, 0.9);
+  border: 1px solid var(--panel-line);
+  border-left: 3px solid var(--warn);
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 5;
+}
+.mc-demo .head {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--hud-dim);
+}
+.mc-demo .title {
+  font-size: 16px;
+  color: var(--warn);
+  margin-top: 2px;
+}
+.mc-demo .detail {
+  font-size: 13px;
+  color: #cdefdd;
+  margin-top: 2px;
+}
+.mc-demo .keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+/* 実演が「いま押しているキー」。点灯しているものが実際にゲームへ渡っている入力。 */
+.mc-demo .key {
+  font-size: 12px;
+  line-height: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--panel-line);
+  border-radius: 3px;
+  color: var(--hud-dim);
+  background: rgba(10, 25, 20, 0.6);
+}
+.mc-demo .key.on {
+  color: #06110d;
+  background: var(--hud);
+  border-color: var(--hud);
+  box-shadow: 0 0 10px rgba(127, 227, 176, 0.55);
+}
+
 /* ───────── 母艦ハブ ───────── */
 
 .mc-bar-row {

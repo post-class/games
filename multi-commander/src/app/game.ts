@@ -71,7 +71,8 @@ import { spawnShip, World } from '../world/world';
 import { DeckSequence } from './DeckSequence';
 import { CommsMenu, type AceCommsKind, type CommsAction } from '../ui/CommsMenu';
 import { loadSave } from './save';
-import { Tutorial, type TutorialMode } from '../ui/Tutorial';
+import { Tutorial, type TutorialCourse } from '../ui/Tutorial';
+import { TutorialDemo } from '../ui/TutorialDemo';
 import { InputManager } from './input';
 import { aimAssistStrength, difficulty, settings } from './settings';
 import { ReplayBuffer } from './replay';
@@ -311,6 +312,8 @@ export class Game {
   readonly hud: HudView;
   readonly comms: CommsMenu;
   readonly tutorial: Tutorial;
+  /** お手本モード (操作を実演して見せる課程) */
+  readonly demo: TutorialDemo;
   readonly sound = new CombatAudio();
   /** 発艦・着艦の演出 */
   readonly deck = new DeckSequence();
@@ -412,6 +415,7 @@ export class Game {
     this.hud = new HudView(overlay);
     this.comms = new CommsMenu(overlay, (a) => this.onComms(a));
     this.tutorial = new Tutorial(overlay);
+    this.demo = new TutorialDemo(overlay);
     // HUD オーバーレイは pointer-events: none なので、ホイールは canvas で受ける。
     this.input = new InputManager(canvas);
     this.sound.setCamera(this.scene.camera);
@@ -891,7 +895,7 @@ export class Game {
 
   // ───────── ミッションの開始と終了 ─────────
 
-  startMission(def: MissionDef, loadout: Loadout, withTutorial: boolean | TutorialMode = false): void {
+  startMission(def: MissionDef, loadout: Loadout, withTutorial: boolean | TutorialCourse = false): void {
     this.tutorialSafe = def.id.startsWith('tutorial-');
     this.runner?.dispose();
     this.vfx.vfx.clear();
@@ -946,8 +950,18 @@ export class Game {
     // 出撃直後は静止から。やさしい難易度では初速が入る
     this.input.throttle = this.world.player ? this.world.player.input!.throttle : 0;
     this.rig.mode = 'cockpit';
-    if (withTutorial) this.tutorial.start(withTutorial === true ? 'simple' : withTutorial);
-    else this.tutorial.finish(false);
+    // 案内の帯 (Tutorial) と実演 (TutorialDemo) は同時に出さない。
+    // 実演中は操縦を代行するので、読ませて操作させる課程とは両立しない。
+    if (withTutorial === 'demo') {
+      this.tutorial.finish(false);
+      this.demo.start();
+    } else if (withTutorial) {
+      this.demo.stop(this.input);
+      this.tutorial.start(withTutorial === true ? 'simple' : withTutorial);
+    } else {
+      this.demo.stop(this.input);
+      this.tutorial.finish(false);
+    }
 
     // 発艦シーケンス。母艦から撃ち出されるところから始める
     this.deck.reset();
@@ -962,6 +976,8 @@ export class Game {
     this.comms.setOpen(false);
     // 訓練の帯は HUD の一部ではないので、飛行が終わったら明示的に消す (T2-⑭)。
     this.tutorial.finish(false);
+    // 実演も畳み、操縦を人間へ返す (代行入力を残したままメニューへ戻らない)。
+    this.demo.stop(this.input);
   }
 
   endMission(): void {
@@ -980,6 +996,7 @@ export class Game {
     this.playerStage = 'shield-ok';
     this.deck.reset();
     this.tutorial.finish(false);
+    this.demo.stop(this.input);
     audio.stopEngine();
     this.runner?.dispose();
     this.runner = undefined;
@@ -1038,6 +1055,7 @@ export class Game {
         // `endMission()` はデブリーフの後まで呼ばれないので、ここで畳まないと
         // 艦内ハブ画面にまで訓練の帯が残る。
         this.tutorial.finish(false);
+        this.demo.stop(this.input);
         this.onMissionEnd?.(outcome);
       }
       return;
@@ -1062,6 +1080,12 @@ export class Game {
       });
       this.runner?.update(dt);
       return;
+    }
+
+    // お手本モードは人間の代わりにここで操縦する。
+    // 代行入力は `InputManager` を通すので、この下の処理は人が操作したときと同じ。
+    if (this.demo.active) {
+      this.demo.update(this.world, this.input, dt, this.inputLocked);
     }
 
     if (this.autopilot) {
@@ -1256,6 +1280,7 @@ export class Game {
     // 外部視点 (F) では DOM の計器盤を隠し、最小 HUD に置き換える。
     // 視点を切り替えたことが一目で分かるようにする。
     this.hud.setExternalView(this.rig.mode !== 'cockpit');
+    this.hud.setDemoMode(this.demo.active);
     this.scene.dust.setVisible(this.active);
     // ジャンプ演出は描画側の時間で滑らかに立ち上げる
     const warpTarget = this.autopilot ? 1 : 0;
@@ -1557,6 +1582,7 @@ export class Game {
     this.unsubs.length = 0;
     this.runner?.dispose();
     this.tutorial.dispose();
+    this.demo.dispose();
     this.sound.dispose();
     this.loop.stop();
   }

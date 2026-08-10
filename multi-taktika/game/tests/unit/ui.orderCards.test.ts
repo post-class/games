@@ -367,18 +367,21 @@ describe('`05§10` / `07§4`: 二重旗でスロットが上下 2 段に割れ�
     expect(hasDoubleFlag(w, 0)).toBe(true);
   });
 
-  it('下段の令（包囲・略奪）は二重旗を取るまで押せない（`sim/command.ts` と一致）', () => {
+  it('下段の令（包囲・略奪）も二重旗なしで押せる（`sim/command.ts` と一致）', () => {
+    // ■ この意図は一度逆だった（「二重旗を取るまで押せない」）
+    // `05§10`「令スロット ― 各戦域に **1 枚**。帝国の世の研究『二重旗』で
+    // 1 戦域に **2 枚まで**重ねられます」。段は「2 枚を重ねるときの組み合わせ」を
+    // 決めるもので、使用の可否ではない。以前は UI も sim も下段を丸ごと弾いていたため、
+    // **包囲と略奪が帝国の世まで一度も使えなかった**
+    // （`06§13` は第 1 章で略奪と包囲を教えるので資料同士が矛盾していた）。
     const w = makeWorld();
     makeFront(w, 0, 1);
     const siege = ORDER_DEFS.find((d) => d.id === 'siege')!;
     expect(siege.tier).toBe('lower');
-    expect(canSetOrder(w, 0, 1, siege)).toBe(CardReason.NeedDoubleFlag);
-    // sim も同じ判断（Command を投げても何も起きない）
-    applyCommands(w, [{ t: 'setOrder', p: 0, front: 1, order: 'siege', tier: 'lower' }]);
-    expect(getFront(w, 0, 1)!.pendingOrder).toBeNull();
-
-    research(w, 0, 'nijuuhata');
     expect(canSetOrder(w, 0, 1, siege)).toBe(CardReason.Ok);
+    // sim も同じ判断（Command が受け付けられる）
+    applyCommands(w, [{ t: 'setOrder', p: 0, front: 1, order: 'siege', tier: 'lower' }]);
+    expect(getFront(w, 0, 1)!.pendingOrder).not.toBeNull();
   });
 
   it('二重旗なら上段と下段が同時に立つ（死守 + 包囲）', () => {

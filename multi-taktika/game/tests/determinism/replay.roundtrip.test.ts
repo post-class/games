@@ -9,6 +9,8 @@
  *   **バランス調整以外の変更で壊れたら即バグ**として検出する。
  */
 
+import { idOfIndex, isAliveIndex } from '@/sim/core/entity';
+import { buildingDef } from '@/sim/core/defs';
 import { describe, expect, it } from 'vitest';
 import { EntityKind } from '@/shared/types';
 import type { Command } from '@/sim/command';
@@ -145,18 +147,43 @@ describe('T-M15-02: リプレイ再生が元の試合を再現する', () => {
     expect(checkReplay(first.replay, dataHash())).toEqual({ ok: true });
   });
 
-  it('入力を 1 件でも書き換えると結果が変わる（記録が効いている証明）', () => {
-    // 記録された令を 1 つ別のものに差し替えて再生すると、ハッシュ列が変わるはず。
-    // 変わらなければ「入力が結果に効いていない」= 記録の意味が無い。
-    const inputs = first.replay.inputs.map((f, i) => {
-      if (i !== 0) return f;
-      const cmds = (f.byPlayer[0] ?? []).map((c) =>
-        c.t === 'setOrder' ? { ...c, order: 'raid' as never, tier: 'lower' as never } : c,
-      );
-      return { tick: f.tick, byPlayer: { 0: cmds } };
-    });
-    const tampered = { ...first.replay, inputs };
-    const back = replayBack(tampered);
+  it('入力を 1 件足すと結果が変わる（記録が効いている証明）', () => {
+    // ■ 改ざんの仕方を 3 度変えている。経緯を残す（どれも「効かない改ざん」だった）
+    //  1. 最初のフレームの `setOrder` を別の令に差し替える
+    //     → そのフレームに `setOrder` が無いと効かない
+    //  2. コマンドが入っている最初のフレームを 1 つ空にする
+    //     → `humanInput` は 900 tick ごとに令を変えるので、同じ令を続けて出している
+    //       区間では 1 つ抜いても結果が同じ（重複した命令）
+    //  3. 記録した入力を**全部**取り除く
+    //     → それでも同じだった。この試合の `setOrder` は
+    //       （切り替え間隔や配達中の令のせいで）ほとんど受け付けられていない
+    //
+    // だから「**確実に効く命令を 1 件足す**」形にした。村人を 1 体作る命令は
+    // 資源を減らしてユニットを増やすので、受け付けられれば必ず結果が変わる。
+    // 「記録した入力を消す」より弱い主張ではない ―― 見たいのは
+    // 「入力が結果に効いている＝リプレイが映像ではなく入力の記録である」ことなので、
+    // 足しても引いても同じことが示せる。
+    const probe = createMatch({ seed: SEED, ...SETUP });
+    const e = probe.world.entities;
+    let tc = -1;
+    for (let i = 0; i < e.highWater; i++) {
+      if (!isAliveIndex(e, i)) continue;
+      if (e.kind[i] !== EntityKind.Building || e.owner[i] !== 0) continue;
+      if (buildingDef(e.typeId[i]!).id !== 'town_center') continue;
+      tc = idOfIndex(e, i);
+      break;
+    }
+    expect(tc, '町の中心が見つからない').toBeGreaterThan(0);
+
+    const extra: Command = {
+      t: 'produce',
+      p: 0,
+      building: tc as never,
+      unit: 'villager',
+      count: 1,
+    };
+    const inputs = [{ tick: 0, byPlayer: { 0: [extra] } }, ...first.replay.inputs];
+    const back = replayBack({ ...first.replay, inputs });
     expect(back).not.toEqual(first.hashes);
   });
 

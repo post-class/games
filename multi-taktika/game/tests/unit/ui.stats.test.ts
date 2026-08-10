@@ -186,7 +186,7 @@ describe('ui/stats: 令の履歴', () => {
     st.sample(w);
 
     // 令を出した（配達中）
-    f.pendingOrder = { id: 'charge', tier: 'upper', deliverAtTick: 30 };
+    f.pendingOrder = { id: 'charge', tier: 'upper', single: true, deliverAtTick: 30 };
     w.tick = 10;
     st.sample(w);
 
@@ -210,7 +210,7 @@ describe('ui/stats: 令の履歴', () => {
     f.active = true;
     const st = new MatchStats(2);
     st.sample(w);
-    f.pendingOrder = { id: 'hold', tier: 'upper', deliverAtTick: 999 };
+    f.pendingOrder = { id: 'hold', tier: 'upper', single: true, deliverAtTick: 999 };
     w.tick = 5;
     st.sample(w);
     const log = st.snapshot().players[0]!.orderLog;

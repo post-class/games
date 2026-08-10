@@ -223,7 +223,7 @@ function applyCommand(w: World, c: Command): void {
       // 無視する条件（すべて「黙って」）:
       //  - 未知の令 ID / 段が令の定義と違う（改造クライアント・古いリプレイ）
       //  - 他文明の固有令
-      //  - 下段は二重旗（`orderStackSlots >= 2`）を取っていないと使えない
+      //  - （**下段そのものは禁止ではない**。下の「1 枚だけの戦域」の注記を参照）
       //  - スロットが未使用 / 自分のものでない / 使用可能スロット数を超えている
       //  - 配達中の令がある（`06§4`「連打しないでください」を入力段で吸収する）
       //  - 前の令の発効から切り替え間隔（6 秒 / 早馬 4.2 秒）が経っていない
@@ -232,8 +232,20 @@ function applyCommand(w: World, c: Command): void {
       if (odef.tier !== c.tier) return;
       if (odef.civ !== null && odef.civ !== pl.civ) return;
       const m = getPlayerModifiers(w, c.p);
-      // 下段を使うには「上段 1 + 下段 1」= 2 枚を重ねられること（研究「二重旗」。`07§4`）。
-      if (c.tier === 'lower' && orderStackSlots(m) < DOUBLE_FLAG_SLOTS) return;
+      // ■ 二重旗が無いときも下段の令は使える（**以前は弾いていた。バグ**）
+      //
+      // `05§10`「令スロット（セット済み）― 各戦域に **1 枚**。帝国の世の研究「二重旗」で
+      // 1 戦域に **2 枚まで**重ねられます」。つまり段は
+      // 「**2 枚を重ねるときにどう組み合わせられるか**」を決めるもので、
+      // 1 枚しか置けないうちは上段でも下段でも置ける。
+      //
+      // 以前はここで `tier === 'lower'` を弾いていたため、
+      // **包囲と略奪が帝国の世まで一度も使えなかった**。
+      // `06§13` の練習メニューは第 1 章（黎明の世）で「略奪で囮を立て、門前に包囲」を
+      // 教えるので、資料同士が矛盾した状態になっていた。
+      const stackSlots = orderStackSlots(m);
+      /** 2 枚重ねられるか（研究「二重旗」）。false なら**この戦域の令は 1 枚だけ**。 */
+      const canStack = stackSlots >= DOUBLE_FLAG_SLOTS;
       // 戦域はプレイヤーごとに 6 枠あるので、自分の戦域だけを引く。
       const f = getFront(w, c.p, c.front);
       if (f === undefined || !f.active) return;
@@ -259,7 +271,10 @@ function applyCommand(w: World, c: Command): void {
       // **即時発効にしてはいけない**（「押した瞬間に効かない」のが設計の肝。§16-4）。
       f.pendingOrder = {
         id: odef.id,
+        // 2 枚重ねられないうちは**単独の 1 枚**として届ける（段に関係なく置き換える）。
+        // `orderDelivery` 側が `single` を見て「上段・下段の両方を差し替える」かを決める。
         tier: c.tier,
+        single: !canStack,
         deliverAtTick: w.tick + orderDelayTicks(w, f),
       };
       return;

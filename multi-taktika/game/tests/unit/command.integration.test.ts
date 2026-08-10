@@ -142,12 +142,26 @@ describe('setOrder — 令の入力（遅延の本計算は M9）', () => {
     expect(w.fronts[1]!.pendingOrder).toBeNull();
   });
 
-  it('下段は二重旗を取るまで無視する / 段の食い違いも無視する', () => {
+  it('二重旗が無くても下段の令は使える（1 戦域 1 枚として置く）', () => {
+    // ■ この意図は一度逆だった（「下段は二重旗を取るまで無視する」）
+    // `05§10` は「令スロット ― **各戦域に 1 枚**。帝国の世の研究『二重旗』で
+    // 1 戦域に **2 枚まで**重ねられます」と定めている。つまり段は
+    // 「2 枚を重ねるときの組み合わせ」を決めるもので、1 枚しか置けないうちは
+    // 上段でも下段でも置ける。以前の実装は下段を丸ごと弾いていたため、
+    // **包囲と略奪が帝国の世まで一度も使えなかった**
+    // （`06§13` は第 1 章で略奪と包囲を教えるので資料同士が矛盾していた）。
     const w = withFront();
-    // siege は下段の令（`orders.json`）。二重旗（研究）が無いので通らない。
     applyCommands(w, [{ t: 'setOrder', p: 0, front: 1, order: 'siege', tier: 'lower' }]);
-    expect(w.fronts[0]!.pendingOrder).toBeNull();
-    // 段の指定が令の定義と違う
+    const pend = w.fronts[0]!.pendingOrder;
+    expect(pend, '下段の令が弾かれている').not.toBeNull();
+    expect(pend!.id).toBe('siege');
+    // 二重旗が無いので「1 枚だけ」の扱い
+    expect(pend!.single).toBe(true);
+  });
+
+  it('段の指定が令の定義と違うときは無視する（改造クライアント・古いリプレイ）', () => {
+    const w = withFront();
+    // charge は上段の令なので、下段として送られたら受け付けない
     applyCommands(w, [{ t: 'setOrder', p: 0, front: 1, order: 'charge', tier: 'lower' }]);
     expect(w.fronts[0]!.pendingOrder).toBeNull();
   });
