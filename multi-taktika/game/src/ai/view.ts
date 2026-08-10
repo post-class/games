@@ -62,6 +62,16 @@ export interface OwnEntity {
   readonly manual: boolean;
   /** 建物なら完成しているか。 */
   readonly complete: boolean;
+  /**
+   * いま何をしているか（`UnitState`）。**自分のユニットの状態なので透視ではない。**
+   *
+   * これが無いと AI は「村人が遊んでいる」ことに気付けない。実測で
+   * **村人 22 人のうち 14 人が遊休**（採集していたのは 6 人だけ）なのに、
+   * 食料ノードは 10,880 も残っていた ―― 食料が足りないのではなく、
+   * **働かせられていなかった**。人間はひと目で分かること（`06§5` の
+   * 「`.` で遊休村人へジャンプ」も同じ情報を前提にしている）。
+   */
+  readonly state: number;
 }
 
 /** 視界内の敵 1 件（**位置・種類・HP まで**。それ以上は見えない）。 */
@@ -184,6 +194,7 @@ export function createAiView(w: World, p: PlayerId): AiView {
       frontId: e.frontId[i]!,
       manual: e.manual[i] === 1,
       complete,
+      state: e.state[i]!,
     });
     // 視界を持つのはユニットと完成した建物。
     const sight =

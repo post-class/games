@@ -371,9 +371,15 @@ describe('効果型ごとの代表値', () => {
     expect(buildCostMul(m, 'house')).toBe(FX_ONE);
   });
 
-  it('buildSpeedMul: アステカの建設 1.3 倍', () => {
+  it('buildSpeedMul: アステカの建設が速い（倍率は `civs.json` から引く）', () => {
+    // **数値をここに書かない。** 以前は 1.3 と直書きしていたので、
+    // バランス調整でデータを 1.2 に変えたときにここだけ取り残されて落ちた。
+    const bonus = civDefById('azteca').econBonus.find((b) => b.type === 'buildSpeedMul');
+    expect(bonus, 'アステカに buildSpeedMul が無い').toBeDefined();
+    const mul = Number((bonus as { mul: number }).mul);
+    expect(mul, '建設が速くない').toBeGreaterThan(1);
     expect(fxToNumber(buildSpeedMul(getPlayerModifiers(makeWorld('azteca'), 0)))).toBeCloseTo(
-      1.3,
+      mul,
       2
     );
     expect(buildSpeedMul(getPlayerModifiers(makeWorld('yamato'), 0))).toBe(FX_ONE);

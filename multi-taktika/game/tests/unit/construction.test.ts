@@ -11,6 +11,7 @@
  *  - 前線でも建てられる（位置による制限を掛けていない）
  */
 
+import { civDefById } from '@/sim/core/defs';
 import { describe, expect, it } from 'vitest';
 import type { CivId, EntityId } from '@/shared/types';
 import { EntityKind, RESOURCE_IDS, resourceIndex } from '@/shared/types';
@@ -106,10 +107,16 @@ describe('T-M6-02 建設速度テーブル', () => {
     expect(Math.abs(one / two - 1.7)).toBeLessThanOrEqual(0.05);
   });
 
-  it('アステカの建設ボーナス（1.3 倍）が乗る', () => {
+  it('アステカの建設ボーナスが乗る（倍率は `civs.json` から引く）', () => {
+    // **数値をここに書かない。** 以前は 1.3 と直書きしていたので、
+    // バランス調整で `civs.json` を 1.2 に変えたときにここだけ取り残されて落ちた。
+    // 倍率はデータ側の 1 か所で決まるべきもの。
+    const bonus = civDefById('azteca').econBonus.find((b) => b.type === 'buildSpeedMul');
+    expect(bonus, 'アステカに buildSpeedMul が無い').toBeDefined();
+    const mul = Number((bonus as { mul: number }).mul);
     const plain = ticksToBuild('yamato', 'barracks', 1);
     const azteca = ticksToBuild('azteca', 'barracks', 1);
-    expect(Math.abs(plain / azteca - 1.3)).toBeLessThanOrEqual(0.05);
+    expect(Math.abs(plain / azteca - mul)).toBeLessThanOrEqual(0.05);
   });
 
   it('村人を後から足すと速くなる', () => {

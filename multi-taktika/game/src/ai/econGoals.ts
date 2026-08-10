@@ -42,6 +42,7 @@ import { AGE_IDS } from '@/shared/types';
 
 import type { AiContext } from './AiPlayer';
 import { VILLAGER_BUILDER, VILLAGER_GATHERER, memGet, memSet } from './AiPlayer';
+import { UnitState } from '@/sim/core/entity';
 import type { OwnEntity } from './view';
 
 // ---------------------------------------------------------------- データ由来の定数
@@ -114,6 +115,13 @@ const DROP_OFF_BY_RESOURCE: Readonly<Record<number, string>> = {
   [RESOURCE_IDS.indexOf('gold')]: 'mining_camp',
 };
 
+/**
+ * 1 判断で採集に戻す遊休村人の数の上限。
+ * 全員に一度に命令を出すと同じノードへ殺到して往復が詰まるので、少しずつ戻す。
+ * 判断は 2〜8 秒ごとなので、この数でも数十秒で全員が戻る。
+ */
+const IDLE_REASSIGN_PER_DECISION = 4;
+
 const FOOD = RESOURCE_IDS.indexOf('food');
 const GOLD = RESOURCE_IDS.indexOf('gold');
 
@@ -170,6 +178,12 @@ export function planEconomy(ctx: AiContext): Command[] {
   // 1) 新しくできた村人を採集に就ける（**建てる前に採らせる**。
   //    資源が入らないと家も資源施設も建たないので、順序はこちらが先）。
   for (const c of gatherCommandsFor(ctx, fresh)) cmds.push(c);
+
+  // 1a) **遊んでいる村人を採集に戻す。**
+  //     採集していた資源が枯れると `sim` 側が次のノードを探すが、
+  //     見つからなければ手空きのまま止まる。実測では**村人 22 人のうち 14 人が遊休**で、
+  //     食料ノードは 10,880 も残っていた ―― 足りないのではなく働かせていなかった。
+  for (const c of planIdleVillagers(ctx)) cmds.push(c);
 
   // 1b) 世が変わって必要な資源が変わったら、**既にいる村人を移す**。
   //     移せないと「村人を出し切ったあとに世が上がる」→ 新しく必要になった資源に
@@ -841,6 +855,49 @@ export function reassignForNextAge(ctx: AiContext): Command[] {
     return [{ t: 'gather', p: ctx.playerId, units: [id], target: m.nodeIds[node] as EntityId }];
   }
   return [];
+}
+
+/**
+ * 遊んでいる村人を採集に戻す。
+ *
+ * ■ なぜ必要か（実測）
+ * 採集していたノードが枯れると `sim`（`economy.ts` の `seekSameResource`）が
+ * 同じ資源の次のノードを探すが、見つからなければ `Idle` で止まる。
+ * その後 AI は何もしていなかったので、**村人 22 人のうち 14 人が遊休**のまま
+ * 30 分が終わっていた（食料ノードは 10,880 残っていた）。
+ * 人間はこれを `.`（遊休村人へジャンプ）で見つけて就かせ直す（`06§5`）。
+ *
+ * ■ 何人まで戻すか
+ * **1 判断につき `IDLE_REASSIGN_PER_DECISION` 人まで**。
+ * 全員に一度に命令を出すと、同じノードへ殺到して往復が詰まる。
+ * 就かせる先は「いま必要な資源（`gatherTargets`）を順番に」＝ 偏らせない。
+ */
+export function planIdleVillagers(ctx: AiContext): Command[] {
+  const m = ctx.memory;
+  if (m.nodeIds.length === 0) return [];
+  const targets = gatherTargets(ctx);
+  if (targets.length === 0) return [];
+  const villagerType = unitDefById(VILLAGER_ID).index;
+  const list = ctx.view.ownEntities;
+  const cmds: Command[] = [];
+  let sent = 0;
+  for (let k = 0; k < list.length && sent < IDLE_REASSIGN_PER_DECISION; k++) {
+    const oe = list[k]!;
+    if (oe.kind !== EntityKind.Unit || oe.typeId !== villagerType) continue;
+    if (oe.state !== UnitState.Idle) continue;
+    // 建設のために借りている村人は放っておく（建てかけが止まる）
+    if (memGet(m.villagerBusyUntil, oe.index) > ctx.view.tick) continue;
+    const id = ctx.idOf(oe.index);
+    if (id < 0) continue;
+    const want = targets[(memGet(m.idleAssignSeq, 0) + sent) % targets.length]!;
+    const target = nearestNodeOf(ctx, oe, want) ?? nearestNodeOf(ctx, oe, -1);
+    if (target === null) break;
+    cmds.push({ t: 'gather', p: ctx.playerId, units: [id], target });
+    memSet(m.assignedByResource, want, memGet(m.assignedByResource, want) + 1);
+    sent++;
+  }
+  memSet(m.idleAssignSeq, 0, memGet(m.idleAssignSeq, 0) + sent);
+  return cmds;
 }
 
 /**

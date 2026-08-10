@@ -237,6 +237,8 @@ export interface AiMemory {
    * 取り置きが永久に効かず世が上がらない（実測で食料が 318 で止まった）。
    */
   readonly firstSquadDone: number[];
+  /** 遊休村人を戻すときの通し番号（要素 1 個。就かせる資源を順番に回すのに使う）。 */
+  readonly idleAssignSeq: number[];
   /** その index の兵を送り出したときの EntityId。0 = 未派遣。 */
   readonly dispatched: number[];
   /**
@@ -274,6 +276,7 @@ function createMemory(): AiMemory {
     scoutStep: [],
     assignedByResource: [],
     firstSquadDone: [],
+    idleAssignSeq: [],
     dispatched: [],
     released: [],
     dispatchX: [],
