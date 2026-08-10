@@ -429,7 +429,11 @@ describe('目標の表示', () => {
   it('第1章のブリーフィングに (任意) が残らず、加点表記になる', () => {
     const texts = VEIL_CH01.objectives.map((o) => briefingText(o));
     expect(texts.some((t) => t.includes('(任意)'))).toBe(false);
-    expect(texts).toContain('＋帰還者3 …脱出ポッド3基を回収する');
+    // 目標文そのものではなく「加点の前置が付くこと」を固定する
+    // (T4-⑮ で収容の操作を目標文に書いたので、文言を焼き付けない)
+    const pods = VEIL_CH01.objectives.find((o) => o.id === 'pods')!;
+    expect(texts).toContain(`＋帰還者3 …${pods.text}`);
+    expect(pods.text).toContain('脱出ポッド3基');
     // 必須目標には前置を付けない
     expect(texts).toContain(`${VEIL_CH01.objectives.find((o) => o.id === 'home')!.text}`);
   });

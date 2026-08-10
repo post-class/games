@@ -17,6 +17,7 @@ import { missionDef } from '../content/missions';
 import { VEIL_ERA } from '../content/veil/world';
 import { resolveVeilChoice, VEIL_CHAPTERS, type VeilChoiceEffects } from '../content/veil/chapters';
 import { speakerName } from '../content/veil/missions/shared';
+import { veilPerson } from '../content/veil/people';
 import { dynamicMissionDef, chooseDynamicMission, applyFrontlineOutcome, frontlineSystemName, FRONTLINE_SYSTEM_IDS, type DynamicMissionKind, type FrontlineSystemId } from '../content/frontline';
 import { PERSONALITIES, pilotDef } from '../content/pilots';
 import { mournLine } from '../content/pilotDialogue';
@@ -51,8 +52,18 @@ import {
   fallen,
   hasWingman,
   pilotState,
+  shiftBond,
+  type PilotState,
   type SortieOutcome,
 } from './roster';
+import {
+  buildBarTalk,
+  chooseBarReply,
+  newBarTalk,
+  type BarTalkFacts,
+  type BarTalkState,
+  type BarTalkView,
+} from './barTalk';
 import { Game } from './game';
 import type { TutorialMode } from '../ui/Tutorial';
 import {
@@ -76,6 +87,7 @@ import {
   NARRATIVE_LABEL,
   recordRelaysHeld,
   returneeRollCall,
+  returneeScore,
   sortieNarrative,
   supportLevel,
   type NarrativeLine,
@@ -90,6 +102,34 @@ import { type MusicTrackId } from '../audio/musicCues';
 import { buildSoundCheckPanel } from '../ui/SoundCheckPanel';
 import { PilotSelectScene } from '../ui/PilotSelectScene';
 import { ChoiceScene } from '../ui/ChoiceScene';
+import type { AceState } from '../content/aces';
+
+/**
+ * エースとのやりとりの累積値 (T4-⑯)。
+ *
+ * `AceState` は章をまたいで積み上がるので、1回の出撃で何をしたかは
+ * 「出撃前に控えた値との差」でしか取れない。ここはその控え／差分用の形。
+ */
+interface AceTally {
+  spared: number;
+  executed: number;
+  namesExchanged: number;
+  duelsAccepted: number;
+}
+
+const EMPTY_ACE_TALLY: AceTally = { spared: 0, executed: 0, namesExchanged: 0, duelsAccepted: 0 };
+
+/** 全エースぶんを合計する。欠落フィールド（旧セーブ）は 0 として扱う。 */
+function aceTally(states: readonly AceState[]): AceTally {
+  const t: AceTally = { ...EMPTY_ACE_TALLY };
+  for (const s of states) {
+    t.spared += Math.max(0, s.spared ?? 0);
+    t.executed += Math.max(0, s.executed ?? 0);
+    t.namesExchanged += Math.max(0, s.namesExchanged ?? 0);
+    t.duelsAccepted += Math.max(0, s.duelsAccepted ?? 0);
+  }
+  return t;
+}
 
 /** 母艦の名前。ブリーフィング官の名札に出す */
 const CLAW_NAME = 'TCS タイガーズ・クロー';
@@ -124,6 +164,8 @@ export class App {
   private screens: ScreenHost;
   private save: CampaignSave;
   private lastSummary?: ReturnType<NonNullable<Game['runner']>['summary']>;
+  /** 出撃直前のエース記録。差分で「この出撃でのやりとり」を出す (T4-⑯) */
+  private aceTallyAtLaunch?: AceTally;
   /** 格納庫で選んだ内容 (出撃まで保持する) */
   private selection?: HangarSelection;
   /**
@@ -154,6 +196,8 @@ export class App {
    */
   private newCampaignMode: CampaignMode = 'veil';
   private barPilotId?: string;
+  /** 酒場の往復会話の進行（T3-⑪）。出撃を挟むとリセットされる。 */
+  private barTalk?: BarTalkState;
 
   constructor(canvas: HTMLCanvasElement, overlay: HTMLElement) {
     this.game = new Game(canvas, overlay);
@@ -396,6 +440,8 @@ export class App {
       flares: Math.min(12, this.save.supplies.flares),
       // 章ごとの選択記録。第9章の位相迷路が「過去章の無線を反転した意味で再生する」ために使う
       choices: this.save.narrative.choices,
+      // これまでに連れ帰った者（T4-⑮）。第10章の読み上げが過去章の分まで読むために渡す
+      rescuedNames: this.save.rescuedNames,
     };
     /**
      * 軍令信用が落ちていると僚機が付かない（司令部が機体を出さない）。
@@ -417,7 +463,12 @@ export class App {
         shipId: wd.preferredShip,
         skill: w.skill,
         personality: {
-          obedience: Math.max(0, Math.min(1, pers.obedience + w.bond * 0.12)),
+          // 酒場で会話を終えた相手は、その次の1回だけ指示への応えが早い（T3-⑪）。
+          // 既存の bond → 性格補正と同じ経路に乗せる（新しい系統を作らない）。
+          obedience: Math.max(
+            0,
+            Math.min(1, pers.obedience + w.bond * 0.12 + (w.talkedSinceSortie ? 0.06 : 0)),
+          ),
           aggression: Math.max(0, Math.min(1, pers.aggression - w.bond * 0.08)),
           caution: Math.max(0, Math.min(1, pers.caution - w.bond * 0.05)),
           grit: pers.grit,
@@ -442,6 +493,18 @@ export class App {
       supplies: this.save.supplies,
       statistics: this.save.statistics,
       lastSortie: this.save.lastSortie,
+      // 戦況マップの星系図が4状態（帰還者・航路信頼・軍令信用・敵エースの誓約）を
+      // 「それが効く場所」の上に出すために読む (T3-⑫)。渡さないと「記録なし」表示になる。
+      //
+      // 帰還者だけは `NarrativeState` が名簿（string[]）で持っているので、
+      // 他3状態と同じ 0..100 の尺度へ `returneeScore()` で写す。
+      // ここで人数をそのまま渡すと、地図の帯だけが別の尺度になる。
+      narrative: {
+        returnees: returneeScore(this.save.narrative),
+        routeTrust: this.save.narrative.routeTrust,
+        commandTrust: this.save.narrative.commandTrust,
+        aceOath: this.save.narrative.aceOath,
+      },
     };
   }
 
@@ -542,18 +605,42 @@ export class App {
     });
   }
 
+  /**
+   * 酒場（T3-⑪）。
+   *
+   * 誰かを選ぶと会話が始まり、相手の近況に対してこちらの返事を2択で選ぶ。
+   * 2往復で終わり、選んだ返事で `bond` が動く。会話の進行は `this.barTalk`
+   * が持ち、表示物は `barTalk.ts` が `BarTalkView` として組み立てる。
+   */
   private showRecRoom(): void {
     const talkers = this.save.roster.pilots.filter((p) => p.status === 'active' || p.status === 'wounded');
+    const active = talkers.find((p) => p.id === this.barPilotId);
+    const view = active ? this.barTalkView(active) : undefined;
+    // HubContext への barTalk 追加は HubPanels 側の担当なので、
+    // まだ宣言が無い状態でも通るように交差型で渡す（追加後もそのまま動く）。
+    const ctx = {
+      ...this.hubContext(),
+      barPilotId: this.barPilotId,
+      barTalk: view,
+    } as HubContext & { barTalk?: BarTalkView };
     this.screens.show({
       background: artUrl('tex/bg-bar', 'jpg'),
       title: '酒場',
-      bodyHtml: recRoomHtml({ ...this.hubContext(), barPilotId: this.barPilotId }),
+      bodyHtml: recRoomHtml(ctx),
       items: [
+        // 返事を先頭に置く（会話中は返事が既定フォーカスになる）
+        ...(view?.replies ?? []).map((reply) => ({
+          label: `→ ${escapeHtml(reply.label)}`,
+          onSelect: () => this.answerBarTalk(active!, reply.id),
+        })),
         ...talkers.map((pilot) => ({
-          label: `${pilot.id === this.barPilotId ? '会話中: ' : ''}${escapeHtml(pilotDef(pilot.id).callsign)} と話す`,
+          label:
+            pilot.id === this.barPilotId
+              ? `${escapeHtml(pilotDef(pilot.id).callsign)} との会話を最初から`
+              : `${escapeHtml(pilotDef(pilot.id).callsign)} と話す`,
           onSelect: () => {
-            pilot.bond = Math.min(1, pilot.bond + 0.08);
             this.barPilotId = pilot.id;
+            this.barTalk = newBarTalk(pilot.id);
             writeSave(this.save);
             this.showRecRoom();
           },
@@ -563,6 +650,57 @@ export class App {
       ],
       onCancel: () => this.showHub(),
     });
+  }
+
+  /** 会話中の相手の表示物。`HubContext.barTalk` に渡す。 */
+  private barTalkView(pilot: PilotState): BarTalkView {
+    return buildBarTalk({
+      pilot,
+      personality: pilotDef(pilot.id).personality,
+      facts: this.barTalkFacts(pilot.id),
+      state: this.barTalk,
+    });
+  }
+
+  /**
+   * 直前の出撃で「その人に何が起きたか」。
+   *
+   * 助けた／見捨てたは僚機として飛んだ相手にしか起きないので、同じ帰艦でも
+   * 人によって話題が変わる。出撃前（`lastSummary` が無い）は全部 false。
+   */
+  private barTalkFacts(pilotId: string): BarTalkFacts {
+    const s = this.lastSummary;
+    const flew = !!s && this.selection?.wingmanId === pilotId;
+    return {
+      flewWithPlayer: flew,
+      rescued: flew && !!s?.wingmanRescued,
+      abandoned: flew && !!s?.wingmanAbandoned,
+      playerLost: !!s?.playerLost,
+      fallenName: this.lastLostWingman ? pilotDef(this.lastLostWingman).callsign : undefined,
+    };
+  }
+
+  /**
+   * 返事を1つ選ぶ。
+   *
+   * bond が動くのは**その出撃までで最初の1会話だけ**（`talkedSinceSortie`）。
+   * 会話をやり直して同じ返事を選び続けても関係値は稼げない。
+   */
+  private answerBarTalk(pilot: PilotState, replyId: string): void {
+    const input = {
+      pilot,
+      personality: pilotDef(pilot.id).personality,
+      facts: this.barTalkFacts(pilot.id),
+      state: this.barTalk,
+    };
+    const already = pilot.talkedSinceSortie === true;
+    const result = chooseBarReply(input, replyId);
+    this.barTalk = result.state;
+    if (!already) shiftBond(pilot, result.bondDelta);
+    // 会話を終えた相手は、次の出撃で指示に早く応える（loadoutFor の obedience）
+    if (result.finished) pilot.talkedSinceSortie = true;
+    writeSave(this.save);
+    this.showRecRoom();
   }
 
   private showBarracks(): void {
@@ -727,14 +865,35 @@ export class App {
 
   private showFrontline(): void {
     const active = this.save.dynamicMission;
-    const frontlinePanel = this.save.campaignMode === 'expanded'
-      ? frontlineHtml(this.hubContext()) +
-        `<div class="block"><h3>独自拡張の作戦方針</h3><div class="dim">${escapeHtml(FRONTLINE_SYSTEM_IDS.map(frontlineSystemName).join(' / '))} の動的前線作戦は EXPANDED モードでのみ発生する。</div></div>`
-      : `<div class="block"><h3>CANON 戦役</h3><div class="dim">この画面では Enyo → McAuliffe → Gateway の固定戦役だけを表示する。独自前線作戦は発生しない。</div></div>`;
+    /*
+     * 戦況マップ (T3-⑫)。
+     *
+     * `frontlineHtml()` が 8戦域の星系図（章の順路・現在地・4状態の設置場所）を描く。
+     * veil が本編なのに expanded だけがこれを見られる状態だったので、veil でも出す。
+     * canon は Enyo → McAuliffe → Gateway の固定戦役で 8戦域を持たないため、従来の文のまま。
+     */
+    const frontlinePanel =
+      this.save.campaignMode === 'veil'
+        ? frontlineHtml(this.hubContext())
+        : this.save.campaignMode === 'expanded'
+          ? frontlineHtml(this.hubContext()) +
+            `<div class="block"><h3>独自拡張の作戦方針</h3><div class="dim">${escapeHtml(FRONTLINE_SYSTEM_IDS.map(frontlineSystemName).join(' / '))} の動的前線作戦は EXPANDED モードでのみ発生する。</div></div>`
+          : `<div class="block"><h3>CANON 戦役</h3><div class="dim">この画面では Enyo → McAuliffe → Gateway の固定戦役だけを表示する。独自前線作戦は発生しない。</div></div>`;
     this.screens.show({
       background: artUrl('tex/bg-briefing', 'jpg'),
       title: '戦況マップ',
-      bodyHtml: this.campaignMapHtml() + frontlinePanel,
+      /*
+       * veil では**星系図を先頭に置く** (T3-⑫)。
+       *
+       * `campaignMapHtml()` は十章の一覧で 10 ブロックの縦長になるため、後ろに置いた
+       * 星系図が画面の外へ押し出され、開いた瞬間には地図が見えなかった
+       * （この画面の目的は「なぜ今この任務なのかが1枚で分かる」ことなので、
+       * 地図が最初に見えないと意味がない）。一覧は地図の下で読む。
+       */
+      bodyHtml:
+        this.save.campaignMode === 'veil'
+          ? frontlinePanel + this.campaignMapHtml()
+          : this.campaignMapHtml() + frontlinePanel,
       items: [
         ...(this.save.campaignMode === 'expanded' ? (active
           ? [{ label: '選択中の戦況作戦を確認', onSelect: () => this.showHub() }]
@@ -1024,6 +1183,26 @@ export class App {
     });
   }
 
+  /**
+   * 選任した主人公の呼称（T3-⑬）。
+   *
+   * 表記は必ず `speakerName()` を通す（名簿は `朝倉 澪（アサクラ ミオ）` と
+   * `Amina Okafor（アミナ・オカフォー）` の2種類が混在しているため、
+   * 各所で括弧を剥がすと表記が崩れる）。
+   */
+  private protagonistLabel(): string | undefined {
+    const id = this.save.protagonistId;
+    if (!id) return undefined;
+    try {
+      const person = veilPerson(id);
+      const name = speakerName(id);
+      return person.epithet ? `${name}　“${person.epithet}”` : name;
+    } catch {
+      // 保存データに未知の人物 id が入っていてもブリーフィングを壊さない
+      return undefined;
+    }
+  }
+
   private showBriefing(): void {
     if (isTerminal(this.save.node)) {
       this.showEnding(this.save.node === VICTORY);
@@ -1052,11 +1231,14 @@ export class App {
       .join('');
 
     const wing = load.wingman?.callsign;
+    const pilotLabel = this.protagonistLabel();
     const scene = this.briefingScene(def, def.briefing, [
       { html: `<div class="block"><h3>任務目標</h3><ul>${objectives}</ul></div>`, slot: 'lower-left' },
       { html: `<div class="block"><h3>飛行計画</h3>${this.navMapSvg(def)}</div>`, slot: 'flight-plan' },
       { html: `<div class="block"><h3>機体</h3>` +
         `${escapeHtml(ship.name)}<br><span class="dim">副兵装: ${escapeHtml(missiles || 'なし')}` +
+        // 選任した主人公が「誰として飛んでいるか」を出す唯一の場所（T3-⑬）
+        `${pilotLabel ? `<br>搭乗: ${escapeHtml(pilotLabel)}` : ''}` +
         `${wing ? `<br>僚機: ${escapeHtml(wing)}` : ''}</span></div>`, slot: 'lower-right' },
     ]);
 
@@ -1174,6 +1356,9 @@ export class App {
   private launch(withTutorial = false): void {
     const def = this.currentMission();
     const load = this.loadoutFor(def);
+    // 出撃前のエース記録を控える。座席の扱い・名乗り・決闘は累積で持たれているので、
+    // 「この出撃で何をしたか」は前後の差分でしか取れない (T4-⑯ → 誓約への反映)。
+    this.aceTallyAtLaunch = aceTally(this.save.aceStates);
     consumeLoadout(this.save.supplies, load.missiles);
     this.save.supplies.flares = Math.max(0, this.save.supplies.flares - (load.flares ?? 0));
     this.screens.hide();
@@ -1288,6 +1473,9 @@ export class App {
     this.save.acesKilled += s?.acesKilled ?? 0;
     applySortie(this.save.roster, outcome);
     this.lastLostWingman = outcome.wingmanLost ? outcome.wingmanId : undefined;
+    // 帰艦したら酒場の会話は最初から（近況が新しい出撃結果に入れ替わる）
+    this.barPilotId = undefined;
+    this.barTalk = undefined;
   }
 
   /**
@@ -1312,6 +1500,28 @@ export class App {
       objectivesFailed: s?.objectivesFailed.length ?? 0,
       // summary().grade は撃墜された出撃を必ず failed にしている（T1-①）
       grade: s?.grade ?? 'failed',
+      ...this.aceSortieTally(),
+    };
+  }
+
+  /**
+   * この出撃でのエースとのやりとり (T4-⑯)。
+   *
+   * `AceState` は累積で持つので、出撃前に控えた値との差分を取る。
+   * 差分が負になることはないが、旧セーブや不整合で負が出ても 0 に丸める。
+   */
+  private aceSortieTally(): Pick<
+    SortieFacts,
+    'acePodsSpared' | 'acePodsExecuted' | 'aceNamesExchanged' | 'aceDuelsAccepted'
+  > {
+    const before = this.aceTallyAtLaunch ?? EMPTY_ACE_TALLY;
+    const after = aceTally(this.save.aceStates);
+    const d = (a: number, b: number) => Math.max(0, a - b);
+    return {
+      acePodsSpared: d(after.spared, before.spared),
+      acePodsExecuted: d(after.executed, before.executed),
+      aceNamesExchanged: d(after.namesExchanged, before.namesExchanged),
+      aceDuelsAccepted: d(after.duelsAccepted, before.duelsAccepted),
     };
   }
 
@@ -1333,6 +1543,25 @@ export class App {
 
     const result = sortieNarrative(this.sortieFacts());
     adjustNarrative(n, result.delta);
+
+    /*
+     * 連れ帰った者を名簿と累積へ積む (T4-⑮)。
+     *
+     * `rescuedNames` は「自分の手で収容した人」の名前で、`MissionRunner` が
+     * `SpawnGroupDef.displayName(s)` から解決したもの。ここでは作らない。
+     * - `save.rescuedNames`: 第10章の読み上げが過去章の分まで読むための累積（重複なし）
+     * - 名簿（`returneeLog`）: 帰還者の指標。`addReturneeEntries` が重複を弾く
+     */
+    const broughtHome = s.rescuedNames ?? [];
+    if (broughtHome.length > 0) {
+      for (const name of broughtHome) {
+        if (!this.save.rescuedNames.includes(name)) this.save.rescuedNames.push(name);
+      }
+      addReturneeEntries(
+        n,
+        broughtHome.map((name) => ({ name, chapter, kind: 'civilian' as const })),
+      );
+    }
 
     // 生き延びた僚機は名前が判るので名簿に載せる（最終無線で読み上げる）。
     // 名簿に載った1名は指標の1名分なので、`sortieNarrative` は同じ人数を
@@ -1408,8 +1637,25 @@ export class App {
     return `<div class="block"><h3>作戦の帰結</h3>` +
       (rows ? `<ul>${rows}</ul>` : `<div class="dim">この出撃では4状態は動かなかった。</div>`) +
       this.choiceEffectHtml() +
+      this.rescuedNamesHtml() +
       // 「帰還者」は 0..100 の指標、「名簿」は読み上げる人数。名前を分けて混同を避ける
       `<div class="dim">現在: ${now}　名簿 ${this.save.narrative.returnees.length} 名</div></div>`;
+  }
+
+  /**
+   * この出撃で連れ帰った者の名前（T4-⑮）。
+   *
+   * 「勝利は撃墜数では測れない。誰を帰したかが門の明日を決める」という本編の指標を、
+   * 出撃ごとに名前で見せる行。名前は `MissionRunner` が `SpawnGroupDef.displayName(s)` から
+   * 解決したものをそのまま出す（**ここで名前を作らない**）。
+   * 一人も連れ帰れなかった出撃では行を出さない（空欄を並べても意味がない）。
+   */
+  private rescuedNamesHtml(): string {
+    const names = this.lastSummary?.rescuedNames ?? [];
+    if (names.length === 0) return '';
+    return (
+      `<div>連れ帰った者　${names.map((n) => escapeHtml(n)).join(' / ')}</div>`
+    );
   }
 
   /**

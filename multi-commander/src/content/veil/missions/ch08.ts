@@ -260,6 +260,9 @@ export const VEIL_CH08: MissionDef = {
       spread: 320,
       tag: TAG.rescue,
       speed: 0,
+      // 艦外に出た二名（T4-⑮）。帝国籍でも名前は同じ一覧に並ぶ
+      // ——「艦と勢力を問わず帰ってきた者の名前」を読み上げるのが最終無線だから。
+      displayNames: [speakerName('kilrashi-09'), speakerName('kilrashi-06')],
       radio: [
         { speaker: '帝国救難信号', text: '……被弾。艦外に二名。', tone: 'enemy' },
         { speaker: VALKAAN_NAME, text: '連邦機よ。行くなら、記録に残す。', tone: 'enemy', after: 2.2 },
@@ -286,14 +289,19 @@ export const VEIL_CH08: MissionDef = {
       id: 'fleet',
       text: `${CLAW} を守る（護衛を続ければ艦隊は無傷で第9章へ入る）`,
       required: false,
+      // 保護対象の生存／喪失がそのまま航路信頼に効く（全生存 +3 / 喪失 -3）
+      reward: '＋航路信頼',
       spec: { kind: 'protect', tag: TAG.capital },
     },
     {
       // 選択のもう片側。敵の救難へ向かうのは義務ではないので required にしない。
       // 救えばヴァルカーンが「名誉ある共同作戦」として承認し、帝国の公式記録に名が残る。
       id: 'enemy-rescue',
-      text: '帝国側の救難信号に応じる（応じれば共同作戦として記録される）',
+      // T4-⑮: 収容は操作になった（320m 以内で減速し3秒保つ）
+      text: '帝国側の救難信号に応じる（320m 以内で減速し3秒保つ。共同作戦として記録される）',
       required: false,
+      // 帝国籍のポッドなので `summary().enemyRescued` になり、敵エースの誓約が +5 動く
+      reward: '＋敵エースの誓約',
       spec: { kind: 'rescue', tag: TAG.rescue, radius: 320 },
     },
   ],

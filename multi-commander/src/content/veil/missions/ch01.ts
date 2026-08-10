@@ -54,6 +54,22 @@ const VARK = speakerName('kilrashi-07');
 /** 輸送船の呼称。無線とブリーフィングで共有する */
 const ASTRA = '〈アストラ・メイ〉';
 
+/**
+ * 脱出ポッドの搭乗者3名（T4-⑮）。
+ *
+ * 収容した瞬間に名前を読み上げ、デブリーフの「連れ帰った名前の一覧」と
+ * 第10章の最終無線にそのまま並ぶ。ハート艦長の
+ * 「救難ポッドの搭乗者名簿は、私が自分の手で書き写す」に対応する実体である。
+ * 名前は人物名簿（`people.ts`）から `speakerName()` を通して採るので、
+ * ここに文字列を二重定義しない。〈アストラ・メイ〉に乗っていておかしくない
+ * 非戦闘職（航路情報士・広報官・電子戦操縦士）を選んだ。
+ */
+const POD_OCCUPANTS = [
+  speakerName('confed-13'),
+  speakerName('confed-14'),
+  speakerName('confed-15'),
+];
+
 export const VEIL_CH01: MissionDef = {
   id: CH.missionId,
   title: `第1章 ${CH.title}`,
@@ -109,7 +125,8 @@ export const VEIL_CH01: MissionDef = {
       speed: 100,
       radio: [{ speaker: ASTRA, text: `こちら${ASTRA}。出力三割、まだ動ける。`, tone: 'friendly' }],
     },
-    // 脱出ポッド3基。生命維持のタイマーが走っている
+    // 脱出ポッド3基。生命維持のタイマーが走っている。
+    // 1基ずつ搭乗者名を宣言する（T4-⑮）ので、収容した瞬間に誰を帰したかが分かる
     {
       shipId: 'escape-pod',
       count: 3,
@@ -119,6 +136,7 @@ export const VEIL_CH01: MissionDef = {
       offset: [-1700, -400, 1400],
       spread: 1100,
       speed: 6,
+      displayNames: POD_OCCUPANTS,
     },
     // キルラシー先遣隊3機。撃破しなければ航路情報を持ち帰る
     {
@@ -158,10 +176,12 @@ export const VEIL_CH01: MissionDef = {
       // 計時は NAV 2（救難信号源）到着から。移動の 60〜90 秒を締切に含めない（T2-⑤）
       spec: { kind: 'timeLimit', seconds: 300, startAtNav: 1 },
     },
-    // 加点①: 救難ポッドの回収。章末の選択（救難か追撃か）の片側なので required にしない
+    // 加点①: 救難ポッドの収容。章末の選択（救難か追撃か）の片側なので required にしない。
+    // T4-⑮: 半径に入るだけでは拾えない。近づいて減速し、3秒保つ操作が要る。
+    // 目標文で操作の中身を明示する（近づく手段が示されないまま失敗したのが元の問題）
     {
       id: 'pods',
-      text: '脱出ポッド3基を回収する',
+      text: '脱出ポッド3基を収容する（300m 以内で減速し3秒保つ）',
       required: false,
       reward: '＋帰還者3',
       spec: { kind: 'rescue', tag: TAG.rescue, radius: 300 },

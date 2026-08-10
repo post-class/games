@@ -31,6 +31,14 @@ export interface PilotState {
    * 助けられた／置き去りにされたで動き、酒場の会話と無線の口調が変わる。
    */
   bond: number;
+  /**
+   * 前回の出撃以降に酒場で会話を終えたか（T3-⑪）。
+   *
+   * 出撃準備で僚機の `obedience` に上乗せされる。「話した相手は指示に早く応え、
+   * 話していない相手は硬い」を、既存の bond → 性格補正の経路に載せるための旗。
+   * 出撃を1回消化すると `applySortie` で降りる。
+   */
+  talkedSinceSortie?: boolean;
   /** 戦死した任務 (追悼用) */
   diedIn?: string;
   /** 戦死した章 */
@@ -107,6 +115,7 @@ export function normalizeRoster(raw: unknown): RosterState {
       rank: Math.min(3, nonNegativeInt(p.rank, 0)),
       transfers: nonNegativeInt(p.transfers, 0),
       transferredIn: p.transferredIn === true,
+      talkedSinceSortie: p.talkedSinceSortie === true,
     });
   }
   if (pilots.length === 0) return fallback;
@@ -178,6 +187,55 @@ export function killBoard(roster: RosterState, playerKills: number): KillBoardRo
   return rows;
 }
 
+// ───────── 関係値 (bond) の見せ方 ─────────
+
+/**
+ * 関係値の段階（T3-⑪）。
+ *
+ * 以前は `信頼 / 不信 / ——` の3値に潰していたので、酒場で1回話しても
+ * 表示が動かず「関係 ——」のままだった。bond を5段階に開き、
+ * 一度の会話でも段階が動きうるようにする。並びは bond の昇順。
+ */
+export const RELATION_STAGES = ['不信', '初対面', '顔見知り', '信頼', '盟友'] as const;
+
+export interface RelationStage {
+  label: string;
+  /** 0..RELATION_STAGES.length-1 */
+  step: number;
+  /** 段階の最大値（表示の分母） */
+  max: number;
+}
+
+/** bond の境界。`>= 下限` で次の段階へ上がる。 */
+const RELATION_THRESHOLDS = { distrust: -0.2, acquainted: 0.12, trust: 0.3, ally: 0.6 };
+
+/**
+ * bond（と「まだ一緒に飛んでいないか」）から段階を決める。
+ *
+ * 一度も出撃を共にしていない相手は、bond が中立でも `初対面`。
+ * 出撃を共にした後は最低でも `顔見知り` になる。
+ */
+export function relationStage(p: Pick<PilotState, 'bond' | 'sorties'>): RelationStage {
+  const max = RELATION_STAGES.length - 1;
+  const bond = Number.isFinite(p.bond) ? p.bond : 0;
+  let step: number;
+  if (bond < RELATION_THRESHOLDS.distrust) step = 0;
+  else if (bond < RELATION_THRESHOLDS.acquainted) step = p.sorties > 0 ? 2 : 1;
+  else if (bond < RELATION_THRESHOLDS.trust) step = 2;
+  else if (bond < RELATION_THRESHOLDS.ally) step = 3;
+  else step = 4;
+  return { label: RELATION_STAGES[step], step, max };
+}
+
+/** bond を -1..+1 に収めて動かす。実際に動いた量を返す（端で止まったら 0）。 */
+export function shiftBond(p: PilotState, delta: number): number {
+  if (!Number.isFinite(delta) || delta === 0) return 0;
+  const before = Number.isFinite(p.bond) ? p.bond : 0;
+  const after = Math.max(-1, Math.min(1, before + delta));
+  p.bond = after;
+  return after - before;
+}
+
 // ───────── 出撃結果の反映 ─────────
 
 export interface SortieOutcome {
@@ -207,8 +265,9 @@ export interface SortieOutcome {
  * - 助けた／置き去りにしたで関係値が動く
  */
 export function applySortie(roster: RosterState, outcome: SortieOutcome): void {
-  // 欠場カウントを進める
+  // 欠場カウントを進める。酒場で話した効果は1回の出撃で使い切る。
   for (const p of roster.pilots) {
+    p.talkedSinceSortie = false;
     if (p.status === 'wounded') {
       p.benchedFor = Math.max(0, p.benchedFor - 1);
       if (p.benchedFor === 0) p.status = 'active';

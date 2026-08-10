@@ -19,6 +19,31 @@ export interface EjectResult {
   reason?: string;
 }
 
+/**
+ * 撃墜したエースの脱出ポッドに付く `tag` の接頭辞（T4-⑯）。`ace-pod:<エースid>`。
+ *
+ * ■ なぜ判定用の文字列がここにあるか
+ * ポッドを撃つ／撃たないは**意図的な選択**なので、その結果は
+ * 「敵エースの誓約」へ行くべきで、`friendlyFireHits`（味方・中立の**識別ミス**を測る）
+ * や `civilianLosses`（民間損害）へ入ってはいけない。除外の判定を
+ * `MissionRunner` が行う必要があるため、ポッドの本来の持ち場であるここに置いた。
+ *
+ * 現在は `src/app/game.ts` が同じ文字列を独自に宣言している（ポッドを出す側）。
+ * `game.ts` 側を `export { ACE_POD_TAG_PREFIX } from '../sim/eject'` に差し替えれば
+ * 出所は1つになる（`game.ts` は別担当の編集中なので、こちらからは触らない）。
+ */
+export const ACE_POD_TAG_PREFIX = 'ace-pod:';
+
+/**
+ * エースの脱出ポッドか（`tag` で判定する）。
+ *
+ * 通常の脱出ポッド（`eject()` が出す自機・僚機のポッド、ミッション定義の救難ポッド）は
+ * この接頭辞を持たないので、**従来どおり**誤射・民間損害に数える。
+ */
+export function isAcePodTag(tag: string | undefined): boolean {
+  return !!tag && tag.startsWith(ACE_POD_TAG_PREFIX);
+}
+
 const _fwd = new Vector3();
 
 /** 脱出できる状態かどうか */

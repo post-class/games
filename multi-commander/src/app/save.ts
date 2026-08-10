@@ -61,6 +61,13 @@ export interface CampaignSave {
   medals: string[];
   /** 撃墜したエースの数 */
   acesKilled: number;
+  /**
+   * これまでに連れ帰った者の名前（累積・重複なし）(T4-⑮)。
+   *
+   * 最終章の読み上げの出所。名前は `SpawnGroupDef.displayName(s)` 由来で、
+   * ここでは組み立てず受け取った文字列をそのまま積む。
+   */
+  rescuedNames: string[];
   /** 宿敵の遭遇履歴。status=killed の人物は以後出現しない */
   aceStates: AceState[];
   /** 星系ごとの戦況と、次に挿入する動的作戦 */
@@ -114,6 +121,7 @@ export function newCampaignSave(mode: CampaignMode): CampaignSave {
     roster: newRoster(),
     medals: [],
     acesKilled: 0,
+    rescuedNames: [],
     aceStates: newAceStates(),
     frontline: newFrontlineState(),
     supplies: newSupplies(),
@@ -157,6 +165,10 @@ function parseSave(raw: string): CampaignSave | undefined {
     roster: normalizeRoster(parsed.roster),
     medals: Array.isArray(parsed.medals) ? parsed.medals.filter((m) => typeof m === 'string') : [],
     acesKilled: parsed.acesKilled ?? 0,
+    // 旧セーブには無い項目。欠落・型違いは空配列にする
+    rescuedNames: Array.isArray(parsed.rescuedNames)
+      ? parsed.rescuedNames.filter((n): n is string => typeof n === 'string' && n.trim().length > 0)
+      : [],
     aceStates: normalizeAceStates(parsed.aceStates),
     frontline: normalizeFrontline(parsed.frontline),
     dynamicMission: normalizeDynamicMission(parsed.dynamicMission),

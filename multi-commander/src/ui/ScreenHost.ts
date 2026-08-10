@@ -1,3 +1,12 @@
+import {
+  PAGER_KEYS,
+  pagerClampPage,
+  pagerEntryMatches,
+  pagerPageCount,
+  pagerStatus,
+  type PagerFilterOption,
+} from './HubPanels';
+
 export interface MenuItem {
   label: string;
   onSelect: () => void;
@@ -35,6 +44,30 @@ export interface ScreenSpec {
 }
 
 /**
+ * 艦内パネルのページ送り1つぶんの状態。
+ *
+ * HTML には全件が入っている（`HubPanels.pagerHtml`）。ここでは
+ * 「今どのページ・どの絞り込みか」だけを持ち、`display` を付け外しする。
+ * 情報を削らないので、ページを送れば必ず全件に到達できる。
+ */
+interface PagerBinding {
+  items: HTMLElement[];
+  tags: Array<Record<string, string[]>>;
+  status: HTMLElement | null;
+  empty: HTMLElement | null;
+  pageSize: number;
+  page: number;
+  filters: Array<{
+    key: string;
+    code: string;
+    index: number;
+    options: PagerFilterOption[];
+    valueEl: HTMLElement | null;
+    chip: HTMLElement;
+  }>;
+}
+
+/**
  * 全画面 UI の表示器。同時に表示される画面は1つだけ。
  * ▲▼ で選択、Enter で決定、Esc で戻る。クリックにも対応する。
  */
@@ -47,6 +80,7 @@ export class ScreenHost {
   private keyHandler = (ev: KeyboardEvent) => this.onKey(ev);
   private gamepadRaf = 0;
   private gamepadButtons = new Set<number>();
+  private pagers: PagerBinding[] = [];
 
   constructor(container: HTMLElement) {
     this.root = container;
@@ -111,11 +145,13 @@ export class ScreenHost {
       addTitle(screen);
       addSubtitle(screen);
     }
+    this.pagers = [];
     if (spec.bodyHtml) {
       const p = document.createElement('div');
       p.className = 'mc-panel';
       p.innerHTML = spec.bodyHtml;
       screen.appendChild(p);
+      this.bindPagers(p);
     }
     if (spec.content) screen.appendChild(spec.content);
 
@@ -177,7 +213,115 @@ export class ScreenHost {
     this.el = undefined;
     this.spec = undefined;
     this.itemEls = [];
+    this.pagers = [];
     this.root.classList.remove('interactive');
+  }
+
+  // ───────── ページ送り ─────────
+
+  /**
+   * `HubPanels.pagerHtml` が出した一覧を拾い、ページ送りと絞り込みを効かせる。
+   *
+   * 画面を開き直すと必ず1ページ目・絞り込み「すべて」に戻る
+   * （`AI_CODING.md`「表示状態の初期化規則を明確にする」）。
+   */
+  private bindPagers(panel: HTMLElement): void {
+    // DOM を持たない環境（単体テストの最小 DOM）では何もしない
+    if (typeof panel.querySelectorAll !== 'function') return;
+    const roots = Array.from(panel.querySelectorAll<HTMLElement>('.mc-pager'));
+    for (const root of roots) {
+      const items = Array.from(root.querySelectorAll<HTMLElement>('.mc-pager-item'));
+      const pageSize = Math.max(1, Number(root.dataset.pageSize ?? '8') || 8);
+      const binding: PagerBinding = {
+        items,
+        tags: items.map((el) => readItemTags(el)),
+        status: root.querySelector<HTMLElement>('[data-mc-pager-status]'),
+        empty: root.querySelector<HTMLElement>('[data-mc-pager-empty]'),
+        pageSize,
+        page: 0,
+        filters: Array.from(root.querySelectorAll<HTMLElement>('[data-mc-pager-filter]')).map((chip) => ({
+          key: chip.dataset.mcPagerFilter ?? '',
+          code: chip.dataset.mcPagerCode ?? '',
+          index: 0,
+          options: parseFilterOptions(chip.dataset.mcPagerOptions),
+          valueEl: chip.querySelector<HTMLElement>('[data-mc-pager-filter-value]'),
+          chip,
+        })),
+      };
+      root.querySelector<HTMLElement>('[data-mc-pager-act="prev"]')?.addEventListener('click', () => {
+        this.movePage(binding, -1);
+      });
+      root.querySelector<HTMLElement>('[data-mc-pager-act="next"]')?.addEventListener('click', () => {
+        this.movePage(binding, 1);
+      });
+      for (const f of binding.filters) {
+        f.chip.addEventListener('click', () => {
+          f.index = (f.index + 1) % Math.max(1, f.options.length);
+          binding.page = 0;
+          this.applyPager(binding);
+        });
+      }
+      this.pagers.push(binding);
+      this.applyPager(binding);
+    }
+  }
+
+  private filterOf(binding: PagerBinding): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const f of binding.filters) out[f.key] = f.options[f.index]?.value ?? '';
+    return out;
+  }
+
+  private applyPager(binding: PagerBinding): void {
+    const filter = this.filterOf(binding);
+    const visible: number[] = [];
+    binding.tags.forEach((tags, i) => {
+      if (pagerEntryMatches(tags, filter)) visible.push(i);
+    });
+    const pages = pagerPageCount(visible.length, binding.pageSize);
+    binding.page = pagerClampPage(binding.page, pages);
+    const from = binding.page * binding.pageSize;
+    const shown = new Set(visible.slice(from, from + binding.pageSize));
+    binding.items.forEach((el, i) => {
+      el.style.display = shown.has(i) ? '' : 'none';
+    });
+    if (binding.status) {
+      binding.status.textContent = pagerStatus(binding.page, pages, visible.length, binding.items.length);
+    }
+    if (binding.empty) binding.empty.hidden = visible.length > 0;
+    for (const f of binding.filters) {
+      if (f.valueEl) f.valueEl.textContent = f.options[f.index]?.label ?? 'すべて';
+      f.chip.classList.toggle('active', !!f.options[f.index]?.value);
+    }
+  }
+
+  private movePage(binding: PagerBinding, delta: number): void {
+    const filter = this.filterOf(binding);
+    const visible = binding.tags.filter((tags) => pagerEntryMatches(tags, filter)).length;
+    const pages = pagerPageCount(visible, binding.pageSize);
+    binding.page = (binding.page + delta + pages) % pages;
+    this.applyPager(binding);
+  }
+
+  /** ページ送り・絞り込みのキー。ページャがある画面でだけ拾う。 */
+  private onPagerKey(code: string): boolean {
+    if (!this.pagers.length) return false;
+    if (code === PAGER_KEYS.prev || code === PAGER_KEYS.next) {
+      const delta = code === PAGER_KEYS.next ? 1 : -1;
+      this.pagers.forEach((b) => this.movePage(b, delta));
+      return true;
+    }
+    let hit = false;
+    for (const b of this.pagers) {
+      for (const f of b.filters) {
+        if (f.code !== code) continue;
+        f.index = (f.index + 1) % Math.max(1, f.options.length);
+        b.page = 0;
+        hit = true;
+      }
+      if (hit) this.applyPager(b);
+    }
+    return hit;
   }
 
   private highlight(): void {
@@ -210,6 +354,10 @@ export class ScreenHost {
 
   private onKey(ev: KeyboardEvent): void {
     if (!this.el) return;
+    if (this.onPagerKey(ev.code)) {
+      ev.preventDefault();
+      return;
+    }
     switch (ev.code) {
       case 'ArrowUp':
       case 'KeyW':
@@ -280,6 +428,32 @@ export class ScreenHost {
   dispose(): void {
     window.removeEventListener('keydown', this.keyHandler);
     this.hide();
+  }
+}
+
+/** 項目の `data-f-<key>="a b"` を絞り込み用のタグへ戻す。 */
+function readItemTags(el: HTMLElement): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  const attrs = el.attributes;
+  for (let i = 0; i < attrs.length; i++) {
+    const name = attrs[i].name;
+    if (!name.startsWith('data-f-')) continue;
+    out[name.slice('data-f-'.length)] = attrs[i].value.split(/\s+/).filter(Boolean);
+  }
+  return out;
+}
+
+function parseFilterOptions(raw: string | undefined): PagerFilterOption[] {
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (o): o is PagerFilterOption =>
+        !!o && typeof o === 'object' && typeof (o as PagerFilterOption).value === 'string',
+    );
+  } catch {
+    return [];
   }
 }
 

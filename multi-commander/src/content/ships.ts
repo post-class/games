@@ -99,6 +99,16 @@ export interface ShipDef {
 
   visual: VisualDef;
 
+  /**
+   * 機体の性格を一言で言う（T3-⑬）。格納庫の数値表の隣に置き、
+   * 「数値を読まなくても差が分かる」ようにするための文。
+   *
+   * **必ず同じ定義の数値と一致させる。** ここだけ書き換えて `maxSpeed` /
+   * `turn` / `armor` を変えないと、表示と手触りがずれる（`AI_CODING.md`）。
+   * 一致は `tests/ut/t3b-ship-character.test.ts` が機械的に検証している。
+   */
+  character?: string;
+
   /** 撃墜時のスコア表示用 */
   threat: number;
 
@@ -194,6 +204,8 @@ export const HORNET = F({
   ],
   missiles: [{ missileId: 'dumbfire', count: 2 }],
   visual: { kind: 'arrow', hull: 0x78808a, accent: 0x2f6fb5, engine: 0x77ddff },
+  // turn[0] 1.9 は4機で最大、hull 100 と armor 25 は4機で最小
+  character: '四機で最もよく曲がるが、装甲も船体も最も薄い。撃たれたら終わり',
   threat: 1,
 });
 
@@ -220,6 +232,8 @@ export const SCIMITAR = F({
   ],
   missiles: [{ missileId: 'dumbfire', count: 2 }, { missileId: 'heat-seeker', count: 1 }],
   visual: { kind: 'delta', hull: 0x6e767d, accent: 0x2e6f5e, engine: 0x88ffcc },
+  // maxSpeed 300 / turn[0] 1.5 / hull 180 / armor 45 はいずれも4機の中で最大でも最小でもない
+  character: '速さも旋回も装甲も中位。尖った長所はないが、一発では落ちない',
   threat: 1,
 });
 
@@ -248,6 +262,8 @@ export const RAPTOR = F({
   ],
   missiles: [{ missileId: 'dumbfire', count: 3 }, { missileId: 'heat-seeker', count: 3 }],
   visual: { kind: 'twin-boom', hull: 0x656e77, accent: 0x8a5a2b, engine: 0xffaa66 },
+  // maxSpeed 280 と turn[0] 1.25 は4機で最小、hull 300 と armor 80 は4機で最大
+  character: '最も遅く、最も曲がらない。装甲と船体は最厚で、殴り合いなら負けない',
   threat: 2,
 });
 
@@ -280,6 +296,8 @@ export const RAPIER = F({
     { missileId: 'image-rec', count: 1 },
   ],
   visual: { kind: 'delta', hull: 0x7e8790, accent: 0x24507f, engine: 0x99e6ff },
+  // maxSpeed 450 は4機で最大、ミサイルは3種で最多、armor 40 は4機の平均 47.5 未満
+  character: '四機で最も速く、ミサイルは3種積める。装甲は平均以下、殴り合いは避けたい',
   threat: 2,
 });
 

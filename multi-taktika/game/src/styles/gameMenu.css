@@ -5,6 +5,16 @@
  * 投了を決めるのは不合理なので、周りは薄い幕にとどめる）。
  */
 
+/*
+ * **`[hidden]` を先に効かせる。**
+ * `hidden` 属性の `display: none` はブラウザ既定のスタイルなので、
+ * 下の `.mt-gmenu { display: flex }`（クラス指定）に**負ける**。
+ * これが無いとメニューが常に開いたまま盤面を覆う（実機で踏んだ）。
+ */
+.mt-gmenu[hidden] {
+  display: none;
+}
+
 .mt-gmenu {
   position: absolute;
   inset: 0;

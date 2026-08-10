@@ -526,17 +526,28 @@ describe('objectiveViews() の required / timeLeftSec', () => {
   });
 });
 
-// ───────── ch04 / ch06 / ch07 の監査 (今回は変更しない) ─────────
+// ───────── ch04 / ch06 / ch07 の監査 (T3-C で解消済み) ─────────
 
 describe('ch04 / ch06 / ch07 の必須目標の棚卸し', () => {
-  it('現状は移動 (reachNav) だけが必須の達成目標であることを記録する', () => {
+  it('移動 (reachNav) 以外の達成目標が必須に入っている', () => {
     const constraints = new Set(['protect', 'timeLimit', 'noFriendlyFire', 'weaponsSafe', 'protectCount']);
+    // T2-⑤ の時点では3章すべて `reachNav` だけだった（＝飛んで着けば勝ち）。
+    // T3-C で章ごとの主目的に合う達成目標を必須に足したので、その内容を記録する。
+    const expected: Record<string, string[]> = {
+      // 拘束された契約船を牽引して連れ帰る
+      'veil-ch04': ['escortArrive', 'reachNav'],
+      // 中枢の応答を記録として持ち帰る（撃たずに抜ける経路は残す）
+      'veil-ch06': ['reachNav', 'recon'],
+      // 中継所へ書式を提出する（到着だけでは受理されない）
+      'veil-ch07': ['reachNav', 'recon'],
+    };
     for (const def of [VEIL_CH04, VEIL_CH06, VEIL_CH07]) {
       const achieved = def.objectives
         .filter((o) => o.required && !constraints.has(o.spec.kind))
         .map((o) => o.spec.kind);
-      // 「飛んで着けば勝ち」の状態。次の担当が escortArrive 化するときにここが変わる
-      expect(new Set(achieved), def.id).toEqual(new Set(['reachNav']));
+      expect(new Set(achieved), def.id).toEqual(new Set(expected[def.id]));
+      // 「飛んで着けば勝ち」に戻っていないこと
+      expect(new Set(achieved), def.id).not.toEqual(new Set(['reachNav']));
     }
   });
 });

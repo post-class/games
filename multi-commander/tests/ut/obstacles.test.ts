@@ -200,9 +200,13 @@ describe('新しい目標種別', () => {
     expect(pods.length).toBe(3);
 
     const me = world.player!;
+    // T4-⑮: 収容は操作になった。ポッドの横で相対速度を落として3秒保つ
     for (const pod of pods) {
-      me.pos.copy(pod.pos);
-      runner.update(DT);
+      for (let i = 0; i < 4; i++) {
+        me.pos.copy(pod.pos);
+        me.vel.copy(pod.vel);
+        runner.update(1);
+      }
     }
     const rescue = runner.objectiveViews().find((o) => o.text.includes('脱出ポッド'));
     expect(rescue?.state).toBe('done');

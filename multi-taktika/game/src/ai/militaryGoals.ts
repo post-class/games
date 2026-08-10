@@ -25,7 +25,7 @@
 import type { CivId } from '@/shared/types';
 import { CIV_IDS, EntityKind } from '@/shared/types';
 import type { Command } from '@/sim/command';
-import { TICK_RATE, cfgArray, cfgInt, cfgTiles } from '@/sim/core/config';
+import { TICK_RATE, cfgArray, cfgInt, cfgNum, cfgTiles } from '@/sim/core/config';
 import {
   CIV_DEFS,
   ROLE_COUNT,
@@ -44,11 +44,12 @@ import {
 import type { Fx } from '@/sim/core/fx';
 import { FX_ONE, distSq, idiv } from '@/sim/core/fx';
 
+import { MAP_TYPE_IDS } from '@/shared/types';
+import { mapParams } from '@/sim/systems/mapgen';
 import type { AiContext } from './AiPlayer';
-import { countOwnVillagers } from './econGoals';
 import { memGet, memSet } from './AiPlayer';
 import type { AiView, OwnEntity } from './view';
-import { canAfford, findTownCenter, placeBuildingCommand } from './econGoals';
+import { canAffordWithAgeReserve, findTownCenter, placeBuildingCommand } from './econGoals';
 
 // ---------------------------------------------------------------- データ由来の定数
 
@@ -207,16 +208,36 @@ export function roleShare(mix: Int32Array, role: string): Fx {
 // ---------------------------------------------------------------- 兵の選択
 
 /** 今その文明・その時代で作れる兵の ID（共通兵 + 文明ツリー + 城のエリート）。 */
+/**
+ * 船を作る価値があると見なす水域の割合の下限（`maps.json` の `waterRatio`）。
+ * 平野は 0.02、内海や列島はこれよりずっと大きい。
+ */
+const SHIP_MIN_WATER_RATIO = cfgNum('mapgen.aiShipMinWaterRatio');
+
+/** このマップの水域の割合（`maps.json` の `waterRatio`）。 */
+function mapWaterRatio(view: AiView): number {
+  const id = MAP_TYPE_IDS[view.map.mapType];
+  if (id === undefined) return 0;
+  return mapParams(id).waterRatio;
+}
+
 export function producibleUnits(view: AiView): string[] {
   const civ = view.own.civ as CivId;
   const age = view.own.age;
   const out: string[] = [];
+  // **水がほとんど無いマップでは船を作らない。**
+  // `07§13` は平野を「水域=ほぼ無し。港と船はほぼ不要」と定めている。
+  // これが無いと、船を作るために港（木材）を建ててしまい、実測で
+  // 木材が 2 まで枯れて家が建たず、人口 30 で詰まって世に上がれなかった。
+  const water = mapWaterRatio(view);
+  const allowShips = water >= SHIP_MIN_WATER_RATIO;
   // 共通兵（黎明の棍棒兵・狩人など。`unitTree` に載らない）。
   for (let i = 0; i < UNIT_DEFS.length; i++) {
     const u = UNIT_DEFS[i]!;
     if (u.civ !== null) continue;
     if (u.lineIdx === 0) continue; // 村人・斥候・伝令は軍事の対象外
     if (u.age > age) continue;
+    if (!allowShips && u.role === 'ship') continue;
     out.push(u.id);
   }
   // 文明ツリーの現行段。
@@ -224,6 +245,7 @@ export function producibleUnits(view: AiView): string[] {
   for (let i = 0; i < tree.length; i++) {
     const u = unitDefById(tree[i]!);
     if (u.age > age) continue;
+    if (!allowShips && u.role === 'ship') continue;
     out.push(u.id);
   }
   // 城のエリート（`unitTree` の elite 段に載っていない文明もあるため明示的に足す）。
@@ -264,13 +286,18 @@ export function planMilitary(ctx: AiContext): Command[] {
   //    村人 24 体まで育っても食料が 12〜30 に張り付き、age 0 のままだった。
   //    進化しない段階（`allowAdvanceAge` が false）はこの条件を課さない
   //    ―― 上がらないのだから待つ意味が無く、待たせると永久に兵が出ない。
-  const needMoreVillagers = countOwnVillagers(ctx) < ctx.cfg.villagerTarget;
   // 立ち上げの区間（`config.matchPhases` の `buildup` = 0〜5 分）は兵を作らない。
   //
   // ここは一度「最初の世に上がるまで待つ」にしてみたが、**強すぎた** ――
   // 世に上がるのが 18〜24 分なので、28 組の総当たりが全部引き分けになり、
   // 戦闘が 1 度も起きなかった。`07§2` は 0〜5 分を「村人だけを増やす時間」、
   // 5〜12 分を「初接触」と定めているので、その境目をそのまま使う。
+  //
+  // **村人の数を兵の前提にしない。** 一度「村人が目標数（18）に届くまで待つ」に
+  // していたが、18 体に届くのが 15 分ごろなので、`07§2` が「5〜12 分に最初の戦域が
+  // 立つ」と定めている区間に戦域が 1 本も立たなかった（`tests/balance/tempo.test.ts`
+  // の実測で 0 本）。村人を増やすのと兵を出すのは**同時に進める**ものであり、
+  // 食料の取り合いは人間も抱えている普通の判断。
   const inBuildup = ctx.view.tick < BUILDUP_END_TICK;
   // 例外は「**戦域が立っている**」＝実際に戦っているとき。
   //
@@ -278,7 +305,7 @@ export function planMilitary(ctx: AiContext): Command[] {
   // 兵の生産が解禁され、貯めていた食料が兵に変わって進化できなくなった（実測）。
   // 戦域は交戦から自動で立つ（`07§3`）ので、これが本当の「戦っている」の合図。
   const underAttack = ctx.view.ownFronts.length > 0;
-  if ((needMoreVillagers || inBuildup) && !underAttack) {
+  if (inBuildup && !underAttack) {
     // 兵は作らないが、**手空きの兵を前に出す判断だけは続ける**
     // （既にいる兵を放置すると戦域が立たない）。
     pushDispatch(ctx, cmds);
@@ -346,6 +373,14 @@ function pushUnitProduction(ctx: AiContext, mix: Int32Array, out: Command[]): vo
   const view = ctx.view;
   if (view.own.pop >= view.own.popCap) return;
   const wanted = producibleUnits(view);
+  // ■ 取り置きの例外について（**入れないことにした**）
+  // 「最初の 1 隊は取り置きを無視して作る」を試したが、どちらに振っても悪化した:
+  //  - 兵が死ぬたびに例外が復活する形 → 取り置きが永久に効かず、
+  //    食料が 318 で止まって世が上がらない
+  //  - 例外を一度だけにする形 → 1 隊が死んだあと兵が出ず、村人 22 → 2 に壊滅
+  //  - 例外を常に有効にする形 → 兵は 5〜7 体で安定するが世が上がらない
+  // いちばん健全だったのは**例外なし**（世が上がり、そのあと兵が 23 体まで育つ）。
+  // 詳しくは `docs/BALANCE.md`。
   for (let k = 0; k < view.ownEntities.length; k++) {
     const oe = view.ownEntities[k]!;
     if (oe.kind !== EntityKind.Building || !oe.complete) continue;
@@ -356,7 +391,10 @@ function pushUnitProduction(ctx: AiContext, mix: Int32Array, out: Command[]): vo
       const udef = unitDefById(wanted[i]!);
       if (udef.producedAt !== bdef.id && udef.producedAt !== bdef.replaces) continue;
       if (udef.roleIdx === roleIndexOf('siege') && !ctx.cfg.allowSiege) continue;
-      if (!canAfford(view.own.resources, udef.cost)) continue;
+      // **次の世のぶんを取り置いたうえで**払えるものだけ作る。
+      // 取り置かないと入った食料が全部兵に変わり、永久に世が上がらない
+      // （実測で兵 26 体・食料 0〜19 のまま age 0 だった）。
+      if (!canAffordWithAgeReserve(ctx, udef.cost)) continue;
       const s = unitScore(mix, udef.id);
       if (s > bestScore || (s === bestScore && bestId !== null && udef.index < unitDefById(bestId).index)) {
         bestScore = s;

@@ -36,7 +36,7 @@ import {
   unitDefById,
 } from '@/sim/core/defs';
 import type { Fx } from '@/sim/core/fx';
-import { FX_HALF, FX_ONE, fxToInt, idiv } from '@/sim/core/fx';
+import { FX_HALF, FX_ONE, fx, fxMul, fxToInt, idiv } from '@/sim/core/fx';
 import { Move, hasTerrain, isPassableFor } from '@/sim/core/terrain';
 import { AGE_IDS } from '@/shared/types';
 
@@ -147,6 +147,12 @@ export function planEconomy(ctx: AiContext): Command[] {
   // 1) 新しくできた村人を採集に就ける（**建てる前に採らせる**。
   //    資源が入らないと家も資源施設も建たないので、順序はこちらが先）。
   for (const c of gatherCommandsFor(ctx, fresh)) cmds.push(c);
+
+  // 1b) 世が変わって必要な資源が変わったら、**既にいる村人を移す**。
+  //     移せないと「村人を出し切ったあとに世が上がる」→ 新しく必要になった資源に
+  //     誰も就かない、が起きる（実測: 青銅に上がっても金が 50 のまま動かず、
+  //     鉄器の要求 200 に永久に届かなかった）。
+  for (const c of reassignForNextAge(ctx)) cmds.push(c);
 
   // 2) 時代進化（段階 3 以上。`ai.json` の allowAdvanceAge）。
   //
@@ -322,6 +328,7 @@ export function planEconBuilding(ctx: AiContext): Command | null {
 }
 
 function pickEconBuilding(ctx: AiContext): string | null {
+  const m = ctx.memory;
   const civ = ctx.view.own.civ as CivId;
   if (needsHouse(ctx)) {
     const house = resolveBuildingForCiv(civ, 'house');
@@ -344,8 +351,17 @@ function pickEconBuilding(ctx: AiContext): string | null {
     // 棟数上限のある建物（市場）は 1 棟持っていたら要らない。
     const have = countOwnBuildings(ctx, bdef.index);
     if (bdef.maxCount > 0 && have >= bdef.maxCount) continue;
-    // 資源施設は 1 棟ずつでよい。農地だけは「足りない資源が食料のとき」何面でも建てる。
-    if (have > 0 && !(id === 'farm' && scarce === FOOD)) continue;
+    // 資源施設は 1 棟ずつでよい。農地だけは「足りない資源が食料のとき」建て増す。
+    //
+    // ただし **働き手の数を超えて建てない。**
+    // 農地は食料ノードを載せるだけで、誰も就いていなければ 1 も採れない。
+    // 実測（席 1 側）で農地 13 面まで建てながら食料が 166 で止まり、
+    // 木材を農地に吸われて家が建たず、人口 30 で詰まって
+    // **青銅の世に一度も上がらなかった**（席 0 側は農地 6 面で上がった）。
+    // 誰も働かない農地は木材を捨てているのと同じ。
+    const canGrowFarms =
+      id === 'farm' && scarce === FOOD && have < memGet(m.assignedByResource, FOOD);
+    if (have > 0 && !canGrowFarms) continue;
     return resolved;
   }
   return null;
@@ -600,16 +616,29 @@ export function gatherCommandsFor(ctx: AiContext, villagers: readonly OwnEntity[
     //
     // 割り当ては「その村人が何人目か」で決めるので乱数を使わない。
     const seq = memGet(m.gatherAssignSeq, 0) + k;
-    // 順番のほうは `seq / 2` で数える。
-    // **`seq % 4` にすると偶数の seq が 0 と 2 しか取らず、木材と金に誰も就かない**
-    // （実測で木材が開始値のまま・金が 50 のまま固定になった）。
+    // 順番のほうは `seq / 2` で数える（`seq % 4` だと偶数の seq が 0 と 2 しか
+    // 取らず、木材と金に誰も就かない ―― 実測で踏んだ）。
+    //
+    // 回す先は **`gatherTargets` が返す「いま必要な資源」だけ**。
+    // 4 資源に均等に散らしていたら、age 0 では使い道の無い石材が 800、金が 599 まで
+    // 積み上がる一方で、青銅の世に必要な食料 500 に 25 分かかっていた。
+    // 余る資源に人を置くのは、その人ぶんの食料を捨てているのと同じ。
+    // 半分は `gatherTargets` を順番に、半分は「次の世に足りない資源」へ。
+    //
+    // 「順番だけ」にしてみたら（age 0 なら食料と木材で半々）内政が壊れた ――
+    // 食料に就く人が半分に減り、村人が 15 体から増えないまま相手に押し切られた。
+    // 逆に「足りない資源だけ」にすると木材が細って農地が建たない
+    // （農地は木材 60。木材 → 農地 → 食料 がひと続きの流れになっている）。
+    // 両方を混ぜるこの形が実測でいちばんよかった。
+    const targets = gatherTargets(ctx);
     const want =
       seq % 2 === 0
-        ? Math.floor(seq / 2) % RESOURCE_IDS.length
+        ? targets[Math.floor(seq / 2) % targets.length]!
         : nextAgeDeficitResource(ctx);
     const target = nearestNodeOf(ctx, oe, want) ?? nearestNodeOf(ctx, oe, -1);
     if (target === null) break;
     cmds.push({ t: 'gather', p: ctx.playerId, units: [id], target });
+    memSet(m.assignedByResource, want, memGet(m.assignedByResource, want) + 1);
   }
   memSet(m.gatherAssignSeq, 0, memGet(m.gatherAssignSeq, 0) + villagers.length);
   return cmds;
@@ -668,6 +697,72 @@ export function nextAgeDeficitResource(ctx: AiContext): number {
   return best < 0 ? FOOD : best;
 }
 
+/**
+ * 世が変わって必要になった資源に、**既にいる採集係を移す**。
+ *
+ * `gather` は新しくできた村人にしか出していないので、村人を出し切ったあとに
+ * 世が上がると、新しく要求される資源（鉄器なら金）に誰も就かないまま終わる。
+ *
+ * 移すのは **1 判断につき 1 人まで**（全員を一度に動かすと採集が止まる）。
+ * 誰を動かすかは `ownEntities` の index 昇順で最初に見つかった採集係
+ * ―― 乱数を使わないので全端末で同じ村人が動く。
+ */
+export function reassignForNextAge(ctx: AiContext): Command[] {
+  const m = ctx.memory;
+  // 移す先は**いちばん足りない資源**だけにする。
+  //
+  // ■ ここを「誰も就いていない資源」にしてみたら悪化した（実測）
+  // 金に誰も就いていないので村人を 1 人送る、という形にしたところ、
+  // その村人が**単独で遠くの金鉱まで歩いて死に**、村人が 26 → 10 に減って
+  // 内政が崩れた（食料も 411 → 12）。拠点から離れた資源へ人を送るには
+  // 「安全に行けるか」「護衛を付けるか」の判断が要る。**それは別の仕事**なので、
+  // ここでは「もともと採っている資源のうち、いちばん足りないもの」に寄せるだけにする。
+  // 遠くの資源を使うには `mining_camp` のような搬入点を先に建てる形が要る（未実装）。
+  const need = nextAgeDeficitResource(ctx);
+  if (memGet(m.assignedByResource, need) > 0) return [];
+  if (!knowsResource(ctx, need)) return []; // 場所を知らないなら探索の仕事
+  const villagerType = unitDefById(VILLAGER_ID).index;
+  const list = ctx.view.ownEntities;
+  for (let k = 0; k < list.length; k++) {
+    const oe = list[k]!;
+    if (oe.kind !== EntityKind.Unit || oe.typeId !== villagerType) continue;
+    if (memGet(m.villagerRole, oe.index) !== VILLAGER_GATHERER) continue;
+    const id = ctx.idOf(oe.index);
+    if (id < 0) continue;
+    const target = nearestNodeOf(ctx, oe, need);
+    if (target === null) return [];
+    memSet(m.assignedByResource, need, 1);
+    return [{ t: 'gather', p: ctx.playerId, units: [id], target }];
+  }
+  return [];
+}
+
+/**
+ * いま人を就かせる価値がある資源（`RESOURCE_IDS` の添字。昇順）。
+ *
+ *  - **次の世が要求する資源**（これが無いと世が上がらない）
+ *  - **食料**（人口の元。常に要る）
+ *  - **木材**（家と資源施設の元。常に要る）
+ *
+ * 石材と金は「次の世が要求するとき」だけ入る。使い道が無いのに採らせると、
+ * その村人ぶんの食料を捨てているのと同じになる（実測で石材 800・金 599 が
+ * 使われずに余り、そのぶん青銅の世が 25 分まで遅れていた）。
+ */
+export function gatherTargets(ctx: AiContext): number[] {
+  const want = new Set<number>([FOOD, RESOURCE_IDS.indexOf('wood')]);
+  const next = cfgAges()[ctx.view.own.age + 1];
+  if (next !== undefined) {
+    for (const resId of Object.keys(next.cost)) {
+      const r = RESOURCE_IDS.indexOf(resId as (typeof RESOURCE_IDS)[number]);
+      if (r >= 0) want.add(r);
+    }
+  }
+  // **`Set` の反復順に依存しない**（§0.3）。添字昇順に並べ直す。
+  const out: number[] = [];
+  for (let r = 0; r < RESOURCE_IDS.length; r++) if (want.has(r)) out.push(r);
+  return out;
+}
+
 /** 記憶にその資源のノードがあるか（探索を続けるかの判断に使う）。 */
 export function knowsResource(ctx: AiContext, resource: number): boolean {
   const m = ctx.memory;
@@ -683,6 +778,55 @@ export function knowsResource(ctx: AiContext, resource: number): boolean {
  * ここでは「最終時代でなければ町の中心に出す」だけ。通らなければ黙って捨てられる。
  */
 /** 次の世の費用が手元にあるか（無ければ貯める）。最終世なら true（貯める必要が無い）。 */
+/**
+ * 次の世のために取り置く額（資源 index 順の Fx）。上げない段階と最終世は 0。
+ *
+ * ■ なぜ取り置くのか
+ * 兵は食料を食う。取り置かないと**入った食料が全部兵に変わって永久に世が上がらない**。
+ * 実測（段階 4・30 分）で兵が 26 体まで育つ一方、食料は 0〜19 に張り付き、
+ * 青銅の世の 500 に一度も届かなかった。石材 500・金 410 は誰も使わずに余っていた。
+ *
+ * 人間も「次の世のぶんは手を付けない」と決めて兵を出すので、これは自然な形。
+ */
+export function ageReserveFx(ctx: AiContext): Int32Array {
+  const out = new Int32Array(RESOURCE_IDS.length);
+  if (!ctx.cfg.allowAdvanceAge) return out;
+  const age = ctx.view.own.age;
+  if (age >= AGE_IDS.length - 1) return out;
+  const next = cfgAges()[age + 1];
+  if (next === undefined) return out;
+  // 最初の世（黎明 → 青銅）は**全額**取り置く。青銅で兵種ツリーが枝分かれするので、
+  // ここに上がらないと文明の違いが盤に出ない。
+  // 2 つ目以降は割合ぶんだけ（全額のままだと兵が 1 体も出ないまま試合が終わる）。
+  const ratio = age === 0 ? FX_ONE : fx(ctx.cfg.ageReserveRatioAfterFirst);
+  for (const [resId, amount] of Object.entries(next.cost)) {
+    const r = RESOURCE_IDS.indexOf(resId as (typeof RESOURCE_IDS)[number]);
+    if (r >= 0) out[r] = fxMul(fx(amount), ratio);
+  }
+  return out;
+}
+
+/**
+ * 「次の世のぶんを取り置いたうえで」その費用を払えるか。
+ * 世を上げない段階では取り置きが 0 なので `canAfford` と同じ。
+ */
+export function canAffordWithAgeReserve(
+  ctx: AiContext,
+  cost: Int32Array | readonly number[],
+): boolean {
+  const reserve = ageReserveFx(ctx);
+  const res = ctx.view.own.resources;
+  for (let r = 0; r < res.length; r++) {
+    // **取り置きは 0 で止める。**
+    // 引き算のままにすると「取り置き > 手持ち」のとき残りが負になり、
+    // **その資源を 1 も使わない兵まで作れなくなる**（実測: 金 50 に対し取り置き 100 で
+    // 食料だけの兵も出せず、30 分で兵 0 体だった）。
+    const usable = (res[r] ?? 0) - (reserve[r] ?? 0);
+    if ((usable > 0 ? usable : 0) < (cost[r] ?? 0)) return false;
+  }
+  return true;
+}
+
 export function canAffordNextAge(ctx: AiContext): boolean {
   if (!ctx.cfg.allowAdvanceAge) return true;
   const age = ctx.view.own.age;

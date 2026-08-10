@@ -287,6 +287,178 @@ export function barLine(
   return pick(BAR_NEUTRAL, personality);
 }
 
+// ───────── 酒場の往復会話 (T3-⑪) ─────────
+//
+// 1行で終わる雑談を「近況 → こちらの返事 → 相手の反応 → 返事 → 締め」の
+// 2往復にするための素材。会話の組み立ては `src/app/barTalk.ts` が行う。
+//
+// **ここは rng を使わない。** 同じ画面を開き直すたびに文章が変わると、
+// 選んだ返事で何が変わったのか読めなくなる（テストも固定できない）。
+// 台詞の揺らぎは呼び出し側が渡す `seed` で決める。
+
+/**
+ * 会話の話題。直前の出撃で「その人に何が起きたか」で決まる。
+ * `thanks` / `silent` は僚機として飛んだ人にしか起きない。
+ */
+export type BarTalkTopic =
+  /** 助けを求めて、応えてもらった */
+  | 'thanks'
+  /** 助けを求めたのに、来てもらえなかった */
+  | 'silent'
+  /** 一緒に飛んで、無事に帰った */
+  | 'flown'
+  /** プレイヤーが機体を失って帰投した */
+  | 'playerLoss'
+  /** 直近で戦死者が出た */
+  | 'mourning'
+  /** 関係が良い相手の雑談 */
+  | 'friendly'
+  /** 関係が悪い相手の雑談 */
+  | 'cold'
+  /** それ以外の雑談 */
+  | 'idle';
+
+/** プレイヤーの返事の色。bond の動き方が変わる。 */
+export type BarReplyKind = 'warm' | 'blunt';
+
+function pickAt(set: LineSet, id: PersonalityId, seed: number): string {
+  const lines = set[id] ?? set.steady;
+  const i = ((Math.trunc(seed) % lines.length) + lines.length) % lines.length;
+  return lines[i];
+}
+
+const BAR_THANKS: LineSet = {
+  reckless: ['あんた、あの位置から突っ込んできたな。……助かった。', '借りができた。返すのは次の出撃でいいか。'],
+  steady: ['あの時、支援に来てくれましたね。……ありがとうございます。', '呼んで、来てもらえた。それだけで次も飛べます。'],
+  precise: ['要請から応答まで十数秒だった。記録に残しておく。', 'あなたが射線を切ってくれた。だから外さずに済んだ。'],
+  veteran: ['年寄りを拾いに来たか。恩に着る。', 'あの角度で入るのは無理だと思ったがな。助かった。'],
+  grim: ['……来てくれた。名前が増えずに済んだ。', '呼べば誰かが来る。久しぶりの感覚だ。'],
+  green: ['助けてくれて、ありがとうございました！ 本当に、駄目かと……。', 'あの時のこと、まだ手が震えてます。でも生きてます。'],
+};
+
+const BAR_SILENT: LineSet = {
+  reckless: ['……。話すことはない。', '次は自分で何とかする。あんたは呼ばない。'],
+  steady: ['……支援を要請しました。届いていましたか。', '責めていません。ただ、覚えているだけです。'],
+  precise: ['応答はなかった。事実として記録した。', '次は単独で処理する。その方が確実だ。'],
+  veteran: ['見捨てるなら、最初からそう言え。', '……酒はいい。今日は一人で飲む。'],
+  grim: ['……呼んだんだが。', '順番が来ただけだ。あなたのせいでは、ない。'],
+  green: ['あの、聞こえてましたか。……いえ、いいんです。', '……すみません。何でもないです。'],
+};
+
+const BAR_FLOWN: LineSet = {
+  reckless: ['さっきの出撃、悪くなかったな。次はもっと前に出るぞ。', '編隊は退屈だが、まあ数は稼げた。'],
+  steady: ['さきほどの出撃、無事に戻れて何よりです。', '飛行記録を提出してきました。異常なしです。'],
+  precise: ['交戦記録を突き合わせたい。あの旋回、意図があったのか。', '燃料消費が想定より多い。次は配分を変える。'],
+  veteran: ['お前の翼は落ち着いている。付いていける。', '飛んだ後の酒が一番うまい。座れ。'],
+  grim: ['……今日は誰も欠けなかった。珍しい日だ。', '無事に戻った。それを疑う癖がついてしまった。'],
+  green: ['さっきの飛び方、教えてください！ あの、旋回のときの……。', '足を引っ張ってませんでしたか。正直に言ってください。'],
+};
+
+const BAR_PLAYER_LOSS: LineSet = {
+  reckless: ['機体を捨てて帰ってきたって？ 生きてるならいい。', '派手にやったな。整備班が泣いてたぞ。'],
+  steady: ['脱出したと聞きました。……ご無事で何よりです。', '機体は替えが来ます。あなたの替えは来ません。'],
+  precise: ['脱出の判断は適切だった。時機としては最適だ。', '機体喪失は記録に残る。だが名前が残る方が重い。'],
+  veteran: ['落ちたか。俺は三回だ。まだ足りん。', '生きて降りてきたなら、それが勝ちだ。'],
+  grim: ['……あなたの名前を書きかけた。消せてよかった。', '座席だけでも帰ってきた。それでいい。'],
+  green: ['脱出したって聞いて、心臓が止まりました！', 'ご無事ですか、本当に？ お怪我は？'],
+};
+
+const BAR_TO_WARM: LineSet = {
+  reckless: ['……ふん。悪い気はしないな。', 'あんた、案外いい奴だな。'],
+  steady: ['……ありがとうございます。少し楽になりました。', 'そう言ってもらえると、次も呼べます。'],
+  precise: ['了解した。想定より前向きな返答だ。', 'その言葉は記録しない。覚えておくだけにする。'],
+  veteran: ['お前とは飲める。座れ、注いでやる。', 'いい返しだ。若いのに聞かせたい。'],
+  grim: ['……そうか。少しだけ、息がしやすくなった。', 'その言葉は持っていく。次の出撃に。'],
+  green: ['は、はい！ ありがとうございます！', 'うれしいです。……本当に。'],
+};
+
+const BAR_TO_BLUNT: LineSet = {
+  reckless: ['……つれないな。まあいい。', 'そういう奴だと思ってたよ。'],
+  steady: ['……はい。失礼しました。', '分かりました。余計なことを言いました。'],
+  precise: ['理解した。要点だけにする。', '了解。無駄な会話は削る。'],
+  veteran: ['まあ、そういう時もある。飲め。', '若い頃の俺と同じ返しだ。後で効くぞ、それは。'],
+  grim: ['……そうだな。話しても減らない。', '分かった。黙っている。'],
+  green: ['……あ、はい。すみません。', 'そう、ですよね。お邪魔しました。'],
+};
+
+const BAR_CLOSE_WARM: LineSet = {
+  reckless: ['次は俺を連れて行けよ。翼に付く。', '奢りだ。次の出撃で返してもらう。'],
+  steady: ['では、また。次も左後方にいます。', 'お休みなさい。明日も付いていきます。'],
+  precise: ['次の出撃で位置を合わせる。以上だ。', 'good night。射線は空けておく。'],
+  veteran: ['生きて戻れ。俺も戻る。', '寝ろ。飛ぶ前の睡眠は装甲より効く。'],
+  grim: ['……また、ここで会えるように。', '名前を増やさないでくれ。あなたの分も。'],
+  green: ['次の出撃、よろしくお願いします！', 'おやすみなさい！ 明日、がんばります！'],
+};
+
+const BAR_CLOSE_BLUNT: LineSet = {
+  reckless: ['行けよ。俺はもう一杯飲む。', 'ああ、勝手にする。'],
+  steady: ['では、失礼します。明日も飛びます。', '……はい。お休みなさい。'],
+  precise: ['以上。整備の報告に戻る。', '了解。時間を取らせた。'],
+  veteran: ['行け。年寄りは残って飲む。', 'ふん。まあ、そんなもんだ。'],
+  grim: ['……ああ。', '分かった。'],
+  green: ['あ、はい。……お休みなさい。', 'し、失礼します。'],
+};
+
+const OPENING_SETS: Record<Exclude<BarTalkTopic, 'mourning'>, LineSet> = {
+  thanks: BAR_THANKS,
+  silent: BAR_SILENT,
+  flown: BAR_FLOWN,
+  playerLoss: BAR_PLAYER_LOSS,
+  friendly: BAR_FRIENDLY,
+  cold: BAR_COLD,
+  idle: BAR_NEUTRAL,
+};
+
+/** 1往復目の近況。`mourning` のときだけ戦死者名を差し込む。 */
+export function barOpeningLine(
+  personality: PersonalityId,
+  topic: BarTalkTopic,
+  seed: number,
+  fallenName?: string,
+): string {
+  if (topic === 'mourning') {
+    return pickAt(BAR_ABOUT_FALLEN, personality, seed).replace('{name}', fallenName ?? '彼');
+  }
+  return pickAt(OPENING_SETS[topic], personality, seed);
+}
+
+/** プレイヤーの返事を受けた相手の反応（2往復目の頭） */
+export function barResponseLine(personality: PersonalityId, kind: BarReplyKind, seed: number): string {
+  return pickAt(kind === 'warm' ? BAR_TO_WARM : BAR_TO_BLUNT, personality, seed);
+}
+
+/** 会話の締め（最後の返事を受けた1行） */
+export function barClosingLine(personality: PersonalityId, kind: BarReplyKind, seed: number): string {
+  return pickAt(kind === 'warm' ? BAR_CLOSE_WARM : BAR_CLOSE_BLUNT, personality, seed);
+}
+
+/**
+ * プレイヤー側の返事の文。
+ *
+ * 1往復目は話題に噛み合う言葉を出す（謝る／記録に留める など）。
+ * 2往復目は話題に依らない締めの2択。
+ */
+const REPLY_LABELS_1: Record<BarTalkTopic, Record<BarReplyKind, string>> = {
+  thanks: { warm: '当然だ。次も必ず行く。', blunt: '任務の範囲でやったことだ。' },
+  silent: { warm: '悪かった。届いていたのに、行けなかった。', blunt: 'あの時は、他を守る方が先だった。' },
+  flown: { warm: 'よく付いてきてくれた。助かった。', blunt: 'report は読んだ。以上だ。' },
+  playerLoss: { warm: '心配させたな。次はちゃんと帰る。', blunt: '機体は替えが来る。問題ない。' },
+  mourning: { warm: '名前は忘れない。俺も覚えている。', blunt: '悼むのは、任務が終わってからだ。' },
+  friendly: { warm: 'その話、もう少し聞かせてくれ。', blunt: '用件だけでいい。' },
+  cold: { warm: '言いたいことがあるなら、聞く。', blunt: '不満は報告書に書いてくれ。' },
+  idle: { warm: 'その話、もう少し聞かせてくれ。', blunt: '用件だけでいい。' },
+};
+
+const REPLY_LABELS_2: Record<BarReplyKind, string> = {
+  warm: 'もう一杯付き合う。',
+  blunt: 'そろそろ戻る。明日も飛ぶ。',
+};
+
+/** `round` は 1 が1往復目の返事、2 が2往復目の返事 */
+export function barReplyLabel(topic: BarTalkTopic, round: 1 | 2, kind: BarReplyKind): string {
+  return round === 1 ? REPLY_LABELS_1[topic][kind] : REPLY_LABELS_2[kind];
+}
+
 /** 戦況についての噂 (酒場で聞ける情報) */
 const RUMORS = [
   '補給が遅れているらしい。ミサイルの割り当てが減るという話だ。',

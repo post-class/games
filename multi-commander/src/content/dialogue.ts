@@ -1,7 +1,13 @@
 import { rng } from '../core/rng';
 import type { WingmanOrder } from '../world/entity';
-import type { AceStance } from './aces';
-import { ACES } from './aces';
+import type {
+  AceDefinition,
+  AceFleetMemory,
+  AceStance,
+  AceState,
+  DuelRefusal,
+} from './aces';
+import { aceAttitude, ACES } from './aces';
 import { VEIL_PEOPLE } from './veil/people';
 
 /**
@@ -171,6 +177,106 @@ export const CONTROL_PLAYER_DOWN = [
   '管制より。機体が消えた。救助艇を出す。',
   'こちら管制。応答しろ。……応答しろ！',
 ];
+
+// ───────── エースへの通信（T4-⑯） ─────────
+
+/**
+ * エース宛の通信の種類。
+ *
+ * ■ 既存の「挑発」（`PLAYER_TAUNT` / `ENEMY_ACK_TAUNT`）との役割分担
+ * 挑発は**名前を持たない敵**に向けた圧力で、内容は誰に言っても同じ・返事も定型。
+ * こちらは**名前を持つ相手**との交渉で、返事は人物データ（`AceVoice`）から引き、
+ * 結果が `AceState` に積まれる。したがって二つは並べず、
+ * 通信メニューでは「ターゲットがエースなら挑発の枠がエース通信に切り替わる」形で
+ * 排他にする（同じ操作に、意味の違う二つを並べない）。
+ */
+export type AceHailKind = 'name' | 'surrender' | 'duel';
+
+/** こちらから送る文面。相手を種族で貶めず、名と条件だけを言う。 */
+export const PLAYER_ACE_HAIL: Record<AceHailKind, readonly string[]> = {
+  name: [
+    'こちらの識別と名を送る。受け取れ。',
+    '名を名乗る。記録に残してくれ。',
+    '書式に合わせる。こちらの名を送信した。',
+  ],
+  surrender: [
+    '砲を下げろ。帰投線は空けておく。',
+    '降伏を勧める。座席は撃たない、約束する。',
+    'ここで終わりにしないか。帰る先があるだろう。',
+  ],
+  duel: [
+    '決闘を申し込む。こちらは一機で出る。',
+    '一対一で受けてもらいたい。誓約の書式で。',
+    '他は手を出さない。あなたと私だけで決めよう。',
+  ],
+};
+
+/** 決闘を断られた理由の一句。エースの口調のあとに足す。 */
+const DUEL_REFUSAL_CLAUSE: Record<DuelRefusal, string> = {
+  'no-challenge-rule': '我が家の誓約に決闘の項目は無い。',
+  'name-first': 'まず名だ。書式を飛ばす相手とは組まない。',
+  'too-many-wingmen': '一対一と言うなら、僚機を退かせてから言え。',
+  'low-oath': 'あなたの誓約は軽い。信用が足りない。',
+  'executed-pods': '座席を撃つ者と誓約は結べない。',
+};
+
+/** これまでのやりとりを1句で思い出す（積み上がりを声に出すため）。 */
+export function aceMemoryClause(state: AceState): string | undefined {
+  if ((state.duelsAccepted ?? 0) > 0) return '前の決闘は書式どおりだった。';
+  if ((state.duelsDeclined ?? 0) > 0) return '前は断った。今日はどうかな。';
+  if ((state.namesExchanged ?? 0) > 0) return 'あなたの名は記録にある。';
+  return undefined;
+}
+
+/** こちらからエースへ送る文面。 */
+export function playerAceHailLine(kind: AceHailKind): string {
+  return rng.pick(PLAYER_ACE_HAIL[kind]);
+}
+
+/** 名乗りへの返答。 */
+export function aceNameReplyLine(def: AceDefinition): string {
+  return def.voice.name;
+}
+
+/** 降伏勧告への返答。 */
+export function aceSurrenderReplyLine(def: AceDefinition): string {
+  return def.voice.surrender;
+}
+
+/** 決闘を受けたときの返答。 */
+export function aceDuelAcceptLine(def: AceDefinition): string {
+  return def.voice.duelAccept;
+}
+
+/** 決闘を断るときの返答。口調（人物）＋理由（共通の一句）で組む。 */
+export function aceDuelDeclineLine(def: AceDefinition, reason: DuelRefusal): string {
+  return `${def.voice.duelDecline} ${DUEL_REFUSAL_CLAUSE[reason]}`;
+}
+
+/**
+ * 再会時の第一声。
+ * 態度（`aceAttitude`）で本文を選び、積み上がったやりとりがあれば一句足す。
+ */
+export function aceGreetingLine(
+  def: AceDefinition,
+  state: AceState,
+  fleet: AceFleetMemory,
+): string {
+  const attitude = aceAttitude(state, fleet);
+  const voice = def.voice;
+  const base =
+    attitude === 'unmet'
+      ? voice.greetFirst
+      : attitude === 'debt'
+        ? voice.greetDebt
+        : attitude === 'grudge'
+          ? voice.greetGrudge
+          : attitude === 'wary'
+            ? voice.greetWary
+            : voice.greetKnown;
+  const clause = attitude === 'unmet' ? undefined : aceMemoryClause(state);
+  return clause ? `${base} ${clause}` : base;
+}
 
 /** 味方が敵を救ったときの反応。 */
 export const ALLY_RESCUE_ACK = [

@@ -310,9 +310,12 @@ describe('第7章 発砲禁止の搬送', () => {
     );
   });
 
-  it('発砲しても任務は失敗しない (必須目標は搬送と期限だけ)', () => {
+  it('発砲しても任務は失敗しない (必須は搬送・提出・期限だけで、発砲禁止は必須にしない)', () => {
+    // T3-C で「中継所へ書式を提出する」(recon) を必須に追加した。
+    // 発砲を数える目標 (weaponsSafe) と誤射・護衛系は必須に入れない、が要点。
     expect(VEIL_CH07.objectives.filter((o) => o.required).map((o) => o.spec.kind).sort()).toEqual(
-      ['reachNav', 'timeLimit'],
+      ['reachNav', 'recon', 'timeLimit'],
     );
+    expect(VEIL_CH07.objectives.find((o) => o.spec.kind === 'weaponsSafe')!.required).toBe(false);
   });
 });

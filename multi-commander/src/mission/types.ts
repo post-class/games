@@ -37,13 +37,32 @@ export type ObjectiveSpec =
   | { kind: 'reachNav'; navIndex: number }
   | { kind: 'survive'; seconds: number }
   /**
-   * タグの付いた対象すべてに接近して回収する (捜索救助)。
+   * タグの付いた対象すべてを**収容する**(捜索救助)。T4-⑮ で「操作」になった。
+   *
+   * 以前は「半径に入れば自動で回収」だったため、プレイヤーの操作が存在せず、
+   * 第1章では近づく手段が示されないまま自動で失敗していた。現在は
+   *
+   *   1. `radius` 以内へ寄る（表面間距離）
+   *   2. 相対速度を `relSpeed`（既定 60m/s）以下に落とす
+   *   3. その状態を `holdSeconds`（既定 3 秒）保つ
+   *
+   * を満たして初めて収容される。判定と既定値の出所は `src/sim/recovery.ts`。
+   * 保持中は減速して直進するしかないので無防備になり、僚機への掩護要請に意味が出る。
    *
    * `disabledOnly` を立てると、**戦闘不能になった対象だけ**が回収できる (第5章)。
    * 決闘中のラギティカにすれ違っただけで「回収」されてしまわないようにするための
    * 追加条件で、既定 (省略時) は従来どおり全対象が回収対象になる。
    */
-  | { kind: 'rescue'; tag: string; radius?: number; disabledOnly?: boolean }
+  | {
+      kind: 'rescue';
+      tag: string;
+      radius?: number;
+      disabledOnly?: boolean;
+      /** 収容に必要な保持秒数の上書き (既定 `RECOVERY_HOLD_SECONDS`) */
+      holdSeconds?: number;
+      /** 相対速度の上限の上書き (m/s。既定 `RECOVERY_REL_SPEED`) */
+      relSpeed?: number;
+    }
   /**
    * 偵察。対象を照準に収めたまま近距離を保つ。
    * 「撮影」なので撃つ必要はないが、逃げられると撮り直しになる。
@@ -163,6 +182,16 @@ export interface SpawnGroupDef {
    * 省略した群は従来どおり機体名 (`ShipDef.name`) が表示名になる。
    */
   displayName?: string;
+  /**
+   * 1機ずつの固有名 (T4-⑮)。`count` が2以上で、**個体に名前がある**群に使う
+   * （脱出ポッドの搭乗者名のように、収容した瞬間に読み上げる名前）。
+   *
+   * `displayName` と同じ経路（`spawnShip` の `label` → `displayNameOf()`）に乗るので、
+   * 名前の出所は増えない。i 番目の機体は `displayNames[i]` を使い、
+   * 足りない分と未宣言の群は従来どおり `displayName` → 機体名にフォールバックする。
+   * 人物名簿から採る名前は必ず `speakerName()` を通した文字列を渡すこと。
+   */
+  displayNames?: string[];
   /**
    * この群の出現で決闘の誓約が破れる (第5章の急進派)。
    * 出現した瞬間に決闘モードが解除され、決闘の当事者は
@@ -369,6 +398,32 @@ export interface MissionDef {
   openingRadio?: RadioLineDef[];
   debriefWin: string[];
   debriefLoss: string[];
+  /**
+   * 帰還者の読み上げ (T4-⑮ / 第10章)。
+   *
+   * README の「最終無線は勝者の名ではなく、艦と勢力を問わず帰ってきた者の名前を
+   * 読み上げて幕を閉じる。読み上げられる名前の数だけが、プレイヤーの戦績である」を
+   * データとして表したもの。宣言した Nav に到達したとき、`MissionRunner` が
+   *
+   *   累積で連れ帰った名前 (`Loadout.rescuedNames`) ＋ この出撃で収容した名前
+   *
+   * を**一人ずつ**無線に流す（重複は除く）。名前は `SpawnGroupDef.displayName` /
+   * `displayNames` 由来なので、読み上げ用の名簿をここに書かない。
+   * 宣言が無いミッションでは何も起きない。
+   */
+  rollCall?: {
+    /** この Nav へ到達したときに読み上げる */
+    navIndex: number;
+    /** 読み上げる者 */
+    speaker: string;
+    tone?: Tone;
+    /** 読み上げの前口上 */
+    intro?: string;
+    /** 一人も連れ帰っていないときの一言 */
+    empty?: string;
+    /** 1名ごとの間隔 (秒。既定 1.6) */
+    interval?: number;
+  };
 }
 
 /** ロードアウト (格納庫の選択画面から渡す) */
@@ -395,6 +450,15 @@ export interface Loadout {
    * その保険は不要になる（App 側は本タスクの変更対象外のため保険を残している）。
    */
   choices?: Record<string, string>;
+  /**
+   * これまでの出撃で連れ帰った者の名前 (T4-⑮)。累積。
+   *
+   * `MissionDef.rollCall` を宣言した章（第10章）の最終無線で読み上げる。
+   * 出所は各出撃の `MissionRunner.summary().rescuedNames` を保存データに積んだもので、
+   * 名前そのものは `SpawnGroupDef.displayName` / `displayNames` 由来。
+   * 未指定なら、この出撃で収容した分だけを読み上げる。
+   */
+  rescuedNames?: string[];
   /**
    * 同行する僚機。
    * 名簿から選ばれた人物の情報をそのまま渡す (未指定なら単独出撃)。

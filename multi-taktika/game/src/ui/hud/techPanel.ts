@@ -556,6 +556,15 @@ export class TechPanel {
   private readonly ctx: TechPanelContext;
   private readonly tabsEl: HTMLElement;
   private readonly gridEl: HTMLElement;
+  /**
+   * 「〜ので開けません」の注記。
+   *
+   * **時代の列と同じ入れ物に入れてはいけない。** `mt-tech-grid` は列を横に並べる
+   * flex なので、注記を中に入れると「黎明の世」の列のように見え、
+   * 幅 256px に折り返されて読みにくくなる（実機で確認）。
+   * 列の**上**に 1 行として出す。
+   */
+  private readonly emptyEl: HTMLElement;
   private readonly plateEl: HTMLElement;
   private readonly runningEl: HTMLElement;
   private tab: TechTabId = 'academy';
@@ -574,11 +583,13 @@ export class TechPanel {
     head.appendChild(close);
 
     this.tabsEl = el('div', 'mt-tech-tabs');
+    this.emptyEl = el('div', 'mt-tech-empty');
+    this.emptyEl.hidden = true;
     this.gridEl = el('div', 'mt-tech-grid');
     this.plateEl = el('div', 'mt-tech-plate', 'メダルを選ぶと効果と、それが効く場面が出ます。');
     this.runningEl = el('div', 'mt-tech-running', '');
 
-    this.root.append(head, this.tabsEl, this.gridEl, this.plateEl, this.runningEl);
+    this.root.append(head, this.tabsEl, this.emptyEl, this.gridEl, this.plateEl, this.runningEl);
     parent.appendChild(this.root);
   }
 
@@ -628,9 +639,9 @@ export class TechPanel {
     // ---- 2〜6 メダルと前提線 ----
     this.gridEl.textContent = '';
     const activeTab = model.tabs.find((t) => t.id === model.activeTab);
-    if (activeTab !== undefined && !activeTab.enabled) {
-      this.gridEl.appendChild(el('div', 'mt-tech-empty', `${activeTab.detail}ので開けません`));
-    }
+    const blocked = activeTab !== undefined && !activeTab.enabled;
+    this.emptyEl.hidden = !blocked;
+    this.emptyEl.textContent = blocked ? `${activeTab.detail}ので開けません` : '';
     for (let age = 0; age < model.columns.length; age++) {
       const list = model.columns[age] ?? [];
       if (list.length === 0) continue;

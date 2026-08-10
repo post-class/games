@@ -94,6 +94,15 @@ export interface AiLevelConfig {
    * 人間も「ある程度の採集人数を確保したら、次は進化の費用を貯める」順で遊ぶ。
    */
   readonly villagerBankFrom: number;
+  /**
+   * **2 つ目以降**の世のために取り置く割合（0〜1）。最初の世（黎明 → 青銅）は 1.0 固定。
+   *
+   * 最初の世を全額取り置くのは、青銅で兵種ツリーが枝分かれするから
+   * ―― ここに上がらないと文明の違いが盤に出ない。
+   * ただし全額のままにすると、鉄器（食料 800）を貯め終わるまで兵が 1 体も出ない
+   * （実測で 30 分・兵 0 体）。上がったあとは**半分だけ取り置いて並行**させる。
+   */
+  readonly ageReserveRatioAfterFirst: number;
 }
 
 /** `ai.json` を level 昇順に並べた表。 */
@@ -124,6 +133,7 @@ function buildLevels(): AiLevelConfig[] {
       villagerBuilderCount: int(a['villagerBuilderCount'], 2),
       villagerTarget: int(a['villagerTarget'], 18),
       villagerBankFrom: int(a['villagerBankFrom'], 12),
+      ageReserveRatioAfterFirst: num(a['ageReserveRatioAfterFirst'], 0.5),
     });
   }
   // level 昇順（`Object.keys` の順に依存しない。§0.3）。
@@ -201,6 +211,19 @@ export interface AiMemory {
   readonly nodeY: number[];
   /** 斥候を次に向かわせる方角の番号（要素 1 個。乱数を使わずに一周させる）。 */
   readonly scoutStep: number[];
+  /**
+   * 資源（`RESOURCE_IDS` の添字）ごとに、これまで何人を就かせたか。
+   * 「新しく必要になった資源に誰も就いていない」を判定するのに使う。
+   */
+  readonly assignedByResource: number[];
+  /**
+   * 最初の 1 隊を作り終えたか（要素 1 個。0 = まだ / 1 = 済み）。
+   *
+   * 「兵が 1 隊に届くまでは取り置きを無視して作る」という例外を、
+   * **一度だけ**にするために持つ。兵が死んで数が減るたびに例外が復活すると、
+   * 取り置きが永久に効かず世が上がらない（実測で食料が 318 で止まった）。
+   */
+  readonly firstSquadDone: number[];
   /** その index の兵を送り出したときの EntityId。0 = 未派遣。 */
   readonly dispatched: number[];
   /**
@@ -236,6 +259,8 @@ function createMemory(): AiMemory {
     nodeX: [],
     nodeY: [],
     scoutStep: [],
+    assignedByResource: [],
+    firstSquadDone: [],
     dispatched: [],
     released: [],
     dispatchX: [],

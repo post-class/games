@@ -498,8 +498,12 @@ describe('第5章の進行 (誓約が破れ、片翼を失い、救出できる)
     const player = world.player!;
     expect(runner.summary().enemyRescued).toBe(0);
 
-    player.pos.copy(ace.pos);
-    runner.update(0.5);
+    // T4-⑮: 接近しただけでは収容できない。相対速度を落として3秒保つ
+    for (let i = 0; i < 8; i++) {
+      player.pos.copy(ace.pos);
+      player.vel.copy(ace.vel);
+      runner.update(0.5);
+    }
 
     expect(runner.summary().enemyRescued).toBe(1);
     expect(runner.summary().rescued).toBe(1);

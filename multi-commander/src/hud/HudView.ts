@@ -36,6 +36,7 @@ import {
   type ScreenPoint,
   type ViewRect,
 } from './project';
+import { recoveryHudView, type RecoveryHudView } from './recoveryHud';
 import {
   buildObjectiveLines,
   formatTimeLeft,
@@ -190,6 +191,11 @@ export class HudView {
   private hitFaceLeft = 0;
   /** 通信遅延の表示 (第6章。遅延が無い作戦では常に非表示) */
   private commsDelayEl!: HTMLElement;
+  /** 収容 (T4-⑮) の進捗と条件。`recovery` イベントの間だけ出す */
+  private recoveryEl!: HTMLElement;
+  private recoveryBar!: HTMLElement;
+  private recoveryTitle!: HTMLElement;
+  private recoveryAdvice!: HTMLElement;
   private cockpit: HTMLElement;
   private chrome: HTMLElement[] = [];
   /** コクピット装飾 (風防・計器盤の筐体) が出ているか */
@@ -370,6 +376,45 @@ export class HudView {
     this.casualtyEl.style.textShadow = '0 0 12px #000, 0 0 26px rgba(255,60,60,0.6)';
     this.casualtyEl.style.display = 'none';
     this.hud.appendChild(this.casualtyEl);
+
+    // 収容の進捗と条件 (T4-⑮)。「何をすれば良いか」を必ず一緒に出す。
+    // 照準環 (50%) と被弾段階 (14%) を避けて、視界の下寄りに置く。
+    // CSS を増やさずに済むよう見た目はここで指定する
+    // (`src/styles/cockpit.css` は別作業で編集中のため、新しい規則を足さない)。
+    this.recoveryEl = el('div', 'mc-recovery');
+    this.recoveryEl.style.position = 'absolute';
+    this.recoveryEl.style.left = '50%';
+    this.recoveryEl.style.top = '62%';
+    this.recoveryEl.style.transform = 'translateX(-50%)';
+    this.recoveryEl.style.minWidth = '300px';
+    this.recoveryEl.style.padding = '4px 14px 6px';
+    this.recoveryEl.style.background = 'rgba(4,12,14,0.72)';
+    this.recoveryEl.style.border = '1px solid rgba(127,227,176,0.35)';
+    this.recoveryEl.style.textAlign = 'center';
+    this.recoveryEl.style.textShadow = '0 0 8px #000';
+    this.recoveryEl.style.pointerEvents = 'none';
+    this.recoveryEl.style.display = 'none';
+    this.recoveryTitle = el('div', 'mc-recovery-title');
+    this.recoveryTitle.style.fontSize = '17px';
+    this.recoveryTitle.style.fontWeight = '700';
+    this.recoveryTitle.style.letterSpacing = '0.08em';
+    this.recoveryAdvice = el('div', 'mc-recovery-advice');
+    this.recoveryAdvice.style.fontSize = '15px';
+    this.recoveryAdvice.style.letterSpacing = '0.06em';
+    this.recoveryAdvice.style.color = '#ffd9a0';
+    const recoveryTrack = el('div', 'mc-recovery-track');
+    recoveryTrack.style.marginTop = '4px';
+    recoveryTrack.style.height = '5px';
+    recoveryTrack.style.background = 'rgba(127,227,176,0.16)';
+    this.recoveryBar = el('div', 'mc-recovery-bar');
+    this.recoveryBar.style.height = '100%';
+    this.recoveryBar.style.width = '0%';
+    this.recoveryBar.style.background = 'var(--hud)';
+    recoveryTrack.appendChild(this.recoveryBar);
+    this.recoveryEl.appendChild(this.recoveryTitle);
+    this.recoveryEl.appendChild(this.recoveryAdvice);
+    this.recoveryEl.appendChild(recoveryTrack);
+    this.hud.appendChild(this.recoveryEl);
 
     // 外部視点で計器盤を隠した代わりに出す最小 HUD。
     // 情報を消すのではなく置き換える (速度・スロットル・ターゲット・目標)。
@@ -561,6 +606,32 @@ export class HudView {
     this.casualtyUntil = performance.now() + durationMs;
   }
 
+  /**
+   * 収容の表示 (T4-⑮)。`undefined` で消す。
+   *
+   * 文言と進捗の割合は `hud/recoveryHud.ts` が唯一の出所。
+   * ここでは色（保持中＝緑 / 条件未達＝橙）と幅を当てるだけにして、
+   * 表示から条件を逆算する経路を作らない。
+   */
+  showRecovery(view?: RecoveryHudView): void {
+    if (!view) {
+      this.recoveryEl.style.display = 'none';
+      this.recoveryBar.style.width = '0%';
+      return;
+    }
+    this.recoveryEl.style.display = '';
+    this.recoveryTitle.textContent = view.title;
+    this.recoveryAdvice.textContent = view.advice;
+    this.recoveryTitle.style.color = view.holding ? 'var(--hud)' : '#ffb066';
+    this.recoveryBar.style.background = view.holding ? 'var(--hud)' : '#ffb066';
+    this.recoveryBar.style.width = `${Math.round(clamp01(view.ratio) * 100)}%`;
+  }
+
+  /** 収容表示が出ているか (テスト・確認用) */
+  get recoveryVisible(): boolean {
+    return this.recoveryEl.style.display !== 'none';
+  }
+
   /** 被弾段階が進んだときの告知 (段階名 + どうするか)。 */
   showDamageStage(stage: DamageStage, durationMs = 2600): void {
     const label = damageStageLabel(stage);
@@ -589,6 +660,9 @@ export class HudView {
     this.pendingExplosions = [];
     this.playerFaction = undefined;
     this.speakingFaces = [];
+
+    // 収容表示は任務をまたいで残さない (T4-⑮)
+    this.showRecovery(undefined);
 
     this.objectivesBox.textContent = '';
     delete this.objectivesBox.dataset.sig;
@@ -700,6 +774,16 @@ export class HudView {
   }
 
   private subscribe(): void {
+    this.unsubs.push(
+      // 収容 (T4-⑮)。判定は MissionRunner が持ち、HUD は表示だけを受け持つ。
+      bus.on('recovery', (p) => {
+        if (!p.active || !p.view) {
+          this.showRecovery(undefined);
+          return;
+        }
+        this.showRecovery(recoveryHudView(p.view));
+      }),
+    );
     this.unsubs.push(
       bus.on('announce', (p) => {
         if (!p.text) return;

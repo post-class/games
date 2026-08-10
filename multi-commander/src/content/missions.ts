@@ -822,7 +822,8 @@ const M3B_SAR: MissionDef = {
   objectives: [
     {
       id: 'pods',
-      text: '脱出ポッドを回収',
+      // T4-⑮: 収容は操作になった（近づいて減速し数秒保つ）。目標文にも操作を書く
+      text: '脱出ポッドを収容（280m 以内で減速し3秒保つ）',
       required: true,
       spec: { kind: 'rescue', tag: 'pods', radius: 280 },
     },

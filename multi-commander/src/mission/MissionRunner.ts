@@ -29,7 +29,14 @@ import {
   recordCommsPositions,
   resetCommsDelay,
 } from '../sim/comms';
+import { isAcePodTag } from '../sim/eject';
 import { checkNavArrival, navByIndex } from '../sim/nav';
+import {
+  RecoveryHold,
+  recoveryConditions,
+  type RecoverySample,
+  type RecoveryStatus,
+} from '../sim/recovery';
 import {
   arrivalFormationStep,
   arrivalSpread,
@@ -118,6 +125,60 @@ export function displayNameOf(e: Entity): string {
 }
 
 /**
+ * 読み上げる帰還者の名簿 (T4-⑮)。
+ *
+ * 「読み上げられる名前の数だけが、プレイヤーの戦績である」（README）ので、
+ * 過去の出撃で連れ帰った者（累積）と、この出撃で収容した者を**この順**で並べ、
+ * 同じ名前は一度だけにする。名前を作らず、渡されたものを整えるだけ。
+ */
+/**
+ * 読み上げの無線行を組む (T4-⑮)。
+ *
+ * 一人ずつ、間隔を置いて読む（まとめて1行にしない）。
+ * 「読み上げられる名前の数だけが、プレイヤーの戦績である」ので、
+ * 名前が多ければ読み上げは長くなる。名前が無ければ、無いと言う。
+ */
+export function rollCallLines(
+  spec: NonNullable<MissionDef['rollCall']>,
+  names: readonly string[],
+): RadioLineDef[] {
+  const tone = spec.tone ?? 'command';
+  if (names.length === 0) {
+    return [
+      { speaker: spec.speaker, text: spec.empty ?? '読み上げる名前が、今日は無い。', tone },
+    ];
+  }
+  const lines: RadioLineDef[] = [];
+  if (spec.intro) lines.push({ speaker: spec.speaker, text: spec.intro, tone });
+  const interval = spec.interval ?? 1.6;
+  names.forEach((name, i) => {
+    lines.push({
+      speaker: spec.speaker,
+      text: `${name}。`,
+      tone,
+      // 最初の1行だけは前口上が無ければ即座に流す
+      after: i === 0 && !spec.intro ? undefined : interval,
+    });
+  });
+  return lines;
+}
+
+export function returneeRollCall(
+  carried: readonly string[] | undefined,
+  thisSortie: readonly string[],
+): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const name of [...(carried ?? []), ...thisSortie]) {
+    const trimmed = name?.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    out.push(trimmed);
+  }
+  return out;
+}
+
+/**
  * 目標文の前に付ける「得られるもの」(T1-①)。必須では空文字。
  *
  * 任意目標は `(任意)` ではなく、`reward` があれば加点として読める表記を前置する
@@ -158,6 +219,8 @@ const _reconTo = new Vector3();
 const _navCheck = new Vector3();
 /** 反射 Nav の近接判定用 (第9章。毎フレーム回るので確保しない) */
 const _reflectionCheck = new Vector3();
+/** 収容の相対速度の計算用 (T4-⑮) */
+const _relVel = new Vector3();
 
 interface PendingSpawn {
   group: SpawnGroupDef;
@@ -189,6 +252,8 @@ interface ObjectiveRuntime {
   watchIds: number[];
   /** rescue 用: 回収済みの対象 id */
   collected?: Set<number>;
+  /** rescue 用: 収容の保持状態 (T4-⑮)。対象ごとに「何秒保てているか」を持つ */
+  hold?: RecoveryHold;
   /** escortArrive 用: Nav へ到達させた対象 id (一度入れたら取り消さない) */
   arrived?: Set<number>;
   /** recon / holdTag 用: 条件を継続できている秒数 */
@@ -249,6 +314,26 @@ export class MissionRunner {
   private rescuedCount = 0;
   /** そのうち敵陣営だった数 (脱出ポッド・被弾艦の救難) */
   private enemyRescued = 0;
+  /**
+   * 連れ帰った者の名前 (T4-⑮)。宣言順ではなく**収容した順**に積む。
+   * 名前の出所は `SpawnGroupDef.displayName` / `displayNames`（`displayNameOf` 経由）だけ。
+   */
+  private rescuedNames: string[] = [];
+  /**
+   * 収容操作を受け付けない状態か (T4-⑮)。
+   *
+   * 発艦・着艦演出中と撃墜演出中は台本が機体を動かすので、
+   * その間に収容が始まってはいけない（`AI_CODING.md`「入力を受け付ける前提条件を明示する」）。
+   * 自機の喪失・脱出は `MissionRunner` 側で判定できるが、演出中かどうかは
+   * `game.ts` しか知らないため、ここへ**外から立てる**（既定 false = 従来どおり）。
+   */
+  recoverySuspended = false;
+  /** この更新で HUD に出す収容の状態 (rescue 目標をまたいで1件だけ選ぶ) */
+  private recoveryStatus?: RecoveryStatus;
+  /** 直前フレームで収容表示を出していたか (消す通知を1回だけにする) */
+  private recoveryShown = false;
+  /** 帰還者の読み上げ (第10章 rollCall) を流したか */
+  private rollCallDone = false;
   private objectives: ObjectiveRuntime[] = [];
   private pending: PendingSpawn[] = [];
   private radioQueue: Array<{ line: RadioLineDef; at: number }> = [];
@@ -368,6 +453,11 @@ export class MissionRunner {
     this.civilianLosses = 0;
     this.rescuedCount = 0;
     this.enemyRescued = 0;
+    this.rescuedNames = [];
+    this.recoverySuspended = false;
+    this.recoveryStatus = undefined;
+    this.recoveryShown = false;
+    this.rollCallDone = false;
     // 決闘規約は出撃ごとに必ず捨てる (宣言のあるミッションだけが作り直す)。
     // 重力井戸は spawnHazards() が同じ流儀で捨てる。
     resetDuel();
@@ -389,6 +479,7 @@ export class MissionRunner {
       state: 'active',
       watchIds: [],
       collected: d.spec.kind === 'rescue' ? new Set<number>() : undefined,
+      hold: d.spec.kind === 'rescue' ? new RecoveryHold() : undefined,
       arrived: d.spec.kind === 'escortArrive' ? new Set<number>() : undefined,
       progress: d.spec.kind === 'recon' || d.spec.kind === 'holdTag' ? 0 : undefined,
     }));
@@ -559,6 +650,11 @@ export class MissionRunner {
         if (p.target.kind !== 'ship') return;
         if (p.target.id === this.world.playerId) return;
         if (isHostile(this.playerFaction, p.target.faction)) return;
+        // 撃墜したエースの脱出ポッド (T4-⑯) は誤射に数えない。
+        // 座席を狙って撃つのは「味方と中立の識別を誤った」のではなく意図的な行為で、
+        // 宛先は「敵エースの誓約」(エース側が executed として記録する)。
+        // 通常の脱出ポッド・救難ポッドは接頭辞を持たないので従来どおり数える。
+        if (isAcePodTag(p.target.tag)) return;
         this.friendlyFireHits += 1;
       }),
       bus.on('shieldHit', (p) => {
@@ -603,10 +699,13 @@ export class MissionRunner {
         if (p.target.kind === 'ship') recordSwarmLoss(p.target.faction);
         // 民間損害。自陣営でも敵でもない艦 (中立・セレシオン・オルドなど) の喪失を数える。
         // 自陣営の損失は僚機・護衛の集計で別に扱う。
+        // エースの脱出ポッド (T4-⑯) は民間損害ではない。敵エースは民間人ではないので、
+        // 撃った結果は「敵エースの誓約」へ行く (航路信頼を動かさない)。
         if (
           p.target.kind === 'ship' &&
           p.target.faction !== this.playerFaction &&
-          !isHostile(this.playerFaction, p.target.faction)
+          !isHostile(this.playerFaction, p.target.faction) &&
+          !isAcePodTag(p.target.tag)
         ) {
           this.civilianLosses += 1;
         }
@@ -737,6 +836,10 @@ export class MissionRunner {
 
     this.trackWingman();
     this.evaluateObjectives();
+    // 収容の進捗と条件を HUD へ (T4-⑮)。目標評価の後に出すので、
+    // 表示は「いまの1フレームの判定結果」と必ず一致する。
+    this.flushRecoveryStatus();
+    this.updateRollCall();
     this.announceReturnInstruction();
   }
 
@@ -1382,13 +1485,17 @@ export class MissionRunner {
           ? kilrathiName(i + Math.floor(this.elapsed))
           : undefined;
 
+      // 個体名 → 群の固有名 の順で解決する (T4-⑮)。
+      // 脱出ポッドのように「1基ごとに搭乗者名がある」群だけが displayNames を宣言する。
+      const unitName = g.displayNames?.[i] ?? g.displayName;
+
       const e = spawnShip(world, {
         def,
         faction: g.faction,
         pos,
         // 宣言された固有名をそのまま機体のラベルにする (T1-①)。
         // 未宣言なら spawnShip が機体名を入れるので、既存の見え方は変わらない。
-        label: g.displayName,
+        label: unitName,
         quat,
         speed: g.speed ?? def.maxSpeed * 0.6,
         speedScale: isHostile(g.faction, 'confed') && this.difficulty.id === 'easy' ? 0.5 : 1,
@@ -1402,7 +1509,7 @@ export class MissionRunner {
         list.push(e.id);
         this.tagIndex.set(g.tag, list);
       }
-      if (g.displayName) this.declaredNames.set(e.id, g.displayName);
+      if (unitName) this.declaredNames.set(e.id, unitName);
       spawnedIds.push(e.id);
       // 決闘規約 (第5章)。宣言のあるエースだけが「測る側」になる。
       if (isAce && g.ace?.duel && player) {
@@ -1517,18 +1624,38 @@ export class MissionRunner {
   }
 
   /**
-   * 救助。対象に接近すれば回収したものとして扱う。
-   * 撃たれて失われた分は数に入らないので、放置すると達成できなくなる。
+   * 収容 (T4-⑮)。**接近しただけでは回収されない。**
+   *
+   * 「近づいて、速度を落として、数秒保つ」までがひとつの操作で、
+   * 保持中は減速して直進するしかないので無防備になる（僚機への掩護要請に意味が出る）。
+   * 判定の数値と減衰は `src/sim/recovery.ts` が唯一の出所で、ここでは
+   * ワールドから距離と相対速度を測って渡すだけにしてある。
+   *
+   * 撃たれて失われた分は数に入らないので、放置すると達成できなくなる（従来どおり）。
    */
   private evaluateRescue(
     o: ObjectiveRuntime,
-    spec: { tag: string; radius?: number; disabledOnly?: boolean },
+    spec: {
+      tag: string;
+      radius?: number;
+      disabledOnly?: boolean;
+      holdSeconds?: number;
+      relSpeed?: number;
+    },
   ): void {
     const tag = spec.tag;
-    const radius = spec.radius ?? 260;
+    const cond = recoveryConditions({
+      range: spec.radius,
+      holdSeconds: spec.holdSeconds,
+      relSpeed: spec.relSpeed,
+    });
     const ids = this.tagIndex.get(tag) ?? [];
     const player = this.world.player;
     const set = (o.collected ??= new Set<number>());
+    const hold = (o.hold ??= new RecoveryHold());
+
+    // 収容の候補。撃たれて失われた対象・すでに収容した対象は入らない。
+    const samples: RecoverySample[] = [];
     if (player) {
       for (const id of ids) {
         if (set.has(id)) continue;
@@ -1537,21 +1664,38 @@ export class MissionRunner {
         if (spec.disabledOnly && !this.disabledShipIds.has(id)) continue;
         const t = this.world.byId(id);
         if (!t) continue;
-        if (t.pos.distanceTo(player.pos) - t.radius > radius) continue;
-        set.add(id);
-        this.rescuedCount += 1;
-        // 敵陣営の脱出ポッド・被弾艦を拾った場合は別に数える (敵エースの誓約に効く)
-        if (isHostile(this.playerFaction, t.faction)) this.enemyRescued += 1;
-        bus.emit('announce', { text: `${t.label ?? '対象'} を回収`, kind: 'good', durationMs: 1800 });
-        bus.emit('radio', {
-          speaker: t.label ?? '救助信号',
-          text: '……感謝する。母艦まで誘導を頼む。',
-          tone: 'friendly',
+        samples.push({
+          id,
+          name: displayNameOf(t),
+          distance: t.pos.distanceTo(player.pos) - t.radius,
+          relSpeed: _relVel.copy(player.vel).sub(t.vel).length(),
         });
-        // 回収したら戦域から外す (以後は守る必要がない)
-        this.world.kill(t);
       }
     }
+    const result = hold.update(this.lastDt, samples, cond, this.recoveryBlocked);
+    for (const s of result.collected) {
+      const t = this.world.byId(s.id);
+      if (!t) continue;
+      set.add(s.id);
+      this.rescuedCount += 1;
+      this.rescuedNames.push(s.name);
+      // 敵陣営の脱出ポッド・被弾艦を拾った場合は別に数える (敵エースの誓約に効く)
+      if (isHostile(this.playerFaction, t.faction)) this.enemyRescued += 1;
+      // 収容した搭乗者の名前をその場で出す（デブリーフまで待たせない）
+      bus.emit('announce', { text: `${s.name} を収容`, kind: 'good', durationMs: 2600 });
+      bus.emit('radio', {
+        speaker: s.name,
+        text: '……感謝する。母艦まで誘導を頼む。',
+        tone: 'friendly',
+      });
+      // 収容したら戦域から外す (以後は守る必要がない)
+      this.world.kill(t);
+    }
+    // HUD へ出す1件を選ぶ。目標が複数あっても表示は1件だけ
+    if (result.status && (!this.recoveryStatus || result.status.progress > this.recoveryStatus.progress)) {
+      this.recoveryStatus = result.status;
+    }
+
     // 生存しているうちに回収できなかった対象は失われた。rescue は
     // 「対象すべて」を回収する目標なので、1つでも失えば任務失敗にする。
     let lost = 0;
@@ -1562,6 +1706,81 @@ export class MissionRunner {
     if (ids.length > 0 && set.size + lost >= ids.length) {
       o.state = lost === 0 && set.size === ids.length ? 'done' : 'failed';
     }
+  }
+
+  /**
+   * 収容を受け付けない状態か (T4-⑮)。
+   *
+   * - `recoverySuspended`: 発艦・着艦演出中／撃墜演出中（`game.ts` が立てる）
+   * - 自機が居ない・機体を失った・脱出した: ここで判定できるので外に頼らない
+   */
+  private get recoveryBlocked(): boolean {
+    if (this.recoverySuspended) return true;
+    const player = this.world.player;
+    if (!player?.ship) return true;
+    return player.ship.ejected || player.ship.hull <= 0;
+  }
+
+  /**
+   * 収容の状態を HUD へ流す (T4-⑮)。
+   *
+   * `game.ts` に配線を足さずに済むよう、イベント経由で HUD が購読する。
+   * 出す／消すの切り替えだけを見て、消す通知は1回に絞る。
+   */
+  private flushRecoveryStatus(): void {
+    const view = this.recoveryStatus;
+    this.recoveryStatus = undefined;
+    if (view) {
+      this.recoveryShown = true;
+      bus.emit('recovery', { active: true, view });
+      return;
+    }
+    if (this.recoveryShown) {
+      this.recoveryShown = false;
+      bus.emit('recovery', { active: false });
+    }
+  }
+
+  /**
+   * 帰還者の読み上げ (T4-⑮ / 第10章 `rollCall`)。
+   *
+   * 読み上げるのは**自分が連れ帰った者の名前**だけ。累積分は `Loadout.rescuedNames`
+   * （保存データ由来）で、この出撃の分は `this.rescuedNames`。名前の出所は
+   * どちらも `SpawnGroupDef.displayName` / `displayNames` なので、名簿を二重に持たない。
+   */
+  private updateRollCall(): void {
+    const spec = this.def.rollCall;
+    if (!spec || this.rollCallDone) return;
+
+    // ■ いつ開くか
+    // 読み上げの Nav（帰投）に**着いてから**流すと間に合わない。到達した瞬間に
+    // 必須目標が揃って任務が終わり、`update()` が止まって無線キューが流れないため。
+    // そこで「あとは帰るだけ」になった時点（`canDisengage`）で最終無線を開き、
+    // 帰投の航程の間に一人ずつ読み上げる。着いてから初めて条件が揃った場合は
+    // キューに乗せる余裕が無いので、その場で直接流す。
+    const nav = navByIndex(this.world, spec.navIndex);
+    const arrived = !!nav?.nav?.reached;
+    if (!arrived) {
+      // 「帰るだけ」であることに加えて、読み上げの Nav より手前の航路点を
+      // 全部踏んでいることを条件にする。これが無いと、出撃した瞬間に
+      // （必須が帰投しか無い作戦で）まだ誰も拾っていない名簿を読み始めてしまう。
+      if (!this.canDisengage) return;
+      const priorNavsDone = this.def.navs.every((n, i) => {
+        if (i >= spec.navIndex || n.reflection) return true;
+        return !!navByIndex(this.world, i)?.nav?.reached;
+      });
+      if (!priorNavsDone) return;
+    }
+    this.rollCallDone = true;
+
+    const lines = rollCallLines(spec, returneeRollCall(this.loadout.rescuedNames, this.rescuedNames));
+    if (arrived) {
+      for (const line of lines) {
+        bus.emit('radio', { speaker: line.speaker, text: line.text, tone: line.tone });
+      }
+      return;
+    }
+    this.queueRadio(lines, 1.2);
   }
 
   /**
@@ -1950,6 +2169,14 @@ export class MissionRunner {
     // ── 物語用の集計 (T4-2)。既存フィールドの意味は変えず、追加だけ行う ──
     /** rescue 目標で回収した対象の総数 */
     rescued: number;
+    /**
+     * 連れ帰った者の名前 (T4-⑮)。収容した順。
+     *
+     * 名前の出所は `SpawnGroupDef.displayName` / `displayNames`（`displayNameOf` 経由）だけ。
+     * `rescued` と同じ件数になる（数と名前が食い違わない）。
+     * デブリーフの「連れ帰った名前の一覧」と、第10章の最終無線の読み上げに使う。
+     */
+    rescuedNames: string[];
     /** 失った中立・非敵対勢力の艦船数 (民間損害) */
     civilianLosses: number;
     /** 自機の射撃が味方・非敵対に命中した回数 */
@@ -2007,6 +2234,7 @@ export class MissionRunner {
       ).length,
       escortSuccess: !this.escortLost,
       rescued: this.rescuedCount,
+      rescuedNames: [...this.rescuedNames],
       civilianLosses: this.civilianLosses,
       friendlyFireHits: this.friendlyFireHits,
       enemyRescued: this.enemyRescued,

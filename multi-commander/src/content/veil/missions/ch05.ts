@@ -247,8 +247,11 @@ export const VEIL_CH05: MissionDef = {
      */
     {
       id: 'ace',
-      text: '決闘の相手を生きたまま持ち帰る (任意: 脱出信号は出ない。接近して回収)',
+      // T4-⑮: 収容は操作になった。片翼を失って漂う相手の横に並走して 3 秒保つ
+      text: '決闘の相手を生きたまま持ち帰る (脱出信号は出ない。500m 以内で減速し3秒保つ)',
       required: false,
+      // 敵籍の回収は `summary().enemyRescued` になり、敵エースの誓約が +5 動く
+      reward: '＋敵エースの誓約',
       spec: { kind: 'rescue', tag: TAG.escort, radius: 500, disabledOnly: true },
     },
     /** 必須。記録を艦へ届けるための帰投。 */

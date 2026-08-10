@@ -377,6 +377,8 @@ export const VEIL_CH09: MissionDef = {
       id: 'ch09-verify',
       text: '幻影の僚機の無線を照合し、反射を特定する',
       required: false,
+      // 攻略には不要だが、未達のまま帰れば「未達成の条件」として軍令信用が下がる
+      reward: '＋軍令信用',
       spec: { kind: 'recon', tag: TAG.decoy, seconds: 4, range: 1600, coneDeg: 30 },
     },
   ],

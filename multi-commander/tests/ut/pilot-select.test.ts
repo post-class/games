@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installFakeDom, type FakeDom, type FakeElement } from './fake-dom';
 import { PROTAGONISTS } from '../../src/content/veil/people';
-import { PilotSelectScene } from '../../src/ui/PilotSelectScene';
+import { PilotSelectScene, protagonistDisplayName } from '../../src/ui/PilotSelectScene';
 
 describe('主人公選択画面 (T7-1)', () => {
   let dom: FakeDom;
@@ -37,7 +37,9 @@ describe('主人公選択画面 (T7-1)', () => {
 
     const text = dom.text(root);
     for (const person of PROTAGONISTS) {
-      expect(text).toContain(person.name);
+      // 表記は speakerName() に統一したので、名簿の生の `name`（括弧つき）ではなく
+      // 表示名で照合する（T3-⑬-3）
+      expect(text).toContain(protagonistDisplayName(person));
       expect(text).toContain(person.epithet);
       expect(text).toContain(person.role);
       expect(text).toContain(person.achievement);

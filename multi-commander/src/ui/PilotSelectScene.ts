@@ -1,4 +1,5 @@
 import { COMBAT_GRADES, PROTAGONISTS, type VeilPerson } from '../content/veil/people';
+import { speakerName } from '../content/veil/missions/shared';
 import type { PortraitSpec } from '../content/pilots';
 import { portraitFace } from './Portrait';
 
@@ -36,6 +37,39 @@ export interface PilotSelectOptions {
 
 /** 画面下部に出すと操作が伝わるヒント文 */
 export const PILOT_SELECT_HINT = '←→ で選択 / Enter で決定 / クリックでも選べます';
+
+/**
+ * 名簿の表記を1つに揃える（T3-⑬）。
+ *
+ * `people.ts` の `name` は `朝倉 澪（アサクラ ミオ）` と
+ * `Amina Okafor（アミナ・オカフォー）` の2形式が混在している。そのまま並べると
+ * 同じ画面に英字と漢字が混ざるので、**必ず `speakerName()` を通す**
+ * （無線・ブリーフィングと同じ出所。ここで括弧の剥がし方を再実装しない）。
+ */
+export function protagonistDisplayName(person: VeilPerson): string {
+  try {
+    return speakerName(person.id);
+  } catch {
+    // 名簿に無い人物を `people` オプションで差し込まれても画面を壊さない
+    return person.name;
+  }
+}
+
+/**
+ * 「選ぶと何が変わるのか」（T3-⑬-3）。
+ *
+ * コードを追った結果、`save.protagonistId` は
+ * **ブリーフィングの搭乗者表示に出るだけ**で、技量・初期機体・僚機・敵の強さ・
+ * 難易度には一切影響しない。ここで盛って書くと「表示だけ変えて実挙動が
+ * 変わらない」状態になるため、変わるものと変わらないものを分けて明示する。
+ */
+export const PROTAGONIST_EFFECTS = {
+  changes: [
+    'ブリーフィングの「搭乗」に出る名前と二つ名',
+    '記録に残る主人公（セーブに保存され、以後の戦役で変わらない）',
+  ],
+  unchanged: ['技量・機体性能', '初期機体（格納庫で4機から選べる）', '僚機の顔ぶれ', '敵の強さ・難易度'],
+} as const;
 
 export class PilotSelectScene {
   readonly el: HTMLElement;
@@ -120,7 +154,7 @@ export class PilotSelectScene {
 
     const name = document.createElement('div');
     name.className = 'mc-pilot-name';
-    name.textContent = person.name;
+    name.textContent = protagonistDisplayName(person);
     card.appendChild(name);
 
     const epithet = document.createElement('div');
@@ -167,11 +201,17 @@ export class PilotSelectScene {
     this.detailEl.textContent = '';
     const head = document.createElement('div');
     head.className = 'mc-pilot-detail-head';
-    head.textContent = `${person.name} “${person.epithet}” ／ ${COMBAT_GRADES[person.grade].label} ${COMBAT_GRADES[person.grade].title} ／ ${person.role}`;
+    head.textContent = `${protagonistDisplayName(person)} “${person.epithet}” ／ ${COMBAT_GRADES[person.grade].label} ${COMBAT_GRADES[person.grade].title} ／ ${person.role}`;
     const body = document.createElement('div');
     body.className = 'mc-pilot-detail-body';
     body.textContent = `${person.achievement}（${COMBAT_GRADES[person.grade].desc}）`;
-    this.detailEl.append(head, body);
+    // 「選ぶと何が変わるのか」を明示する。盛らずに、実際に変わるものだけを書く。
+    const effects = document.createElement('div');
+    effects.className = 'mc-pilot-detail-effects';
+    effects.textContent =
+      `この選択で変わる: ${PROTAGONIST_EFFECTS.changes.join(' / ')}　` +
+      `｜　変わらない: ${PROTAGONIST_EFFECTS.unchanged.join(' / ')}`;
+    this.detailEl.append(head, body, effects);
   }
 
   private move(delta: number): void {

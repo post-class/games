@@ -63,6 +63,18 @@ export interface DuelRules {
   spareHullRatio: number;
   /** 相手の癖を測るために保つ距離 (m) */
   measureRange: number;
+  /**
+   * 決闘中、砲門を閉じる陣営 (T4-⑯)。
+   *
+   * `AceOathRules.noThirdPartyFire`「決闘中は決闘の当事者以外へ砲撃しない」を
+   * **AI の狙い方として** 実装するための指定。この陣営の機体は、
+   * 決闘の当事者 (`duellistId`) を除いて `opponentId` を目標に選ばず、撃たない。
+   * 誓約が破られた (`breakDuel`) 時点で無効になり、全機が通常の交戦へ戻る。
+   *
+   * **技量・攻撃力・出現数には触れない。** 変わるのは「誰を狙うか」だけ。
+   * 未指定なら従来どおり（第三者も撃つ）。
+   */
+  standDownFaction?: Faction;
 }
 
 interface DuelState {
@@ -88,12 +100,14 @@ export function configureDuel(r: {
   opponentId: number;
   spareHullRatio?: number;
   measureRange?: number;
+  standDownFaction?: Faction;
 }): void {
   duel.rules = {
     duellistId: r.duellistId,
     opponentId: r.opponentId,
     spareHullRatio: Math.min(0.95, Math.max(0, r.spareHullRatio ?? 0.35)),
     measureRange: Math.max(120, r.measureRange ?? 900),
+    standDownFaction: r.standDownFaction,
   };
   duel.broken = false;
   duel.breakerIds.clear();
@@ -127,6 +141,33 @@ export function duelState(): Readonly<{
 /** e から見て f が「誓約を破った側」か (射線の味方判定から外す) */
 function isDuelBreaker(e: Entity, f: Entity): boolean {
   return duel.broken && duel.rules?.duellistId === e.id && duel.breakerIds.has(f.id);
+}
+
+/**
+ * e は決闘中、目標 `targetId` に手を出してはいけない立場か (T4-⑯)。
+ *
+ * 「決闘の当事者以外は撃たない」を、狙う相手の選択と発砲判定の2箇所で効かせる。
+ * 決闘の宣言が無い / `standDownFaction` 未指定 / 誓約が破られた場合は常に false
+ * なので、既存ミッションの挙動は変わらない。
+ */
+export function duelStandDown(e: Entity, targetId: number | undefined): boolean {
+  const rules = duel.rules;
+  if (!rules || duel.broken || rules.standDownFaction === undefined) return false;
+  if (targetId === undefined || targetId !== rules.opponentId) return false;
+  if (e.id === rules.duellistId) return false;
+  return e.faction === rules.standDownFaction;
+}
+
+/**
+ * 脱出ポッドは狙わない。
+ *
+ * `sim/eject.ts` は「脱出したポッドは中立扱いで、敵はもう狙わない」を
+ * 陣営の付け替えで実現していたが、T4-⑯ で **敵エースの脱出ポッド** を
+ * 撃つ／撃たないの選択にしたため、陣営に依らない規則として明示する。
+ * 味方の AI が勝手に座席を撃ってしまうと、プレイヤーの選択が成立しない。
+ */
+function isEscapePod(t: Entity): boolean {
+  return t.ship?.ejected === true;
 }
 
 // ───────── 学習する群体 (第6章 T6-6) ─────────
@@ -534,14 +575,20 @@ function pickTarget(
   if (ai.order === 'attack-my-target') {
     const leader = world.byId(ai.leaderId);
     const lt = world.byId(leader?.ship?.targetId);
-    if (lt && isHostile(e.faction, lt.faction)) {
+    if (lt && isHostile(e.faction, lt.faction) && !isEscapePod(lt) && !duelStandDown(e, lt.id)) {
       ai.targetId = lt.id;
       return lt;
     }
   }
 
   // 現在の目標が有効なら継続 (毎フレーム乗り換えると挙動が落ち着かない)
-  if (current && current.kind === 'ship' && isHostile(e.faction, current.faction)) {
+  if (
+    current &&
+    current.kind === 'ship' &&
+    isHostile(e.faction, current.faction) &&
+    !isEscapePod(current) &&
+    !duelStandDown(e, current.id)
+  ) {
     const d = current.pos.distanceTo(e.pos);
     if (d < ENGAGE_RANGE * 1.4) {
       if (current.id !== world.playerId) return current;
@@ -555,6 +602,8 @@ function pickTarget(
   for (const t of world.entities) {
     if (!t.alive || t.kind !== 'ship' || !t.ship || t.id === e.id) continue;
     if (!isHostile(e.faction, t.faction)) continue;
+    // 脱出ポッドと、決闘中の当事者以外が触れてはいけない相手は候補に入れない
+    if (isEscapePod(t) || duelStandDown(e, t.id)) continue;
     const d = t.pos.distanceTo(e.pos);
     if (d > ENGAGE_RANGE) continue;
     if (t.id === world.playerId && attackersOnPlayer >= attackerLimit) continue;
@@ -567,7 +616,15 @@ function pickTarget(
       best = t;
     }
   }
-  if (!best && current && isHostile(e.faction, current.faction)) return current;
+  if (
+    !best &&
+    current &&
+    isHostile(e.faction, current.faction) &&
+    !isEscapePod(current) &&
+    !duelStandDown(e, current.id)
+  ) {
+    return current;
+  }
   ai.targetId = best?.id;
   if (!best) ai.engagedFor = 0;
   return best;
@@ -901,6 +958,8 @@ function tryFireGuns(world: World, e: Entity, target: Entity, distance: number):
   const ai = e.ai!;
   const ship = e.ship!;
   const input = e.input!;
+  // 決闘中は当事者以外が撃たない。座席（脱出ポッド）も撃たない。
+  if (isEscapePod(target) || duelStandDown(e, target.id)) return 0;
   const { speed, range } = gunProfile(e);
   leadPoint(e.pos, target.pos, target.vel, speed, _lead);
   _lead.add(aimJitter(e, world, distance, _tmp));

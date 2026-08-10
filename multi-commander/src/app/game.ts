@@ -1,18 +1,39 @@
-import { Vector3 } from 'three';
+import { Quaternion, Vector3 } from 'three';
 import { audio } from '../audio/AudioManager';
 import { CombatAudio } from '../audio/CombatAudio';
 import { bus } from '../core/events';
 import { forwardOf } from '../core/math';
 import { FIXED_DT, Loop } from '../core/loop';
 import {
+  aceDuelAcceptLine,
+  aceDuelDeclineLine,
+  aceGreetingLine,
+  aceNameReplyLine,
+  aceSurrenderReplyLine,
+  allyRescueAckLine,
   controlEscortLostLine,
   controlPlayerDownLine,
   controlWingmanLostLine,
   enemyTauntReply,
   escortDamageLine,
+  playerAceHailLine,
   playerTaunt,
   wingmanAck,
 } from '../content/dialogue';
+import {
+  aceDef,
+  aceFleetMemory,
+  aceIdForPilot,
+  aceState,
+  evaluateDuelRequest,
+  recordAceDuel,
+  recordAceNameExchange,
+  recordAcePodExecuted,
+  recordAcePodSpared,
+  recordAceSurrenderOffer,
+  type AceState,
+} from '../content/aces';
+import type { ShipDef } from '../content/ships';
 import {
   mournLine,
   wingmanArmorLine,
@@ -37,18 +58,19 @@ import { CombatVfx } from '../render/CombatVfx';
 import { RenderSync } from '../render/RenderSync';
 import { Landmarks } from '../render/Landmarks';
 import { SceneSetup } from '../render/SceneSetup';
-import { setWingmanOrder } from '../sim/ai';
+import { configureDuel, newAi, setWingmanOrder } from '../sim/ai';
 import { setCombatOptions } from '../sim/combat';
-import { canEject, eject } from '../sim/eject';
+import { ACE_POD_TAG_PREFIX, canEject, eject } from '../sim/eject';
 import { commsAvailable, hasDamage } from '../sim/subsystems';
 import { canAutopilot, nextNav, updateAutopilot } from '../sim/nav';
 import { simulateStep, snapshotForRender } from '../sim/step';
 import { targetFront, targetNearest, targetNext } from '../sim/targeting';
 import { cycleMissile, dropFlare, fireMissile } from '../sim/weapons';
 import type { Entity, WingmanOrder } from '../world/entity';
-import { World } from '../world/world';
+import { spawnShip, World } from '../world/world';
 import { DeckSequence } from './DeckSequence';
-import { CommsMenu, type CommsAction } from '../ui/CommsMenu';
+import { CommsMenu, type AceCommsKind, type CommsAction } from '../ui/CommsMenu';
+import { loadSave } from './save';
 import { Tutorial, type TutorialMode } from '../ui/Tutorial';
 import { InputManager } from './input';
 import { difficulty, settings } from './settings';
@@ -102,6 +124,83 @@ export function endDelayFor(
  */
 export function hudObjectiveViews(views: readonly ObjectiveView[]): ObjectiveView[] {
   return views.map((v) => ({ ...v }));
+}
+
+/*
+ * エースの脱出ポッドの tag 接頭辞。
+ *
+ * 定義は `sim/eject.ts`（ポッドを作る側）に置き、ここは再輸出だけにする。
+ * 同じ文字列を2箇所に書くと、`MissionRunner` の誤射・民間損害の除外判定
+ * （`isAcePodTag`）と、ここのポッド生成がずれても気付けない。
+ */
+export { ACE_POD_TAG_PREFIX } from '../sim/eject';
+
+/** 脱出ポッドの tag からエースidを取り出す（ポッドでなければ undefined）。 */
+export function aceIdFromPodTag(tag: string | undefined): string | undefined {
+  if (!tag || !tag.startsWith(ACE_POD_TAG_PREFIX)) return undefined;
+  return tag.slice(ACE_POD_TAG_PREFIX.length) || undefined;
+}
+
+/**
+ * 撃墜したエースの脱出ポッドを置く（T4-⑯）。
+ *
+ * ■ なぜ「撃てるもの」として出すのか
+ * 「撃たない」を選択にするには、撃てる的が実際に空域に残っていなければならない。
+ * そこで機体と同じ `ship` エンティティとして出し、`sim/eject.ts` の
+ * プレイヤー用ポッドと同じ扱い（中立・武装なし・機動なし・小さい）に落とす。
+ * - 中立なので **敵は撃たない**
+ * - `ship.ejected = true` にしてあるので、`sim/ai.ts` の規則で **味方の AI も撃たない**
+ * - `sim/targeting.ts` は敵対勢力しか選ばないので **ロックもできない**
+ *   （撃つには手動で狙う必要がある = 事故で撃つことがない）
+ *
+ * つまり「撃つ」は必ずプレイヤーの意思になる。
+ */
+export function spawnAcePod(
+  world: World,
+  o: { aceId: string; pilot: string; def: ShipDef; pos: Vector3; quat: Quaternion; vel: Vector3 },
+): Entity {
+  const e = spawnShip(world, {
+    def: o.def,
+    faction: 'neutral',
+    pos: o.pos,
+    quat: o.quat,
+    speed: 0,
+    label: `脱出ポッド (${o.pilot})`,
+    tag: `${ACE_POD_TAG_PREFIX}${o.aceId}`,
+    pilot: o.pilot,
+    // 推力を入れない。`cruiseTo` を現在地にしておくと `doCruise` が
+    // 「到着済み」と判断してスロットルを 0 にするので、ポッドは漂うだけになる。
+    ai: newAi(0, { passive: true, mode: 'idle', cruiseTo: o.pos.clone() }),
+  });
+  const ship = e.ship!;
+  ship.ejected = true;
+  ship.missiles = [];
+  ship.flares = 0;
+  ship.energy = 0;
+  ship.shield = { front: 0, rear: 0 };
+  ship.armor = { front: 0, rear: 0, left: 0, right: 0 };
+  ship.hull = 24;
+  ship.subsystems = undefined;
+  e.radius = Math.max(3, o.def.radius * 0.25);
+  // 撃墜された機体の勢いを少しだけ引き継いで漂う
+  e.vel.copy(o.vel).multiplyScalar(0.3);
+  return e;
+}
+
+/**
+ * 「敵エースの誓約」を保存データから読む。
+ *
+ * `Loadout` にも `narrative.ts` にも手を入れずに値を得るための経路。
+ * 読めないとき（訓練出撃・保存なし・テスト環境）は中庸の 50 を返すので、
+ * 誓約値が理由で決闘を断られることはない。
+ */
+export function readAceOath(): number {
+  try {
+    const oath = loadSave()?.narrative?.aceOath;
+    return typeof oath === 'number' && Number.isFinite(oath) ? oath : 50;
+  } catch {
+    return 50;
+  }
 }
 
 /** 画面中央に出す告知の種類。 */
@@ -230,6 +329,38 @@ export class Game {
   private wingmanStages = new Map<number, DamageStage>();
   /** 護衛対象ごとの被弾段階 (対象の列挙と名前は MissionRunner が唯一の出所) */
   private escortStages = new Map<number, DamageStage>();
+  /**
+   * 出撃中のロードアウト。`aceStates`（章をまたぐ宿敵の記録）を読み書きするために保持する。
+   * `MissionRunner` が持つものと**同じ配列の参照**なので、両方の記録が同じ状態へ入る。
+   */
+  private loadout?: Loadout;
+  /**
+   * 「敵エースの誓約」0..100。決闘の申し込みを受けてもらえるかの判定に使う。
+   *
+   * `narrative.ts` / `App.ts` は別担当のため、`Loadout` に足さず
+   * 保存データから直接読む（`MissionRunner` が `choices` で使っているのと同じ方法）。
+   */
+  aceOath = 50;
+  /** この出撃で名を交換したエースid。決闘の書式（名の交換）の判定に使う */
+  private acesNamed = new Set<string>();
+  /** この出撃で第一声を流したエースid。再会の挨拶は1回だけ */
+  private acesGreeted = new Set<string>();
+  /** 空域に残っているエースの脱出ポッド (entity id → エースid) */
+  private acePods = new Map<number, string>();
+  /** 次の固定ステップで出すポッド（`destroyed` の最中に entity を増やさない） */
+  private pendingAcePods: Array<{
+    aceId: string;
+    pilot: string;
+    def: ShipDef;
+    pos: Vector3;
+    quat: Quaternion;
+    vel: Vector3;
+  }> = [];
+  /**
+   * 成立している決闘の相手（エースid）。無ければ undefined。
+   * HUD へ「決闘中」を出したい場合はこの値を読めばよい（HUD 側は別担当のため触っていない）。
+   */
+  duelAceId?: string;
   /** 自機撃墜の余韻。`locked` の間は入力を受け付けない */
   private readonly death = new DeathHold();
   /** 撃墜された自機。カメラを爆発へ向けるために参照を保つ */
@@ -276,6 +407,11 @@ export class Game {
         if (p.target.kind === 'ship') this.replay.mark(`${p.target.ship?.pilot ?? p.target.label ?? '機体'} 撃墜`);
       }),
       bus.on('destroyed', (p) => this.onCasualty(p.target)),
+      // 宿敵の脱出ポッド (T4-⑯)。撃墜されたエースの座席を出し、撃たれたかを記録する
+      bus.on('destroyed', (p) => this.onAceDestroyed(p.target)),
+      bus.on('destroyed', (p) => this.onAcePodDestroyed(p.target, p.killedByPlayer)),
+      // 空域に残ったポッドは「撃たなかった」として確定させる
+      bus.on('missionEnded', () => this.settleAcePods()),
       bus.on('missionEnded', (p) => {
         if (this.activePlaytest) {
           this.playtestLog.complete(this.activePlaytest);
@@ -453,6 +589,207 @@ export class Game {
     return this.death.locked;
   }
 
+  // ───────── 宿敵との関係 (T4-⑯) ─────────
+
+  /** 章をまたぐ宿敵の記録。訓練出撃では空配列。 */
+  private get aceStates(): AceState[] {
+    return this.loadout?.aceStates ?? [];
+  }
+
+  /** その機体がエースなら、記録と定義をまとめて返す。 */
+  private aceOf(e: Entity | undefined) {
+    if (!e?.ship?.ace || !e.ship.pilot) return undefined;
+    const id = aceIdForPilot(e.ship.pilot);
+    const def = id ? aceDef(id) : undefined;
+    if (!def) return undefined;
+    return { def, state: aceState(this.aceStates, def.id) };
+  }
+
+  /** 生存している自機の僚機の数（決闘が一対一かの判定に使う）。 */
+  private wingmanCount(): number {
+    const playerId = this.world.playerId;
+    return this.world.entities.filter((e) => e.alive && this.isWingman(e, playerId)).length;
+  }
+
+  /**
+   * 再会の第一声（T4-⑯ ④）。
+   *
+   * 交戦距離に入ったところで1回だけ流す。文面は
+   * 「初対面 / 逃げられた / 座席を残した / 誰かの座席を撃った」で変わる。
+   * ここでは記録を**書き換えない**（遭遇の記録は `MissionRunner` が唯一の出所）。
+   */
+  private updateAceGreetings(): void {
+    const player = this.world.player;
+    if (!player) return;
+    const states = this.aceStates;
+    if (states.length === 0) return;
+    const fleet = aceFleetMemory(states);
+    for (const e of this.world.entities) {
+      if (!e.alive || e.kind !== 'ship' || !e.ship?.ace || e.ship.ejected) continue;
+      const ace = this.aceOf(e);
+      if (!ace?.state || this.acesGreeted.has(ace.def.id)) continue;
+      if (e.pos.distanceToSquared(player.pos) > 7000 * 7000) continue;
+      this.acesGreeted.add(ace.def.id);
+      bus.emit('radio', {
+        speaker: e.ship.pilot ?? ace.def.pilot,
+        text: aceGreetingLine(ace.def, ace.state, fleet),
+        tone: 'enemy',
+      });
+    }
+  }
+
+  /** エースが落ちたら、次のステップで脱出ポッドを出す。 */
+  private onAceDestroyed(target: Entity): void {
+    if (!this.active || target.kind !== 'ship' || !target.ship) return;
+    // 座席が無い機体（輸送艦・艦艇）からは出ない
+    if (target.ship.def.role !== 'fighter' && target.ship.def.role !== 'bomber') return;
+    if (target.ship.ejected) return;
+    const ace = this.aceOf(target);
+    if (!ace?.state) return;
+    this.pendingAcePods.push({
+      aceId: ace.def.id,
+      pilot: target.ship.pilot ?? ace.def.pilot,
+      def: target.ship.def,
+      pos: target.pos.clone(),
+      quat: target.quat.clone(),
+      vel: target.vel.clone(),
+    });
+  }
+
+  /** 溜めておいたポッドを空域へ出す（entity 配列を走査中に増やさないため遅延させている）。 */
+  private flushAcePods(): void {
+    if (this.pendingAcePods.length === 0) return;
+    const pending = this.pendingAcePods;
+    this.pendingAcePods = [];
+    for (const p of pending) {
+      const pod = spawnAcePod(this.world, p);
+      this.acePods.set(pod.id, p.aceId);
+      bus.emit('announce', {
+        text: `${p.pilot} 脱出 — 座席は撃たなくてよい`,
+        kind: 'info',
+        durationMs: 3200,
+      });
+      bus.emit('radio', {
+        speaker: '管制',
+        text: '脱出ポッドを確認。撃つ必要はない。判断は任せる。',
+        tone: 'command',
+      });
+    }
+  }
+
+  /** ポッドが撃たれた。プレイヤーが撃ったときだけ「撃った」として記録する。 */
+  private onAcePodDestroyed(target: Entity, killedByPlayer: boolean): void {
+    const aceId = this.acePods.get(target.id);
+    if (aceId === undefined) return;
+    this.acePods.delete(target.id);
+    if (!killedByPlayer) return;
+    const state = aceState(this.aceStates, aceId);
+    if (!state) return;
+    recordAcePodExecuted(state, this.runner?.def?.id);
+    bus.emit('announce', { text: '脱出ポッドを撃墜 — 記録に残る', kind: 'bad', durationMs: 3200 });
+  }
+
+  /**
+   * 出撃終了時に、残っているポッドを「撃たなかった」として確定させる。
+   * 見逃した相手は回収されて、次の章でまた出てくる（`recordAcePodSpared`）。
+   */
+  private settleAcePods(): void {
+    if (this.acePods.size === 0) return;
+    const missionId = this.runner?.def?.id;
+    let spared = 0;
+    for (const [entityId, aceId] of this.acePods) {
+      const pod = this.world.entities.find((e) => e.id === entityId);
+      if (!pod?.alive) continue;
+      const state = aceState(this.aceStates, aceId);
+      if (!state) continue;
+      recordAcePodSpared(state, missionId);
+      spared++;
+    }
+    this.acePods.clear();
+    if (spared > 0) {
+      bus.emit('radio', { speaker: '管制', text: allyRescueAckLine(), tone: 'command' });
+    }
+  }
+
+  /** エース宛の通信（名乗る／降伏を勧める／決闘を申し込む）。 */
+  private sendAceComms(kind: AceCommsKind): void {
+    const player = this.world.player;
+    if (!player) return;
+    const target = this.world.byId(player.ship?.targetId);
+    const ace = this.aceOf(target);
+    if (!target || !ace) {
+      bus.emit('announce', { text: 'エースを選択していない', kind: 'warn' });
+      return;
+    }
+    const speaker = target.ship?.pilot ?? ace.def.pilot;
+    const missionId = this.runner?.def?.id;
+    bus.emit('radio', { speaker: '自機', text: playerAceHailLine(kind), tone: 'friendly' });
+
+    if (kind === 'name') {
+      this.acesNamed.add(ace.def.id);
+      if (ace.state) recordAceNameExchange(ace.state, missionId);
+      bus.emit('radio', { speaker, text: aceNameReplyLine(ace.def), tone: 'enemy' });
+      return;
+    }
+    if (kind === 'surrender') {
+      if (ace.state) recordAceSurrenderOffer(ace.state, missionId);
+      bus.emit('radio', { speaker, text: aceSurrenderReplyLine(ace.def), tone: 'enemy' });
+      // 降伏を勧められた側は、士気が折れかけていれば離脱へ寄る（撃墜以外の道を残す）
+      if (target.ai && target.ai.morale < 0.5) {
+        target.ai.morale = Math.max(0, target.ai.morale - 0.25);
+      }
+      return;
+    }
+
+    // 決闘の申し込み
+    const verdict = evaluateDuelRequest({
+      def: ace.def,
+      state: ace.state,
+      oath: this.aceOath,
+      wingmen: this.wingmanCount(),
+      namedThisSortie: this.acesNamed.has(ace.def.id),
+      fleet: aceFleetMemory(this.aceStates),
+    });
+    if (ace.state) recordAceDuel(ace.state, verdict.accepted, missionId);
+    if (!verdict.accepted) {
+      bus.emit('radio', {
+        speaker,
+        text: aceDuelDeclineLine(ace.def, verdict.reason!),
+        tone: 'enemy',
+      });
+      bus.emit('announce', { text: '決闘は成立しなかった', kind: 'warn', durationMs: 2600 });
+      return;
+    }
+    this.duelAceId = ace.def.id;
+    // AI の狙い方を差し替える。技量・攻撃力・出現数は変えない。
+    configureDuel({
+      duellistId: target.id,
+      opponentId: player.id,
+      spareHullRatio: 0.12,
+      measureRange: 700,
+      standDownFaction: target.faction,
+    });
+    if (target.ai) {
+      target.ai.targetId = player.id;
+      target.ai.order = undefined;
+    }
+    if (target.ship) target.ship.targetId = player.id;
+    bus.emit('radio', { speaker, text: aceDuelAcceptLine(ace.def), tone: 'enemy' });
+    bus.emit('announce', {
+      text: `決闘成立 — ${speaker} と一対一`,
+      kind: 'good',
+      durationMs: 3200,
+    });
+  }
+
+  /** 通信メニューに「エース宛」を出すかどうかを毎フレーム更新する。 */
+  private updateAceCommsTarget(): void {
+    const player = this.world.player;
+    const target = this.world.byId(player?.ship?.targetId);
+    const ace = this.aceOf(target);
+    this.comms.setAceTarget(ace ? target!.ship!.pilot ?? ace.def.pilot : undefined);
+  }
+
   /**
    * 被弾を段階で伝える (T1-②)。
    *
@@ -546,6 +883,14 @@ export class Game {
     });
     this.runner = new MissionRunner(this.world, def, loadout, difficulty(), this.activePlaytest);
     this.replay.reset();
+    // 宿敵との関係 (T4-⑯)。記録は Loadout と同じ配列を共有する
+    this.loadout = loadout;
+    this.acesNamed.clear();
+    this.acesGreeted.clear();
+    this.acePods.clear();
+    this.pendingAcePods.length = 0;
+    this.duelAceId = undefined;
+    this.aceOath = readAceOath();
     this.runner.build();
 
     this.endedOutcome = undefined;
@@ -592,6 +937,14 @@ export class Game {
   }
 
   endMission(): void {
+    // ワールドを捨てる前に、残っているポッドを「撃たなかった」として確定させる
+    this.settleAcePods();
+    this.pendingAcePods.length = 0;
+    this.acesNamed.clear();
+    this.acesGreeted.clear();
+    this.duelAceId = undefined;
+    this.loadout = undefined;
+    this.comms.setAceTarget(undefined);
     this.death.reset();
     this.deathEntity = undefined;
     this.wingmanStages.clear();
@@ -625,6 +978,18 @@ export class Game {
     this.activePlaytest?.recordInputLatency(this.input.drainPlaytestLatency());
     // 撃墜の余韻。終了処理より先に減らすので、終了待ちの間も間が保たれる
     this.death.tick(dt);
+
+    /*
+     * 収容 (T4-⑮) を止めてよい状況を Runner へ伝える。
+     *
+     * 収容は「低速でポッドに近づいたら自動的に始まる」設計なのでキー入力を持たない。
+     * そのぶん、機体を操れない間に勝手に拾ってしまわないよう、
+     * 演出中（発艦・着艦）と撃墜の余韻、任務終了後はここで抑止する。
+     * この3つは Game しか知らないので、判定を Runner に持たせず外から渡す。
+     */
+    if (this.runner) {
+      this.runner.recoverySuspended = this.deck.active || this.inputLocked || !!this.endedOutcome;
+    }
 
     // ミッション終了後の余韻。演出だけ進めて入力は受け付けない
     if (this.endedOutcome) {
@@ -706,6 +1071,9 @@ export class Game {
     });
     this.runner?.update(dt);
     this.replay.record(this.world, this.input, dt);
+    // 宿敵の脱出ポッドは、撃墜処理が終わったここで空域へ出す
+    this.flushAcePods();
+    this.updateAceGreetings();
     this.updateDamageStages();
     this.updateDamagedReturn(dt);
     this.updateHazardWarning(dt);
@@ -843,6 +1211,9 @@ export class Game {
   // ───────── 描画 ─────────
 
   private renderStep(dtReal: number, alpha: number): void {
+    // 通信メニューの項目は「いま何を狙っているか」で入れ替わる (T4-⑯)。
+    // 入力を処理する前に更新しないと、開いた瞬間の 6 番が1フレーム古くなる。
+    if (this.active) this.updateAceCommsTarget();
     if (this.active) this.handleActions();
     else this.input.consumeActions();
 
@@ -1111,6 +1482,10 @@ export class Game {
         text: wingmanAck(a.order),
         tone: 'friendly',
       });
+      return;
+    }
+    if (a.kind === 'ace') {
+      this.sendAceComms(a.ace);
       return;
     }
     if (a.kind === 'taunt') {

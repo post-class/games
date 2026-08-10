@@ -56,17 +56,31 @@ describe('AI の内政（15 分の実測）', () => {
     expect(kinds['gather'] ?? 0).toBeGreaterThan(5);
   });
 
-  it('石材と金が増える（採集先が 4 資源に散っている）', () => {
-    // 直った前は開始値（石材 100 / 金 50）から 30 分間 1 も動かなかった。
-    // どちらかが開始値を超えていれば「4 資源に散っている」ことは示せる
-    // （もう一方はその時点で使われている可能性がある）。
-    let grew = 0;
+  it('食料と木材が回る（「いま必要な資源」に人が就いている）', () => {
+    // ■ このテストの意図を一度変えている
+    // 元は「石材と金が開始値から増える」ことを見ていた（採集先が 4 資源に散っている
+    // ことの確認）。その後、**4 資源に均等に散らすのをやめた** ―― 黎明の世では
+    // 石材と金の使い道が無く、実測で石材 800・金 599 が使われずに余る一方、
+    // 青銅の世に必要な食料 500 に 25 分かかっていた。余る資源に人を置くのは、
+    // その人ぶんの食料を捨てているのと同じ。
+    // いまは `gatherTargets`（次の世が要求する資源＋食料＋木材）だけに就かせる。
+    //
+    // だからここで見るのは「石材と金が増えるか」ではなく
+    // **「食料と木材が回っているか」**（農地を建て続けられているか）。
     for (const p of [0, 1]) {
       const res = world.players[p]!.resources;
-      if (fxToInt(res[stone]!) > 100) grew++;
-      if (fxToInt(res[gold]!) > 50) grew++;
+      const wood = RESOURCE_IDS.indexOf('wood');
+      const food = RESOURCE_IDS.indexOf('food');
+      // 家（木材）と農地（木材 60）を建て続けているので、木材は 0 に張り付かない
+      expect(
+        fxToInt(res[wood]!) + fxToInt(res[food]!),
+        `P${p} の食料と木材が両方とも枯れている = 採集が回っていない`,
+      ).toBeGreaterThan(0);
     }
-    expect(grew, '石材も金も開始値から動いていない = 採集先が偏っている').toBeGreaterThan(0);
+    // 石材と金は**黎明の世では意図的に採らない**（使い道が無い）。
+    // 開始値のままであることを確かめて、意図どおりだと分かるようにする。
+    expect(fxToInt(world.players[0]!.resources[stone]!)).toBeGreaterThanOrEqual(100);
+    expect(fxToInt(world.players[0]!.resources[gold]!)).toBeGreaterThanOrEqual(50);
   });
 
   it('村人が育つ（兵に食料を取られて数体で止まらない）', () => {

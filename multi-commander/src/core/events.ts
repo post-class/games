@@ -1,6 +1,7 @@
 import type { Vector3 } from 'three';
 import type { DestructionReason } from './destruction';
 import type { Entity } from '../world/entity';
+import type { RecoveryStatus } from '../sim/recovery';
 
 /** ゲーム内で飛び交うイベント。描画・音・HUD はここを購読して疎結合に反応する。 */
 export interface GameEvents {
@@ -117,6 +118,15 @@ export interface GameEvents {
     state: 'damaged' | 'dead';
     isPlayer: boolean;
   };
+  /**
+   * 収容（脱出ポッドを自分の手で拾う操作）の状態 (T4-⑮)。
+   *
+   * HUD が「距離・相対速度・保持秒」の条件と進捗を出すための唯一の経路。
+   * `active: false` のときは HUD から表示を消す（`view` は入らない）。
+   * 判定は `MissionRunner` が持ち、HUD はここを購読するだけなので、
+   * `game.ts` に配線を足さずに表示できる。
+   */
+  recovery: { active: boolean; view?: RecoveryStatus };
   /** ミッション終了 */
   missionEnded: { outcome: 'win' | 'loss' };
 }

@@ -545,6 +545,22 @@ export interface SortieFacts {
   objectivesFailed: number;
   /** 達成度の3段階（`MissionGrade` と同じ語） */
   grade: 'complete' | 'partial' | 'failed';
+  /**
+   * この出撃で、撃墜した敵エースの脱出ポッドを**撃たずに残した**回数 (T4-⑯)。
+   *
+   * 誤射（`friendlyFireHits`）とは別に持つ。座席を撃つ／撃たないは識別ミスではなく
+   * 意図的な選択で、宛先は「敵エースの誓約」だけである（民間損害にも数えない）。
+   *
+   * **任意フィールドである理由**: エースが出ない出撃・訓練・旧セーブでは値が存在しない。
+   * `normalizeFacts` が 0 に丸めるので、呼び出し側は知らなくてよい。
+   */
+  acePodsSpared?: number;
+  /** この出撃で、敵エースの脱出ポッドを**撃った**回数 (T4-⑯) */
+  acePodsExecuted?: number;
+  /** この出撃で、敵エースと名を交換した回数 (T4-⑯) */
+  aceNamesExchanged?: number;
+  /** この出撃で決闘が成立した回数 (T4-⑯)。不成立は罰しないので数えない */
+  aceDuelsAccepted?: number;
 }
 
 /** 4状態の並び順（デブリーフの表示順）。 */
@@ -688,11 +704,32 @@ export function sortieNarrative(facts: SortieFacts): SortieNarrativeResult {
   if (f.wingmenLost > 0) command.add(-Math.min(8, f.wingmenLost * 4), `僚機 ${f.wingmenLost}名を失った`);
   if (f.playerLost) command.add(-5, '機体喪失');
 
-  // ── 敵エースの誓約（救難優先と誤射）──
+  // ── 敵エースの誓約（救難優先と誤射、そして座席の扱い）──
   const oath = new LineBuilder();
   if (f.enemyRescued > 0) oath.add(Math.min(10, f.enemyRescued * 5), `敵側の救難 ${f.enemyRescued}件`);
   if (f.rescued > 0) oath.add(2, '救難を優先した');
   if (f.friendlyFireHits > 0) oath.add(-Math.min(6, f.friendlyFireHits * 2), `誤射 ${f.friendlyFireHits}発`);
+  /*
+   * 座席の扱い (T4-⑯)。README の「決闘規約の尊重、救難優先」／
+   * 「撃墜後の侮辱、降伏者の放置」がここに当たる。
+   *
+   * 撃った側を助けた側より重くしている（1件 -8 に対し、助けたのは 1件 +5）。
+   * 誓約は「守るのは難しく、破るのは一度で足りる」性質のものなので、
+   * **単項目としてはこれが最も重い**。
+   *
+   * ただし「1件撃てば必ず負になる」わけではない。合計は `SORTIE_TRUST_CAP` で
+   * ±12 にクランプされる前に素の和を取るので、同じ出撃で救難を積み上げれば正で終わりうる。
+   * そこを特例で負に固定することはしない —— 表示（内訳の各行）と適用値が食い違うのを避けるため。
+   * 内訳には `脱出ポッドを撃った N件 -8` がそのまま並ぶので、プレイヤーは何が起きたか読める。
+   */
+  const spared = f.acePodsSpared ?? 0;
+  const executed = f.acePodsExecuted ?? 0;
+  const named = f.aceNamesExchanged ?? 0;
+  const duels = f.aceDuelsAccepted ?? 0;
+  if (spared > 0) oath.add(Math.min(10, spared * 5), `脱出した敵を撃たなかった ${spared}件`);
+  if (executed > 0) oath.add(-Math.min(SORTIE_TRUST_CAP, executed * 8), `脱出ポッドを撃った ${executed}件`);
+  if (named > 0) oath.add(Math.min(4, named * 2), `名を交わした ${named}件`);
+  if (duels > 0) oath.add(Math.min(6, duels * 3), `決闘の規約に応じた ${duels}件`);
 
   const lines: NarrativeLine[] = [];
   for (const [key, builder, cap] of [
@@ -735,6 +772,10 @@ function normalizeFacts(raw: SortieFacts): SortieFacts {
     playerLost: !!raw?.playerLost,
     objectivesFailed: count(raw?.objectivesFailed),
     grade: raw?.grade === 'complete' || raw?.grade === 'partial' ? raw.grade : 'failed',
+    acePodsSpared: count(raw?.acePodsSpared),
+    acePodsExecuted: count(raw?.acePodsExecuted),
+    aceNamesExchanged: count(raw?.aceNamesExchanged),
+    aceDuelsAccepted: count(raw?.aceDuelsAccepted),
   };
 }
 

@@ -99,6 +99,10 @@ export const VEIL_CH02: MissionDef = {
   ],
   spawns: [
     // 帰還者3名。八十三年前の船から戻ってきた漂流者
+    // TODO(T4-⑮): 収容時に読み上げる搭乗者名を `displayNames` で宣言したいが、
+    //   八十三年前に失われた人物は `people.ts`（現役名簿）に居ない。
+    //   ここで文字列を書くと**名前の出所が2系統になる**ので、
+    //   名簿側に失踪者の項目が入るまでは機体名（脱出ポッド）にフォールバックさせる。
     {
       shipId: 'escape-pod',
       count: 3,
@@ -145,7 +149,8 @@ export const VEIL_CH02: MissionDef = {
     // 必須①: 章の主目標。漂流者3名の回収。1名でも失うと失敗（rescue の既定挙動）
     {
       id: 'drifters',
-      text: '漂流者3名を回収する（誤射ゼロで連れ帰る）',
+      // T4-⑮: 収容は操作になった。半径に入るだけでは拾えない
+      text: '漂流者3名を収容する（300m 以内で減速し3秒保つ／誤射ゼロで連れ帰る）',
       required: true,
       spec: { kind: 'rescue', tag: TAG.rescue, radius: 300 },
     },
@@ -165,6 +170,8 @@ export const VEIL_CH02: MissionDef = {
       id: 'decoys',
       text: '偽装信号を返す無人機を排除する（撃墜数では評価しない）',
       required: false,
+      // 撃墜数では評価しないが、未達のまま帰れば「未達成の条件」として軍令信用が下がる
+      reward: '＋軍令信用',
       spec: { kind: 'destroyTag', tag: TAG.decoy },
     },
     // 必須③: 帰投。回収した3名を母艦へ連れ帰るまでが任務

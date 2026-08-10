@@ -80,11 +80,13 @@ describe('出撃結果の物語用集計 (T4-2)', () => {
     run(world, runner, 0.2);
     expect(runner.summary().rescued).toBe(0);
 
-    // 対象へ順に接近して回収する
-    for (const tag of ['pods']) {
-      for (const target of world.entities.filter((e) => e.tag === tag && e.alive)) {
+    // 対象へ順に寄せて収容する。
+    // T4-⑮: 接近しただけでは拾えない。相対速度を落として3秒保つ必要がある
+    for (const target of world.entities.filter((e) => e.tag === 'pods' && e.alive)) {
+      for (let i = 0; i < 4; i++) {
         world.player!.pos.copy(target.pos);
-        runner.update(DT);
+        world.player!.vel.copy(target.vel);
+        runner.update(1);
       }
     }
     const s = runner.summary();

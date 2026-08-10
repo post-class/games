@@ -46,6 +46,16 @@ const ARC = veilPerson('ordo-01');
 /** 契約船の空気（19時間）を出撃1回の尺に落としたもの。数値の調整は T6-4 の重力井戸と併せて行う */
 const AIR_SECONDS = 420;
 
+/**
+ * 契約船の乗員3名（T4-⑮）。収容した瞬間に名前を読み上げる。
+ * 名前は人物名簿から `speakerName()` で採るので、ここで文字列を二重定義しない。
+ */
+const CREW_OCCUPANTS = [
+  speakerName('confed-16'),
+  speakerName('confed-17'),
+  speakerName('confed-18'),
+];
+
 export const VEIL_CH04: MissionDef = {
   id: 'veil-ch04',
   title: `第4章 ${veilChapter(4).title}`,
@@ -163,7 +173,15 @@ export const VEIL_CH04: MissionDef = {
     },
   ],
   spawns: [
-    // 縫い止められた連邦の契約船。無傷なので撃たれてはいないが、動けない（speed 0）
+    // 縫い止められた連邦の契約船。無傷なので撃たれてはいないが、自力の推進は死んでいる（speed 0）。
+    //
+    // `cruiseToNav: 3`（帰投）は「牽引索を掛けたあとの動き」である（T3-C）。
+    // この群は **自機が拘束点（NAV 2）へ着いた瞬間に出現する** ので、
+    // オマルの無線「爆弾じゃなく牽引索で開ける、俺に合わせろ」と同じ時点から
+    // 母艦方向へ曳かれ始める。最高速 90 kps しか出ないため、
+    // 空気の 420 秒で連れ帰るには自機が一緒に動く（オートパイロットの
+    // `AUTOPILOT_ESCORT_RANGE` 圏内に置いたまま跳ぶ）必要がある。
+    // 撃って解放するわけではないので「境界を撃った」記録は付かない。
     {
       shipId: 'drayman',
       count: 1,
@@ -173,6 +191,7 @@ export const VEIL_CH04: MissionDef = {
       displayName: '連邦契約船',
       offset: [0, 0, -400],
       speed: 0,
+      cruiseToNav: 3,
     },
     // 契約船の乗員。船外へ出た3名を拾う
     {
@@ -185,6 +204,7 @@ export const VEIL_CH04: MissionDef = {
       spread: 900,
       tag: TAG.rescue,
       speed: 6,
+      displayNames: CREW_OCCUPANTS,
       radio: [
         { speaker: CONTROL, text: '乗員の信号、3つ。船外に出ている。', tone: 'command' },
       ],
@@ -230,6 +250,26 @@ export const VEIL_CH04: MissionDef = {
   ],
   objectives: [
     /**
+     * 必須。契約船を連れ帰る（T3-C）。
+     *
+     * ここが**この章の勝利条件**である。以前は必須の達成目標が
+     * `reachNav`（帰投）だけだったため、拘束された船を置いたまま
+     * 飛んで戻れば「任務達成」になっていた。第1章・第3章と同じ
+     * `escortArrive` を置き、「止められている船を母艦まで持ち帰った」ことを
+     * 達成条件にする（`protect` は沈めないという**制約**なので勝利条件に数えられない）。
+     *
+     * 到達先は帰投 Nav（index 3）。契約船は牽引で動く 90 kps の船なので、
+     * 自機がオートパイロットの護衛圏（`AUTOPILOT_ESCORT_RANGE`）に入れたまま
+     * 一緒に戻るのが正解手順になる。置いてくれば `air` の 420 秒に間に合わない。
+     * min は既定（出現した全数＝1隻）。
+     */
+    {
+      id: 'contract-home',
+      text: '拘束された連邦契約船を牽引し、母艦まで連れ帰る',
+      required: true,
+      spec: { kind: 'escortArrive', tag: TAG.escort, navIndex: 3 },
+    },
+    /**
      * 必須。帰投そのものが目標になる（往復の燃料が許すのは1回だけ）。
      * 交戦目標を必須にしないのは、この戦場に敵対勢力がいないため。
      */
@@ -252,8 +292,11 @@ export const VEIL_CH04: MissionDef = {
      */
     {
       id: 'crew',
-      text: '契約船の乗員3名を回収 (証拠回収と両立しない)',
+      // T4-⑮: 収容は操作になった（300m 以内で減速し3秒保つ）
+      text: '契約船の乗員3名を収容 (300m 以内で減速し3秒保つ／証拠回収と両立しない)',
       required: false,
+      // 回収数はそのまま `summary().rescued` → 帰還者（1名で1名分）になる
+      reward: '＋帰還者3',
       spec: { kind: 'rescue', tag: TAG.rescue, radius: 300 },
     },
     /**
@@ -265,6 +308,9 @@ export const VEIL_CH04: MissionDef = {
       id: 'survey',
       text: '採掘停止の記録を読み取る (乗員救助と両立しない)',
       required: false,
+      // 未達のまま帰ると「未達成の条件」として軍令信用が下がり、
+      // 全目標を達成すれば任務達成（complete）として上がる
+      reward: '＋軍令信用',
       spec: { kind: 'recon', tag: TAG.survey, seconds: 8, range: 1300, coneDeg: 22 },
     },
     /**
@@ -272,7 +318,14 @@ export const VEIL_CH04: MissionDef = {
      * オルドは撃ってこないので通常は成立するが、こちらの誤射で沈めば失われる。
      * 必須にしないのは、誤射の判定を任務失敗に直結させないため（誤射評価は T6-2 の担当）。
      */
-    { id: 'ship', text: '契約船を無傷で残す', required: false, spec: { kind: 'protect', tag: TAG.escort } },
+    {
+      id: 'ship',
+      text: '契約船を無傷で残す',
+      required: false,
+      // 護衛対象の生存／喪失はそのまま航路信頼に効く（全生存 +3 / 喪失 -3）
+      reward: '＋航路信頼',
+      spec: { kind: 'protect', tag: TAG.escort },
+    },
   ],
   openingRadio: [
     { speaker: CONTROL, text: '重力アンカーは兵器ではない。境界標だ。撃てば協定違反になる。', tone: 'command' },

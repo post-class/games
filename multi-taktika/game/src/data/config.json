@@ -632,7 +632,9 @@
     "shallowFringeChance": 0.7,
     "defileWallThickness": 3,
     "defileGapTiles": 6,
-    "islandClearTiles": 16
+    "islandClearTiles": 16,
+    "aiShipMinWaterRatio": 0.05,
+    "aiShipMinWaterRatioNote": "AI が船を作る価値があると見なす水域の割合の下限。maps.json の waterRatio と比べる。平野 0.02 / 内海や列島はこれより大きい。資料に規定は無く、07§13「平野は港と船はほぼ不要」から決めた値（docs/ISSUES.md）"
   },
   "pathfind": {
     "note": "経路探索（手順書 §6.10 / T-M3-07）。8×8 マスのセクタ粗経路 → セクタ内 A* の 2 段構成。資料に数値なし・初期値。",

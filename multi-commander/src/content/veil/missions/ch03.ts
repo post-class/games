@@ -233,6 +233,9 @@ export const VEIL_CH03: MissionDef = {
       id: 'weapons-cold',
       text: '武器管制を停止したまま回廊を抜ける（撃てば共鳴パルスが止まる）',
       required: false,
+      // 一発も撃たずに完了すると航路信頼が上がる（`shotsFired === 0` の加点）。
+      // アウルの要求そのものなので、加点の宛先も航路（中立回廊）側になる
+      reward: '＋航路信頼',
       spec: { kind: 'weaponsSafe' },
     },
     // 任意②: 撃つ道を選んだ場合の始末。撃たずに譲る解を潰さないよう required にしない
@@ -240,6 +243,7 @@ export const VEIL_CH03: MissionDef = {
       id: 'patrol',
       text: '（撃つ場合）帝国哨戒機を排除する — 撃たずに進路を譲ってもよい',
       required: false,
+      reward: '＋軍令信用',
       spec: { kind: 'destroyTag', tag: TAG.target },
     },
     // 必須④: 帰投
