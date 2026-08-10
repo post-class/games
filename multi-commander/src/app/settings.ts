@@ -1,5 +1,6 @@
 import type { FlightMode } from '../sim/flight';
 import {
+  setMusicAssignment,
   isMusicChoice,
   isMusicCue,
   type MusicChoice,
@@ -521,6 +522,15 @@ function normalizeSettings(): void {
     }
   }
   settings.musicAssignment = assignment;
+  /*
+   * 正規化した割り当てを音楽側へ流す。
+   *
+   * ここで流すのは、`loadSettings` / `updateSettings` / `resetSettings` の
+   * すべてが `normalizeSettings()` を通るため。画面側 (App) で購読すると
+   * 「設定を変えたのに曲が変わらない」経路を作りかねない。
+   * `musicCues` は `settings` を import しないので、依存の向きは一方通行のまま。
+   */
+  setMusicAssignment(assignment);
   // ───── W5-B: 効果音 ─────
   const sfx = cloneSfx(DEFAULT_SFX);
   const rawSfx = settings.sfx as unknown;

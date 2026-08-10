@@ -1411,10 +1411,27 @@ export class Game {
         case 'comms3':
         case 'comms4':
         case 'comms5':
-        case 'comms6':
-          this.comms.pickIndex(Number(a.slice(5)) - 1);
-          this.input.commsMode = this.comms.open;
+        case 'comms6': {
+          const index = Number(a.slice(5)) - 1;
+          if (this.comms.open) {
+            this.comms.pickIndex(index);
+            this.input.commsMode = this.comms.open;
+            break;
+          }
+          /*
+           * Alt 系ショートカット (W7-6)。
+           * メニューを開かずに僚機命令を出す。数字キー経路と同じ action を受けるので、
+           * 命令の実処理 (`onCommsPick`) は 1 か所のまま。
+           * エースへの通信 (6番) は「相手を選んで開いてから」の操作なので対象にしない。
+           */
+          if (index > 4) break;
+          if (!commsAvailable(player?.ship)) {
+            bus.emit('announce', { text: '通信機が故障している', kind: 'bad' });
+            break;
+          }
+          this.comms.invokeBaseItem(index);
           break;
+        }
         case 'mouseToggle':
           this.tutorial.noteAction(a);
           this.input.mouseFlight = !this.input.mouseFlight;

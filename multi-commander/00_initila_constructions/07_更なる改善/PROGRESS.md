@@ -10,21 +10,21 @@
 | 単位 | 内容 | 状態 | 主な変更先 |
 |---|---|---|---|
 | W1 | 発艦初速を 10 にする | **完了** | `world.ts` / `MissionRunner.ts` / `DeckSequence.ts` |
-| W2 | Easy の味方接触ダメージ 0 | settings/配線 済 → sim 作業中 | `settings.ts` / `combat.ts` / `game.ts` |
+| W2 | Easy の味方接触ダメージ 0 | **完了** | `settings.ts` / `combat.ts` / `game.ts` |
 | W3 | 風防のガラス化 | **完了** | `render/Cockpit.ts` |
-| W4 | 設定「表示」タブ | settings 済 → 描画側 作業中 / UI 未 | `settings.ts` / `Cockpit.ts` / `SettingsPanel.ts` / `game.ts` |
-| W5-A | 場面別 BGM 選択 | musicCues / MusicDirector 完了 → UI・App 未 | `musicCues.ts` / `MusicDirector.ts` / `App.ts` |
-| W5-B | 効果音の音源・音量 | settings 済 → AudioManager 作業中 | `AudioManager.ts` / `settings.ts` |
+| W4 | 設定「表示」タブ | **完了** | `settings.ts` / `Cockpit.ts` / `SettingsPanel.ts` / `game.ts` |
+| W5-A | 場面別 BGM 選択 | **完了** | `musicCues.ts` / `MusicDirector.ts` / `settings.ts` / `SettingsPanel.ts` / `App.ts` |
+| W5-B | 効果音の音源・音量 | **完了** | `AudioManager.ts` / `settings.ts` / `sfxPreview.ts` |
 | W6 | 章・ミッション番号の表示 | **完了** | `campaign.ts` / `App.ts` / `ui.css` |
-| W7-1 | 用語「速度設定」統一 | settings/TutorialDemo表 済 → 残り作業中 | `Tutorial.ts` / `TutorialDemo.ts` / `HudView.ts` |
-| W7-2 | 速度設定キーを `+` `-` へ | settings 済 → input 作業中 | `settings.ts` / `input.ts` |
-| W7-3 | `L` 手動ミサイルロック | settings 済 → 実装中 | `weapons.ts` / `input.ts` / `game.ts` |
-| W7-4 | `;` 目標速度同期 | settings 済 → 実装中 | `flight.ts` / `input.ts` / `game.ts` |
-| W7-5 | `I` 照準下ターゲット | settings 済 → sim 作業中 | `targeting.ts` / `game.ts` |
-| W7-6 | Alt 系 僚機命令 | 実装中 | `input.ts` / `CommsMenu.ts` / `game.ts` |
-| W7-7 | `/` 後方視点 | settings 済 → 実装中 | `CameraRig.ts` / `input.ts` / `HudView.ts` |
-| W8 | 文書反映 | 未着手 | `README.md` / `docs/` / 方針書 |
-| V | テスト・ブラウザ確認 | 未着手 | `tests/ut` / `tests/e2e` |
+| W7-1 | 用語「速度設定」統一 | **完了** | `Tutorial.ts` / `TutorialDemo.ts` / `HudView.ts` / `flight.ts` / `entity.ts` |
+| W7-2 | 速度設定キーを `+` `-` へ | **完了** | `settings.ts` / `input.ts` |
+| W7-3 | `L` 手動ミサイルロック | **完了** | `weapons.ts` / `step.ts` / `input.ts` / `game.ts` |
+| W7-4 | `;` 目標速度同期 | **完了** | `flight.ts` / `input.ts` / `game.ts` |
+| W7-5 | `I` 照準下ターゲット | **完了** | `targeting.ts` / `game.ts` |
+| W7-6 | Alt 系 僚機命令 | **完了** | `input.ts` / `CommsMenu.ts` / `game.ts` |
+| W7-7 | `/` 後方視点 | **完了** | `CameraRig.ts` / `input.ts` / `HudView.ts` / `cockpit.css` |
+| W8 | 文書反映 | **完了** | `README.md` / `docs/機体_機体名鑑.html` / 方針書 / `AI_CODING.md` |
+| V | テスト・ブラウザ確認 | **完了** | `tests/ut`（1154 件 PASS）/ `tests/e2e/20260810-07/` |
 
 ## 並列化の段取り
 
@@ -93,6 +93,44 @@
 ### 2026-08-10 第2波 開始（並列5件）
 W2 sim側 / W5-B AudioManager / W7-1 用語 / W7-5 targeting / W4 描画側
 
+### 2026-08-10 全作業 完了
+
+**確定した値・判断（実装で決めたこと）**
+
+| 項目 | 値・判断 |
+|---|---|
+| 発艦の実初速 | `LAUNCH_SPEED = 10`（`MissionRunner`）。速度設定は Easy 0.5 / それ以外 `LAUNCH_THROTTLE = 0.35` |
+| Easy の味方接触 | `friendlyCollisionDamage: 0`。**実測: 免除前 77 ダメージ（シールド42+装甲25+ハル10が一撃）→ 免除後 0** |
+| ガラス | `MeshStandardMaterial` / opacity 0.1（`GLASS_OPACITY`）/ 上限 0.25 / `depthWrite: false` / `DoubleSide` |
+| ガラスの映り込み既定 | `glassOpacity: 0.4`（× 上限 0.25 = 実効 0.1） |
+| コクピット表示 | 5段階。`glassOpacity 0` と style の関係は **AND（厳しい方が勝つ）** |
+| 保存データ版 | 3 → **4**。`cockpitDecorations: false` → `cockpitStyle: 'dash'`（旧 OFF でも DOM 計器盤は出ていたため） |
+| BGM | 場面 11 × 曲 10 + 無音。反映は `normalizeSettings()` → `setMusicAssignment()` の1経路 |
+| 効果音 | 9 カテゴリ × 音源（実音声 / 合成音 / 控えめ / 無音）+ 音量。`soft` は音量 0.5・長さ 0.7 |
+| 効果音の落とし穴 | `beep()` は警報からも呼ばれるため `emitBeep()` を分離。**UI を無音にしても警報は鳴る**（回帰テストあり） |
+| 新キー | `+` `-`（別名 `]` `[` とテンキー）/ `;` 速度同期 / `L` 手動ロック / `I` 照準下 / `Alt+F A B H R` / `/` 後方視点 |
+| 修飾キー | `EDGE_BINDINGS` のループを `!altKey && !ctrlKey` で囲んだ。**Alt+A でオートパイロットが同時に走る不具合を実装中に発見** |
+| 艦内ページャ | `PAGER_FILTER_CODES` を `J/K/L` → `H/J/K` へ（飛行の `L` を優先） |
+| 後方視点 | 視点反転を採用。バックミラー小窓は**採らない**（シーン2回描画で描画コストがほぼ倍） |
+| 照準下ターゲット | 許容角 `RETICLE_COS = 0.985`（約10°）。`Y` は前方 41° のまま役割を分ける |
+
+**やめたこと**
+- オートスライド / 推力配分 / 砲塔操作（飛行モデルと VDU の新設が必要。次回へ）
+- バックミラー小窓
+- 味方接触ダメージの Normal / Hard への適用（依頼は Easy のみ）
+- 新しい BGM / 効果音ファイルの追加
+
+**検証結果**
+- 単体テスト: **96 ファイル / 1154 件 すべて PASS**（新規 11 ファイル・約 120 ケース）
+- `npx tsc --noEmit` / `npx vite build` / `git diff --check`: すべて通過
+- ブラウザ確認: `tests/e2e/20260810-07/`（キャプチャ7枚 + 実測値の記録）
+
+**実装中に見つけた既存の不具合（今回直したもの）**
+1. `Alt+A` などの修飾キー付き入力が、修飾なしの操作（オートパイロット・視点切替）も同時に発火していた。
+2. `+` の単押しが効かず、押しっぱなしのときだけ速度設定が動いていた（別名処理が `update()` 側にしか無かった）。
+3. `opaqueBlockers()` の面積判定を生の NDC 矩形にすると、残すべき骨組みが閾値を超えて誤検出になる
+   （画面全体を1とした割合へ正規化して解決）。
+
 ### ⚠ 2026-08-10 作業ツリーが一度巻き戻った（原因と復旧手順）
 
 **何が起きたか**: 作業中に、このリポジトリを触っている**別の作業**（`multi-taktika` と
@@ -118,7 +156,22 @@ npx tsc --noEmit                    # 二重定義・欠落を洗い出して手
   失われていた `setCombatOptions` の `friendlyCollisionDamage` を手で再追加した。
 - `world/entity.ts` の `lockArmed` が一時的に二重定義になった（stash 復元 + 並行エージェントの再書き込み）。
 
-**教訓**: このリポジトリは複数の作業が同時に走ることがある。
+**後で判明した本当の原因**: 巻き戻りは別作業ではなく、**W7-1 を担当したエージェントが
+「既存テストの失敗が自分の変更由来か」を切り分けるために `git stash` → テスト → `git stash pop` を
+実行したこと**だった。並行して他のエージェントが同じファイルを書き換えていたため pop が競合で中断し、
+リポジトリ全体の未コミット作業が stash に取り残された。
+その後さらに別作業のコミット（`a155d98` / `1a23a4b`）が挟まり、
+**復旧の取りこぼしが 3 件**残った（いずれも本作業で再適用済み）。
+
+| 取りこぼし | 症状 | 再適用した内容 |
+|---|---|---|
+| `settings.ts` の `setMusicAssignment(assignment)` | 設定で BGM を変えても曲が変わらない | `normalizeSettings()` の末尾で音楽側へ流す |
+| `App.ts` の `showSettings` の試聴配線 | [試聴] ボタンが 1 つも出ない | `buildSettingsPanel(onChange, actions)` と閉じたときの曲の復元 |
+| `targeting.ts` の `setTarget` / `pruneTarget` の `lockArmed = false` | 目標を変えても手動ロックが引き継がれる（単体テストが検出） | 2 箇所へ再追加 |
+
+**教訓**: 並行作業中は**エージェント自身も `git stash` を使わない**
+（本作業では各エージェントへ明示的に禁止して以降、事故は起きていない）。
+このリポジトリは複数の作業が同時に走ることがある。
 07 の実装中は `git commit` / `git stash` / `git reset` を**こちらから実行しない**
 （AI_CODING.md の禁止事項どおり）。巻き戻りは stash から回収できるので、
 気づいた時点で `git stash list` を最初に見る。

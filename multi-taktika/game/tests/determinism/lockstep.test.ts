@@ -347,7 +347,16 @@ describe('T-M14-06: 意図的にデシンクさせると即座に検出・停止
       const hashes = Object.values(info!.hashes);
       expect(hashes).toHaveLength(2);
       expect(hashes[0]).not.toBe(hashes[1]);
-      // 相手側にも同じ通知が届き、両方が止まる
+      // 相手側にも同じ通知が届き、両方が止まる。
+      //
+      // **通知が届くのを待つ。** A が先に検出すると A の tick は止まるので、
+      // `runTo`（tick が進むのを待つ関数）では待てない ―― 通信だけを回す。
+      // 「1,000 tick 回したら必ず届いている」と決め打つと、盤面の重さが変わった
+      // だけで落ちる（実測で落ちた）。
+      for (let k = 0; k < 200 && b!.session.desync === null; k++) {
+        b!.session.step(b!.world);
+        await new Promise((r) => setTimeout(r, 5));
+      }
       expect(b!.session.desync).not.toBeNull();
       expect(b!.session.desync!.tick).toBe(500);
 

@@ -107,6 +107,7 @@ import { showcase, type ShowcaseOptions, type ShowcaseResult } from './showroom'
 import { ReplayPanel } from './replay';
 import { audio } from '../audio/AudioManager';
 import { type MusicTrackId } from '../audio/musicCues';
+import { previewSfx } from '../audio/sfxPreview';
 import { buildSoundCheckPanel } from '../ui/SoundCheckPanel';
 import { PilotSelectScene } from '../ui/PilotSelectScene';
 import { ChoiceScene } from '../ui/ChoiceScene';
@@ -353,14 +354,38 @@ export class App {
   }
 
   private showSettings(back: () => void): void {
-    const panel = buildSettingsPanel(() => {
-      this.game.applySettings();
-    });
+    /*
+     * 設定画面を開いている間だけ、試聴で曲を差し替える (W5)。
+     * 閉じるときに元の曲へ戻すのは、音楽クレジット画面と同じ方式。
+     * 「設定を変えたら音がそのまま変わった」ことをその場で確認できるよう、
+     * 試聴は本番と同じ出力経路 (MusicDirector / AudioManager) を通す。
+     */
+    const previousTrack = this.game.sound.music.current;
+    const restore = () => {
+      if (previousTrack) this.game.sound.music.play(previousTrack);
+      back();
+    };
+    const panel = buildSettingsPanel(
+      () => {
+        this.game.applySettings();
+      },
+      {
+        previewMusic: (cue) => {
+          audio.resume();
+          this.game.sound.music.play(cue);
+          this.game.sound.music.start();
+        },
+        previewSfx: (category) => {
+          audio.resume();
+          previewSfx(category);
+        },
+      },
+    );
     this.screens.show({
       title: '設定',
       content: panel,
-      items: [{ label: '戻る', onSelect: back }],
-      onCancel: back,
+      items: [{ label: '戻る', onSelect: restore }],
+      onCancel: restore,
       transparent: this.game.runner !== undefined,
     });
   }
@@ -2246,12 +2271,14 @@ export class App {
       bodyHtml:
         `<div class="block"><h3>飛ぶ</h3>` +
         `機首は <b>↑↓←→</b>、ロールは <b>Q E</b>。マウス操縦は既定 OFF で、<b>M</b> で入れると照準から動かした方へ機首が向く。` +
-        `スロットルは <b>] [</b>（10%ずつ）かホイール、数字 <b>1〜9</b> で割合指定。<b>Tab</b> でアフターバーナー。</div>` +
+        `速度設定は <b>+</b> <b>-</b>（10%ずつ）かホイール、数字 <b>1〜9</b> で割合指定。` +
+        `<b>;</b> で目標の速度に合わせる。<b>Tab</b> でアフターバーナー。<b>/</b> を押している間は後方視点。</div>` +
         `<div class="block"><h3>戦う</h3>` +
-        `<b>Space</b> か左クリックで主砲。<b>T</b> でターゲット切替、<b>Y</b> で正面の敵を掴む。` +
-        `<b>Enter</b> か右クリックでミサイル。</div>` +
+        `<b>Space</b> か左クリックで主砲。<b>T</b> でターゲット切替、<b>Y</b> で正面の敵、<b>I</b> で照準下の相手を掴む。` +
+        `<b>Enter</b> か右クリックでミサイル。<b>L</b> で手動ロック（設定「操作」でロック方式を選べる）。</div>` +
         `<div class="block"><h3>移動・指示</h3>` +
-        `<b>A</b> でオートパイロット。<b>C</b> で通信メニュー。<b>Esc</b> でポーズ。</div>`,
+        `<b>A</b> でオートパイロット。<b>C</b> で通信メニュー。` +
+        `<b>Alt+F/A/B/H/R</b> で僚機へ直接指示（編隊 / 私の目標 / 散開 / 支援 / 報告）。<b>Esc</b> でポーズ。</div>`,
       items: [
         { label: '音楽クレジット', onSelect: () => this.showMusicCredits(() => this.showPauseHelp()) },
         { label: '戻る', onSelect: () => this.showPause2() },
