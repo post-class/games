@@ -303,6 +303,23 @@ function relationGauge(step: number, max: number): string {
   );
 }
 
+/**
+ * パイロットの表示名を名鑑（`codexPersonEntry`）と同じ整形に揃える（T5-⑬）。
+ *
+ * `pilots.ts` の `name` は人物名簿の値そのままなので `桐谷 綾（キリタニ アヤ）` の
+ * 読み括弧が付く。名鑑は `protagonistDisplayName()`（内部で `speakerName()`）を通して
+ * 括弧を落としているのに、酒場・自室だけ生の `name` を出していた。
+ *
+ * **整形はここで再実装しない。** `protagonistDisplayName()` は人物の `id` と `name`
+ * だけを見るので、名簿参照用の最小の形だけを渡す。`personId` が無い定義
+ * （名簿外のパイロットを差し込まれた場合）は従来表記へフォールバックする。
+ * コールサイン（`Sable` など）は別に出しているので、ここでは触らない。
+ */
+export function pilotDisplayName(def: { personId?: string; name: string }): string {
+  if (!def.personId) return def.name;
+  return protagonistDisplayName({ id: def.personId, name: def.name } as VeilPerson);
+}
+
 export function recRoomHtml(ctx: HubContext): string {
   const alive = ctx.roster.pilots.filter((p) => p.status === 'active' || p.status === 'wounded');
   const dead = fallen(ctx.roster);
@@ -332,7 +349,7 @@ export function recRoomHtml(ctx: HubContext): string {
         `<div class="mc-bar-row${ctx.barPilotId === p.id ? ' selected' : ''}">` +
         `<div class="mc-bar-face">${portraitFace(def.id, def.portrait, { size: 72, expression: mood === 'friendly' ? 'grin' : mood === 'cold' ? 'grim' : 'talk' })}</div>` +
         `<div class="mc-bar-text">` +
-        `<div class="mc-bar-name">${escapeHtml(def.callsign)} <span class="dim">${escapeHtml(def.name)}・${PERSONALITIES[def.personality].label}・${relation}</span> ${status}</div>` +
+        `<div class="mc-bar-name">${escapeHtml(def.callsign)} <span class="dim">${escapeHtml(pilotDisplayName(def))}・${PERSONALITIES[def.personality].label}・${relation}</span> ${status}</div>` +
         body +
         `</div></div>`,
       tags: { life: [p.status === 'wounded' ? 'wounded' : 'active'] },
@@ -381,7 +398,7 @@ export function recRoomHtml(ctx: HubContext): string {
         dead
           .map(
             (p) =>
-              `<div class="ng">${escapeHtml(defOf(p).callsign)} — ${escapeHtml(defOf(p).name)}` +
+              `<div class="ng">${escapeHtml(defOf(p).callsign)} — ${escapeHtml(pilotDisplayName(defOf(p)))}` +
               `${p.diedIn ? `　（${escapeHtml(p.diedIn)}）` : ''}</div>`,
           )
           .join('') +
@@ -414,7 +431,7 @@ export function barracksHtml(ctx: HubContext): string {
           `<div class="mc-roster-row${p.status === 'dead' ? ' dead' : p.status === 'transferred' ? ' transferred' : ''}">` +
           `<div>${portraitFace(def.id, def.portrait, { size: 52, dead: p.status === 'dead' })}</div>` +
           `<div class="mc-roster-main">` +
-          `<div><b>${escapeHtml(def.callsign)}</b> <span class="dim">${escapeHtml(def.name)}</span></div>` +
+          `<div><b>${escapeHtml(def.callsign)}</b> <span class="dim">${escapeHtml(pilotDisplayName(def))}</span></div>` +
           `<div class="dim">${PERSONALITIES[def.personality].label}　技量 ${(p.skill * 100) | 0}%　撃墜 ${p.kills}　出撃 ${p.sorties}　昇進 ${p.rank}` +
           `${p.transferredIn ? '　<span class="ok">転属</span>' : ''}</div>` +
           (p.status === 'dead' && p.diedIn
@@ -642,19 +659,130 @@ function roleLabel(role: string): string {
   return role === 'bomber' ? '爆撃 / 重装' : role === 'fighter' ? '制空 / 戦闘機' : role;
 }
 
+/* ───── 格納庫のブループリント図（T5-⑬） ─────
+ *
+ * 着手前は `def.visual.kind` の **3通りの固定パス**しか持っていなかった。
+ * 選べる4機の kind は `hornet: arrow` / `scimitar: delta` / `raptor: twin-boom` /
+ * `rapier: delta` なので、arrow は `else` の星形、scimitar と rapier は
+ * **同じ delta のパス**になり、4機が「ほぼ同じ星形の影」に見えていた。
+ *
+ * ここでは形をすべて `src/content/ships.ts` の**実数値から導く**。
+ * 図の寸法に表示専用の定数を持たせない（`AI_CODING.md`:
+ * 「表示だけ変えて実挙動が変わらない状態を作らない」の逆で、**図が実データの写し**）。
+ */
+
+const bpClamp01 = (v: number): number => (v <= 0 ? 0 : v >= 1 ? 1 : v);
+/** lo..hi を 0..1 へ。範囲外は潰す（艦艇など選べない定義でも図が破綻しない） */
+const bpNorm = (v: number, lo: number, hi: number): number =>
+  bpClamp01(((Number.isFinite(v) ? v : lo) - lo) / (hi - lo));
+const bpLerp = (a: number, b: number, t: number): number => a + (b - a) * t;
+
+/**
+ * ブループリント図の寸法。**すべて実数値から導出する**（テストが機械照合する）。
+ *
+ * | 図の寸法 | 出所（`ShipDef`） | 向き |
+ * |---|---|---|
+ * | `halfLen` 前後の半長 | `maxSpeed` | 速いほど長い |
+ * | `halfWidth` 胴の半幅 | `armor` 合計と `hull` の平均 | 厚いほど太い |
+ * | `wingHalf` 翼の張り出し | `turn[0]` | 旋回が速いほど短い |
+ * | `scale` 図全体の拡縮 | `radius` | 大きい機体ほど大きい |
+ * | `barrels` 砲身の位置 | `guns[].offset[0]` | 砲の数だけ生える |
+ * | `pylons` パイロン数 | `missiles.length` | ミサイル種類数 |
+ * | `engineR` 噴射口の半径 | `accel` | 加速が強いほど太い |
+ */
+export interface BlueprintGeometry {
+  halfLen: number;
+  halfWidth: number;
+  wingHalf: number;
+  scale: number;
+  /** 砲身の x 位置（図の座標系）。要素数は `guns.length` と一致する */
+  barrels: number[];
+  /** パイロンの対の数。`missiles.length`（＝ミサイル種類数）と一致する */
+  pylons: number;
+  engineR: number;
+}
+
+export function blueprintGeometry(def: ReturnType<typeof shipDef>): BlueprintGeometry {
+  const armorTotal = Object.values(def.armor).reduce((a, n) => a + n, 0);
+  const bulk = (armorTotal + def.hull) / 2;
+  const halfLen = bpLerp(26, 44, bpNorm(def.maxSpeed, 260, 470));
+  const halfWidth = bpLerp(4.5, 13, bpNorm(bulk, 80, 320));
+  // 旋回が速い機体は翼が短い（`turn[0]` が大きい＝よく曲がる）
+  const wingHalf = bpLerp(30, 13, bpNorm(def.turn[0], 1.1, 2.0));
+  const scale = bpLerp(0.82, 1.06, bpNorm(def.radius, 14, 26));
+  const span = halfWidth + wingHalf;
+  const barrels = def.guns.map((g) => {
+    const x = g.offset[0] * 2.4;
+    return Math.max(-span, Math.min(span, x));
+  });
+  return {
+    halfLen,
+    halfWidth,
+    wingHalf,
+    scale,
+    barrels,
+    pylons: def.missiles.length,
+    engineR: bpLerp(1.6, 3.4, bpNorm(def.accel, 200, 360)),
+  };
+}
+
+const n1 = (v: number): string => v.toFixed(1);
+
 function blueprintSvg(def: ReturnType<typeof shipDef>): string {
   const hull = `#${def.visual.hull.toString(16).padStart(6, '0')}`;
   const accent = `#${def.visual.accent.toString(16).padStart(6, '0')}`;
-  const path =
-    def.visual.kind === 'delta'
-      ? 'M 14 53 L 48 12 L 66 42 L 100 24 L 86 56 L 100 88 L 66 70 L 48 96 Z'
-      : def.visual.kind === 'twin-boom'
-        ? 'M 16 28 L 42 40 L 48 12 L 54 40 L 84 28 L 75 55 L 88 88 L 55 70 L 48 96 L 41 70 L 12 88 L 25 55 Z'
-        : 'M 48 8 L 61 42 L 94 72 L 58 63 L 48 94 L 38 63 L 2 72 L 35 42 Z';
-  return `<svg class="mc-hangar-blueprint" viewBox="0 0 100 104" role="img" aria-label="${escapeHtml(def.name)} silhouette">` +
-    `<path d="${path}" fill="${hull}" stroke="${accent}" stroke-width="2"/>` +
-    `<path d="M48 18 L48 86 M24 58 L72 58" stroke="rgba(224,255,239,0.68)" stroke-width="1" fill="none"/>` +
-    `<circle cx="48" cy="48" r="3" fill="${accent}"/><text x="50" y="101" text-anchor="middle">BLUEPRINT</text></svg>`;
+  const engine = `#${def.visual.engine.toString(16).padStart(6, '0')}`;
+  const g = blueprintGeometry(def);
+  const L = g.halfLen;
+  const W = g.halfWidth;
+  const S = g.wingHalf;
+
+  // 胴体。鼻先は -L、尾は +L*0.9。太さは装甲と船体から
+  const body =
+    `M 0 ${n1(-L)} ` +
+    `C ${n1(W * 0.62)} ${n1(-L * 0.55)}, ${n1(W)} ${n1(-L * 0.1)}, ${n1(W * 0.86)} ${n1(L * 0.72)} ` +
+    `L ${n1(W * 0.5)} ${n1(L * 0.9)} L ${n1(-W * 0.5)} ${n1(L * 0.9)} L ${n1(-W * 0.86)} ${n1(L * 0.72)} ` +
+    `C ${n1(-W)} ${n1(-L * 0.1)}, ${n1(-W * 0.62)} ${n1(-L * 0.55)}, 0 ${n1(-L)} Z`;
+  // 翼（左）。張り出しは旋回率から。右は scale(-1,1) の鏡像
+  const wing =
+    `M ${n1(-W * 0.85)} ${n1(-L * 0.12)} L ${n1(-(W + S))} ${n1(L * 0.42)} ` +
+    `L ${n1(-(W + S) * 0.78)} ${n1(L * 0.62)} L ${n1(-W * 0.8)} ${n1(L * 0.5)} Z`;
+  const wings =
+    `<path class="mc-bp-wing" d="${wing}" fill="${hull}" stroke="${accent}" stroke-width="1.4"/>` +
+    `<g transform="scale(-1 1)"><path class="mc-bp-wing" d="${wing}" fill="${hull}" stroke="${accent}" stroke-width="1.4"/></g>`;
+  // 砲身。位置は `guns[].offset[0]` の写しなので、砲の数だけ生える
+  const barrels = g.barrels
+    .map(
+      (x) =>
+        `<line class="mc-bp-barrel" x1="${n1(x)}" y1="${n1(-L * 0.45)}" x2="${n1(x)}" y2="${n1(-L * 1.06)}" ` +
+        `stroke="${accent}" stroke-width="1.6" stroke-linecap="round"/>`,
+    )
+    .join('');
+  // パイロン。ミサイルの**種類数**だけ、翼の下に対で付く
+  const pylons = Array.from({ length: g.pylons }, (_, i) => {
+    const x = W + S * (0.3 + 0.2 * i);
+    const y = L * 0.22;
+    const one = (px: number): string =>
+      `<rect x="${n1(px - 1.4)}" y="${n1(y)}" width="2.8" height="8.4" rx="1.2" fill="${accent}"/>`;
+    return `<g class="mc-bp-pylon">${one(x)}${one(-x)}</g>`;
+  }).join('');
+  const nozzle =
+    `<circle class="mc-bp-engine" cx="0" cy="${n1(L * 0.9)}" r="${n1(g.engineR)}" fill="${engine}"/>`;
+
+  return (
+    `<svg class="mc-hangar-blueprint" viewBox="0 0 100 104" role="img" ` +
+    `aria-label="${escapeHtml(def.name)} 全幅${n1((W + S) * 2)} 全長${n1(L * 2)} 砲${g.barrels.length}門 パイロン${g.pylons}">` +
+    `<g transform="translate(50 50) scale(${g.scale.toFixed(3)})">` +
+    wings +
+    `<path class="mc-bp-body" d="${body}" fill="${hull}" stroke="${accent}" stroke-width="1.8"/>` +
+    barrels +
+    pylons +
+    nozzle +
+    `<path class="mc-bp-grid" d="M 0 ${n1(-L)} L 0 ${n1(L * 0.9)} M ${n1(-(W + S))} ${n1(L * 0.42)} L ${n1(W + S)} ${n1(L * 0.42)}" ` +
+    `stroke="rgba(224,255,239,0.5)" stroke-width="0.7" fill="none"/>` +
+    `</g>` +
+    `<text x="50" y="101" text-anchor="middle">BLUEPRINT</text></svg>`
+  );
 }
 
 // ───────── 戦況マップ (星系図) ─────────

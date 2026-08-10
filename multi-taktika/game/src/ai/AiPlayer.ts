@@ -103,6 +103,8 @@ export interface AiLevelConfig {
    * （実測で 30 分・兵 0 体）。上がったあとは**半分だけ取り置いて並行**させる。
    */
   readonly ageReserveRatioAfterFirst: number;
+  /** 最初の世（黎明 → 青銅）のために取り置く割合（0〜1）。 */
+  readonly ageReserveRatioFirst: number;
 }
 
 /** `ai.json` を level 昇順に並べた表。 */
@@ -134,6 +136,7 @@ function buildLevels(): AiLevelConfig[] {
       villagerTarget: int(a['villagerTarget'], 18),
       villagerBankFrom: int(a['villagerBankFrom'], 12),
       ageReserveRatioAfterFirst: num(a['ageReserveRatioAfterFirst'], 0.5),
+      ageReserveRatioFirst: num(a['ageReserveRatioFirst'], 1),
     });
   }
   // level 昇順（`Object.keys` の順に依存しない。§0.3）。

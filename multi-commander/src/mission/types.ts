@@ -396,6 +396,26 @@ export interface MissionDef {
   skybox?: SkyboxOptions;
   /** 開始時の無線 */
   openingRadio?: RadioLineDef[];
+  /**
+   * 誤射した瞬間の指摘（T4-⑰。第2章）。
+   *
+   * 識別が主役の章では「なぜ誤射になったか」がその場で分からないと学習できない。
+   * 宣言すると、自機の射撃が味方・非敵対勢力に当たった瞬間に
+   * **当てた相手の固有名と勢力表示**を無線で読み上げる
+   * （名前は `SpawnGroupDef.displayName` / `displayNames` 由来、
+   * 勢力表示は `src/content/factions.ts` の `factionLabel()` 由来。
+   * どちらも HUD のターゲット情報と同じ出所なので、表示と食い違わない）。
+   *
+   * 宣言が無いミッションでは何も起きない（既存章の挙動は変わらない）。
+   * エースの脱出ポッド（`ace-pod:` タグ）は誤射に数えないので、これも流れない。
+   */
+  friendlyFireRadio?: {
+    /** 指摘する者（電子戦士官・管制など） */
+    speaker: string;
+    tone?: Tone;
+    /** 何発目まで指摘するか（既定3。撃ち続けたときに無線が埋まらないようにする） */
+    maxLines?: number;
+  };
   debriefWin: string[];
   debriefLoss: string[];
   /**

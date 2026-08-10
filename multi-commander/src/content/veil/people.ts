@@ -119,9 +119,17 @@ interface PersonSeed {
   appearance?: string;
 }
 
-function build(faction: VeilPersonFactionId, seeds: readonly PersonSeed[]): VeilPerson[] {
+function build(
+  faction: VeilPersonFactionId,
+  seeds: readonly PersonSeed[],
+  /**
+   * id の接頭辞（既定は勢力id）。現役名簿の連番と衝突させたくない別名簿
+   * （失踪者名簿など）を作るときだけ指定する。
+   */
+  idPrefix: string = faction,
+): VeilPerson[] {
   return seeds.map((seed, index) => {
-    const id = `${faction}-${String(index + 1).padStart(2, '0')}`;
+    const id = `${idPrefix}-${String(index + 1).padStart(2, '0')}`;
     const person: VeilPerson = {
       id,
       faction,
@@ -968,6 +976,67 @@ const NEUROWM_SEEDS: readonly PersonSeed[] = [
   },
 ];
 
+/**
+ * 失踪者名簿（第2章の帰還者3名）。
+ *
+ * ■ なぜ現役名簿と分けるか
+ * 第2章で回収する漂流者は「2229年のラグランジュ事故で消失した巡洋艦〈アウロラ〉の乗員」で、
+ * 八十三年前に失踪した人物である。現役名簿（`VEIL_PEOPLE` 全76名）は名鑑HTMLの転記なので
+ * 人数・id連番・顔画像がそのまま検証対象になっており、ここへ足すと
+ * `confed-13` 以降の id が全部ずれる（＝名鑑・顔画像・全章の話者参照が壊れる）。
+ * そこで **id 空間を `confed-lost-NN` に分け、`VEIL_PEOPLE` には含めない**。
+ *
+ * ■ それでも `veilPerson()` で引ける
+ * `PEOPLE_BY_ID` にだけ載せるので、`speakerName('confed-lost-01')` が通る。
+ * これにより第2章は搭乗者名を文字列で直書きせず、**名前の出所を1系統に保てる**
+ * （`speakerName()` → `SpawnGroupDef.displayNames` → HUD・収容告知・第10章の読み上げ）。
+ *
+ * ■ 三人の証言
+ * 正典（ストーリー_十章作戦記録 CHAPTER 02）の「一人は連邦艦隊に撃たれたと言い、
+ * 一人はキルラシーに撃たれたと言い、最後の一人は誰も撃っていないと言う」を
+ * `achievement`（実績の一文）として、名簿側の記述に落としてある。
+ * 並び順は `ch02.ts` の `displayNames` の順と同じ。
+ */
+const CONFED_LOST_SEEDS: readonly PersonSeed[] = [
+  {
+    name: 'Ines Varela（イネス・バレラ）',
+    epithet: 'Nine Minutes',
+    sex: '女',
+    age: '31歳（消失時）',
+    role: '巡洋艦〈アウロラ〉通信長・2229年失踪',
+    level: 5,
+    achievement: '帰還後の証言で「撃ったのは連邦艦隊だった」と述べた。生体記録は他の二人と完全に一致する。',
+  },
+  {
+    name: '真田 十和（サナダ トワ）',
+    epithet: 'Ledger',
+    sex: '男',
+    age: '29歳（消失時）',
+    role: '巡洋艦〈アウロラ〉機関士・2229年失踪',
+    level: 4,
+    achievement: '帰還後の証言で「撃ったのはキルラシーだった」と述べた。機関日誌の九分間は白紙である。',
+  },
+  {
+    name: 'Tobias Rye（トビアス・ライ）',
+    epithet: 'Quiet Nine',
+    sex: '男',
+    age: '44歳（消失時）',
+    role: '巡洋艦〈アウロラ〉航法士・2229年失踪',
+    level: 6,
+    achievement: '帰還後の証言で「誰も撃っていない。門が引き込んだのだ」と述べた。',
+  },
+];
+
+/**
+ * 八十三年前に失踪し、第2章で戻ってくる3名。
+ * 現役名簿（`VEIL_PEOPLE`）には**含めない**（名鑑の人数・連番・顔画像を動かさないため）。
+ */
+export const VEIL_LOST_PEOPLE: readonly VeilPerson[] = build(
+  'confed',
+  CONFED_LOST_SEEDS,
+  'confed-lost',
+);
+
 /** 全76名の名簿。勢力順（人類36→キルラシー→セレシオン→オルド→ニューロウム）。 */
 export const VEIL_PEOPLE: readonly VeilPerson[] = [
   ...build('confed', CONFED_SEEDS),
@@ -978,7 +1047,9 @@ export const VEIL_PEOPLE: readonly VeilPerson[] = [
 ];
 
 const PEOPLE_BY_ID: Record<string, VeilPerson> = Object.fromEntries(
-  VEIL_PEOPLE.map((person) => [person.id, person]),
+  // 失踪者名簿も id で引けるようにする（名前の出所を1系統に保つため）。
+  // 名鑑の一覧・人数は `VEIL_PEOPLE` / `peopleOfFaction()` 由来なので変わらない。
+  [...VEIL_PEOPLE, ...VEIL_LOST_PEOPLE].map((person) => [person.id, person]),
 );
 
 /** idから人物を引く。未知idは例外を投げる（`campaignNode` と同じ流儀）。 */

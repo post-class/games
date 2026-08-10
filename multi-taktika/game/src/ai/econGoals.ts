@@ -798,7 +798,7 @@ export function ageReserveFx(ctx: AiContext): Int32Array {
   // 最初の世（黎明 → 青銅）は**全額**取り置く。青銅で兵種ツリーが枝分かれするので、
   // ここに上がらないと文明の違いが盤に出ない。
   // 2 つ目以降は割合ぶんだけ（全額のままだと兵が 1 体も出ないまま試合が終わる）。
-  const ratio = age === 0 ? FX_ONE : fx(ctx.cfg.ageReserveRatioAfterFirst);
+  const ratio = fx(age === 0 ? ctx.cfg.ageReserveRatioFirst : ctx.cfg.ageReserveRatioAfterFirst);
   for (const [resId, amount] of Object.entries(next.cost)) {
     const r = RESOURCE_IDS.indexOf(resId as (typeof RESOURCE_IDS)[number]);
     if (r >= 0) out[r] = fxMul(fx(amount), ratio);

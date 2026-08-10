@@ -9,7 +9,7 @@ import {
   recordAceEscape,
   recordAceKill,
 } from '../content/aces';
-import { isHostile, resetFactionStances, setFactionStance } from '../content/factions';
+import { factionLabel, isHostile, resetFactionStances, setFactionStance } from '../content/factions';
 import { shipDef, type Faction } from '../content/ships';
 import type { DifficultyProfile } from '../app/settings';
 import type { PlaytestObjective, PlaytestRecorder } from '../app/playtest';
@@ -656,6 +656,7 @@ export class MissionRunner {
         // 通常の脱出ポッド・救難ポッドは接頭辞を持たないので従来どおり数える。
         if (isAcePodTag(p.target.tag)) return;
         this.friendlyFireHits += 1;
+        this.announceFriendlyFire(p.target);
       }),
       bus.on('shieldHit', (p) => {
         if (p.isPlayer) this.hits += 1;
@@ -1590,6 +1591,30 @@ export class MissionRunner {
       t += line.after ?? 2.4;
       this.radioQueue.push({ line, at: t });
     }
+  }
+
+  /**
+   * 誤射した瞬間の指摘（T4-⑰）。
+   *
+   * 「なぜ誤射になったか」を後で読ませるのでは遅いので、キューに積まず即座に流す
+   * （命中の同フレームで出す）。読み上げるのは
+   *   - 当てた相手の固有名（`displayNameOf` = `SpawnGroupDef.displayName` 由来）
+   *   - その相手の勢力表示（`factionLabel` = HUD のターゲット情報と同じ出所）
+   * の2つだけで、ここで新しい名前・新しい判定を作らない。
+   *
+   * `MissionDef.friendlyFireRadio` を宣言した章だけで流れる。
+   */
+  private announceFriendlyFire(target: Entity): void {
+    const spec = this.def.friendlyFireRadio;
+    if (!spec) return;
+    if (this.friendlyFireHits > (spec.maxLines ?? 3)) return;
+    bus.emit('radio', {
+      speaker: spec.speaker,
+      text:
+        `${displayNameOf(target)}に命中。識別表示は「${factionLabel(target.faction)}」——` +
+        `誤射 ${this.friendlyFireHits}発。`,
+      tone: spec.tone ?? 'command',
+    });
   }
 
   private flushRadio(): void {

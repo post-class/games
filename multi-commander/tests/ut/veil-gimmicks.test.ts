@@ -32,15 +32,28 @@ function start(def: MissionDef) {
   return { world, runner };
 }
 
-/** ミッション定義に書かれた無線をすべて集める (出所つき) */
-function allRadioLines(def: MissionDef): Array<{ where: string; line: RadioLineDef }> {
-  const out: Array<{ where: string; line: RadioLineDef }> = [];
-  for (const line of def.openingRadio ?? []) out.push({ where: 'openingRadio', line });
+/**
+ * ミッション定義に書かれた無線をすべて集める (出所つき)。
+ *
+ * `spoofed` は「偽装機が名乗った声」= 偽装群 (`tag: 'decoy'`) の**先頭の台詞**。
+ * T4-⑰ で偽装機が民間船の船籍名まで名乗るようになったため、
+ * 話者名の文字列では本物と偽装を区別できない（区別できないことが章の主題）。
+ * そこで判定を**宣言の構造**（どの群の何行目か）に移した。
+ */
+function allRadioLines(
+  def: MissionDef,
+): Array<{ where: string; line: RadioLineDef; spoofed: boolean }> {
+  const out: Array<{ where: string; line: RadioLineDef; spoofed: boolean }> = [];
+  for (const line of def.openingRadio ?? []) {
+    out.push({ where: 'openingRadio', line, spoofed: false });
+  }
   def.navs.forEach((n, i) => {
-    for (const line of n.onArrive ?? []) out.push({ where: `nav${i}`, line });
+    for (const line of n.onArrive ?? []) out.push({ where: `nav${i}`, line, spoofed: false });
   });
   def.spawns.forEach((g, i) => {
-    for (const line of g.radio ?? []) out.push({ where: `spawn${i}(${g.shipId})`, line });
+    (g.radio ?? []).forEach((line, j) => {
+      out.push({ where: `spawn${i}(${g.shipId})`, line, spoofed: g.tag === 'decoy' && j === 0 });
+    });
   });
   return out;
 }
@@ -54,22 +67,26 @@ describe('第2章 識別と誤射', () => {
     expect(o!.required).toBe(true);
   });
 
-  it('「撃たずに拾って帰る」解が残っている (撃墜系の目標はすべて任意)', () => {
-    for (const o of VEIL_CH02.objectives) {
-      if (o.spec.kind === 'destroyTag' || o.spec.kind === 'destroyAll') {
-        expect(o.required).toBe(false);
-      }
-    }
-    // 必須は「回収」「誤射ゼロ」「帰投」だけ
+  /**
+   * T4-⑰ で仕様が変わった箇所（旧: 撃墜系はすべて任意 = 撃たずに拾って帰れば必ず勝てた）。
+   * 「撃たないだけで通るなら緊張感が生まれない」ため、偽装無人機の排除を必須にした。
+   * 「撃つべき相手と撃ってはいけない相手が混ざっている」ことは
+   * `tests/ut/t4c-identify.test.ts` で固定している。
+   */
+  it('撃たないだけでは通らない (偽装無人機の排除が必須)', () => {
+    const decoys = VEIL_CH02.objectives.find((o) => o.spec.kind === 'destroyTag');
+    expect(decoys).toBeDefined();
+    expect(decoys!.required).toBe(true);
+    // 必須は「回収」「識別確認」「排除」「誤射ゼロ」「帰投」
     expect(VEIL_CH02.objectives.filter((o) => o.required).map((o) => o.spec.kind).sort()).toEqual(
-      ['noFriendlyFire', 'reachNav', 'rescue'],
+      ['destroyTag', 'noFriendlyFire', 'reachNav', 'recon', 'rescue'],
     );
   });
 
   it('偽装機の無線には遅延が無く、本物の味方の無線には必ず遅延がある', () => {
     const lines = allRadioLines(VEIL_CH02);
-    const spoofed = lines.filter((l) => l.line.speaker.includes('僚機'));
-    const genuine = lines.filter((l) => !l.line.speaker.includes('僚機'));
+    const spoofed = lines.filter((l) => l.spoofed);
+    const genuine = lines.filter((l) => !l.spoofed);
 
     // 偽装ドローンの声は遅れない (after を書かない)
     expect(spoofed.length).toBeGreaterThan(0);
@@ -88,8 +105,9 @@ describe('第2章 識別と誤射', () => {
     for (const g of decoyGroups) {
       const lines = g.radio ?? [];
       expect(lines.length).toBeGreaterThanOrEqual(2);
-      // 先頭が偽装 (遅延なし)、続く本物には遅延がある
-      expect(lines[0].speaker).toContain('僚機');
+      // 先頭が偽装 (遅延なし)、続く本物には遅延がある。
+      // 偽装機は HUD のターゲット名 (`displayName`) と同じ名前で名乗る（T4-⑰）
+      expect(lines[0].speaker).toBe(g.displayName);
       expect(lines[0].after).toBeUndefined();
       expect(lines[1].after).toBeGreaterThan(0);
     }

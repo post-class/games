@@ -49,7 +49,7 @@ import { mapParams } from '@/sim/systems/mapgen';
 import type { AiContext } from './AiPlayer';
 import { memGet, memSet } from './AiPlayer';
 import type { AiView, OwnEntity } from './view';
-import { canAffordWithAgeReserve, findTownCenter, placeBuildingCommand } from './econGoals';
+import { canAfford, canAffordWithAgeReserve, findTownCenter, placeBuildingCommand } from './econGoals';
 
 // ---------------------------------------------------------------- データ由来の定数
 
@@ -369,11 +369,34 @@ function hasBuilding(view: AiView, typeId: number): boolean {
 }
 
 /** 生産元 1 棟につき 1 体、いちばん点数の高い兵を積む。 */
+/** 自軍の兵の数（村人を除くユニット）。 */
+function countOwnArmy(ctx: AiContext): number {
+  let n = 0;
+  const list = ctx.view.ownEntities;
+  for (let k = 0; k < list.length; k++) {
+    const oe = list[k]!;
+    if (oe.kind !== EntityKind.Unit) continue;
+    if (unitDef(oe.typeId).role === 'villager') continue;
+    n++;
+  }
+  return n;
+}
+
 function pushUnitProduction(ctx: AiContext, mix: Int32Array, out: Command[]): void {
   const view = ctx.view;
   if (view.own.pop >= view.own.popCap) return;
   const wanted = producibleUnits(view);
-  // ■ 取り置きの例外について（**入れないことにした**）
+  // **戦域が立つ最小人数までは取り置きを無視して作る。**
+  //
+  // 戦域は「双方が `front.spawnMinUnits` 体以上を 15 マス内に集める」ことで立つ
+  // （`07§3`）。取り置きを全額効かせると青銅の世に上がるまで兵が 1 体も出ず、
+  // 30 分のあいだ戦域が 1 本も立たない（`07§2` は 5〜12 分に立つと定めている）。
+  // 3 体ぶんの食料（150）は最初の世の費用 500 に対して小さいので、
+  // これだけ許しても世に上がれる。
+  const armyNow = countOwnArmy(ctx);
+  const belowMinSquad = armyNow < SQUAD_MIN_UNITS;
+
+  // ■ もっと大きな例外は入れないことにした
   // 「最初の 1 隊は取り置きを無視して作る」を試したが、どちらに振っても悪化した:
   //  - 兵が死ぬたびに例外が復活する形 → 取り置きが永久に効かず、
   //    食料が 318 で止まって世が上がらない
@@ -394,7 +417,10 @@ function pushUnitProduction(ctx: AiContext, mix: Int32Array, out: Command[]): vo
       // **次の世のぶんを取り置いたうえで**払えるものだけ作る。
       // 取り置かないと入った食料が全部兵に変わり、永久に世が上がらない
       // （実測で兵 26 体・食料 0〜19 のまま age 0 だった）。
-      if (!canAffordWithAgeReserve(ctx, udef.cost)) continue;
+      const affordable = belowMinSquad
+        ? canAfford(view.own.resources, udef.cost)
+        : canAffordWithAgeReserve(ctx, udef.cost);
+      if (!affordable) continue;
       const s = unitScore(mix, udef.id);
       if (s > bestScore || (s === bestScore && bestId !== null && udef.index < unitDefById(bestId).index)) {
         bestScore = s;
