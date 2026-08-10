@@ -282,9 +282,32 @@ const NODE_OF_RESOURCE: readonly number[] = [
  */
 const DEPOSIT: readonly Fx[] = NODE_OF_RESOURCE.map((n) => resourceNodeDef(n).deposit);
 
+/**
+ * 食料のノード種別（`03§1`「農地・狩猟・漁・果樹・羊」）。
+ *
+ * **以前は果樹だけを置いていた。** `resources.json` は 5 種類を定めているのに
+ * マップに出るのは果樹だけで、枯れたあとの食料源が農地しか無かった。
+ * 農地は木材 60 を食うので、木材が細ると食料も止まる ―― 実測で AI が
+ * 青銅の世（食料 500）に 20〜27 分かかり、`07§2` の起伏が成立しなかった。
+ * 人間が遊んでも同じ制約を受ける（果樹が枯れたら農地しかない）。
+ */
+const NODE_FRUIT = resourceNodeIndex('fruit');
+const NODE_SHEEP = resourceNodeIndex('sheep');
+const NODE_HUNT = resourceNodeIndex('hunt');
+
+/** ノード種別 → 埋蔵量（`resources.json` の `depositsByNode`）。 */
+function depositOfNode(node: number): Fx {
+  return resourceNodeDef(node).deposit;
+}
+
 /** 拠点まわりに置く資源の局所テンプレート（マス単位のオフセット）。 */
 interface TemplateNode {
   readonly resource: number;
+  /**
+   * 資源ノードの種類（省略時は `NODE_OF_RESOURCE[resource]`）。
+   * 食料は 5 種類あるので、果樹・羊・狩猟を書き分けるのに使う。
+   */
+  readonly node?: number;
   /** +x = 中心から見て外向き。 */
   readonly ox: number;
   readonly oy: number;
@@ -304,8 +327,13 @@ function buildStartTemplate(): TemplateNode[] {
   // 森 2 クラスタ（拠点の外側寄り）
   pushBlock(out, RES_WOOD, 5, -6, 3, 3);
   pushBlock(out, RES_WOOD, 5, 3, 3, 3);
-  // 食料（果樹）1 ブロック（拠点のすぐ横）
-  pushBlock(out, RES_FOOD, 1, -7, 3, 2);
+  // 食料は 3 種類を置く（`03§1`）。**果樹だけだと枯れたあと農地しか無くなる。**
+  //  - 果樹（125/個）: 拠点のすぐ横。最初に手を付けるぶん
+  //  - 羊（100/頭）: 拠点の反対側。持ち帰りが短い second source
+  //  - 狩猟（140/体）: 少し外。取りに行く判断が要る代わりに 1 体が大きい
+  pushBlock(out, RES_FOOD, 1, -7, 3, 2, NODE_FRUIT);
+  pushBlock(out, RES_FOOD, 1, 5, 2, 2, NODE_SHEEP);
+  pushBlock(out, RES_FOOD, 8, -2, 2, 2, NODE_HUNT);
   // 石（中心寄り）
   out.push({ resource: RES_STONE, ox: -7, oy: 4 }, { resource: RES_STONE, ox: -7, oy: 5 });
   // 金（中心寄り）
@@ -320,9 +348,12 @@ function pushBlock(
   oy: number,
   w: number,
   h: number,
+  node?: number,
 ): void {
   for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) out.push({ resource, ox: ox + x, oy: oy + y });
+    for (let x = 0; x < w; x++) {
+      out.push(node === undefined ? { resource, ox: ox + x, oy: oy + y } : { resource, node, ox: ox + x, oy: oy + y });
+    }
   }
 }
 
@@ -353,6 +384,14 @@ interface GenCtx {
 
 interface PlannedNode {
   readonly resource: number;
+  /**
+   * 資源ノードの種類（`RESOURCE_NODE_DEFS` の添字）。
+   *
+   * **食料だけは種類が 5 つある**（農地・狩猟・漁・果樹・羊。`03§1`）。
+   * `resource` だけでは「果樹」に固定されてしまうので、種類を別に持つ。
+   * 木材・石材・金は種類が 1 つしかないので `NODE_OF_RESOURCE` のままでよい。
+   */
+  readonly node: number;
   readonly x: Fx;
   readonly y: Fx;
   readonly amount: Fx;
@@ -526,11 +565,14 @@ function planStartResources(ctx: GenCtx, playerCount: number): void {
       const ry = idiv(oxFx * s + oyFx * c, DIR_SCALE);
       const x = clampInt(st.x + rx, 0, fxFromInt(ctx.w) - 1);
       const y = clampInt(st.y + ry, 0, fxFromInt(ctx.h) - 1);
+      const node = t.node ?? NODE_OF_RESOURCE[t.resource]!;
       ctx.plan.push({
         resource: t.resource,
+        node,
         x,
         y,
-        amount: DEPOSIT[t.resource]!,
+        // 埋蔵量は**ノードの種類**から引く（果樹 125 / 羊 100 / 狩猟 140 …）
+        amount: depositOfNode(node),
         rich: false,
         ownerStart: p,
       });
@@ -551,6 +593,7 @@ function planContestResources(ctx: GenCtx, _params: MapParams): void {
     const s = dirs[i * 2 + 1]!;
     ctx.plan.push({
       resource: RES_GOLD,
+      node: NODE_OF_RESOURCE[RES_GOLD]!,
       x: ctx.cx + idiv(ring * c, DIR_SCALE),
       y: ctx.cy + idiv(ring * s, DIR_SCALE),
       amount: richGold,
@@ -575,6 +618,7 @@ function planContestResources(ctx: GenCtx, _params: MapParams): void {
       for (let x = 0; x < side; x++) {
         ctx.plan.push({
           resource: RES_WOOD,
+          node: NODE_OF_RESOURCE[RES_WOOD]!,
           x: base[0]! + fxFromInt(x) - half,
           y: base[1]! + fxFromInt(y) - half,
           amount: richWood,
@@ -1060,7 +1104,7 @@ function spawnNodes(w: World, ctx: GenCtx): ResourceNodeInfo[] {
       // `kind === Resource` の typeId は **資源ノードの種類**（`RESOURCE_NODE_DEFS` の添字）。
       // units.json / buildings.json の typeId とも `RESOURCE_IDS` の添字とも別空間で、
       // 採集システム（`core/gather.ts`）がこの添字で解釈する。
-      typeId: NODE_OF_RESOURCE[n.resource]!,
+      typeId: n.node,
       x: n.x,
       y: n.y,
       // 資源ノードは攻撃対象ではないので HP は 1 固定（枯渇は amount で管理する）

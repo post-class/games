@@ -438,3 +438,16 @@ export const DIFFICULTIES: Record<DifficultyId, DifficultyProfile> = {
 export function difficulty(): DifficultyProfile {
   return DIFFICULTIES[settings.difficulty] ?? DIFFICULTIES.normal;
 }
+
+/**
+ * 照準アシストの強さ (0..1)。
+ *
+ * 設定の ON/OFF と、難易度の `strongAimHelp`（やさしいのみ true）を掛け合わせる。
+ * **`settings` を直接読まない純関数**にしてあるのは、
+ * 本番ループ (`app/game.ts`) と通しプレイのテストが同じ式を使えるようにするため。
+ * ここが唯一の出所なので、テスト側で `0.45` などを写さない。
+ */
+export function aimAssistStrength(enabled: boolean, strongAimHelp: boolean): number {
+  if (!enabled) return 0;
+  return strongAimHelp ? 1 : 0.45;
+}

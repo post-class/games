@@ -1512,7 +1512,18 @@ export class MissionRunner {
       }
       if (unitName) this.declaredNames.set(e.id, unitName);
       spawnedIds.push(e.id);
-      // 決闘規約 (第5章)。宣言のあるエースだけが「測る側」になる。
+      /*
+       * 決闘規約 (第5章)。宣言のあるエースだけが「測る側」になる。
+       *
+       * **`standDownFaction` を渡さないのは意図的。**
+       * プレイヤーが自分で申し込む決闘 (`app/game.ts` の受諾処理) では
+       * 相手の陣営全体を退かせるが、**ミッション宣言の決闘では退かせない**。
+       * 第5章は同じ `kilrathi` 陣営の中に「誓約派（保護対象）」と
+       * 「急進派（撃破対象）」が同時に居る作りで、陣営単位で退かせると
+       * **必須目標の「急進派の阻止」が成立しなくなる**（`ch05.ts` の設計コメント参照）。
+       * 章側から退かせたい場合は `DuelDef` に項目を足して明示的に指定すること。
+       * ここで一律に `e.faction` を渡してはいけない。
+       */
       if (isAce && g.ace?.duel && player) {
         const d = g.ace.duel;
         configureDuel({

@@ -292,7 +292,16 @@ function pushVillagerProduction(ctx: AiContext, out: Command[]): void {
   // 形にしている（`villagerTarget` に達したあとは食料が余り始め、
   // その余りが次の世の費用になる）。軍事の生産も同じ目標数を待つので、
   // 「村人を揃える → 世を上げる → 兵を出す」の順に流れる。
-  if (countOwnVillagers(ctx) >= ctx.cfg.villagerTarget) return;
+  const villagers = countOwnVillagers(ctx);
+  if (villagers >= ctx.cfg.villagerTarget) return;
+  // ■ 「一定数で止めて貯める」を入れないことにした（実測で振った結果）
+  //
+  //   村人を止めて貯める形にすると青銅の世は 17〜23 分に早まるが、
+  //   貯めているあいだ軍が細って**戦域が 1 本も立たなくなる**。
+  //   逆に軍の下限を上げると戦域は立つが青銅に届かなくなる。
+  //   止めない形（村人を目標数まで出し切る）が、**世に上がるのと戦域が立つのが
+  //   両方成り立つ**唯一の組み合わせだった。`villagerBankFrom` は使っていない。
+  void villagers;
   const udef = unitDefById(VILLAGER_ID);
   if (!canAfford(own.resources, VILLAGER_RESERVE)) return;
   const tc = findTownCenter(ctx);

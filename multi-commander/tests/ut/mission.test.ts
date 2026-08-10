@@ -17,6 +17,7 @@ import type { MissionDef } from '../../src/mission/types';
 import { newAi } from '../../src/sim/ai';
 import { destroyEntity, setCombatOptions } from '../../src/sim/combat';
 import { simulateStep } from '../../src/sim/step';
+import { aimAssistStrength } from '../../src/app/settings';
 import { newSubsystems } from '../../src/sim/subsystems';
 import { World } from '../../src/world/world';
 
@@ -46,11 +47,35 @@ function start(def: MissionDef, difficultyId: 'easy' | 'normal' | 'hard' = 'norm
   return { world, runner };
 }
 
-/** 指定秒だけ進める */
-function run(world: World, runner: MissionRunner, seconds: number, maxAttackers = 2): void {
+/**
+ * 指定秒だけ進める。
+ *
+ * `player` を渡すと、**本番ループ (`app/game.ts`) と同じ**難易度補正
+ * （主砲の弾速・当たり半径）と照準アシストを掛ける。
+ * 省略すると素の条件で進む（既存テストの前提を変えないため既定は省略のまま）。
+ *
+ * この引数を用意した理由: 通しプレイのテストが本番と違う条件で回っていて、
+ * 「AI 操縦で完走できる」という主張が実機の条件を反映していなかった。
+ */
+function run(
+  world: World,
+  runner: MissionRunner,
+  seconds: number,
+  maxAttackers = 2,
+  player?: { difficulty: (typeof DIFFICULTIES)[keyof typeof DIFFICULTIES]; aimAssist: boolean },
+): void {
   const steps = Math.round(seconds / DT);
   for (let i = 0; i < steps; i++) {
-    simulateStep(world, DT, { flightMode: 'wc', ai: { maxAttackersOnPlayer: maxAttackers } });
+    simulateStep(world, DT, {
+      flightMode: 'wc',
+      ai: { maxAttackersOnPlayer: maxAttackers },
+      ...(player
+        ? {
+            playerWeaponModifiers: player.difficulty,
+            aimAssist: aimAssistStrength(player.aimAssist, player.difficulty.strongAimHelp),
+          }
+        : {}),
+    });
     runner.update(DT);
     if (runner.state !== 'running') return;
   }
@@ -399,15 +424,17 @@ describe('ミッション通しプレイ (AI が自機を操縦)', () => {
     // 自機に高技量 AI を載せて自動で戦わせる
     player.ai = newAi(0.95);
     const maxAttackers = DIFFICULTIES.easy.maxAttackers;
+    // 本番ループと同じ条件（やさしいの弾速・当たり半径補正と照準アシスト）で回す
+    const asPlayer = { difficulty: DIFFICULTIES.easy, aimAssist: true };
 
     // Nav を順に踏み、そのつど出てきた敵を掃討する
     for (let navIndex = 0; navIndex < def.navs.length; navIndex++) {
       if (runner.state !== 'running') break;
       jumpToNav(world, navIndex, def);
-      run(world, runner, 1 + DIFFICULTIES.easy.waveDelayBonus + 3, maxAttackers);
+      run(world, runner, 1 + DIFFICULTIES.easy.waveDelayBonus + 3, maxAttackers, asPlayer);
       // 出てきた敵を片付けるまで戦う (最大 240 秒)
       for (let t = 0; t < 240 && runner.state === 'running'; t++) {
-        run(world, runner, 1, maxAttackers);
+        run(world, runner, 1, maxAttackers, asPlayer);
         if (world.entities.filter((e) => e.faction === 'kilrathi').length === 0) break;
       }
     }

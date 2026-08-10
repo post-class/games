@@ -1,5 +1,6 @@
 import { COMBAT_GRADES, PROTAGONISTS, type VeilPerson } from '../content/veil/people';
 import { speakerName } from '../content/veil/missions/shared';
+import { protagonistVoice } from '../content/dialogue';
 import type { PortraitSpec } from '../content/pilots';
 import { portraitFace } from './Portrait';
 
@@ -56,19 +57,37 @@ export function protagonistDisplayName(person: VeilPerson): string {
 }
 
 /**
- * 「選ぶと何が変わるのか」（T3-⑬-3）。
+ * 「選ぶと何が変わるのか」（T3-⑬-3 / T5-⑬c）。
  *
- * コードを追った結果、`save.protagonistId` は
- * **ブリーフィングの搭乗者表示に出るだけ**で、技量・初期機体・僚機・敵の強さ・
- * 難易度には一切影響しない。ここで盛って書くと「表示だけ変えて実挙動が
+ * ここには**実装済みのものだけ**を書く。盛って書くと「表示だけ変えて実挙動が
  * 変わらない」状態になるため、変わるものと変わらないものを分けて明示する。
+ *
+ * 実装の出所:
+ * - 呼ばれ方・固有台詞: `src/content/dialogue.ts` の `PROTAGONIST_VOICES`
+ *   （ブリーフィングとデブリーフィングの艦長の台詞、および僚機の一言に出る）
+ * - 僚機の初期関係値: `src/app/roster.ts` の `applyProtagonistInitialBond()`（±0.2 まで）
+ *
+ * 実装していないので「変わる」に書かないもの:
+ * 戦闘中の無線での呼称（`src/app/game.ts` の経路）、技量、機体性能、初期機体、
+ * 僚機の顔ぶれ、敵の強さ、難易度、勝敗条件。
  */
 export const PROTAGONIST_EFFECTS = {
   changes: [
     'ブリーフィングの「搭乗」に出る名前と二つ名',
+    '管制・艦長があなたを呼ぶ名前（二つ名／姓名のどちらで呼ばれるか）',
+    'ブリーフィングとデブリーフィングに入る、あなた専用の1行',
+    '僚機があなたを呼ぶ名前と、出撃前の一言',
+    '僚機の関係値の初期値（隊長格は少し信頼済み、訓練生は初対面から。±0.2 まで）',
     '記録に残る主人公（セーブに保存され、以後の戦役で変わらない）',
   ],
-  unchanged: ['技量・機体性能', '初期機体（格納庫で4機から選べる）', '僚機の顔ぶれ', '敵の強さ・難易度'],
+  unchanged: [
+    '技量・機体性能',
+    '初期機体（格納庫で4機から選べる）',
+    '僚機の顔ぶれ',
+    '敵の強さ・難易度',
+    '勝敗条件・目標・制限時間',
+    '戦闘中の無線の呼称（まだ変わらない）',
+  ],
 } as const;
 
 export class PilotSelectScene {
@@ -205,13 +224,27 @@ export class PilotSelectScene {
     const body = document.createElement('div');
     body.className = 'mc-pilot-detail-body';
     body.textContent = `${person.achievement}（${COMBAT_GRADES[person.grade].desc}）`;
+    // その人が実際にどう呼ばれるのか（`PROTAGONIST_VOICES` が唯一の出所）。
+    // 「変わる」と書いた差を、選ぶ前にこの場で読めるようにする。
+    const voice = protagonistVoice(person.id);
+    const calls = document.createElement('div');
+    calls.className = 'mc-pilot-detail-calls';
+    // CSS は他担当の所有（`src/styles/**`）なので、見え方はここでインラインに寄せる。
+    // 「変わること」の行（`.mc-pilot-detail-effects`）と同じ大きさ・色に揃える。
+    calls.style.marginTop = '3px';
+    calls.style.fontSize = '11px';
+    calls.style.color = '#8fae9f';
+    calls.style.lineHeight = '1.45';
+    if (voice) {
+      calls.textContent = `呼ばれ方 — 管制「${voice.controlCall}」／僚機「${voice.wingCall}」`;
+    }
     // 「選ぶと何が変わるのか」を明示する。盛らずに、実際に変わるものだけを書く。
     const effects = document.createElement('div');
     effects.className = 'mc-pilot-detail-effects';
     effects.textContent =
       `この選択で変わる: ${PROTAGONIST_EFFECTS.changes.join(' / ')}　` +
       `｜　変わらない: ${PROTAGONIST_EFFECTS.unchanged.join(' / ')}`;
-    this.detailEl.append(head, body, effects);
+    this.detailEl.append(head, body, calls, effects);
   }
 
   private move(delta: number): void {

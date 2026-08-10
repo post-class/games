@@ -391,10 +391,11 @@ function pushUnitProduction(ctx: AiContext, mix: Int32Array, out: Command[]): vo
   // 戦域は「双方が `front.spawnMinUnits` 体以上を 15 マス内に集める」ことで立つ
   // （`07§3`）。取り置きを全額効かせると青銅の世に上がるまで兵が 1 体も出ず、
   // 30 分のあいだ戦域が 1 本も立たない（`07§2` は 5〜12 分に立つと定めている）。
-  // 3 体ぶんの食料（150）は最初の世の費用 500 に対して小さいので、
-  // これだけ許しても世に上がれる。
+  // 抱える量は「戦域 1 本ぶん × `armyFloorSquads`」。ちょうど 1 本ぶんだと
+  // 1 体死ぬたびに戦域が崩れるので、既定は 2 本ぶん（`ai.json`）。
+  const armyFloor = SQUAD_MIN_UNITS * ctx.cfg.armyFloorSquads;
   const armyNow = countOwnArmy(ctx);
-  const belowMinSquad = armyNow < SQUAD_MIN_UNITS;
+  const belowMinSquad = armyNow < armyFloor;
 
   // ■ もっと大きな例外は入れないことにした
   // 「最初の 1 隊は取り置きを無視して作る」を試したが、どちらに振っても悪化した:

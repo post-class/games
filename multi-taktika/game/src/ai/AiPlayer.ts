@@ -105,6 +105,15 @@ export interface AiLevelConfig {
   readonly ageReserveRatioAfterFirst: number;
   /** 最初の世（黎明 → 青銅）のために取り置く割合（0〜1）。 */
   readonly ageReserveRatioFirst: number;
+  /**
+   * **取り置きを無視して必ず抱える兵の量**を「戦域 1 本ぶんの何倍か」で表す
+   * （`front.spawnMinUnits` の倍数）。0 なら兵を抱えない（＝攻めない段階）。
+   *
+   * 戦域は双方が `spawnMinUnits` 体を集めたときに立つので、ちょうど 1 倍だと
+   * **1 体死ぬたびに戦域が崩れる**。2 倍持つと崩れずに続く（実測で戦域が
+   * 立つ／立たないの差になった）。
+   */
+  readonly armyFloorSquads: number;
 }
 
 /** `ai.json` を level 昇順に並べた表。 */
@@ -137,6 +146,7 @@ function buildLevels(): AiLevelConfig[] {
       villagerBankFrom: int(a['villagerBankFrom'], 12),
       ageReserveRatioAfterFirst: num(a['ageReserveRatioAfterFirst'], 0.5),
       ageReserveRatioFirst: num(a['ageReserveRatioFirst'], 1),
+      armyFloorSquads: int(a['armyFloorSquads'], 2),
     });
   }
   // level 昇順（`Object.keys` の順に依存しない。§0.3）。

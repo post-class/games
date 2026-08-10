@@ -278,6 +278,168 @@ export function aceGreetingLine(
   return clause ? `${base} ${clause}` : base;
 }
 
+// ───────── 主人公5名の呼ばれ方と固有台詞（T5-⑬c） ─────────
+
+/**
+ * 選んだ主人公で「呼ばれ方」と「周りの態度」を変えるためのデータ。
+ *
+ * ■ 何を変えて、何を変えないか（設計上の線引き）
+ * 変えるのは **呼称・台詞・僚機の初期関係値** の3つだけ。
+ * 敵の性能・難易度・自機の性能・初期機体・勝敗条件には**一切触れない**。
+ * ここを越えると「主人公選択が難易度選択」になり、5名の選択が公平でなくなる。
+ *
+ * ■ 呼称の作り方
+ * 名前の文字列は `src/content/veil/people.ts`（`name` / `epithet` / `role`）と
+ * `speakerName()` が唯一の出所。ここでは括弧の剥がし方や姓名の切り出しを再実装せず、
+ * 「`speakerName()` の結果そのまま」「`epithet` そのまま」「役職・立場を表す語」の
+ * 3種類から**誰がどれで呼ぶか**だけを決めている。
+ *
+ * ■ 台詞の整合
+ * `role` / `grade` / `achievement` と矛盾する台詞は書かない。
+ * 訓練生（`confed-05`）を歴戦扱いにせず、隊長（`confed-01`）を新人扱いにしない。
+ * 各人の `briefing` は、その人の `achievement` に実際に出てくる語（`achievementKeyword`）を
+ * 必ず1つ含める。`tests/ut/t5c-protagonist-difference.test.ts` が機械照合している。
+ */
+export interface ProtagonistVoice {
+  /** 管制・司令部・艦長がこの人を呼ぶときの名前 */
+  controlCall: string;
+  /** 僚機がこの人を呼ぶときの名前 */
+  wingCall: string;
+  /** `achievement` から取った語。台詞がその人の実績と繋がっていることの担保 */
+  achievementKeyword: string;
+  /** ブリーフィングの末尾に艦長が足す1行 */
+  briefing: string;
+  /** デブリーフィング（達成側）の末尾に艦長が足す1行 */
+  debriefWin: string;
+  /** デブリーフィング（失敗側）の末尾に艦長が足す1行 */
+  debriefLoss: string;
+  /** 出撃前に僚機が言う一言（ブリーフィングの僚機欄に出る） */
+  wingReady: string;
+  /**
+   * 出撃前の僚機 `bond` の初期値（-0.2..+0.2）。
+   *
+   * `grade` と `role` から決めている。隊長格は僚機が最初から少し信頼していて、
+   * 訓練生は初対面から始まる。`relationStage()` の5段階の刻みを壊さないよう
+   * ±0.2 を超えず、開始時点で「不信」に落ちる値も置かない。
+   */
+  initialBond: number;
+}
+
+/** ±この値を超える初期関係値は入れない（T3-⑪ の5段階を壊さないための上限） */
+export const PROTAGONIST_BOND_LIMIT = 0.2;
+
+export const PROTAGONIST_VOICES: Record<string, ProtagonistVoice> = {
+  // 朝倉 澪 / Valkyrie / SS級 / 艦載戦闘機隊長
+  // 名が通っているので管制は二つ名で呼び、僚機は役職で呼ぶ。
+  'confed-01': {
+    controlCall: 'Valkyrie',
+    wingCall: '隊長',
+    achievementKeyword: '87隻',
+    briefing: 'Valkyrie、隊はあなたの読みで動く。ヴェガ門前で87隻を帰した手順を、今日ももう一度使ってくれ。',
+    debriefWin: 'Valkyrie、損害報告はあなたの名前で出す。それだけの重さがある。',
+    debriefLoss: 'Valkyrie、判断はあなたに預けた。責任はこちらで分ける。次の編成を出してくれ。',
+    wingReady: '隊長、指示のとおりに付きます。',
+    initialBond: 0.2,
+  },
+  // 神谷 隼人 / Blue Hour / SS級 / 迎撃編隊リーダー
+  // 敵エースとの交渉記録が残っているので、管制は記録の名義（姓名）で呼ぶ。
+  'confed-02': {
+    controlCall: '神谷 隼人',
+    wingCall: 'Blue Hour',
+    achievementKeyword: '三度',
+    briefing: '神谷 隼人、三度撃退した相手だ。あなたの交信記録は帝国側にも回っている。撃つ前に一度呼んでみてくれ。',
+    debriefWin: '神谷 隼人、交信記録は全部残した。撃たずに済んだ分も戦果に数える。',
+    debriefLoss: '神谷 隼人、相手はあなたの声を覚えている。四度目の手はまだある。',
+    wingReady: 'Blue Hour、周波数は合わせてあります。',
+    initialBond: 0.14,
+  },
+  // アミナ・オカフォー / Kestrel / A級 / 迎撃パイロット
+  // 僚機の帰投率を上げた人なので、僚機が二つ名で呼ぶ。管制は姓名。
+  'confed-03': {
+    controlCall: 'アミナ・オカフォー',
+    wingCall: 'Kestrel',
+    achievementKeyword: '機雷原',
+    briefing: 'アミナ・オカフォー、機雷原を抜ける線を見つけたのはあなただ。抜ける軌道が見えたら全機へ流してくれ。',
+    debriefWin: 'アミナ・オカフォー、あなたの軌道で全機が帰った。航路図に線を残す。',
+    debriefLoss: 'アミナ・オカフォー、線そのものは間違っていない。次はもう少し早く流してくれ。',
+    wingReady: 'Kestrel、軌道はそちらの指示で。',
+    initialBond: 0.06,
+  },
+  // マーカス・ジョンソン / Kite / A級 / 軽戦闘機パイロット
+  // 夜間迎撃で名（二つ名）が管制側に通っている。僚機はまだ姓名で呼ぶ。
+  'confed-04': {
+    controlCall: 'Kite',
+    wingCall: 'マーカス・ジョンソン',
+    achievementKeyword: 'オリオン港',
+    briefing: 'Kite、オリオン港で標識を守り切ったのはあなただ。今日も軽い機体で先に入ってくれ。',
+    debriefWin: 'Kite、身軽さで拾った戦果だ。夜間の腕はもう誰も疑わない。',
+    debriefLoss: 'Kite、軽い機体で受け過ぎだ。次は当たる前に抜けろ。',
+    wingReady: 'マーカス・ジョンソン、前は任せます。',
+    initialBond: 0,
+  },
+  // プロイ・スリスック / Wisp / B級 / 訓練生パイロット
+  // まだ二つ名で呼ばれない。僚機は「新人」と呼び、関係は初対面から始まる。
+  'confed-05': {
+    controlCall: 'プロイ・スリスック',
+    wingCall: '新人',
+    achievementKeyword: '初出撃',
+    briefing: 'プロイ・スリスック、訓練生の記録のままで出す。初出撃でロックを解いて衝突を避けた判断がある。無理はせず手順どおりに飛べ。',
+    debriefWin: 'プロイ・スリスック、手順を守って帰ってきた。訓練生の欄はそのままだが、中身は変わった。',
+    debriefLoss: 'プロイ・スリスック、生きて戻ったなら今日は合格だ。次は手順を一つ増やそう。',
+    wingReady: '新人、離れないでください。',
+    initialBond: -0.06,
+  },
+};
+
+/** 選任済みの主人公の呼称・台詞。未選択／未知の id では `undefined`（旧セーブ対応）。 */
+export function protagonistVoice(personId: string | undefined): ProtagonistVoice | undefined {
+  if (!personId) return undefined;
+  return PROTAGONIST_VOICES[personId];
+}
+
+/**
+ * 管制・艦長がこの主人公を呼ぶ名前。
+ * 未選択なら `undefined`（呼びかけを足さず、従来の台詞のままにする）。
+ */
+export function protagonistControlCall(personId: string | undefined): string | undefined {
+  return protagonistVoice(personId)?.controlCall;
+}
+
+/** 僚機がこの主人公を呼ぶ名前。 */
+export function protagonistWingCall(personId: string | undefined): string | undefined {
+  return protagonistVoice(personId)?.wingCall;
+}
+
+/**
+ * 出撃前の僚機 `bond` の初期値。未選択は 0。
+ * 上限 `PROTAGONIST_BOND_LIMIT` で必ず丸める（データ側の書き間違いを実挙動へ通さない）。
+ */
+export function protagonistInitialBond(personId: string | undefined): number {
+  const raw = protagonistVoice(personId)?.initialBond ?? 0;
+  if (!Number.isFinite(raw)) return 0;
+  return Math.max(-PROTAGONIST_BOND_LIMIT, Math.min(PROTAGONIST_BOND_LIMIT, raw));
+}
+
+/** ブリーフィングの末尾に足す、その主人公あての1行。無ければ `undefined`。 */
+export function protagonistBriefingLine(personId: string | undefined): string | undefined {
+  return protagonistVoice(personId)?.briefing;
+}
+
+/** デブリーフィングの末尾に足す、その主人公あての1行。 */
+export function protagonistDebriefLine(
+  personId: string | undefined,
+  outcome: 'win' | 'loss',
+): string | undefined {
+  const voice = protagonistVoice(personId);
+  if (!voice) return undefined;
+  return outcome === 'win' ? voice.debriefWin : voice.debriefLoss;
+}
+
+/** 出撃前に僚機が言う一言。 */
+export function protagonistWingReadyLine(personId: string | undefined): string | undefined {
+  return protagonistVoice(personId)?.wingReady;
+}
+
 /** 味方が敵を救ったときの反応。 */
 export const ALLY_RESCUE_ACK = [
   '敵機の回収を確認。記録に残る。',

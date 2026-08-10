@@ -1,4 +1,5 @@
 import type { MissionDef } from '../mission/types';
+import { RECOVERY_HOLD_SECONDS } from '../sim/recovery';
 import { speakerName } from './veil/missions/shared';
 import { veilPerson } from './veil/people';
 import { veilTheater, type VeilTheaterId } from './veil/world';
@@ -55,6 +56,14 @@ export function migrateFrontlineSystemId(raw: unknown): FrontlineSystemId | unde
   if ((FRONTLINE_SYSTEM_IDS as readonly string[]).includes(raw)) return raw as FrontlineSystemId;
   return LEGACY_SYSTEM_ID_MAP[raw];
 }
+
+/**
+ * 捜索救難の収容半径 (m)。
+ *
+ * 目標文と `spec.radius` の両方から参照して、表示と判定が必ず同じ値になるようにする。
+ * 難民船は大きいので veil の 300m より少し広く取る。
+ */
+const RESCUE_RADIUS = 360;
 
 const DYNAMIC_KINDS: DynamicMissionKind[] = ['patrol', 'escort', 'strike', 'rescue', 'quiet', 'capital'];
 
@@ -265,7 +274,17 @@ export function dynamicMissionDef(ref: DynamicMissionRef): MissionDef {
         { shipId: 'ke04-mirage', count: 3, faction: 'kilrathi', atNav: 0, delay: 2, offset: [1900, 400, -1000] },
       ],
       objectives: [
-        { id: 'rescue', text: '生存者を回収', required: true, spec: { kind: 'rescue', tag: 'survivors', radius: 360 } },
+        /*
+         * T4-⑮: 収容は操作になった（近づいて減速し数秒保つ）。**目標文にも操作を書く。**
+         * 条件の数値は `sim/recovery.ts` が唯一の出所なので、そこから文を組む
+         * （ここで `3秒` などを直書きすると、条件を変えたときに表示だけ取り残される）。
+         */
+        {
+          id: 'rescue',
+          text: `生存者を収容（${RESCUE_RADIUS}m 以内で減速し${RECOVERY_HOLD_SECONDS}秒保つ）`,
+          required: true,
+          spec: { kind: 'rescue', tag: 'survivors', radius: RESCUE_RADIUS },
+        },
         { id: 'home', text: '帰投', required: true, spec: { kind: 'reachNav', navIndex: 1 } },
       ],
     } as MissionDef;

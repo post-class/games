@@ -73,7 +73,7 @@ import { CommsMenu, type AceCommsKind, type CommsAction } from '../ui/CommsMenu'
 import { loadSave } from './save';
 import { Tutorial, type TutorialMode } from '../ui/Tutorial';
 import { InputManager } from './input';
-import { difficulty, settings } from './settings';
+import { aimAssistStrength, difficulty, settings } from './settings';
 import { ReplayBuffer } from './replay';
 import { PlaytestLog, type PlaytestRecorder } from './playtest';
 
@@ -201,6 +201,38 @@ export function readAceOath(): number {
   } catch {
     return 50;
   }
+}
+
+/**
+ * プレイヤーが申し込んで成立した決闘の規約 (T4-⑯)。
+ *
+ * ミッション宣言の決闘（`MissionRunner`）とは**別物**で、こちらは
+ * **相手の陣営全体を退かせる**（一対一を成立させるのが交渉の目的なので）。
+ * 数値をここに集めてあるのは、テストが同じ値を写さずに済むようにするため。
+ *
+ * 変えるのは「狙い方」だけで、技量・攻撃力・弾速・出現数には触れない。
+ * - `spareHullRatio` ハルがこの割合を下回った相手には引き金を引かない
+ * - `measureRange` この距離を保って機動に追随する（癖を測る）
+ * - `standDownFaction` この陣営の**当事者以外**は自機を狙わず撃たない
+ */
+export function playerDuelRules(o: {
+  duellistId: number;
+  opponentId: number;
+  faction: Entity['faction'];
+}): {
+  duellistId: number;
+  opponentId: number;
+  spareHullRatio: number;
+  measureRange: number;
+  standDownFaction: Entity['faction'];
+} {
+  return {
+    duellistId: o.duellistId,
+    opponentId: o.opponentId,
+    spareHullRatio: 0.12,
+    measureRange: 700,
+    standDownFaction: o.faction,
+  };
 }
 
 /** 画面中央に出す告知の種類。 */
@@ -762,13 +794,9 @@ export class Game {
     }
     this.duelAceId = ace.def.id;
     // AI の狙い方を差し替える。技量・攻撃力・出現数は変えない。
-    configureDuel({
-      duellistId: target.id,
-      opponentId: player.id,
-      spareHullRatio: 0.12,
-      measureRange: 700,
-      standDownFaction: target.faction,
-    });
+    configureDuel(
+      playerDuelRules({ duellistId: target.id, opponentId: player.id, faction: target.faction }),
+    );
     if (target.ai) {
       target.ai.targetId = player.id;
       target.ai.order = undefined;
@@ -1131,8 +1159,7 @@ export class Game {
    * 設定の ON/OFF と、難易度の strongAimHelp (やさしいのみ) を掛け合わせる。
    */
   private aimAssistStrength(): number {
-    if (!settings.aimAssist) return 0;
-    return difficulty().strongAimHelp ? 1 : 0.45;
+    return aimAssistStrength(settings.aimAssist, difficulty().strongAimHelp);
   }
 
   /**

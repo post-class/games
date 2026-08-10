@@ -43,8 +43,14 @@ import { portraitFace, type Expression } from '../ui/Portrait';
 import { escapeHtml, ScreenHost, type MenuItem } from '../ui/ScreenHost';
 import { artImg, artUrl, medalArt, rankArt } from '../ui/art';
 import { buildSettingsPanel } from '../ui/SettingsPanel';
+import {
+  protagonistBriefingLine,
+  protagonistDebriefLine,
+  protagonistWingReadyLine,
+} from '../content/dialogue';
 import { medalById, newlyEarned, rankFor, type MedalContext } from './medals';
 import {
+  applyProtagonistInitialBond,
   applySortie,
   availablePilots,
   defaultWingman,
@@ -352,6 +358,9 @@ export class App {
       initialId: this.save.protagonistId,
       onSelect: (personId) => {
         this.save.protagonistId = personId;
+        // 選んだ主人公の立場に応じて、まだ一緒に飛んでいない僚機の関係値を少し寄せる。
+        // 動くのは関係値だけで、技量・機体・敵の強さ・難易度には触れない（T5-⑬c）。
+        applyProtagonistInitialBond(this.save.roster, personId);
         writeSave(this.save);
         scene.dispose();
         after();
@@ -1203,6 +1212,17 @@ export class App {
     }
   }
 
+  /**
+   * 艦長の台詞に、選任した主人公あての1行を足す（T5-⑬c）。
+   *
+   * 呼称と内容は `src/content/dialogue.ts` の `PROTAGONIST_VOICES` が唯一の出所で、
+   * ここでは組み立て直さない。未選択（旧セーブ）や未知の id では**何も足さない**ので、
+   * 従来のブリーフィング／デブリーフィングがそのまま出る。
+   */
+  private withProtagonistLine(lines: string[], extra: string | undefined): string[] {
+    return extra ? [...lines, extra] : lines;
+  }
+
   private showBriefing(): void {
     if (isTerminal(this.save.node)) {
       this.showEnding(this.save.node === VICTORY);
@@ -1232,14 +1252,21 @@ export class App {
 
     const wing = load.wingman?.callsign;
     const pilotLabel = this.protagonistLabel();
-    const scene = this.briefingScene(def, def.briefing, [
+    // 僚機の一言。主人公をどう呼ぶかが、ここで初めて目に入る（T5-⑬c）
+    const wingReady = protagonistWingReadyLine(this.save.protagonistId);
+    const briefingLines = this.withProtagonistLine(
+      def.briefing,
+      protagonistBriefingLine(this.save.protagonistId),
+    );
+    const scene = this.briefingScene(def, briefingLines, [
       { html: `<div class="block"><h3>任務目標</h3><ul>${objectives}</ul></div>`, slot: 'lower-left' },
       { html: `<div class="block"><h3>飛行計画</h3>${this.navMapSvg(def)}</div>`, slot: 'flight-plan' },
       { html: `<div class="block"><h3>機体</h3>` +
         `${escapeHtml(ship.name)}<br><span class="dim">副兵装: ${escapeHtml(missiles || 'なし')}` +
         // 選任した主人公が「誰として飛んでいるか」を出す唯一の場所（T3-⑬）
         `${pilotLabel ? `<br>搭乗: ${escapeHtml(pilotLabel)}` : ''}` +
-        `${wing ? `<br>僚機: ${escapeHtml(wing)}` : ''}</span></div>`, slot: 'lower-right' },
+        `${wing ? `<br>僚機: ${escapeHtml(wing)}` : ''}` +
+        `${wing && wingReady ? `<br><span class="mc-wing-ready">「${escapeHtml(wingReady)}」</span>` : ''}</span></div>`, slot: 'lower-right' },
     ]);
 
     this.screens.show({
@@ -1784,7 +1811,10 @@ export class App {
     // 戦果を先に見せ、目標の判定を後から開く
     const scene = this.briefingScene(
       def,
-      outcome === 'win' ? def.debriefWin : def.debriefLoss,
+      this.withProtagonistLine(
+        outcome === 'win' ? def.debriefWin : def.debriefLoss,
+        protagonistDebriefLine(this.save.protagonistId, outcome),
+      ),
       [
         { html: campaignReport + `<div class="block"><h3>戦果</h3><ul>` +
           `<li>撃墜 ${kills} 機</li>` +

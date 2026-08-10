@@ -5,6 +5,7 @@ import {
   STARTING_SQUADRON,
   type PilotDef,
 } from '../content/pilots';
+import { PROTAGONIST_BOND_LIMIT, protagonistInitialBond } from '../content/dialogue';
 
 /**
  * 飛行隊の名簿の実行時状態。
@@ -225,6 +226,29 @@ export function relationStage(p: Pick<PilotState, 'bond' | 'sorties'>): Relation
   else if (bond < RELATION_THRESHOLDS.ally) step = 3;
   else step = 4;
   return { label: RELATION_STAGES[step], step, max };
+}
+
+/**
+ * 選任した主人公に応じて、まだ一緒に飛んでいない僚機の初期関係値を寄せる（T5-⑬c）。
+ *
+ * 隊長格を選べば僚機が最初から少し信頼していて、訓練生を選べば初対面から始まる。
+ * **変えるのは関係値だけ**で、技量・機体・敵の強さ・難易度には触れない。
+ *
+ * - 動かすのは `sorties === 0` の隊員だけ。既に一緒に飛んだ相手の積み上げは書き換えない
+ *   （再選択やロードで関係値が巻き戻らないようにするため）。
+ * - 量は `PROTAGONIST_BOND_LIMIT`（±0.2）で丸める。`relationStage()` の5段階の刻みを
+ *   壊さず、開始時点で「不信」に落ちる値も作らない。
+ *
+ * 同じ引数で何度呼んでも結果は同じ（冪等）。
+ */
+export function applyProtagonistInitialBond(roster: RosterState, protagonistId: string | undefined): number {
+  const offset = protagonistInitialBond(protagonistId);
+  const clamped = Math.max(-PROTAGONIST_BOND_LIMIT, Math.min(PROTAGONIST_BOND_LIMIT, offset));
+  for (const p of roster.pilots) {
+    if (p.sorties > 0) continue;
+    p.bond = clamped;
+  }
+  return clamped;
 }
 
 /** bond を -1..+1 に収めて動かす。実際に動いた量を返す（端で止まったら 0）。 */
