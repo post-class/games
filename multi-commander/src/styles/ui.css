@@ -477,48 +477,59 @@
 /*
  * お手本モードの実演帯 (`ui/TutorialDemo.ts`)。
  *
- * 計器盤 (`.mc-cockpit`) と最下部バーの上に置く。高さの式は計器盤と同じものを使い、
- * 前方視界と計器の両方に食い込ませない。左右の余白は 20px。
+ * 最下部のメッセージ帯 (`.mc-tutorial` と同じ場所・同じ高さ) に1行で収める。
+ * 視界の中央に板を置くと前方が見えなくなるため、
+ * 段番号 → 押下キー → 説明 → 送りキー を横に並べる。
  */
 .mc-demo {
   position: absolute;
-  left: 20px;
-  right: 20px;
-  bottom: calc(var(--message-bar-height) + clamp(150px, 16vh, 170px) + 10px);
-  padding: 8px 12px;
-  background: rgba(6, 14, 18, 0.9);
-  border: 1px solid var(--panel-line);
+  inset: auto 0 0;
+  height: var(--message-bar-height);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px;
+  overflow: hidden;
+  white-space: nowrap;
+  background: rgba(6, 14, 18, 0.96);
+  border-top: 1px solid var(--panel-line);
   border-left: 3px solid var(--warn);
-  border-radius: 3px;
+  font-size: 13px;
+  line-height: 1;
+  color: #cdefdd;
   pointer-events: none;
   z-index: 5;
 }
 .mc-demo .head {
+  flex: 0 0 auto;
   font-size: 10px;
   letter-spacing: 0.2em;
   color: var(--hud-dim);
 }
-.mc-demo .title {
-  font-size: 16px;
-  color: var(--warn);
-  margin-top: 2px;
-}
-.mc-demo .detail {
-  font-size: 13px;
-  color: #cdefdd;
-  margin-top: 2px;
-}
 .mc-demo .keys {
+  flex: 0 0 auto;
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
+  gap: 4px;
+}
+.mc-demo .message {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mc-demo .title {
+  color: var(--warn);
+  margin-right: 0.7em;
+}
+.mc-demo .next {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--warn);
 }
 /* 実演が「いま押しているキー」。点灯しているものが実際にゲームへ渡っている入力。 */
 .mc-demo .key {
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1;
-  padding: 4px 8px;
+  padding: 3px 6px;
   border: 1px solid var(--panel-line);
   border-radius: 3px;
   color: var(--hud-dim);
@@ -528,7 +539,7 @@
   color: #06110d;
   background: var(--hud);
   border-color: var(--hud);
-  box-shadow: 0 0 10px rgba(127, 227, 176, 0.55);
+  box-shadow: 0 0 8px rgba(127, 227, 176, 0.55);
 }
 
 /* ───────── 母艦ハブ ───────── */

@@ -70,10 +70,21 @@ interface DemoStep {
   /** 画面に並べるキー (押していない間は暗く出す) */
   keys: ControlBinding[];
   seconds: number;
+  /**
+   * 空域に敵機が要る実演 (ターゲット・主砲・ミサイル・フレア・ドッグファイト)。
+   *
+   * 敵が出るまで**この段の時計を止めて待つ**。待たないと、増援の到着前に
+   * 「ミサイルを撃つ」を素通りしてお手本にならない。
+   * 待ち続けて詰まらないよう `HOSTILE_WAIT_LIMIT` で打ち切る。
+   */
+  requiresHostile?: boolean;
   drive(d: DemoDrive, c: DemoStepContext): void;
   /** 秒数を待たずに次へ進む条件 */
   done?(c: DemoStepContext): boolean;
 }
+
+/** 敵機の出現を待つ上限 (秒)。これを超えたら実演を先へ進める。 */
+const HOSTILE_WAIT_LIMIT = 50;
 
 /** 単発キーと操作の対応 (表示に使う)。同じ表から `Game` の処理名を引く */
 const ACTION_KEY: Partial<Record<InputAction, ControlBinding>> = {
@@ -182,6 +193,15 @@ function pursue(
 }
 
 /**
+ * 敵の出現を待つ間の飛び方。周囲を見回すようにゆっくり旋回する。
+ * 撃たない・ミサイルも撃たないので、点灯するキーは操縦だけになる。
+ */
+function searchDrive(d: DemoDrive, dt: number): void {
+  d.throttle = throttleToward(d.throttle, 0.5, dt);
+  d.yaw = 0.25;
+}
+
+/**
  * 実演の台本。
  *
  * 前半は「1操作ずつ、何が起きるか」を見せる。後半で通しのドッグファイトへ入る。
@@ -263,6 +283,7 @@ const DEMO_STEPS: DemoStep[] = [
     detail: '最至近の敵を掴む。HUD に距離・機体名・残ハルが出て、レーダーに枠が付く。',
     keys: ['targetNearest', 'targetNext', 'targetFront'],
     seconds: 6,
+    requiresHostile: true,
     drive: (d, c) => {
       d.throttle = throttleToward(d.throttle, 0.6, c.dt);
       if (c.demo.once('take-target')) d.actions.push('targetNearest');
@@ -275,6 +296,7 @@ const DEMO_STEPS: DemoStep[] = [
     detail: '黄色い点線の丸が「そこを撃てば当たる」射点。機首をそこへ運んでから引く。',
     keys: ['firePrimary', 'targetNearest'],
     seconds: 14,
+    requiresHostile: true,
     drive: (d, c) => {
       pursue(d, c, { fire: true, missile: false, useAb: true });
     },
@@ -285,6 +307,7 @@ const DEMO_STEPS: DemoStep[] = [
     detail: '無誘導弾と誘導弾を切り替える。HUD の兵装名と残弾を見る。',
     keys: ['nextSecondary'],
     seconds: 6,
+    requiresHostile: true,
     drive: (d, c) => {
       if (c.demo.once('cycle-1') || (c.t > 2.5 && c.demo.once('cycle-2'))) {
         d.actions.push('nextSecondary');
@@ -298,6 +321,7 @@ const DEMO_STEPS: DemoStep[] = [
     detail: '敵を正面に捉え続けるとロックが進み、ロック完了で発射できる。',
     keys: ['fireMissile', 'nextSecondary'],
     seconds: 16,
+    requiresHostile: true,
     drive: (d, c) => {
       pursue(d, c, { fire: false, missile: true, useAb: true });
     },
@@ -308,6 +332,7 @@ const DEMO_STEPS: DemoStep[] = [
     detail: '敵ミサイルの警告が出たら投下する。誘導を引き剥がすための消耗品。',
     keys: ['flare'],
     seconds: 5,
+    requiresHostile: true,
     drive: (d, c) => {
       if (c.demo.once('drop-flare')) d.actions.push('flare');
       pursue(d, c, { fire: false, missile: false, useAb: false });
@@ -336,6 +361,7 @@ const DEMO_STEPS: DemoStep[] = [
     detail: '実戦の形。絞って曲がり、射点へ機首を置いて撃つ。深追いせず、間合いを取り直す。',
     keys: ['firePrimary', 'fireMissile', 'afterburner', 'targetNearest', 'flare'],
     seconds: 75,
+    requiresHostile: true,
     drive: (d, c) => {
       pursue(d, c, { fire: true, missile: true, useAb: true });
     },
@@ -366,6 +392,7 @@ export class TutorialDemo {
   private readonly detailEl: HTMLElement;
   private readonly keysEl: HTMLElement;
   private readonly headEl: HTMLElement;
+  private readonly messageEl: HTMLElement;
   /** ステップ内で1回だけ行う操作の記録 */
   private flags = new Set<string>();
   /** 連続で押さないための最後の実行時刻 (ステップ経過秒ではなく通算) */
@@ -384,28 +411,42 @@ export class TutorialDemo {
   /** 直前に描画した内容 (毎フレーム DOM を書き換えない) */
   private renderedStep = -1;
   private renderedKeys = '';
+  private renderedDetail = '';
   /**
    * 一度でも敵機を空域に見たか。
    * 出現待ちの「まだ0機」と、撃ち終えた「もう0機」を区別するために持つ。
    */
   sawHostiles = false;
+  /** 敵の出現を待っている累計秒 (段ごとに戻す) */
+  private hostileWait = 0;
   /** B キーで「次の実演へ」が要求されたか (update で消費する) */
   private skipRequested = false;
   private readonly unsubs: Array<() => void> = [];
 
   constructor(container: HTMLElement) {
+    /*
+     * 表示は画面最下部のメッセージ帯 (`.mc-tutorial` と同じ場所) に1行で収める。
+     * 視界の中央に横長の板を出すと前方が見えなくなるため、
+     * 段番号・押下キー・説明・送りキーを横に並べる構成にしている。
+     */
     this.el = document.createElement('div');
     this.el.className = 'mc-demo';
     this.el.style.display = 'none';
     this.headEl = document.createElement('div');
     this.headEl.className = 'head';
-    this.titleEl = document.createElement('div');
-    this.titleEl.className = 'title';
-    this.detailEl = document.createElement('div');
-    this.detailEl.className = 'detail';
     this.keysEl = document.createElement('div');
     this.keysEl.className = 'keys';
-    this.el.append(this.headEl, this.titleEl, this.detailEl, this.keysEl);
+    this.messageEl = document.createElement('div');
+    this.messageEl.className = 'message';
+    this.titleEl = document.createElement('span');
+    this.titleEl.className = 'title';
+    this.detailEl = document.createElement('span');
+    this.detailEl.className = 'detail';
+    this.messageEl.append(this.titleEl, this.detailEl);
+    const next = document.createElement('div');
+    next.className = 'next';
+    next.textContent = '[B] 次へ';
+    this.el.append(this.headEl, this.keysEl, this.messageEl, next);
     container.appendChild(this.el);
 
     // 見ている側が飽きたときに飛ばせるようにする。チュートリアルの案内送りと同じキー。
@@ -431,9 +472,11 @@ export class TutorialDemo {
     this.cooldowns.clear();
     this.renderedStep = -1;
     this.renderedKeys = '';
+    this.renderedDetail = '';
     this.lastThrottle = 0;
     this.skipRequested = false;
     this.sawHostiles = false;
+    this.hostileWait = 0;
     this.render([]);
   }
 
@@ -500,8 +543,15 @@ export class TutorialDemo {
     }
 
     this.elapsed += dt;
-    this.stepElapsed += dt;
-    if (hostileCount(world, player) > 0) this.sawHostiles = true;
+    const hostiles = hostileCount(world, player);
+    if (hostiles > 0) this.sawHostiles = true;
+    /*
+     * 敵が要る実演は、敵が出るまで段の時計を進めない。
+     * 待ちの間は「探して飛ぶ」だけにして、押していないキーを点灯させない。
+     */
+    const waiting = !!step.requiresHostile && hostiles === 0 && this.hostileWait < HOSTILE_WAIT_LIMIT;
+    if (waiting) this.hostileWait += dt;
+    else this.stepElapsed += dt;
 
     const d = this.drive;
     d.pitch = 0;
@@ -511,7 +561,8 @@ export class TutorialDemo {
     d.firePrimary = false;
     d.throttle = input.throttle;
     d.actions.length = 0;
-    step.drive(d, { world, player, t: this.stepElapsed, dt, demo: this });
+    if (waiting) searchDrive(d, dt);
+    else step.drive(d, { world, player, t: this.stepElapsed, dt, demo: this });
 
     // 表示するキーは「ゲームへ渡した値」から作る (別の台本を持たない)
     const pressed = derivePressedKeys(d, this.lastThrottle);
@@ -522,7 +573,7 @@ export class TutorialDemo {
     input.throttle = Math.max(0, Math.min(1, d.throttle));
     for (const a of d.actions) input.pushAction(a);
 
-    this.render(pressed);
+    this.render(pressed, waiting);
 
     if (
       this.skipRequested ||
@@ -537,6 +588,7 @@ export class TutorialDemo {
   private advance(input: InputManager): void {
     this.index += 1;
     this.stepElapsed = 0;
+    this.hostileWait = 0;
     this.flags.clear();
     if (this.index >= DEMO_STEPS.length) this.finishScript(input);
   }
@@ -547,15 +599,18 @@ export class TutorialDemo {
     this.stop(input);
   }
 
-  private render(pressed: ControlBinding[]): void {
+  private render(pressed: ControlBinding[], waiting = false): void {
     const step = DEMO_STEPS[this.index];
     if (!step || !this.active) return;
     this.el.style.display = '';
-    if (this.renderedStep !== this.index) {
+    // 待ち状態も文章で出す (実演が止まっているのか、そういう動きなのかを区別できるように)
+    const detail = waiting ? '敵機の接近を待っている。空域に敵が出てから実演する。' : step.detail;
+    if (this.renderedStep !== this.index || this.renderedDetail !== detail) {
       this.renderedStep = this.index;
-      this.headEl.textContent = `お手本 ${this.index + 1} / ${DEMO_STEPS.length}　[B] 次の実演へ`;
+      this.renderedDetail = detail;
+      this.headEl.textContent = `お手本 ${this.index + 1} / ${DEMO_STEPS.length}`;
       this.titleEl.textContent = step.title;
-      this.detailEl.textContent = step.detail;
+      this.detailEl.textContent = detail;
     }
     // 並べるキー: ステップが宣言したもの + 実際に押しているもの
     const shown: ControlBinding[] = [...step.keys];

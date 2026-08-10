@@ -128,6 +128,7 @@ export interface Settings {
    * 保存データの版。既定値の意味が変わったときの移行に使う (UI には出さない)。
    * 1: 版が無い時代の保存データ (cockpitDecorations の既定が false だった)
    * 2: コクピット表示を既定 ON にした
+   * 3: マウス操縦を既定 OFF にした (キーボード操縦を基準の操作にした)
    */
   settingsVersion: number;
   /** カメラの揺れ、追従遅延、アフターバーナー画角の強さ (0 で無効) */
@@ -156,7 +157,8 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   difficulty: 'easy',
-  mouseFlight: true,
+  // マウス操縦は既定 OFF。キーボード操縦を基準の操作にする (M で切り替え)。
+  mouseFlight: false,
   mouseSensitivity: 1,
   invertY: false,
   gamepadDeadzone: 0.12,
@@ -171,7 +173,7 @@ export const DEFAULT_SETTINGS: Settings = {
   volumeSfx: 0.9,
   radioDuration: 9,
   cockpitDecorations: true,
-  settingsVersion: 2,
+  settingsVersion: 3,
   cameraShake: 1,
   cameraFollowLag: 1,
   cameraFovKick: 1,
@@ -237,6 +239,9 @@ function migrateSettings(loaded: Settings, parsed: Partial<Settings>): void {
   // 版1: コクピット表示の既定が false だった。既定 ON へ引き上げる。
   // (版2以降で自分で OFF にした人の選択は尊重する)
   if (version < 2) loaded.cockpitDecorations = DEFAULT_SETTINGS.cockpitDecorations;
+  // 版2以前: マウス操縦の既定が true だった。既定 OFF へ引き下げる
+  // (版3以降で自分で ON にした人の選択は尊重する)。
+  if (version < 3) loaded.mouseFlight = DEFAULT_SETTINGS.mouseFlight;
   loaded.settingsVersion = DEFAULT_SETTINGS.settingsVersion;
 }
 

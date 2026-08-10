@@ -211,6 +211,10 @@ export class HudView {
   private speedEl: HTMLElement;
   private hullNum: HTMLElement;
   private shieldParts: Record<string, SVGElement> = {};
+  /** 翼下パイロン (副兵装の残弾)。発射順と同じ左右交互の並び */
+  private readonly missilePips: SVGElement[] = [];
+  /** 残弾の数値表示 (パイロンの数より多い場合もあるので数字も出す) */
+  private mslNum!: HTMLElement;
   private radarBlips: SVGCircleElement[] = [];
   private radarG: SVGGElement;
   /** レーダー上の目的地マーカー（現在向かっている Nav）。機体の点と混ざらないよう菱形にする */
@@ -496,10 +500,13 @@ export class HudView {
 
     const shieldBox = el('div', 'mc-shielddisp');
     const sl = el('div', 'mc-boxlabel');
-    sl.textContent = 'SHIELDS / ARMOR';
+    // 機体の被害と搭載兵装を同じ図で示す (機首・翼の位置＝被弾面、翼下＝副兵装)。
+    // ラベルは短くする。狭い計器では右上の残弾表示と重なる。
+    sl.textContent = 'DAMAGE';
     shieldBox.append(this.shieldSvg(), sl);
     this.hullNum = el('div', 'mc-hullnum');
-    shieldBox.appendChild(this.hullNum);
+    this.mslNum = el('div', 'mc-mslnum');
+    shieldBox.append(this.hullNum, this.mslNum);
 
     const radarBox = el('div', 'mc-radarbox');
     this.radarBox = radarBox;
@@ -742,6 +749,22 @@ export class HudView {
     return root;
   }
 
+  /**
+   * 被害表示 (SHIELDS / ARMOR)。
+   *
+   * ■ 図の作り
+   * 抽象的な四象限ではなく、**上から見た自機の形**で描く。
+   * 「機首を撃たれた」「左翼を撃たれた」が図の位置と一致するので、
+   * どこから来ているか (`hitFace`) が直感的に読める。
+   * - 機首 = front / 尾部 = rear / 左翼 = left / 右翼 = right / 胴体 = hull
+   * - 前後の円弧 = シールド
+   *
+   * ■ 翼下のパイロン
+   * 副兵装の残弾を、翼下のパイロン (点) として同じ図に出す。
+   * 残弾は `ship.missiles` の合計そのものなので、右 VDU の兵装ページと
+   * 必ず同じ数を示す (表示ごとに別の数え方をしない)。
+   * 実弾の射出も左右交互 (`sim/weapons.ts`) なので、左右に並べる形と合う。
+   */
   private shieldSvg(): SVGSVGElement {
     const svg = svgEl('svg') as SVGSVGElement;
     svg.setAttribute('viewBox', '0 0 100 108');
@@ -752,21 +775,43 @@ export class HudView {
       this.shieldParts[key] = n;
       return n;
     };
-    // シールド (前後の円弧)
-    add('sf', 'path', { d: 'M 14 28 Q 50 2 86 28', fill: 'none', 'stroke-width': '5', stroke: '#5fd8ff' });
-    add('sr', 'path', { d: 'M 14 86 Q 50 112 86 86', fill: 'none', 'stroke-width': '5', stroke: '#5fd8ff' });
-    // アーマー4象限
-    add('af', 'polygon', { points: '26,26 74,26 60,46 40,46' });
-    add('ar', 'polygon', { points: '26,88 74,88 60,68 40,68' });
-    add('al', 'polygon', { points: '26,26 40,46 40,68 26,88' });
-    add('arr', 'polygon', { points: '74,26 60,46 60,68 74,88' });
-    // ハル
-    add('hull', 'rect', { x: '40', y: '46', width: '20', height: '22' });
-    // 機体シルエット
-    const sil = svgEl('path');
-    sil.setAttribute('d', 'M 50 40 L 57 62 L 50 58 L 43 62 Z');
-    sil.setAttribute('fill', 'rgba(205,239,221,0.55)');
-    svg.appendChild(sil);
+    // シールド (機首側・尾部側の円弧)
+    add('sf', 'path', { d: 'M 14 26 Q 50 2 86 26', fill: 'none', 'stroke-width': '5', stroke: '#5fd8ff' });
+    add('sr', 'path', { d: 'M 14 88 Q 50 112 86 88', fill: 'none', 'stroke-width': '5', stroke: '#5fd8ff' });
+    // 機体 (上面図)。機首・尾部・左右の翼がそれぞれ装甲の面に対応する
+    add('af', 'polygon', { points: '50,22 57,42 43,42' });
+    add('al', 'polygon', { points: '43,44 15,62 21,69 43,58' });
+    add('arr', 'polygon', { points: '57,44 85,62 79,69 57,58' });
+    add('ar', 'polygon', { points: '43,74 57,74 64,88 36,88' });
+    // 胴体 (ハル)
+    add('hull', 'rect', { x: '43', y: '40', width: '14', height: '36', rx: '3' });
+    // キャノピー (向きを一目で分かるようにする飾り。値は持たない)
+    const canopy = svgEl('ellipse');
+    canopy.setAttribute('cx', '50');
+    canopy.setAttribute('cy', '49');
+    canopy.setAttribute('rx', '4');
+    canopy.setAttribute('ry', '7');
+    canopy.setAttribute('fill', 'rgba(205,239,221,0.5)');
+    svg.appendChild(canopy);
+    // 翼下のパイロン (副兵装の残弾)。左右交互に並べる
+    this.missilePips.length = 0;
+    const pip = (x: number, y: number) => {
+      const n = svgEl('rect');
+      n.setAttribute('x', String(x));
+      n.setAttribute('y', String(y));
+      n.setAttribute('width', '7');
+      n.setAttribute('height', '3.4');
+      n.setAttribute('rx', '1.7');
+      svg.appendChild(n);
+      this.missilePips.push(n);
+    };
+    // 発射順 (左右交互) と同じ並びにする: 左1・右1・左2・右2・左3・右3
+    const rows: Array<[number, number]> = [
+      [26, 64], [67, 64],
+      [30, 70], [63, 70],
+      [34, 76], [59, 76],
+    ];
+    for (const [x, y] of rows) pip(x, y);
     return svg;
   }
 
@@ -1275,6 +1320,33 @@ export class HudView {
     hull.setAttribute('opacity', String(0.2 + 0.7 * h.hull));
     this.hullNum.textContent = `HULL ${(h.hull * 100) | 0}%`;
     this.hullNum.style.color = barColor(h.hull);
+    this.renderOrdnancePips(player);
+  }
+
+  /**
+   * 翼下パイロンと残弾数。
+   *
+   * 数え方は `ship.missiles` の合計ひとつだけ。右 VDU の兵装ページ
+   * (`ordnanceLines`) と同じ配列を読むので、両方の表示が食い違わない。
+   * パイロンは6本しか描けないので、正確な数は数字でも出す。
+   */
+  private renderOrdnancePips(player: Entity): void {
+    const ship = player.ship;
+    const slots = ship?.missiles ?? [];
+    let left = 0;
+    for (const slot of slots) left += Math.max(0, slot.count);
+    const active = activeMissileSlot(player);
+    const color = left > 0 ? '#ffd166' : 'rgba(255,93,93,0.85)';
+    this.missilePips.forEach((pip, i) => {
+      const loaded = i < left;
+      pip.setAttribute('fill', loaded ? color : 'rgba(127,227,176,0.10)');
+      pip.setAttribute('stroke', loaded ? color : 'rgba(127,227,176,0.28)');
+      pip.setAttribute('stroke-width', '0.7');
+    });
+    // 選択中の兵装が分かるように、残弾は「選択中 / 合計」で出す
+    this.mslNum.textContent =
+      left > 0 ? `MSL ${active ? active.count : 0}/${left}` : 'MSL 0';
+    this.mslNum.style.color = color;
   }
 
   private renderRadar(f: HudFrame, player: Entity): void {

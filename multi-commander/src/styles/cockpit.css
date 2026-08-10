@@ -690,6 +690,21 @@
   font-size: 11px;
   color: var(--hud);
 }
+/*
+ * 副兵装の残弾 (翼下パイロンの数字。選択中 / 合計)。
+ * HULL の数値と横に並べると狭い計器では重なるので、右上に置く
+ * (左上はラベル、右下は HULL)。
+ */
+.mc-mslnum {
+  position: absolute;
+  top: 3px;
+  right: 6px;
+  z-index: 3;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--warn);
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.95), 0 1px 2px rgba(0, 0, 0, 0.9);
+}
 
 .mc-weapon-line {
   display: flex;

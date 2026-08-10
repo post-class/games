@@ -25,7 +25,7 @@
 import type { CivId, EntityId } from '@/shared/types';
 import { EntityKind, RESOURCE_IDS } from '@/shared/types';
 import type { Command } from '@/sim/command';
-import { cfgAges, cfgInt } from '@/sim/core/config';
+import { cfgAges, cfgInt, cfgNum } from '@/sim/core/config';
 import {
   buildingDef,
   buildingDefById,
@@ -57,6 +57,19 @@ const TOWN_RADIUS_TILES = cfgInt('morale.insideOwnWallsRadiusTiles');
 
 /** 市場での交換の刻み（`economy.carryCapacity` = 村人 1 往復ぶん）。 */
 const TRADE_UNIT = cfgInt('economy.carryCapacity');
+
+/**
+ * 資源のそばに搬入点を建てるときに探す半径（マス）。
+ *
+ * **運搬損失が上限に達する距離**から逆算する（`economy` の式:
+ * `min(haulLossMax, floor(片道距離 / haulLossTilesPerStep) * haulLossPer4Tiles)`）。
+ * その距離より遠くに搬入点を建てても村人は損失上限で運ぶので、
+ * 「そばに建てた」意味が無い。いまの値では 4 × (0.5 / 0.05) = 40 マス。
+ */
+const NEAR_SITE_MAX_TILES = Math.round(
+  cfgInt('economy.haulLossTilesPerStep') *
+    (cfgNum('economy.haulLossMax') / cfgNum('economy.haulLossPer4Tiles')),
+);
 
 /** 「金が余っている」と見なす単位数（`economy.marketPriceUnitStep` = 相場が動く刻み）。 */
 const GOLD_SURPLUS_UNITS = cfgInt('economy.marketPriceUnitStep');
@@ -90,6 +103,16 @@ const ECON_BUILD_ORDER: readonly string[] = [
   'farm',
   'market',
 ];
+
+/**
+ * 資源 → その資源を運び込む小屋（`RESOURCE_IDS` の添字順）。
+ * 食料は農地が拠点のそばに建つので専用の小屋は使わない（`null` 相当で載せない）。
+ */
+const DROP_OFF_BY_RESOURCE: Readonly<Record<number, string>> = {
+  [RESOURCE_IDS.indexOf('wood')]: 'lumber_camp',
+  [RESOURCE_IDS.indexOf('stone')]: 'mining_camp',
+  [RESOURCE_IDS.indexOf('gold')]: 'mining_camp',
+};
 
 const FOOD = RESOURCE_IDS.indexOf('food');
 const GOLD = RESOURCE_IDS.indexOf('gold');
@@ -357,6 +380,13 @@ function pickEconBuilding(ctx: AiContext): string | null {
     if (resolved === null || !canCivBuild(civ, resolved)) continue;
     const bdef = buildingDefById(resolved);
     if (bdef.age > ctx.view.own.age) continue;
+    // **いま採っていない資源の搬入点は建てない。**
+    //
+    // 黎明の世では石材も金も使い道が無い（青銅の費用は食料だけ）のに、
+    // 実測では 3 分の時点で採掘場（木材 100）を建てていた。
+    // 木材は序盤いちばん細い資源で、100 は農地 1.7 面ぶん ―― 農地が遅れれば
+    // 食料も遅れ、青銅の到達が丸ごと遅れる。
+    if (!isNeededDropOff(ctx, id)) continue;
     // 棟数上限のある建物（市場）は 1 棟持っていたら要らない。
     const have = countOwnBuildings(ctx, bdef.index);
     if (bdef.maxCount > 0 && have >= bdef.maxCount) continue;
@@ -390,7 +420,12 @@ export function scarcestResource(resources: readonly number[]): number {
  * 置ける場所か資源が無ければ `null`。**村人を付けないと永久に完成しない**ので、
  * 建設係が空いていないときは着工しない。
  */
-export function placeBuildingCommand(ctx: AiContext, buildingId: string): Command | null {
+export function placeBuildingCommand(
+  ctx: AiContext,
+  buildingId: string,
+  /** 建てたい辺り（省略時は拠点の周り）。近くの空きマスを探す。 */
+  near?: { x: Fx; y: Fx },
+): Command | null {
   const bdef = buildingDefById(buildingId);
   // **家 1 棟ぶんは常に残す。** 使い切ると人口上限に当たったときに家が建てられず、
   // そこから何も出せなくなる（家そのものを建てるときは当然この予備を要求しない）。
@@ -398,7 +433,10 @@ export function placeBuildingCommand(ctx: AiContext, buildingId: string): Comman
   if (!canAfford(ctx.view.own.resources, reserve)) return null;
   const builder = takeBuilder(ctx, bdef.buildTicks);
   if (builder < 0) return null;
-  const site = pickBuildSite(ctx, bdef.sizeW, bdef.sizeH);
+  const site =
+    near === undefined
+      ? pickBuildSite(ctx, bdef.sizeW, bdef.sizeH)
+      : pickBuildSiteNear(ctx, bdef.sizeW, bdef.sizeH, near);
   if (site === null) return null;
   ctx.memory.buildTick = ctx.view.tick;
   return {
@@ -481,6 +519,38 @@ export function pickBuildSite(ctx: AiContext, sizeW: number, sizeH: number): { x
     if (!footprintFree(ctx, tx, ty, sizeW, sizeH)) continue;
     if (overlapsOwnBuilding(ctx, tx, ty, sizeW, sizeH)) continue;
     return { x: tx * FX_ONE + FX_HALF, y: ty * FX_ONE + FX_HALF };
+  }
+  return null;
+}
+
+/**
+ * 指定した辺りの近くで建てられるマスを探す（**遠い資源のそばに搬入点を建てる**のに使う）。
+ *
+ * 内側から外側へ広げて探すので、いちばん資源に近いマスが選ばれる。
+ * 乱数を使わない（`pickBuildSite` は拠点周りをばらけさせるために乱数を使うが、
+ * こちらは「資源のいちばん近く」が正解なので順番に探す）。
+ */
+export function pickBuildSiteNear(
+  ctx: AiContext,
+  sizeW: number,
+  sizeH: number,
+  near: { x: Fx; y: Fx },
+): { x: Fx; y: Fx } | null {
+  const cx = idiv(near.x, FX_ONE);
+  const cy = idiv(near.y, FX_ONE);
+  // 資源ノードの真上には建てられないので、2 マス外から探し始める。
+  for (let r = 2; r <= NEAR_SITE_MAX_TILES; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        // 輪の縁だけを見る（内側は前の r で見終わっている）
+        if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
+        const tx = cx + dx;
+        const ty = cy + dy;
+        if (!footprintFree(ctx, tx, ty, sizeW, sizeH)) continue;
+        if (overlapsOwnBuilding(ctx, tx, ty, sizeW, sizeH)) continue;
+        return { x: tx * FX_ONE + FX_HALF, y: ty * FX_ONE + FX_HALF };
+      }
+    }
   }
   return null;
 }
@@ -718,18 +788,47 @@ export function nextAgeDeficitResource(ctx: AiContext): number {
  */
 export function reassignForNextAge(ctx: AiContext): Command[] {
   const m = ctx.memory;
-  // 移す先は**いちばん足りない資源**だけにする。
+  // **「まだ誰も就いていない、次の世に必要な資源」**を探す。
   //
-  // ■ ここを「誰も就いていない資源」にしてみたら悪化した（実測）
-  // 金に誰も就いていないので村人を 1 人送る、という形にしたところ、
-  // その村人が**単独で遠くの金鉱まで歩いて死に**、村人が 26 → 10 に減って
-  // 内政が崩れた（食料も 411 → 12）。拠点から離れた資源へ人を送るには
-  // 「安全に行けるか」「護衛を付けるか」の判断が要る。**それは別の仕事**なので、
-  // ここでは「もともと採っている資源のうち、いちばん足りないもの」に寄せるだけにする。
-  // 遠くの資源を使うには `mining_camp` のような搬入点を先に建てる形が要る（未実装）。
-  const need = nextAgeDeficitResource(ctx);
-  if (memGet(m.assignedByResource, need) > 0) return [];
+  // ここを「いちばん足りない資源」にしていたら、食料の不足が常に最大になって
+  // **金にいつまでも人が就かず、鉄器の世（金 200）に永久に届かなかった**。
+  // 以前この形にしたときは村人が単独で遠くの金鉱へ歩いて死んだが、
+  // それは搬入点を建てる前に送っていたからで、下で先に小屋を建てるようにした。
+  // 見るのは **`cfgAges` の「次の世の費用」に載っている資源だけ**。
+  // `gatherTargets`（食料と木材を常に含む）で見ると、拠点のそばで足りている
+  // 木材のために遠くへ小屋を建てに行ってしまい、青銅の到達がかえって遅れた（実測）。
+  let need = -1;
+  for (const r of nextAgeCostResources(ctx)) {
+    if (memGet(m.assignedByResource, r) === 0) {
+      need = r;
+      break;
+    }
+  }
+  if (need < 0) return [];
   if (!knowsResource(ctx, need)) return []; // 場所を知らないなら探索の仕事
+
+  // いちばん近いその資源のノード（拠点から見て）。
+  const tc = findTownCenter(ctx);
+  if (tc === null) return [];
+  const node = nearestNodeIndexOf(ctx, tc.x, tc.y, need);
+  if (node < 0) return [];
+  const nx = m.nodeX[node]!;
+  const ny = m.nodeY[node]!;
+
+  // **搬入点が近くに無ければ、まずそれを建てる。**
+  //
+  // 以前は村人をそのまま送っていた。すると**単独で遠くの金鉱まで歩いて死に**、
+  // 村人が 26 → 10、食料が 411 → 12 に落ちた（実測）。
+  // 運んだものを置く場所が無ければ、着いても拠点まで往復するだけで
+  // 運搬損失が上限に張り付く。順序は「搬入点 → 村人」でなければ意味がない。
+  if (!hasDropOffNear(ctx, nx, ny)) {
+    const camp = dropOffBuildingFor(ctx, need);
+    if (camp === null) return [];
+    const cmd = placeBuildingCommand(ctx, camp, { x: nx, y: ny });
+    return cmd === null ? [] : [cmd];
+  }
+
+  // 搬入点がある。**そこで初めて村人を送る**（1 判断につき 1 人）。
   const villagerType = unitDefById(VILLAGER_ID).index;
   const list = ctx.view.ownEntities;
   for (let k = 0; k < list.length; k++) {
@@ -738,12 +837,89 @@ export function reassignForNextAge(ctx: AiContext): Command[] {
     if (memGet(m.villagerRole, oe.index) !== VILLAGER_GATHERER) continue;
     const id = ctx.idOf(oe.index);
     if (id < 0) continue;
-    const target = nearestNodeOf(ctx, oe, need);
-    if (target === null) return [];
     memSet(m.assignedByResource, need, 1);
-    return [{ t: 'gather', p: ctx.playerId, units: [id], target }];
+    return [{ t: 'gather', p: ctx.playerId, units: [id], target: m.nodeIds[node] as EntityId }];
   }
   return [];
+}
+
+/**
+ * その建物が「いま採っている資源の搬入点」か。搬入点でない建物（家・農地・市場）は常に true。
+ *
+ * `gatherTargets`（次の世が要求する資源 + 食料 + 木材）に対応する小屋だけを許す。
+ * 黎明の世では石材も金も使い道が無いので、採掘場は建てない。
+ */
+function isNeededDropOff(ctx: AiContext, buildingId: string): boolean {
+  let resource = -1;
+  for (const [r, id] of Object.entries(DROP_OFF_BY_RESOURCE)) {
+    if (id === buildingId) {
+      resource = Number(r);
+      break;
+    }
+  }
+  if (resource < 0) return true; // 搬入点ではない
+  return gatherTargets(ctx).includes(resource);
+}
+
+/**
+ * 次の世の費用に載っている資源（`RESOURCE_IDS` の添字。昇順）。
+ * 最終世・上げない段階では空。
+ */
+function nextAgeCostResources(ctx: AiContext): number[] {
+  const next = cfgAges()[ctx.view.own.age + 1];
+  if (next === undefined) return [];
+  const out: number[] = [];
+  for (let r = 0; r < RESOURCE_IDS.length; r++) {
+    if ((next.cost[RESOURCE_IDS[r]!] ?? 0) > 0) out.push(r);
+  }
+  return out;
+}
+
+/** 記憶の中でその資源のいちばん近いノードの添字（無ければ -1）。 */
+function nearestNodeIndexOf(ctx: AiContext, fromX: Fx, fromY: Fx, resource: number): number {
+  const m = ctx.memory;
+  let best = -1;
+  let bestD = Number.POSITIVE_INFINITY;
+  for (let k = 0; k < m.nodeIds.length; k++) {
+    if (m.nodeResource[k] !== resource) continue;
+    const dx = m.nodeX[k]! - fromX;
+    const dy = m.nodeY[k]! - fromY;
+    const d = dx * dx + dy * dy;
+    if (d < bestD) {
+      bestD = d;
+      best = k;
+    }
+  }
+  return best;
+}
+
+/** その座標のそばに自軍の搬入点（町の中心・伐採所・採掘場）があるか。 */
+function hasDropOffNear(ctx: AiContext, x: Fx, y: Fx): boolean {
+  const reach = NEAR_SITE_MAX_TILES * FX_ONE;
+  const list = ctx.view.ownEntities;
+  for (let k = 0; k < list.length; k++) {
+    const oe = list[k]!;
+    if (oe.kind !== EntityKind.Building) continue;
+    if (!buildingDef(oe.typeId).isDropOff) continue;
+    const dx = oe.x - x;
+    const dy = oe.y - y;
+    if (dx * dx + dy * dy <= reach * reach) return true;
+  }
+  return false;
+}
+
+/**
+ * その資源を運び込む小屋の ID（無ければ null）。
+ * `buildings.json` の `isDropOff` を持つ建物から、その資源に対応するものを選ぶ。
+ */
+function dropOffBuildingFor(ctx: AiContext, resource: number): string | null {
+  const civ = ctx.view.own.civ as CivId;
+  const id = DROP_OFF_BY_RESOURCE[resource];
+  if (id === undefined) return null;
+  const resolved = resolveBuildingForCiv(civ, id);
+  if (resolved === null || !canCivBuild(civ, resolved)) return null;
+  if (buildingDefById(resolved).age > ctx.view.own.age) return null;
+  return resolved;
 }
 
 /**

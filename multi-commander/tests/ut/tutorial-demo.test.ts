@@ -206,6 +206,45 @@ describe('お手本モード', () => {
     demo.stop(input);
   });
 
+  it('DEMO-03c: ミサイルの実演は敵がいない間は始めず、出てきてから実演する', () => {
+    const { demo, input, world, player } = setup();
+    demo.start();
+    skipTo(demo, world, input, 'missile');
+
+    // 敵がいない間は段が進まない (素通りして「お手本にならない」を防ぐ)
+    for (let i = 0; i < 60 * 20; i++) frame(demo, world, input);
+    expect(demo.stepId).toBe('missile');
+    expect(input.firePrimary).toBe(false);
+
+    // 敵が出たら実演を始め、ロックしてミサイルを撃つ
+    spawnShip(world, {
+      def: shipDef('kf03-greyhaul'),
+      faction: 'kilrathi',
+      pos: new Vector3(0, 0, -1800),
+      speed: 0,
+      ai: newAi(0.2, { passive: true }),
+    });
+    let missiles = 0;
+    for (let i = 0; i < 60 * 20 && missiles === 0; i++) {
+      frame(demo, world, input);
+      missiles = world.entities.filter((e) => e.kind === 'missile').length;
+    }
+    expect(player.ship!.targetId).toBeDefined();
+    expect(missiles).toBeGreaterThan(0);
+    demo.stop(input);
+  });
+
+  it('DEMO-03d: 敵を待ち続けても実演は詰まらない (上限で先へ進む)', () => {
+    const { demo, input, world } = setup();
+    demo.start();
+    skipTo(demo, world, input, 'flare');
+
+    // 待ち上限 (50秒) + 段の秒数を足しても進む
+    for (let i = 0; i < 60 * 70; i++) frame(demo, world, input);
+    expect(demo.stepId).not.toBe('flare');
+    demo.stop(input);
+  });
+
   it('DEMO-04: 発艦演出中 (locked) は操縦を渡さず、台本も進めない', () => {
     const { demo, input, world } = setup();
     demo.start();

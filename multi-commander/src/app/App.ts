@@ -985,17 +985,21 @@ export class App {
     }));
     if (mode === 'demo') {
       /*
-       * お手本モードは実演の途中で敵を落としてしまうので、
-       * 最後のドッグファイトに相手が残るよう増援を宣言する。
+       * お手本モードは実演の途中で敵を落としてしまうので、敵を切らさないよう
+       * 時間差の増援を宣言する。ミサイル・フレア・ドッグファイトの実演は
+       * 「相手が居ないと実演にならない」ため、ここで供給を保証する。
        *
-       * 前半 (スロットル〜HUD操作) で約100秒使うため、`delay` はそれに合わせる。
-       * 実演を B で飛ばした場合は増援の到着前にドッグファイトへ入るが、
-       * その場合は「敵が出るまで待つ」ようになっている
-       * (`ui/TutorialDemo.ts` の `sawHostiles`)。
+       * 実演の秒数の合計はターゲット段まで約 50 秒、ミサイル段が約 70 秒、
+       * ドッグファイト段が約 100 秒。増援の `delay` はそれに合わせている
+       * (やさしい難易度では `waveDelayBonus` で +12 秒される)。
+       * それでも間に合わない場合は、実演側が敵が出るまで待つ
+       * (`ui/TutorialDemo.ts` の `requiresHostile`)。
        */
       tutorialSpawns.push(
-        { shipId: 'ke04-mirage', count: 2, faction: 'kilrathi', delay: 0, offset: [900, 200, -2400], tag: 'demo-first' },
-        { shipId: 'kf03-greyhaul', count: 2, faction: 'kilrathi', delay: 88, offset: [-1200, -300, -2600], tag: 'demo-wave' },
+        { shipId: 'ke04-mirage', count: 2, faction: 'kilrathi', delay: 0, offset: [900, 200, -2400], tag: 'demo-wave' },
+        { shipId: 'kf03-greyhaul', count: 2, faction: 'kilrathi', delay: 40, offset: [-1200, -300, -2600], tag: 'demo-wave' },
+        { shipId: 'ke04-mirage', count: 2, faction: 'kilrathi', delay: 70, offset: [1500, 400, -2200], tag: 'demo-wave' },
+        { shipId: 'kf03-greyhaul', count: 2, faction: 'kilrathi', delay: 105, offset: [-900, 200, -2800], tag: 'demo-wave' },
       );
     }
     return {

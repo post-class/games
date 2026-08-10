@@ -81,6 +81,31 @@ describe('settings', () => {
     expect(DEFAULT_SETTINGS.keyBindings.pitchUp).toBe(DEFAULT_KEY_BINDINGS.pitchUp);
   });
 
+  it('版2以前の保存データはマウス操縦を既定 OFF へ引き下げる', () => {
+    // 既定が変わった項目だけを移行する (他の選択は残す)
+    storage.set(
+      'multi-commander.settings.v1',
+      JSON.stringify({ settingsVersion: 2, mouseFlight: true, colorblindMode: true }),
+    );
+
+    loadSettings();
+
+    expect(settings.mouseFlight).toBe(false);
+    expect(settings.colorblindMode).toBe(true);
+    expect(settings.settingsVersion).toBe(DEFAULT_SETTINGS.settingsVersion);
+  });
+
+  it('版3以降でマウス操縦を自分で ON にした選択は尊重する', () => {
+    storage.set(
+      'multi-commander.settings.v1',
+      JSON.stringify({ settingsVersion: 3, mouseFlight: true }),
+    );
+
+    loadSettings();
+
+    expect(settings.mouseFlight).toBe(true);
+  });
+
   it('壊れた保存データは既定値へ戻す', () => {
     updateSettings({ colorblindMode: true, gamepadRumble: false });
     storage.set('multi-commander.settings.v1', '{broken');
