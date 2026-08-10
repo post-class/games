@@ -1,5 +1,5 @@
 import type { AudioManager } from './AudioManager';
-import { musicPath, type MusicTrackId } from './musicCues';
+import { musicChoice, resolveMusicPath, type MusicTrackId } from './musicCues';
 
 /** 曲を切り替えるときのクロスフェード時間。 */
 const CROSSFADE_SECONDS = 0.75;
@@ -20,6 +20,8 @@ export interface MusicMedia {
 
 interface Playback {
   id: MusicTrackId;
+  /** 実際に鳴らしているファイル。`'random'` の場面は抽選結果をここで固定する。 */
+  path: string;
   media: MusicMedia;
   level: number;
   target: number;
@@ -107,7 +109,7 @@ export class MusicDirector {
   private ensurePlayback(id: MusicTrackId): void {
     // 設定でこの場面を「無音」にしている（W5-A）。鳴っている曲は落とす。
     // requested は更新済みなので、別の場面へ移れば普通に鳴り出す。
-    if (musicPath(id) === '') {
+    if (musicChoice(id) === 'silent') {
       if (this.active) {
         this.active.target = 0;
         this.fading.push(this.active);
@@ -115,16 +117,22 @@ export class MusicDirector {
       }
       return;
     }
-    if (
-      (this.active?.id === id ||
-        (this.active && !this.active.failed && musicPath(this.active.id) === musicPath(id))) ||
-      !this.audio.musicNode
-    ) return;
+    // 同じ場面の再要求では鳴らし直さない（`'random'` の抽選もし直さない）。
+    if (this.active?.id === id || !this.audio.musicNode) return;
+
+    // 抽選はここで 1 回だけ。以降の比較・再生は確定したパスを使う。
+    const path = resolveMusicPath(id, this.active && !this.active.failed ? this.active.path : undefined);
+    if (path === '') return;
+    // 別の場面だが同じ曲になった場合（例: ボス→宿敵）は、二重にクロスフェードしない。
+    if (this.active && !this.active.failed && this.active.path === path) {
+      this.active.id = id;
+      return;
+    }
 
     let media: MusicMedia;
     try {
       media = this.createMedia();
-      media.src = musicPath(id);
+      media.src = path;
       media.loop = true;
       media.preload = 'auto';
       media.volume = 0;
@@ -134,7 +142,7 @@ export class MusicDirector {
       return;
     }
 
-    const next: Playback = { id, media, level: 0, target: 1, failed: false };
+    const next: Playback = { id, path, media, level: 0, target: 1, failed: false };
     media.addEventListener('error', () => {
       next.failed = true;
       next.target = 0;

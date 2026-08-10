@@ -26,8 +26,12 @@ export const MUSIC_FILES = {
 
 export type MusicFileId = keyof typeof MUSIC_FILES;
 
-/** 場面に割り当てられる選択肢。`'silent'` はその場面で鳴らさない。 */
-export type MusicChoice = MusicFileId | 'silent';
+/**
+ * 場面に割り当てられる選択肢。
+ * - `'silent'` はその場面で鳴らさない。
+ * - `'random'` は場面ごとの候補プール (`MUSIC_CUE_POOL`) から**その場面に入るたび**選び直す。
+ */
+export type MusicChoice = MusicFileId | 'silent' | 'random';
 
 /**
  * 場面キュー。曲ではなく「どういう場面か」を表す。
@@ -49,18 +53,48 @@ export const MUSIC_CUES = [
 
 export type MusicTrackId = (typeof MUSIC_CUES)[number];
 
-/** 場面 → 曲の既定対応。W5-A 以前の聞こえ方をそのまま写したもの。 */
+/**
+ * 場面ごとの候補プール。`'random'` を選んだ場面はここから抽選する。
+ *
+ * 先頭は W5-A までの固定曲にしてある（曲を明示指定したときの聞こえ方を残すため）。
+ * 出撃中の場面（哨戒〜宿敵）は「毎回同じ曲になる」のを避けるため複数入れる。
+ */
+export const MUSIC_CUE_POOL: Record<MusicTrackId, MusicFileId[]> = {
+  title: ['title-space-fighter'],
+  hub: ['briefing-echoes-of-time'],
+  briefing: ['investigation-investigations'],
+  patrol: ['patrol-crypto', 'investigation-investigations'],
+  tension: ['tension-unseen-horrors', 'danger-gathering-darkness', 'investigation-investigations'],
+  combat: ['combat-five-armies', 'combat-impact-moderato', 'combat-rising-game'],
+  intenseCombat: [
+    'combat-impact-moderato',
+    'combat-five-armies',
+    'combat-rising-game',
+    'danger-gathering-darkness',
+  ],
+  boss: ['boss-black-vortex', 'danger-gathering-darkness', 'combat-impact-moderato'],
+  nemesis: ['boss-black-vortex', 'danger-gathering-darkness'],
+  victory: ['combat-rising-game'],
+  defeat: ['danger-gathering-darkness'],
+};
+
+/**
+ * 場面 → 曲の既定対応。
+ *
+ * 出撃中の場面は `'random'`。同じ戦闘曲が毎回鳴るのを避けるため、
+ * その場面へ入るたび `MUSIC_CUE_POOL` から選び直す。
+ * 曲を固定したい場合は設定の BGM から曲名を選ぶ。
+ */
 export const DEFAULT_MUSIC_ASSIGNMENT: Record<MusicTrackId, MusicChoice> = {
   title: 'title-space-fighter',
   hub: 'briefing-echoes-of-time',
   briefing: 'investigation-investigations',
-  patrol: 'patrol-crypto',
-  tension: 'tension-unseen-horrors',
-  combat: 'combat-five-armies',
-  intenseCombat: 'combat-impact-moderato',
-  boss: 'boss-black-vortex',
-  // 従来 musicPath() が nemesis を boss へ落としていたのと同じ結果になる
-  nemesis: 'boss-black-vortex',
+  patrol: 'random',
+  tension: 'random',
+  combat: 'random',
+  intenseCombat: 'random',
+  boss: 'random',
+  nemesis: 'random',
   victory: 'combat-rising-game',
   defeat: 'danger-gathering-darkness',
 };
@@ -94,8 +128,9 @@ export const MUSIC_FILE_LABEL: Record<MusicFileId, string> = {
   'investigation-investigations': '10 Investigations',
 };
 
-/** 設定画面に出す選択肢の順番。曲10本 + 無音。 */
+/** 設定画面に出す選択肢の順番。ランダム + 曲10本 + 無音。 */
 export const MUSIC_CHOICES: MusicChoice[] = [
+  'random',
   ...(Object.keys(MUSIC_FILES) as MusicFileId[]),
   'silent',
 ];
@@ -105,13 +140,15 @@ export function isMusicCue(value: unknown): value is MusicTrackId {
 }
 
 export function isMusicChoice(value: unknown): value is MusicChoice {
-  if (value === 'silent') return true;
+  if (value === 'silent' || value === 'random') return true;
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(MUSIC_FILES, value);
 }
 
-/** 選択肢の表示名（無音を含む）。 */
+/** 選択肢の表示名（ランダム・無音を含む）。 */
 export function musicChoiceLabel(choice: MusicChoice): string {
-  return choice === 'silent' ? '無音' : MUSIC_FILE_LABEL[choice];
+  if (choice === 'silent') return '無音';
+  if (choice === 'random') return 'ランダム';
+  return MUSIC_FILE_LABEL[choice];
 }
 
 let assignment: Record<MusicTrackId, MusicChoice> = { ...DEFAULT_MUSIC_ASSIGNMENT };
@@ -143,10 +180,47 @@ export function musicChoice(id: MusicTrackId): MusicChoice {
   return assignment[id] ?? DEFAULT_MUSIC_ASSIGNMENT[id];
 }
 
-/** 場面に対応する曲のパス。`'silent'` を選んだ場面は空文字を返す。 */
-export function musicPath(id: MusicTrackId): string {
+/** 抽選に使う乱数。テストから差し替えられるようにしておく。 */
+let random: () => number = Math.random;
+
+/** 乱数を差し替える（テスト用）。引数なしで `Math.random` へ戻す。 */
+export function setMusicRandom(next?: () => number): void {
+  random = next ?? Math.random;
+}
+
+/** 場面ごとの直近の抽選結果。連続で同じ曲を引かないために覚えておく。 */
+const lastPicked: Partial<Record<MusicTrackId, MusicFileId>> = {};
+
+/**
+ * 場面に対応する曲のパス。`'silent'` を選んだ場面は空文字を返す。
+ *
+ * `'random'` の場面は候補プールから抽選する。抽選では
+ * 「いま鳴っている曲 (`avoidPath`)」と「その場面で前回引いた曲」を避ける。
+ * 候補が尽きる場合はプール全体から引く（必ず 1 曲返す）。
+ */
+export function resolveMusicPath(id: MusicTrackId, avoidPath?: string): string {
   const choice = musicChoice(id);
-  return choice === 'silent' ? '' : MUSIC_FILES[choice];
+  if (choice === 'silent') return '';
+  if (choice !== 'random') return MUSIC_FILES[choice];
+
+  const pool = MUSIC_CUE_POOL[id] ?? [];
+  if (pool.length === 0) return '';
+  const previous = lastPicked[id];
+  const fresh = pool.filter((file) => MUSIC_FILES[file] !== avoidPath && file !== previous);
+  const usable = fresh.length > 0 ? fresh : pool.filter((file) => MUSIC_FILES[file] !== avoidPath);
+  const candidates = usable.length > 0 ? usable : pool;
+  const index = Math.min(candidates.length - 1, Math.floor(random() * candidates.length));
+  const picked = candidates[Math.max(0, index)];
+  lastPicked[id] = picked;
+  return MUSIC_FILES[picked];
+}
+
+/**
+ * 場面に対応する曲のパス（`'random'` はそのつど抽選）。
+ * 再生中の曲を考慮しないので、鳴らす経路では `resolveMusicPath()` を使う。
+ */
+export function musicPath(id: MusicTrackId): string {
+  return resolveMusicPath(id);
 }
 
 /** 近距離の敵編隊から、その時点で最も優先する戦闘曲を決める。 */

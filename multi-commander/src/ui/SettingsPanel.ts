@@ -319,7 +319,7 @@ function block(title: string, rows: HTMLElement[], gridClass?: string): HTMLElem
   return el;
 }
 
-/** 場面ごとの BGM（W5-A）。11 場面 × 曲10本 + 無音。 */
+/** 場面ごとの BGM（W5-A）。11 場面 × ランダム + 曲10本 + 無音。 */
 function musicBlock(actions: SettingsPanelActions | undefined, onRender: () => void): HTMLElement {
   const options = MUSIC_CHOICES.map((c) => ({ value: c, label: musicChoiceLabel(c) }));
   const rows = MUSIC_CUES.map((cue) => {
@@ -337,7 +337,8 @@ function musicBlock(actions: SettingsPanelActions | undefined, onRender: () => v
     return root;
   });
   const desc = note(
-    '戦闘中の曲は近くの敵の数で切り替わります（哨戒 0 / 緊張 1 / 戦闘 2〜3 / 激戦 4機以上）。',
+    '戦闘中の曲は近くの敵の数で切り替わります（哨戒 0 / 緊張 1 / 戦闘 2〜3 / 激戦 4機以上）。' +
+      '「ランダム」はその場面に入るたび候補から選び直します（直前と同じ曲は避けます）。曲名を選ぶと固定できます。',
   );
   // 2列グリッドの中でも説明は 1行ぶん全幅で読ませる
   desc.classList.add('mc-setting-wide');

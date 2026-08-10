@@ -250,7 +250,10 @@ describe('W5-A オーディオタブの BGM', () => {
   it('◀ で1つ戻すと「無音」に到達できる', () => {
     const root = buildSettingsPanel(() => {}) as unknown as FakeElement;
     selectTab(dom, root, 'オーディオ');
-    // 既定は先頭の曲なので、◀ で末尾（無音）へ回り込む
+    // 選択肢は「ランダム → 曲10本 → 無音」。タイトルの既定は先頭の曲なので、
+    // ◀ で1つ戻すと「ランダム」、もう1つ戻すと末尾の「無音」へ回り込む
+    clickArrow(requireRow(dom, root, MUSIC_CUE_LABEL.title), '◀');
+    expect(settings.musicAssignment.title).toBe('random');
     clickArrow(requireRow(dom, root, MUSIC_CUE_LABEL.title), '◀');
     expect(settings.musicAssignment.title).toBe('silent');
     expect(currentValue(requireRow(dom, root, MUSIC_CUE_LABEL.title))).toBe('無音');
