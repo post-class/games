@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BUST_ART_IDS, FACE_ART_IDS, hasBustArt } from '../../src/ui/Portrait';
+import { BUST_ART_IDS, bustUrl, FACE_ART_IDS, hasBustArt } from '../../src/ui/Portrait';
 import { PILOTS } from '../../src/content/pilots';
 import { BARTENDER_PERSON_ID } from '../../src/content/barRumors';
 import { veilPerson } from '../../src/content/veil/people';
@@ -27,6 +27,21 @@ describe('酒場の場面（立ち絵）', () => {
     const missing = [...BUST_ART_IDS].filter((id) => !BUST_FILES.has(`bust-${id}.webp`));
     expect(missing).toEqual([]);
     expect(BUST_ART_IDS.size).toBeGreaterThanOrEqual(9);
+  });
+
+  /**
+   * 立ち絵の口パクは「閉じた絵」と「開けた絵」の2枚重ねなので、
+   * talk が欠けると片方が 404 になって口が動かなくなる。
+   */
+  it('全 id に talk 差分がある（口パクの2枚目）', () => {
+    const missing = [...BUST_ART_IDS].filter((id) => !BUST_FILES.has(`bust-${id}-talk.webp`));
+    expect(missing).toEqual([]);
+  });
+
+  it('bustUrl は表情でファイル名を切り替える', () => {
+    expect(bustUrl('confed-17')).toContain('bust-confed-17.webp');
+    expect(bustUrl('confed-17', 'neutral')).toContain('bust-confed-17.webp');
+    expect(bustUrl('confed-17', 'talk')).toContain('bust-confed-17-talk.webp');
   });
 
   it('立ち絵の人物は名簿に実在し、顔画像も持つ（会話ボックスの顔と同じ人物になる）', () => {

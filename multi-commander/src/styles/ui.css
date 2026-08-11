@@ -2791,6 +2791,23 @@
   -webkit-mask-image: linear-gradient(to bottom, #000 84%, rgba(0, 0, 0, 0) 100%);
   mask-image: linear-gradient(to bottom, #000 84%, rgba(0, 0, 0, 0) 100%);
 }
+/*
+ * 口パク。閉じた絵（.a）と開けた絵（.b）を重ね、喋っている間だけ交互に見せる。
+ * 2枚は同じ枠で切り出してあるので、重ねても口以外は動かない。
+ * `.b` を絶対配置にして、レイアウトは `.a` の1枚ぶんで決まるようにする。
+ */
+.mc-barroom-bust.b {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+}
+.mc-barroom-fig.speaking .mc-barroom-bust.a {
+  animation: mc-face-a 0.26s steps(1, end) infinite, mc-bar-speak 420ms ease-in-out infinite alternate;
+}
+.mc-barroom-fig.speaking .mc-barroom-bust.b {
+  animation: mc-face-b 0.26s steps(1, end) infinite, mc-bar-speak 420ms ease-in-out infinite alternate;
+}
 .mc-barroom-fig.wounded .mc-barroom-bust {
   filter: saturate(0.55) brightness(0.8);
 }

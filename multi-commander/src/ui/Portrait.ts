@@ -272,8 +272,17 @@ export function hasBustArt(personId: string): boolean {
   return BUST_ART_IDS.has(personId);
 }
 
-export function bustUrl(personId: string): string {
-  return `${import.meta.env.BASE_URL}art/tex/bust-${personId}.webp`;
+/**
+ * 立ち絵の表情。口を閉じた `neutral` と開けた `talk` の2種だけを持つ。
+ *
+ * 顔画像（`face-<id>-<表情>.jpg`）は5種あるが、立ち絵は「喋っているか」しか
+ * 表さないので2枚で足りる（2枚を重ねて交互に見せると口が動く）。
+ */
+export type BustExpression = 'neutral' | 'talk';
+
+export function bustUrl(personId: string, exp: BustExpression = 'neutral'): string {
+  const suffix = exp === 'talk' ? '-talk' : '';
+  return `${import.meta.env.BASE_URL}art/tex/bust-${personId}${suffix}.webp`;
 }
 
 /** 無線の内容から表情を推定する */

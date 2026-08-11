@@ -755,12 +755,19 @@ export class BarScene {
     }
 
     if (hasBustArt(personId)) {
-      const img = document.createElement('img');
-      img.className = 'mc-barroom-bust';
-      img.src = bustUrl(personId);
-      img.alt = '';
-      img.decoding = 'async';
-      el.appendChild(img);
+      // 口を閉じた絵と開けた絵を重ね、喋っている間だけ CSS で交互に見せる
+      // （顔画像の口パクと同じ仕掛け。2枚は同じ枠で切り出してあるので跳ねない）。
+      const a = document.createElement('img');
+      a.className = 'mc-barroom-bust a';
+      a.src = bustUrl(personId, 'neutral');
+      a.alt = '';
+      a.decoding = 'async';
+      const b = document.createElement('img');
+      b.className = 'mc-barroom-bust b';
+      b.src = bustUrl(personId, 'talk');
+      b.alt = '';
+      b.decoding = 'async';
+      el.append(a, b);
     } else {
       // 立ち絵が無い人物のつなぎ。顔だけを丸く出す（欠けた枠を見せない）
       const span = document.createElement('span');
