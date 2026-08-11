@@ -50,7 +50,14 @@ import { mapParams } from '@/sim/systems/mapgen';
 import type { AiContext } from './AiPlayer';
 import { memGet, memSet } from './AiPlayer';
 import type { AiView, OwnEntity } from './view';
-import { canAfford, canAffordWithAgeReserve, findTownCenter, placeBuildingCommand } from './econGoals';
+import {
+  canAfford,
+  canAffordWithAgeReserve,
+  canQueueProduce,
+  findTownCenter,
+  markProduce,
+  placeBuildingCommand,
+} from './econGoals';
 
 // ---------------------------------------------------------------- データ由来の定数
 
@@ -111,14 +118,29 @@ export interface EnemyRead {
  *
  * 重みの付け方:
  *  - **見えている敵ユニット 1 体につき +1**（今そこにある脅威）
+ *  - **見えている敵の建物 1 棟につき `building` の役割へ +1**（`buildingWeightMax` で頭打ち）
  *  - **推定できた敵文明が出せる役割 1 つにつき +1**（これから来る脅威）
- * 文明が推定できていなければ後者は 0 になる ―― つまり
+ * 文明が推定できていなければ 3 つ目は 0 になる ―― つまり
  * **偵察していない AI は相性を読めない**（透視をしないことの裏返し）。
+ *
+ * ■ なぜ建物を重みに足すのか（実測。攻城工房が 1 棟も建たなかった理由）
+ * `config.json` の `counterMatrix` は **`siege → building: good`** と定めていて、
+ * データ側は「攻城は建物に効く」と既に言っている。ところがここで敵の建物を
+ * **文明の推定にしか使っていなかった**ので、`roleMixFromWeights` に渡る重みには
+ * `building` が 1 度も立たず、**攻城の需要が構造的に 0** だった。
+ * その結果 `planMilitaryBuilding` は攻城工房を選ばず、
+ * 実測（段階 5・4 組・30 分）で**工房 0 棟・攻城兵器 0 体**だった。
+ * ここに足せば既存の相性表がそのまま効く ―― 攻城のための特別扱いを書かなくてよい。
+ *
+ * `buildingWeightMax` の既定が 0 なのは、**既存の呼び出し（テストを含む）を
+ * 1 引数のまま動かすため**。段階ごとの値は `ai.json` にある。
  */
-export function readEnemy(view: AiView): EnemyRead {
+export function readEnemy(view: AiView, buildingWeightMax = 0): EnemyRead {
   const roleWeight = new Int32Array(ROLE_COUNT);
   const civSeen = new Uint8Array(CIV_DEFS.length);
   let seenUnits = 0;
+  const buildingRole = ROLE_IDS.indexOf('building' as never);
+  let buildingWeight = 0;
 
   for (let k = 0; k < view.seenEnemies.length; k++) {
     const s = view.seenEnemies[k]!;
@@ -131,6 +153,13 @@ export function readEnemy(view: AiView): EnemyRead {
       const bdef = buildingDef(s.typeId);
       // 固有建物（大天幕・観輪・塩蔵など）も文明を明かす。
       if (bdef.civ !== null) civSeen[civDefById(bdef.civ).index] = 1;
+      // **建物は「壊すべき相手」として数える。**
+      // 1 棟ごとに素朴に足すと、拠点で 10 棟見えた瞬間に攻城へ寄りすぎるので
+      // 上限を置く（`ai.json` の `enemyBuildingWeightMax`）。
+      if (buildingRole >= 0 && buildingWeight < buildingWeightMax) {
+        roleWeight[buildingRole] = roleWeight[buildingRole]! + 1;
+        buildingWeight++;
+      }
     }
   }
 
@@ -165,8 +194,8 @@ function addCivPotentialRoles(civ: CivId, out: Int32Array): void {
  *
  * 敵が全く見えていないときは、戦える役割に均等（= 特に寄せない）。
  */
-export function desiredRoleMix(view: AiView): Int32Array {
-  const read = readEnemy(view);
+export function desiredRoleMix(view: AiView, buildingWeightMax = 0): Int32Array {
+  const read = readEnemy(view, buildingWeightMax);
   return roleMixFromWeights(read.roleWeight);
 }
 
@@ -271,7 +300,9 @@ export function planMilitary(ctx: AiContext): Command[] {
   if (ctx.cfg.maxFronts <= 0) return [];
 
   const cmds: Command[] = [];
-  const mix = desiredRoleMix(ctx.view);
+  // 敵の建物も「壊すべき相手」として構成比に入れる（`readEnemy` の注記）。
+  // これが無いと攻城の需要が構造的に立たず、攻城工房が 1 棟も建たない。
+  const mix = desiredRoleMix(ctx.view, ctx.cfg.enemyBuildingWeightMax);
 
   // 0) **内政が立つまで兵を作らない**（`07§2` の「0〜5 分は村人だけを増やす時間」）。
   //
@@ -315,11 +346,25 @@ export function planMilitary(ctx: AiContext): Command[] {
   }
 
   // 1) 兵舎・射場・厩など「作りたい兵の生産元」を建てる（1 判断 1 棟）。
-  const bld = planMilitaryBuilding(ctx, mix);
+  const wishBuilding = pickMilitaryBuilding(ctx, mix);
+  const bld = wishBuilding === null ? null : placeBuildingCommand(ctx, wishBuilding);
   if (bld !== null) cmds.push(bld);
 
   // 2) 生産元ごとに、そこで作れるいちばん点数の高い兵を 1 体積む。
-  pushUnitProduction(ctx, mix, cmds);
+  //
+  // **建てたい生産元がまだ建っていないなら、その費用は兵に使わない。**
+  //
+  // ■ なぜ必要か（実測。攻城工房が 1 棟も建たなかった直接の原因）
+  // 遠隔兵は木材を食う（1 体 25〜45）。生産元 2 棟から出し続けると木材の消費が
+  // 毎分 100 前後になり、**木材の手持ちが 5〜31 のまま動かない**。
+  // 拠点のそばの森が尽きたあとの木材の収入は毎分 40 前後なので、
+  // 攻城工房（木材 200）はどう待っても貯まらない ―― 実測（段階 5・4 組・30 分）で
+  // **工房 0 棟・攻城兵器 0 体**、着工試行にも一度も出てこなかった。
+  // 人間は「工房を建てるから弓は少し止める」と考える。ここではその 1 棟ぶんだけ取り置く
+  // （建て終われば取り置きは消える。永久に兵を止めるわけではない）。
+  const buildReserve =
+    bld === null && wishBuilding !== null ? buildingDefById(wishBuilding).cost : null;
+  pushUnitProduction(ctx, mix, cmds, buildReserve);
 
   // 3) **拠点を落としに行く**（守り手のいない建物を名指しで殴る）。
   //    `pushDispatch` より先。ここで攻城に就いた兵は派遣の対象から外れる。
@@ -337,6 +382,19 @@ export function planMilitary(ctx: AiContext): Command[] {
  * 攻城工房は `allowSiege`、城は `allowDecoy`（戦域を広く使う段階）から。
  */
 function planMilitaryBuilding(ctx: AiContext, mix: Int32Array): Command | null {
+  const wish = pickMilitaryBuilding(ctx, mix);
+  return wish === null ? null : placeBuildingCommand(ctx, wish);
+}
+
+/**
+ * 建てたい軍事建物の ID を選ぶ（**まだ着工しない**）。
+ *
+ * 着工と分けている理由: 払えないときに「何を建てたかったか」を呼び出し側が知る必要がある。
+ * それが分かれば、その建物のぶんの資源を**兵に使わずに取り置ける**
+ * （`pushUnitProduction` の `buildReserve`）。分ける前は、
+ * 建てたい建物が払えないまま兵がその資源を食べ続け、永久に建たなかった。
+ */
+function pickMilitaryBuilding(ctx: AiContext, mix: Int32Array): string | null {
   const view = ctx.view;
   const civ = view.own.civ as CivId;
   const wanted = producibleUnits(view);
@@ -355,10 +413,28 @@ function planMilitaryBuilding(ctx: AiContext, mix: Int32Array): Command | null {
     if (udef.roleIdx === roleIndexOf('siege') && !ctx.cfg.allowSiege) continue;
     if (bdef.frontSlotBonus > 0 && !ctx.cfg.allowDecoy) continue; // 城・大天幕は段階 4 以上
     if (hasBuilding(view, bdef.index)) continue;
-    const cmd = placeBuildingCommand(ctx, src);
-    if (cmd !== null) return cmd;
+    return src;
   }
   return null;
+}
+
+/**
+ * 「建てたい生産元 1 棟ぶんを残したうえで」その兵を作れるか。
+ * 取り置きは 0 で止める（引き算で負にすると、その資源を 1 も使わない兵まで作れなくなる
+ * ―― `canAffordWithAgeReserve` と同じ理由）。
+ */
+function affordsWithBuildReserve(
+  view: AiView,
+  cost: Int32Array,
+  reserve: Int32Array | null,
+): boolean {
+  if (reserve === null) return true;
+  const res = view.own.resources;
+  for (let r = 0; r < res.length; r++) {
+    const usable = (res[r] ?? 0) - (reserve[r] ?? 0);
+    if ((usable > 0 ? usable : 0) < (cost[r] ?? 0)) return false;
+  }
+  return true;
 }
 
 function roleIndexOf(role: string): number {
@@ -388,7 +464,13 @@ function countOwnArmy(ctx: AiContext): number {
   return n;
 }
 
-function pushUnitProduction(ctx: AiContext, mix: Int32Array, out: Command[]): void {
+function pushUnitProduction(
+  ctx: AiContext,
+  mix: Int32Array,
+  out: Command[],
+  /** 建てたい生産元 1 棟ぶんの費用（兵に使わない。上の注記）。無ければ null。 */
+  buildReserve: Int32Array | null = null,
+): void {
   const view = ctx.view;
   if (view.own.pop >= view.own.popCap) return;
   const wanted = producibleUnits(view);
@@ -426,7 +508,7 @@ function pushUnitProduction(ctx: AiContext, mix: Int32Array, out: Command[]): vo
       // （実測で兵 26 体・食料 0〜19 のまま age 0 だった）。
       const affordable = belowMinSquad
         ? canAfford(view.own.resources, udef.cost)
-        : canAffordWithAgeReserve(ctx, udef.cost);
+        : canAffordWithAgeReserve(ctx, udef.cost) && affordsWithBuildReserve(view, udef.cost, buildReserve);
       if (!affordable) continue;
       const s = unitScore(mix, udef.id);
       if (s > bestScore || (s === bestScore && bestId !== null && udef.index < unitDefById(bestId).index)) {
@@ -435,6 +517,14 @@ function pushUnitProduction(ctx: AiContext, mix: Int32Array, out: Command[]): vo
       }
     }
     if (bestId === null) continue;
+    // **1 体できあがるまで次を頼まない**（`AiMemory.produceTick` の注記）。
+    //
+    // 村人と同じ理由。生産元 1 棟につき判断ごとに `produce` を出していたので、
+    // 判断が速い段階ほど同じ 1 体を何度も注文し、待ち行列に食料と金が吸われていた。
+    // 実測（段階 5・4 組・30 分）では鉄器の世に上がれたのが 4/8 席しかなく、
+    // 判断が半分の速さの段階 4（7/8 席）より弱かった。
+    if (!canQueueProduce(ctx, oe.index, unitDefById(bestId).buildTicks, true)) continue;
+    markProduce(ctx, oe.index, true);
     out.push({
       t: 'produce',
       p: ctx.playerId,

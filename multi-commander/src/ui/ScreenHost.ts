@@ -81,6 +81,8 @@ export class ScreenHost {
   private spec?: ScreenSpec;
   private index = 0;
   private itemEls: HTMLElement[] = [];
+  /** 項目群の親。`setItems()` が差し替える（`querySelector` を使わないため参照で持つ） */
+  private menuEl?: HTMLElement;
   private keyHandler = (ev: KeyboardEvent) => this.onKey(ev);
   private gamepadRaf = 0;
   private gamepadButtons = new Set<number>();
@@ -160,40 +162,10 @@ export class ScreenHost {
     if (spec.content) screen.appendChild(spec.content);
 
     this.itemEls = [];
+    this.menuEl = undefined;
     if (spec.items?.length) {
-      const menu = document.createElement('div');
-      menu.className = 'mc-menu';
-      spec.items.forEach((item, i) => {
-        const node = document.createElement('div');
-        node.className = `mc-menu-item${item.disabled ? ' disabled' : ''}`;
-        if (item.icon) {
-          node.classList.add('with-icon');
-          const img = document.createElement('img');
-          img.src = item.icon;
-          img.alt = '';
-          img.className = 'mc-menu-icon';
-          img.addEventListener('error', () => img.remove());
-          node.appendChild(img);
-          const label = document.createElement('span');
-          label.textContent = item.label;
-          node.appendChild(label);
-        } else {
-          node.textContent = item.label;
-        }
-        if (!item.disabled) {
-          node.addEventListener('click', () => {
-            this.index = i;
-            this.select();
-          });
-          node.addEventListener('mouseenter', () => {
-            this.index = i;
-            this.highlight();
-          });
-        }
-        menu.appendChild(node);
-        this.itemEls.push(node);
-      });
-      screen.appendChild(menu);
+      this.menuEl = this.buildMenu(spec.items);
+      screen.appendChild(this.menuEl);
     }
 
     if (spec.hint) {
@@ -210,6 +182,78 @@ export class ScreenHost {
     this.startGamepadLoop();
   }
 
+  /** 項目群の DOM を組む。`show()` と `setItems()` の両方から使う */
+  private buildMenu(items: MenuItem[]): HTMLElement {
+    const menu = document.createElement('div');
+    menu.className = 'mc-menu';
+    this.itemEls = [];
+    items.forEach((item, i) => {
+      const node = document.createElement('div');
+      node.className = `mc-menu-item${item.disabled ? ' disabled' : ''}`;
+      if (item.icon) {
+        node.classList.add('with-icon');
+        const img = document.createElement('img');
+        img.src = item.icon;
+        img.alt = '';
+        img.className = 'mc-menu-icon';
+        img.addEventListener('error', () => img.remove());
+        node.appendChild(img);
+        const label = document.createElement('span');
+        label.textContent = item.label;
+        node.appendChild(label);
+      } else {
+        node.textContent = item.label;
+      }
+      if (!item.disabled) {
+        node.addEventListener('click', () => {
+          this.index = i;
+          this.select();
+        });
+        node.addEventListener('mouseenter', () => {
+          this.index = i;
+          this.highlight();
+        });
+      }
+      menu.appendChild(node);
+      this.itemEls.push(node);
+    });
+    return menu;
+  }
+
+  /**
+   * 項目だけを差し替える。**画面（`.mc-screen`）は作り直さない**。
+   *
+   * 酒場のように「同じ場面のまま選択肢が変わる」画面のために用意した。
+   * `show()` を呼び直すと `hide()` が走って DOM が全部捨てられ、
+   * CSS アニメーションの時間軸が 0 に戻り、`<img>` も読み直しになる
+   * （＝カメラ移動や入退場の演出が成立しない）。こちらはメニューの節だけを
+   * 置き換えるので、場面側の状態と演出がそのまま続く。
+   *
+   * 既定のフォーカスは `show()` と同じく「先頭の選べる項目」。
+   * `keepIndex` を立てると今の位置を保つ（範囲外なら詰める）。
+   */
+  setItems(items: MenuItem[], o: { keepIndex?: boolean } = {}): void {
+    if (!this.el || !this.spec) return;
+    this.spec.items = items;
+    const before = this.index;
+    const menu = this.buildMenu(items);
+    if (this.menuEl) this.menuEl.replaceWith(menu);
+    else this.el.appendChild(menu);
+    this.menuEl = menu;
+    if (o.keepIndex) {
+      this.index = Math.max(0, Math.min(items.length - 1, before));
+      // 詰めた先が選べない項目なら、そこから先の選べる項目へ寄せる
+      if (items[this.index]?.disabled) {
+        const next = items.findIndex((item, i) => i >= this.index && !item.disabled);
+        this.index = next >= 0 ? next : Math.max(0, items.findIndex((item) => !item.disabled));
+      }
+    } else {
+      const first = items.findIndex((item) => !item.disabled);
+      this.index = first >= 0 ? first : 0;
+    }
+    this.highlight();
+  }
+
   hide(): void {
     if (this.gamepadRaf) cancelAnimationFrame(this.gamepadRaf);
     this.gamepadRaf = 0;
@@ -217,6 +261,7 @@ export class ScreenHost {
     this.el = undefined;
     this.spec = undefined;
     this.itemEls = [];
+    this.menuEl = undefined;
     this.pagers = [];
     this.root.classList.remove('interactive');
   }

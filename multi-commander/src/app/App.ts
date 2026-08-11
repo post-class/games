@@ -239,8 +239,13 @@ export class App {
   private trainingSkill = 0.55;
   private replayPanel?: ReplayPanel;
   private barPilotId?: string;
-  /** 酒場の場面（一枚絵＋立ち絵）。画面を作り直すたびに差し替える。 */
+  /** 酒場の場面（一枚絵＋立ち絵）。入室のあいだ生かし続け、更新は `update()` で渡す。 */
   private barScene?: BarScene;
+  /**
+   * 酒場の噂・酒保の一言を選ぶ種のずらし量。
+   * 「噂を聞き直す」でだけ進める（それ以外の操作では噂が入れ替わらないようにする）。
+   */
+  private barRumorSeed = 0;
   /**
    * ブリーフィングの質疑で表明した方針。発艦前の一言にだけ使う。
    * 難易度・搭載兵装・4状態には一切関与しない。
@@ -594,6 +599,9 @@ export class App {
    */
   private showHub(): void {
     this.game.sound.music.play('hub');
+    // 酒場から出たら場面を解放する（rAF とタイマーを残さない）
+    this.barScene?.dispose();
+    this.barScene = undefined;
     if (isTerminal(this.save.node)) {
       this.showEnding(this.save.node === VICTORY);
       return;
@@ -663,6 +671,50 @@ export class App {
    * が持ち、表示物は `barTalk.ts` が `BarTalkView` として組み立てる。
    */
   private showRecRoom(): void {
+    const vm = this.barVm();
+    // 一枚絵の部屋に立ち絵を置いて喋らせる（表組みの `recRoomHtml` は
+    // 席割りを渡さない呼び出しのために残してある）。
+    this.barScene?.dispose();
+    const scene = new BarScene({ background: artUrl('tex/bg-bar', 'jpg'), ctx: vm.ctx });
+    // 部屋の中で選んで近づいたら、その相手との会話を始める
+    scene.onApproachEnd = (pilotId) => this.startBarTalk(pilotId);
+    this.barScene = scene;
+    this.screens.show({
+      variant: 'barroom',
+      content: scene.el,
+      hint: '←→ で見回す / E で近づく / ▲▼ Enter で項目 / Esc で艦内へ',
+      items: vm.items,
+      onCancel: () => this.showHub(),
+    });
+    // 画面に載せてから文字送りを始める（載せる前だと1行目が出ない）
+    requestAnimationFrame(() => scene.start());
+  }
+
+  /**
+   * 酒場の表示を更新する。**画面は作り直さない**。
+   *
+   * 返事・割り込み・奢り・献杯・噂の聞き直しは、どれも「同じ場面のまま
+   * 中身が変わる」操作なので、場面へ差分を渡してメニューだけ差し替える。
+   * `showRecRoom()` を呼び直すと DOM が全部捨てられ、文字送りが巻き戻り、
+   * 立ち絵の `<img>` も読み直しになる（演出が成立しない）。
+   */
+  private refreshRecRoom(): void {
+    const scene = this.barScene;
+    if (!scene || !scene.el.isConnected) {
+      this.showRecRoom();
+      return;
+    }
+    const vm = this.barVm();
+    scene.update(vm.ctx);
+    this.screens.setItems(vm.items);
+    scene.start();
+  }
+
+  /**
+   * 酒場の表示データと選択肢を組み立てる。
+   * `showRecRoom()`（初回）と `refreshRecRoom()`（更新）が共有する。
+   */
+  private barVm(): { ctx: HubContext; items: MenuItem[] } {
     const roster = this.save.roster;
     const talkers = roster.pilots.filter((p) => p.status === 'active' || p.status === 'wounded');
     const active = talkers.find((p) => p.id === this.barPilotId);
@@ -686,9 +738,9 @@ export class App {
       barStanding: plan.standing,
       barBanter: banterView,
       bondKinds: PILOT_BOND_KINDS,
-      bartender: { name: bartenderName(), line: bartenderLine(this.rumorContext(), this.save.sorties) },
+      bartender: { name: bartenderName(), line: bartenderLine(this.rumorContext(), this.barSeed()) },
       // 噂は2件。3件だとパネルに収まらず、席の一覧までスクロールが出る。
-      rumors: rumorsFor(this.rumorContext(), this.save.sorties, 2).map((r) => ({
+      rumors: rumorsFor(this.rumorContext(), this.barSeed(), 2).map((r) => ({
         source: RUMOR_SOURCE_LABELS[r.source],
         text: r.text,
       })),
@@ -700,50 +752,45 @@ export class App {
     } as HubContext;
 
     const dead = fallen(roster);
-    // 一枚絵の部屋に立ち絵を置いて喋らせる（表組みの `recRoomHtml` は
-    // 席割りを渡さない呼び出しのために残してある）。
-    this.barScene?.dispose();
-    const scene = new BarScene({ background: artUrl('tex/bg-bar', 'jpg'), ctx });
-    this.barScene = scene;
-    this.screens.show({
-      variant: 'barroom',
-      content: scene.el,
-      hint: '▲▼ で選択 / Enter で決定 / Esc で艦内へ戻る',
-      items: [
-        // 返事・割り込みを先頭に置く（会話中はそれが既定フォーカスになる）
-        ...(banterView?.replies ?? []).map((reply) => ({
-          label: `→ ${escapeHtml(reply.label)}`,
-          onSelect: () => this.answerBanter(banterSeat!, reply.id),
-        })),
-        ...(view?.replies ?? []).map((reply) => ({
-          label: `→ ${escapeHtml(reply.label)}`,
-          onSelect: () => this.answerBarTalk(active!, reply.id),
-        })),
-        // 席ごとの操作。同席なら「二人の話に割り込む」、一人席なら「話す」。
-        ...plan.seats.flatMap((seat) => this.seatMenuItems(seat)),
-        ...plan.standing.map((pilot) => ({
-          label: `${escapeHtml(pilotDef(pilot.id).callsign)} と話す（立ち飲み）`,
-          onSelect: () => this.startBarTalk(pilot.id),
-        })),
-        // 一杯奢る。1回の帰艦につき1回だけ。
-        ...(canBuyDrink(roster) && active
-          ? [
-              {
-                label: `${escapeHtml(pilotDef(active.id).callsign)} に一杯奢る`,
-                onSelect: () => this.buyBarDrink(active),
-              },
-            ]
-          : []),
-        ...(dead.length && !barMemory(roster).toasted
-          ? [{ label: `空いた席にグラスを置く（${dead.length} 名）`, onSelect: () => this.toastTheFallen() }]
-          : []),
-        { label: '噂を聞き直す', onSelect: () => this.showRecRoom() },
-        { label: '戻る', onSelect: () => this.showHub() },
-      ],
-      onCancel: () => this.showHub(),
-    });
-    // 画面に載せてから文字送りを始める（載せる前だと1行目が出ない）
-    requestAnimationFrame(() => scene.start());
+    const items: MenuItem[] = [
+      // 返事・割り込みを先頭に置く（会話中はそれが既定フォーカスになる）
+      ...(banterView?.replies ?? []).map((reply) => ({
+        label: `→ ${reply.label}`,
+        onSelect: () => this.answerBanter(banterSeat!, reply.id),
+      })),
+      ...(view?.replies ?? []).map((reply) => ({
+        label: `→ ${reply.label}`,
+        onSelect: () => this.answerBarTalk(active!, reply.id),
+      })),
+      // 席ごとの操作。同席なら「二人の話に割り込む」、一人席なら「話す」。
+      ...plan.seats.flatMap((seat) => this.seatMenuItems(seat)),
+      ...plan.standing.map((pilot) => ({
+        label: `${pilotDef(pilot.id).callsign} と話す（立ち飲み）`,
+        onSelect: () => this.startBarTalk(pilot.id),
+      })),
+      // 一杯奢る。1回の帰艦につき1回だけ。
+      ...(canBuyDrink(roster) && active
+        ? [
+            {
+              label: `${pilotDef(active.id).callsign} に一杯奢る`,
+              onSelect: () => this.buyBarDrink(active),
+            },
+          ]
+        : []),
+      ...(dead.length && !barMemory(roster).toasted
+        ? [{ label: `空いた席にグラスを置く（${dead.length} 名）`, onSelect: () => this.toastTheFallen() }]
+        : []),
+      {
+        label: '噂を聞き直す',
+        onSelect: () => {
+          // 噂と酒保の一言は種で決まるので、明示的に種を進めてから作り直す
+          this.barRumorSeed += 1;
+          this.refreshRecRoom();
+        },
+      },
+      { label: '戻る', onSelect: () => this.showHub() },
+    ];
+    return { ctx, items };
   }
 
   /**
@@ -757,7 +804,7 @@ export class App {
   private barMomentView(plan: BarSeatPlan): HubContext['barMoment'] {
     const seated = [...plan.seats.flatMap((s) => s.occupants), ...plan.standing];
     if (seated.length < 2) return undefined;
-    const scene = barSceneFor(this.rumorContext(), this.save.sorties);
+    const scene = barSceneFor(this.rumorContext(), this.barSeed());
     if (!scene) return undefined;
     // 付き合いの長さは出撃回数で見る。同数なら名簿の並び順で決める（決定論）
     const byTenure = [...seated].sort((a, b) => b.sorties - a.sorties);
@@ -773,6 +820,14 @@ export class App {
         return { who: pilotDef(p.id).callsign, pilotId: p.id, text: line.text };
       }),
     };
+  }
+
+  /**
+   * 酒場の噂・酒保の一言・節目の一幕を選ぶ種。
+   * 出撃するたびに変わり、「噂を聞き直す」でだけ手動で進む。
+   */
+  private barSeed(): number {
+    return this.save.sorties + this.barRumorSeed;
   }
 
   /** 噂の出方を決める文脈（章・4状態・隊の被害）。 */
@@ -813,7 +868,7 @@ export class App {
           this.barPilotId = undefined;
           this.barTalk = undefined;
           writeSave(this.save);
-          this.showRecRoom();
+          this.refreshRecRoom();
         },
       });
     }
@@ -835,7 +890,7 @@ export class App {
     // 1対1に移ったら掛け合いは閉じる
     this.barBanter = undefined;
     writeSave(this.save);
-    this.showRecRoom();
+    this.refreshRecRoom();
   }
 
   /** 掛け合いの表示物。二人の現在の仲を `relations` から読んで渡す。 */
@@ -891,7 +946,7 @@ export class App {
       rememberIntervention(this.save.roster, bondKey(bond.a, bond.b), side);
     }
     writeSave(this.save);
-    this.showRecRoom();
+    this.refreshRecRoom();
   }
 
   /**
@@ -905,7 +960,7 @@ export class App {
     if (!buyDrink(this.save.roster, pilot.id)) return;
     shiftBond(pilot, 0.08);
     writeSave(this.save);
-    this.showRecRoom();
+    this.refreshRecRoom();
   }
 
   /**
@@ -921,7 +976,7 @@ export class App {
       shiftBond(p, 0.04);
     }
     writeSave(this.save);
-    this.showRecRoom();
+    this.refreshRecRoom();
   }
 
   /**
@@ -991,7 +1046,7 @@ export class App {
       rememberBarTalk(this.save.roster, pilot.id);
     }
     writeSave(this.save);
-    this.showRecRoom();
+    this.refreshRecRoom();
   }
 
   /**

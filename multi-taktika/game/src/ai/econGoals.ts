@@ -184,9 +184,6 @@ const NEAR_SITE_MAX_TILES = Math.round(
  */
 const DROP_OFF_WANT_TILES = cfgInt('economy.haulLossTilesPerStep') * 2;
 
-/** 「金が余っている」と見なす単位数（`economy.marketPriceUnitStep` = 相場が動く刻み）。 */
-const GOLD_SURPLUS_UNITS = cfgInt('economy.marketPriceUnitStep');
-
 /** 町の中心の建物 ID（文明置換は `resolveBuildingForCiv` が解く）。 */
 const TOWN_CENTER_ID = 'town_center';
 
@@ -195,6 +192,9 @@ const VILLAGER_ID = 'villager';
 
 /** 家の建物 ID。 */
 const HOUSE_ID = 'house';
+
+/** 市場の建物 ID（余った資源を詰まっている資源に変える唯一の手段）。 */
+const MARKET_ID = 'market';
 
 /** コストに「家 1 棟ぶん」を足した必要額（Fx）。使い切り防止の予備。 */
 function withHouseReserve(cost: Int32Array): Int32Array {
@@ -213,8 +213,13 @@ const ECON_BUILD_ORDER: readonly string[] = [
   'house',
   'lumber_camp',
   'mining_camp',
-  'farm',
+  // **市場は農地より先。**
+  // 農地（木材 60）は掘り切ると消えるので建て直し続ける支出だが、
+  // 市場（木材 175）は 1 棟で残り、**余った資源を詰まっている資源に変え続ける**。
+  // 実測（段階 5・30 分）で食料 1,730 が余る一方で木材が 12 になり、
+  // 攻城工房（木材 200）が建てられなかった ―― その局面を解けるのは市場だけだった。
   'market',
+  'farm',
 ];
 
 /**
@@ -542,6 +547,15 @@ function pushVillagerProduction(ctx: AiContext, out: Command[]): void {
   if (!canAfford(own.resources, VILLAGER_RESERVE)) return;
   const tc = findTownCenter(ctx);
   if (tc === null) return;
+  // **1 体できあがるまで次を頼まない**（`AiMemory.produceTick` の注記）。
+  //
+  // 村人は 20 秒（500 tick）かかるので、判断ごとに `produce` を出すと
+  // その間の判断ぶん（段階 4 で 10 件、段階 5 で 20 件）が同じ 1 体のために積み増しになる。
+  // 実測では `villagerTarget` 22/26 に対して**どちらも村人 33〜36 体**になり、
+  // 超過ぶんの食料（1 体 50）が時代進化の費用を食べていた。
+  // 段階 5 は積み増しが 2 倍なのでとくに重く、**30 分で黎明の世のまま**の席が出ていた。
+  if (!canQueueProduce(ctx, tc.index, udef.buildTicks)) return;
+  markProduce(ctx, tc.index);
   out.push({
     t: 'produce',
     p: ctx.playerId,
@@ -638,6 +652,22 @@ function pickEconBuildings(ctx: AiContext, houseOnly = false): string[] {
   // 費用だけ見て建物条件を見ていないと、貯め続けるだけで永久に上がらない。
   const gate = pickAgeGateBuilding(ctx);
   if (gate !== null) out.push(gate);
+  // **余りを詰まりに変える手段（市場）は、先読みの家より先。**
+  //
+  // ■ なぜここに置くのか（実測。攻城工房が建たない最後の壁）
+  // ```
+  // 25分 時代2 食料1,496 金203 木材31  → 木材 200 の攻城工房が建てられない
+  // 30分 時代2 食料1,730 金193 木材12  → 30 分の着工試行に工房が一度も出てこない
+  // ```
+  // 拠点のそばの森が尽きたあと木材の収入は距離の壁で伸びず、
+  // **木材 175 以上のものは 20 分以降どうやっても建てられない**。
+  // 唯一の抜け道が市場（余った食料 → 金 → 木材）なのに、
+  // 元の並び（資源施設と農地のあと）では木材の余っている時期に順番が回って来ず、
+  // 30 分間 1 棟も建たなかった。**建てられる時期に建てないと二度と建てられない。**
+  if (canBuildMarketForTrade(ctx)) {
+    const market = resolveBuildingForCiv(civ, MARKET_ID);
+    if (market !== null && canCivBuild(civ, market)) out.push(market);
+  }
   // 先読みの家（`houseHeadroomPop`）は進化条件のあと。人口に余裕を作るのは大事だが、
   // 上の実測どおり、これを先に置くと木材が家に消えて時代が止まる。
   if (canHouse && !jamming && needsHouse(ctx)) out.push(house!);
@@ -710,18 +740,49 @@ function pickEconBuildings(ctx: AiContext, houseOnly = false): string[] {
     //     いまは 2. の「木材の不足が 0 のときだけ」＝ **余った木材の範囲で**建て増す
     //     形で釣り合わせている（木材の必要額には次の世の生産元も入っているので、
     //     兵舎ぶんの木を農地に食われることはない）。
+    //  4. 面数の上限は**食料の働き手の割合**（`farmsPerFoodWorkerPercent`）。
+    //     村人の目標を 32〜36 に上げたら、働き手そのままの上限では
+    //     農地が 12〜21 面（木材 720〜1,260）建ち、攻城工房（木材 200）が
+    //     最後まで建たなかった（実測で 30 分の着工試行に一度も出てこない）。
     const foodWorkers = currentAssignment(ctx, collectGatherers(ctx)).counts[FOOD]!;
     const deficits = resourceDeficits(ctx);
     const canGrowFarms =
       id === 'farm' &&
       scarce === FOOD &&
       deficits[WOOD] === 0 &&
-      have < foodWorkers &&
+      have < idiv(foodWorkers * ctx.cfg.farmsPerFoodWorkerPercent, 100) &&
       hasWoodForAgeGate(ctx, bdef.cost);
     if (have > 0 && !canGrowFarms) continue;
     out.push(resolved);
   }
   return out;
+}
+
+/**
+ * 市場を建てる価値があるか（**まだ持っておらず、変換したい偏りがある**）。
+ *
+ * 「余っている資源が `marketSurplusUnits` を超えていて、足りない資源がある」＝
+ * 交換で解ける偏りがある状態。市場は 1 棟で残り、以後ずっと効き続ける。
+ */
+function canBuildMarketForTrade(ctx: AiContext): boolean {
+  const civ = ctx.view.own.civ as CivId;
+  const market = resolveBuildingForCiv(civ, MARKET_ID);
+  if (market === null || !canCivBuild(civ, market)) return false;
+  const bdef = buildingDefById(market);
+  if (bdef.age > ctx.view.own.age) return false;
+  if (countOwnBuildings(ctx, bdef.index) > 0) return false;
+  // **「余りが出てから」では遅い。**
+  //
+  // 最初は「余っている資源が `marketSurplusUnits` を超えていたら建てる」にしていた。
+  // ところが余りが出るのは 20 分以降で、そのときには木材が 5〜30 しか無く
+  // 市場（木材 175）自体が建てられない ―― 実測で 16 席のうち 13 席が 30 分間
+  // 1 棟も建てられなかった。木材が余っているのは**青銅に上がった直後の数分だけ**で、
+  // そこを農地（1 面 60）に使ってしまうと二度と機会が来ない。
+  // だから「偏りが解けていない（＝何かが不足している）」なら建てる。
+  // 市場は 1 棟で残り、以後ずっと効き続けるので、早いほど得。
+  const deficits = resourceDeficits(ctx);
+  for (let r = 0; r < RESOURCE_IDS.length; r++) if (deficits[r]! > 0) return true;
+  return false;
 }
 
 /** いちばん足りない資源の添字（同値は添字の小さい方 = RESOURCE_IDS 順で固定）。 */
@@ -2266,21 +2327,96 @@ export function planMarketTrade(ctx: AiContext): Command | null {
   // 金が 90〜100 に張り付き、永久に届かなかった（実測で交換 133 回）。
   // 貯めている最中に貯めているものを手放すのは、どんな相場でも損。
   if (!canAffordNextAge(ctx)) return null;
-  const goldUnits = fxToInt(res[GOLD]!);
-  if (goldUnits < GOLD_SURPLUS_UNITS) return null;
-  const scarce = scarcestResource(res);
-  if (scarce === GOLD) return null;
-  if (fxToInt(res[scarce]!) >= GOLD_SURPLUS_UNITS) return null;
+
+  // ■ 「余っているもので、詰まっているものを買う」（実測で作り直した）
+  //
+  // 元は「金が余っていたら、手持ちがいちばん少ない資源を買う」だけだった。
+  // ところが実際に詰まる形はこれで、30 分間ずっと同じだった:
+  // ```
+  // 25分 時代2 食料1,496 木材 31   → 攻城工房（木材 200）が建てられない
+  // 30分 時代2 食料1,730 木材 12   → 30 分の着工試行に工房が一度も出てこない
+  // ```
+  // **食料が余って木材が枯れている。** 拠点のそばの森が尽きたあと木材の収入は
+  // 距離の壁で伸びないので、余った食料を木材に変えるのが唯一の手になる。
+  // 市場は**金を介した交換しかしない**（`07§8` / `command.ts`）ので 2 手に分ける:
+  //   1. 余っている資源を売って金にする
+  //   2. その金で詰まっている資源を買う
+  // 1 判断で 1 手だけ出す（APM を無駄にしない。次の判断で続きをやる）。
+  const deficits = resourceDeficits(ctx);
+  // 買いたいもの: 不足額がいちばん大きい資源（金は「介するもの」なので除く）。
+  let want = -1;
+  for (let r = 0; r < RESOURCE_IDS.length; r++) {
+    if (r === GOLD || deficits[r]! <= 0) continue;
+    if (want < 0 || deficits[r]! > deficits[want]!) want = r;
+  }
+  if (want < 0) return null;
+
+  // 2) 金が `marketSurplusUnits` 以上あるなら買う（先にこちらを見る ―― 売って貯めた金を
+  //    使い切らないと、金だけが積み上がって詰まりが解けない）。
+  const surplusUnits = ctx.cfg.marketSurplusUnits;
+  if (fxToInt(res[GOLD]!) >= surplusUnits) {
+    return {
+      t: 'marketTrade',
+      p: ctx.playerId,
+      sell: RESOURCE_IDS[GOLD]!,
+      buy: RESOURCE_IDS[want]!,
+      amount: TRADE_UNIT,
+    };
+  }
+
+  // 1) 売るもの: **必要額を超えて余っている**資源のうち、余りがいちばん大きいもの。
+  //    「手持ちが多い」ではなく「必要額を超えている」で見る ―― 次の世の費用や
+  //    建てたい建物のぶんを売り払ってはいけない（`resourceDeficits` の必要額）。
+  let give = -1;
+  let bestSurplus = 0;
+  for (let r = 0; r < RESOURCE_IDS.length; r++) {
+    if (r === GOLD || r === want) continue;
+    if (deficits[r]! > 0) continue; // 足りていないものは売らない
+    const surplus = fxToInt(res[r]!) - surplusUnits;
+    if (surplus <= 0) continue;
+    if (give < 0 || surplus > bestSurplus) {
+      give = r;
+      bestSurplus = surplus;
+    }
+  }
+  if (give < 0) return null;
   return {
     t: 'marketTrade',
     p: ctx.playerId,
-    sell: RESOURCE_IDS[GOLD]!,
-    buy: RESOURCE_IDS[scarce]!,
+    sell: RESOURCE_IDS[give]!,
+    buy: RESOURCE_IDS[GOLD]!,
     amount: TRADE_UNIT,
   };
 }
 
 // ---------------------------------------------------------------- 補助
+
+/**
+ * その建物に生産を命じてよいか（**前に頼んだ 1 体ができあがっているか**）。
+ *
+ * `AiView` に待ち行列が入っていないので、**自分が命じた tick の記録**で代わりにする
+ * （盤面ではなく自分の操作の記憶なのでズルにならない ―― `AiMemory.produceTick`）。
+ * 呼んだ側は「命じる」と決めたときに `markProduce` を呼ぶこと。
+ *
+ * これが無いと判断間隔の速い段階ほど同じ 1 体を何度も注文してしまい、
+ * **判断が速いほど弱くなる**（段階 5 が段階 4 に負ける）。詳しくは `produceTick` の注記。
+ */
+export function canQueueProduce(
+  ctx: AiContext,
+  buildingIndex: number,
+  buildTicks: number,
+  /** 兵の注文か（村人と別枠で数える。`AiMemory.armyProduceTick` の注記）。 */
+  army = false,
+): boolean {
+  const last = memGet(army ? ctx.memory.armyProduceTick : ctx.memory.produceTick, buildingIndex);
+  if (last <= 0) return true;
+  return ctx.view.tick - last >= buildTicks;
+}
+
+/** 生産を命じたことを記録する（`canQueueProduce` と対で使う）。 */
+export function markProduce(ctx: AiContext, buildingIndex: number, army = false): void {
+  memSet(army ? ctx.memory.armyProduceTick : ctx.memory.produceTick, buildingIndex, ctx.view.tick);
+}
 
 /** 手持ち（Fx）でコスト（Fx）を払えるか。修飾子は AI からは見えないので基礎コストで見積もる。 */
 export function canAfford(have: readonly number[], cost: Int32Array | readonly number[]): boolean {

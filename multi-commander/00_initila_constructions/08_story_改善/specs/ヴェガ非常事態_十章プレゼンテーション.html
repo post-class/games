@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#07101a">
     <meta
       name="description"
-      content="THE VEIL FRONT 十章作戦記録を、各章の前説と本節による全20スライドで読むプレゼンテーション。"
+      content="THE VEIL FRONT 十章作戦記録を、各章の前説・本節・人物紹介による全30スライドで読むプレゼンテーション。"
     >
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='22' fill='none' stroke='%2369dcf7' stroke-width='6'/%3E%3Ccircle cx='32' cy='32' r='5' fill='%23f0c86b'/%3E%3C/svg%3E">
     <title>THE VEIL FRONT｜十章プレゼンテーション</title>
@@ -287,6 +287,76 @@
         line-height: 1.5;
       }
 
+      .slide-personnel h2 {
+        font-size: clamp(30px, 3.3vw, 44px);
+      }
+
+      .slide-personnel .slide-image {
+        display: grid;
+        grid-template-rows: repeat(3, minmax(0, 1fr));
+      }
+
+      .personnel-portrait {
+        position: relative;
+        min-height: 0;
+        margin: 0;
+        overflow: hidden;
+        background: #02060a;
+      }
+
+      .slide-personnel .personnel-portrait img {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        object-fit: cover;
+        object-position: center 24%;
+        filter: saturate(0.9) contrast(1.04);
+        transform: none;
+      }
+
+      .personnel-portrait::after {
+        position: absolute;
+        inset: auto 0 0;
+        height: 55%;
+        background: linear-gradient(0deg, rgba(3, 7, 11, 0.95), transparent);
+        content: "";
+        pointer-events: none;
+      }
+
+      .personnel-portrait + .personnel-portrait {
+        border-top: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+      }
+
+      .personnel-portrait--trio {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .slide-personnel .personnel-portrait--trio img + img {
+        border-left: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+      }
+
+      .personnel-caption {
+        position: absolute;
+        z-index: 4;
+        right: 14px;
+        bottom: 12px;
+        left: 14px;
+        color: #fff;
+        font: 800 10px/1.2 var(--mono);
+        letter-spacing: 0.09em;
+        text-shadow: 0 1px 10px #000;
+      }
+
+      .personnel-caption small {
+        display: block;
+        margin-top: 3px;
+        color: var(--accent);
+        font-size: 8px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
       .lead {
         max-width: none;
         margin: clamp(18px, 3vh, 28px) 0 0;
@@ -321,6 +391,41 @@
 
       .story-detail p + p {
         margin-top: 13px;
+      }
+
+      .cast-profiles {
+        display: grid;
+        gap: 10px;
+        margin: clamp(18px, 2.7vh, 26px) 0 0;
+      }
+
+      .cast-profile {
+        padding: 11px 14px 12px;
+        border-left: 2px solid var(--accent);
+        background: color-mix(in srgb, var(--accent) 7%, transparent);
+      }
+
+      .cast-profile strong {
+        display: block;
+        color: #fff;
+        font-size: 16px;
+        line-height: 1.35;
+      }
+
+      .cast-profile span {
+        display: block;
+        margin-top: 2px;
+        color: var(--accent);
+        font: 800 9px/1.4 var(--mono);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .cast-profile p {
+        margin: 6px 0 0;
+        color: #c7d3de;
+        font-size: 14px;
+        line-height: 1.7;
       }
 
       .evidence {
@@ -475,6 +580,14 @@
             linear-gradient(90deg, rgba(3, 7, 11, 0.08), rgba(3, 7, 11, 0.14));
         }
 
+        .slide-personnel .slide-image {
+          grid-template-rows: 1fr;
+        }
+
+        .slide-personnel .personnel-portrait:not(:first-child) {
+          display: none;
+        }
+
         .image-caption {
           right: 16px;
           bottom: 12px;
@@ -552,10 +665,10 @@
   </head>
   <body>
     <div class="deck-progress" aria-hidden="true"></div>
-    <div class="deck-header">The Veil Front / 10 Chapters / 20 Slides</div>
+    <div class="deck-header">The Veil Front / 10 Chapters / 30 Slides</div>
     <nav class="deck-nav" aria-label="スライド操作">
       <button type="button" data-action="prev" aria-label="前のスライド">←</button>
-      <output aria-live="polite">01 / 20</output>
+      <output aria-live="polite">01 / 30</output>
       <button type="button" data-action="next" aria-label="次のスライド">→</button>
       <a href="../../../docs/ストーリー_十章作戦記録.html" aria-label="十章作戦記録へ戻る">↗</a>
     </nav>
@@ -563,29 +676,29 @@
     <main class="slides">
       <section class="slide slide-prelude" id="slide-01" data-label="CH1 前説" style="--accent:#69dcf7;--focus:48% center">
         <figure class="slide-image">
-          <img src="assets/vega-emergency-presentation/slide-01.webp" alt="赤色警報の作戦室で、ハート艦長が出撃経路を示す" width="1536" height="1024" fetchpriority="high">
+          <img src="assets/vega-emergency-presentation/slide-01.webp" alt="赤色警報の作戦室で、クワメ・アデイェミ艦隊司令が出撃経路を示す" width="1536" height="1024" fetchpriority="high">
           <figcaption class="image-caption"><span>Orion Port / Briefing Room</span><span>Chapter 01 — Prelude</span></figcaption>
         </figure>
         <article class="slide-copy">
           <div class="chapter-mark">01</div>
           <div class="chapter-kicker"><b>Chapter 01</b> / 前説</div>
-          <h1>一隻の救難船が、戦争の前提を崩す<small>火種は救難信号のなかに</small></h1>
+          <h1>ヴェガ戦役　オリオン港救難事件<small>火種は救難信号のなかに</small></h1>
           <p class="lead">避難民輸送を待つ三百隻の外側で、連邦識別を返す輸送船〈アストラ・メイ〉が救難信号を発した。</p>
           <div class="story-detail">
             <p>現場で待っていたのは、輸送船に取り付いたキルラシー先遣隊三機と、輸送船側の砲塔が先に火を噴いたという航跡記録だった。両軍はまったく同じ主張をしている――相手が協定を破った、と。しかもラギティカの僚機ヴァークが儀礼周波で読み上げるのは宣戦布告ではなく、五者通行協定第四条の救難義務。キルラシーもまた、この船を拾いに来ていた。</p>
-            <p>ブリーフィング室では基地防衛司令キム・ソヨンが数字で反対する。港内には登録済みの避難民が四万人。哨戒機を四機抜けば、外周の索敵密度は三割落ちる。「輸送船一隻に、区画一つを賭けるんですか」。ハートは短く「賭ける」と答えた。この対立に正解はなく、救った者と守れなかった空域の両方が次章へ持ち越される。</p>
+            <p>ブリーフィング室では基地防衛官ミンソ・カンが数字で反対する。港内には登録済みの避難民が四万人。哨戒機を四機抜けば、外周の索敵密度は三割落ちる。「輸送船一隻に、区画一つを賭けるんですか」。連邦艦隊司令クワメ・アデイェミは短く「賭ける」と答えた。この対立に正解はなく、救った者と守れなかった空域の両方が次章へ持ち越される。</p>
           </div>
           <ul class="evidence">
             <li><strong>港内四万人</strong>を守る哨戒網から、迎撃機を四機抜く。</li>
             <li>輸送船は機関出力三割。積荷は「民間医療物資」と記録されている。</li>
             <li>キルラシー先遣隊も同じ船へ接近し、救難義務を読み上げていた。</li>
           </ul>
-          <blockquote class="quote">撃つ前に、拾える者を拾え。順番を間違えるな。<cite>William Hart / Captain</cite></blockquote>
+          <blockquote class="quote">撃つ前に、拾える者を拾え。順番を間違えるな。<cite>クワメ・アデイェミ / 連邦艦隊司令</cite></blockquote>
           <dl class="mission-rail">
             <div><dt>Conflict</dt><dd>輸送船一隻のために、港の防衛密度を落とせるか。</dd></div>
-            <div><dt>Cast</dt><dd>ハート／キム・ソヨン／朝倉 澪</dd></div>
+            <div><dt>Cast</dt><dd>クワメ・アデイェミ／ミンソ・カン／桐谷 綾</dd></div>
           </dl>
-          <div class="slide-index">01 / 20</div>
+          <div class="slide-index">01 / 30</div>
         </article>
       </section>
 
@@ -597,23 +710,44 @@
         <article class="slide-copy">
           <div class="chapter-mark">01</div>
           <div class="chapter-kicker"><b>Chapter 01</b> / 本節</div>
-          <h2>三つ全部は救えない<small>達成しなかった勝利条件も、記録に残る</small></h2>
+          <h2>ヴェガ戦役　第一次オリオン港外縁会戦<small>達成しなかった勝利条件も、記録に残る</small></h2>
           <p class="lead">戦闘は軽い。難しいのは、同時に減り続ける三本の時間だった。</p>
           <div class="story-detail">
             <p>F-54ホーネットで先遣隊を追い散らすだけなら、着任初日でも務まる。だが表示されるのは、輸送船の隔壁が保つ時間、脱出ポッドの生命維持、逃走機が航路情報を持ち帰るまでの時間という三本の時計だ。三つ全部は間に合わない。救難艇へ機首を向けた瞬間、追撃の射程は遠ざかり、敵を追えばポッドの酸素表示が赤へ変わる。</p>
-            <p>帰還後の格納庫で、整備員が焼けた装甲板を剥がす。ハートは戦果表を閉じ、救難ポッドの搭乗者名簿を自分の手で書き写した。「戦果報告は明日でいい。名前を先に確定させろ」。夜、ヴェガ門方向から通信が入る。相手は名乗り、こちらの機体番号を正確に読み上げて告げる。「次は、名を名乗れる戦いにしよう」。</p>
+            <p>帰還後の格納庫で、整備員が焼けた装甲板を剥がす。クワメは戦果表を閉じ、救難ポッドの搭乗者名簿を自分の手で書き写した。「戦果報告は明日でいい。名前を先に確定させろ」。夜、ヴェガ門方向から通信が入る。相手は名乗り、こちらの機体番号を正確に読み上げて告げる。「次は、名を名乗れる戦いにしよう」。</p>
           </div>
           <ul class="evidence">
             <li><strong>隔壁</strong>が破れるまでに輸送船を帰投させる。</li>
             <li><strong>生命維持</strong>が切れる前に脱出ポッドを回収する。</li>
             <li><strong>敵機</strong>が航路情報を持ち帰る前に追いつく。</li>
           </ul>
-          <blockquote class="quote">次は、名を名乗れる戦いにしよう。<cite>Unknown Kilrashi Pilot</cite></blockquote>
+          <blockquote class="quote">次は、名を名乗れる戦いにしよう。<cite>キルラシー哨戒機 / 儀礼周波</cite></blockquote>
           <dl class="mission-rail">
             <div><dt>Choice</dt><dd>救難ポッドを回収するか、逃げる敵機を追うか。</dd></div>
             <div><dt>Outcome</dt><dd>積荷から門制御核の断片と「九分間」の航法ログが見つかる。</dd></div>
           </dl>
-          <div class="slide-index">02 / 20</div>
+          <div class="slide-index">02 / 30</div>
+        </article>
+      </section>
+
+      <section class="slide slide-personnel" id="slide-ch01-personnel" data-label="CH1 人物紹介" style="--accent:#69dcf7;--focus:48% center">
+        <figure class="slide-image">
+          <figure class="personnel-portrait" data-person-id="confed-23"><img src="../../../docs/assets/characters/regenerated_portraits/confed-23.png" alt="クワメ・アデイェミの肖像" loading="lazy"><figcaption class="personnel-caption">クワメ・アデイェミ<small>Confed / Fleet Commander</small></figcaption></figure>
+          <figure class="personnel-portrait" data-person-id="confed-36"><img src="../../../docs/assets/characters/regenerated_portraits/confed-36.png" alt="ミンソ・カンの肖像" loading="lazy"><figcaption class="personnel-caption">ミンソ・カン<small>Confed / Defense</small></figcaption></figure>
+          <figure class="personnel-portrait" data-person-id="confed-05"><img src="../../../docs/assets/characters/regenerated_portraits/confed-05.png" alt="桐谷 綾の肖像" loading="lazy"><figcaption class="personnel-caption">桐谷 綾<small>Confed / Escort Pilot</small></figcaption></figure>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">01</div>
+          <div class="chapter-kicker"><b>Chapter 01</b> / 人物紹介</div>
+          <h2>ヴェガ戦役　オリオン港事件・主要人物<small>救難義務をめぐる最初の対立</small></h2>
+          <p class="lead">救難信号を「一隻の船の問題」で終わらせず、戦争全体の前提を揺らす三人。</p>
+          <div class="cast-profiles">
+            <article class="cast-profile" data-person-id="confed-23"><strong>クワメ・アデイェミ</strong><span>連邦艦隊司令・アウレリア連邦最高指揮官</span><p>前進基地の防衛線を組み直して避難時間を生んだ最高指揮官。救難を「戦後に残す航路の証明」として命じる。</p></article>
+            <article class="cast-profile" data-person-id="confed-36"><strong>ミンソ・カン</strong><span>基地防衛官</span><p>防衛ドローン網を再構築し、民間区画を守り抜いた。港の索敵密度と救難機の離脱時刻を同じ表で管理する。</p></article>
+            <article class="cast-profile" data-person-id="confed-05"><strong>桐谷 綾</strong><span>近接護衛パイロット</span><p>旗艦への接近を許さず、味方編隊の離脱を支えた護衛役。最初の救難ポッドへ近接防御を提供する。</p></article>
+          </div>
+          <blockquote class="quote">撃つ前に、拾える者を拾え。<cite>クワメ・アデイェミ / 連邦艦隊司令</cite></blockquote>
+          <dl class="mission-rail"><div><dt>Relation</dt><dd>艦隊司令の救難命令と、基地防衛官の警戒計画が衝突する。</dd></div><div><dt>Key</dt><dd>〈アストラ・メイ〉の積荷が、三人の判断を試す。</dd></div></dl>
         </article>
       </section>
 
@@ -625,23 +759,23 @@
         <article class="slide-copy">
           <div class="chapter-mark">02</div>
           <div class="chapter-kicker"><b>Chapter 02</b> / 前説</div>
-          <h2>同じ九分間から、三つの敵が帰ってきた<small>帰ってきた者の、違う記憶</small></h2>
+          <h2>ヴェガ戦役　帰還者信号事件<small>帰ってきた者の、違う記憶</small></h2>
           <p class="lead">八十三年前に消えた巡洋艦から、六時間前の時刻を持つ生存者信号が届いた。</p>
           <div class="story-detail">
             <p>回収された帰還者は三人。一人は連邦艦隊に撃たれたと言い、一人はキルラシーに撃たれたと言い、最後の一人は「誰も撃っていない。門が引き込んだ」と証言する。三人の生体記録は完全に一致し、誰にも虚偽反応はない。そこへ異種通信アンドロイドのメモリアが現れ、共通記録層への接続を申し出る。繋げば真相へ近づけるかもしれない。ただし、一度繋いだ記憶は二度と完全には切り離せない。</p>
-            <p>司令部は八十三年前に沈んだ船の座標を認めない。ソフィーは任務を「航法演習」と書き換え、三機分の燃料を確保した。ハートは書類を見て一度だけ尋ねる。「演習で、脱出ポッドの回収装備を積むのか」「積みます」。この小さな逸脱が、やがて艦長自身が命令を破る前例になる。連邦の指揮系統は、現場で見た事実によって少しずつ押し曲げられていく。</p>
+            <p>司令部は八十三年前に沈んだ船の座標を認めない。航法主任エレナ・ウォードは任務を「航法演習」と書き換え、三機分の燃料を確保した。クワメは書類を見て一度だけ尋ねる。「演習で、脱出ポッドの回収装備を積むのか」「積みます」。この小さな逸脱が、やがて艦隊司令部へ検証可能な記録を持ち帰る前例になる。</p>
           </div>
           <ul class="evidence">
             <li>帰還者三人の生体記録は完全に一致している。</li>
             <li>一人は連邦、一人は帝国、最後の一人は「誰も撃っていない」と証言。</li>
             <li>矛盾は嘘ではなく、門が返した三つの結果かもしれない。</li>
           </ul>
-          <blockquote class="quote">観測できるものを観測しないのは、航法ではなく信仰です。<cite>Sophie Laurent / Navigator</cite></blockquote>
+          <blockquote class="quote">航路は信じるものではありません。測って、帰れる形にするものです。<cite>エレナ・ウォード / 航法主任</cite></blockquote>
           <dl class="mission-rail">
             <div><dt>Mystery</dt><dd>門は時間を遅らせたのか、複数の記録を返したのか。</dd></div>
             <div><dt>Cost</dt><dd>任務は正規命令ではなく「航法演習」として出される。</dd></div>
           </dl>
-          <div class="slide-index">03 / 20</div>
+          <div class="slide-index">04 / 30</div>
         </article>
       </section>
 
@@ -653,10 +787,10 @@
         <article class="slide-copy">
           <div class="chapter-mark">02</div>
           <div class="chapter-kicker"><b>Chapter 02</b> / 本節</div>
-          <h2>撃たないほど、識別は正確になる<small>勝利条件は「誤射ゼロ」</small></h2>
+          <h2>ヴェガ戦役　偽暁会戦<small>勝利条件は「誤射ゼロ」</small></h2>
           <p class="lead">無人機は連邦と帝国、両方の識別を返す。焦って撃つほど、本物の僚機を失う。</p>
           <div class="story-detail">
-            <p>無人機は双方の識別を返し、ロックオンの応答を二重化する。判別方法は一つだけ。通信が届くまでの遅延を数えることだ。遠くにいる本物の声は必ず遅れ、偽装された声だけが不自然なほど即座に返る。小林直子が「照準より先に耳を使って」と繰り返すなか、プレイヤーは撃墜数ではなく、漂流者を一人も誤射せず回収できたかで評価される。</p>
+            <p>無人機は双方の識別を返し、ロックオンの応答を二重化する。判別方法は一つだけ。通信が届くまでの遅延を数えることだ。遠くにいる本物の声は必ず遅れ、偽装された声だけが不自然なほど即座に返る。電子戦士官アマラ・テスファイが「照準より先に、通信の層を読んで」と繰り返すなか、プレイヤーは撃墜数ではなく、漂流者を一人も誤射せず回収できたかで評価される。</p>
             <p>帰還後は、三つの矛盾する証言を公開するか封印するかが問われる。公開すれば避難民は門を恐れ、第三勢力の船へ移り、連邦の輸送計画は崩れる。封印すれば港の秩序は保てるが、同じ空白を抱えるセレシオンとオルドは応答しない。情報は単なる武器ではない。どの勢力がこちらの言葉を検証し、次の航路を開くかを決める通貨として、戦争全体を動かし始める。</p>
           </div>
           <ul class="evidence">
@@ -664,12 +798,33 @@
             <li>撃墜数ではなく、漂流者を誤射せず回収できたかで評価される。</li>
             <li>帰還後は、矛盾する証言の公開か封印を選ぶ。</li>
           </ul>
-          <blockquote class="quote">撃つ前に、声の遅延を数えて。<cite>Naoko Kobayashi / Electronic Warfare</cite></blockquote>
+          <blockquote class="quote">撃つ前に、声ではなく通信の層を読んで。<cite>アマラ・テスファイ / 電子戦士官</cite></blockquote>
           <dl class="mission-rail">
             <div><dt>Choice</dt><dd>証言を公表するか、軍の解析室へ封印するか。</dd></div>
             <div><dt>Outcome</dt><dd>公開は港を不安にするが、中立勢力からの応答を得やすくする。</dd></div>
           </dl>
-          <div class="slide-index">04 / 20</div>
+          <div class="slide-index">05 / 30</div>
+        </article>
+      </section>
+
+      <section class="slide slide-personnel" id="slide-ch02-personnel" data-label="CH2 人物紹介" style="--accent:#b59af4;--focus:46% center">
+        <figure class="slide-image">
+          <figure class="personnel-portrait" data-person-id="confed-29"><img src="../../../docs/assets/characters/regenerated_portraits/confed-29.png" alt="エレナ・ウォードの肖像" loading="lazy"><figcaption class="personnel-caption">エレナ・ウォード<small>Confed / Chief Navigator</small></figcaption></figure>
+          <figure class="personnel-portrait" data-person-id="confed-32"><img src="../../../docs/assets/characters/regenerated_portraits/confed-32.png" alt="アマラ・テスファイの肖像" loading="lazy"><figcaption class="personnel-caption">アマラ・テスファイ<small>Confed / Electronic Warfare</small></figcaption></figure>
+          <figure class="personnel-portrait" data-person-id="neurowm-04"><img src="../../../docs/assets/characters/regenerated_portraits/neurowm-04.png" alt="メモリアの肖像" loading="lazy"><figcaption class="personnel-caption">メモリア<small>Neurowm / Communication</small></figcaption></figure>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">02</div>
+          <div class="chapter-kicker"><b>Chapter 02</b> / 人物紹介</div>
+          <h2>ヴェガ戦役　帰還者信号事件・主要人物<small>三つの記録を読む観測者たち</small></h2>
+          <p class="lead">「何が起きたか」より先に、「どの記録を信じるか」が問われる章の分析班。</p>
+          <div class="cast-profiles">
+            <article class="cast-profile" data-person-id="confed-29"><strong>エレナ・ウォード</strong><span>航法主任</span><p>重力嵐の中で避難船団を一隻も失わずに導いた。矛盾する記録を、帰投可能な航路へ変換する。</p></article>
+            <article class="cast-profile" data-person-id="confed-32"><strong>アマラ・テスファイ</strong><span>電子戦士官</span><p>敵の通信網を無力化し、救難部隊の進入路を開いた。識別偽装を通信層の差から分解する。</p></article>
+            <article class="cast-profile" data-person-id="neurowm-04"><strong>メモリア</strong><span>異種通信アンドロイド</span><p>五勢力の通信プロトコルを共通記録層へ接続した。矛盾を消すのでなく、検証できる形で並べる。</p></article>
+          </div>
+          <blockquote class="quote">航路は信じるものではありません。測って、帰れる形にするものです。<cite>エレナ・ウォード / 航法主任</cite></blockquote>
+          <dl class="mission-rail"><div><dt>Relation</dt><dd>エレナの航法、アマラの識別、メモリアの接続が記録を整える。</dd></div><div><dt>Key</dt><dd>帰還者の矛盾は、五勢力へ開示する情報になる。</dd></div></dl>
         </article>
       </section>
 
@@ -681,23 +836,23 @@
         <article class="slide-copy">
           <div class="chapter-mark">03</div>
           <div class="chapter-kicker"><b>Chapter 03</b> / 前説</div>
-          <h2>中立は、銃を持たないことではない<small>静穏海の避難回廊</small></h2>
+          <h2>ヴェガ戦役　静穏海中立回廊交渉<small>静穏海の避難回廊</small></h2>
           <p class="lead">船団指揮者アウルが求めたのは増援ではなく、回廊へ入る全艦の武器管制停止だった。</p>
           <div class="story-detail">
             <p>回廊を塞ぐニューロウム機雷は、避難船にはまったく反応しない。追うのは軍用推進器の熱紋だけだ。つまり護衛が厚いほど避難路は危険になる。撃墜の腕は役に立たず、アウルの共鳴パルスと呼吸を合わせ、安全な一分間を正しい場所へ作る技量だけが求められる。連邦が砲を止めなければ、キルラシーも砲を止めない。中立は双方へ同じ不自由を課すことで成立していた。</p>
-            <p>艦橋は「避難船十八隻を非武装で護衛するのか」と反発する。ソフィーの試算では、共鳴パルスが働く条件は周囲に稼働中の火器管制がないこと。武装は防御ではなく、回廊を壊す原因として計上されている。アウルは淡々と告げる。「強い船から通すのではない。遅い船が残らない順に通す」。プレイヤーは初めて、自分の火力が場の安全を減らす戦場へ入る。</p>
+            <p>艦橋は「避難船十八隻を非武装で護衛するのか」と反発する。航法主任エレナ・ウォードの試算では、共鳴パルスが働く条件は周囲に稼働中の火器管制がないこと。武装は防御ではなく、回廊を壊す原因として計上されている。アウルは淡々と告げる。「強い船から通すのではない。遅い船が残らない順に通す」。プレイヤーは初めて、自分の火力が場の安全を減らす戦場へ入る。</p>
           </div>
           <ul class="evidence">
             <li>セレシオンに国家はなく、季節ごとに移動する合唱圏がある。</li>
             <li>回廊の機雷は避難船を無視し、軍用推進器の熱だけを追う。</li>
             <li>護衛が強いほど、避難路は危険になる。</li>
           </ul>
-          <blockquote class="quote">中立とは、誰も見捨てないための武装だ。<cite>Aul / Serecion Convoy Conductor</cite></blockquote>
+          <blockquote class="quote">中立とは、誰も見捨てないための武装だ。<cite>アウル / セレシオン船団指揮者</cite></blockquote>
           <dl class="mission-rail">
             <div><dt>Rule</dt><dd>武器を動かした瞬間、共鳴パルスの安全窓が閉じる。</dd></div>
-            <div><dt>Cast</dt><dd>アウル／クレア・ベネット／アクス／ヴァーク</dd></div>
+            <div><dt>Cast</dt><dd>アウル／ソフィア・ベリーニ／アクス／ヴァーク</dd></div>
           </dl>
-          <div class="slide-index">05 / 20</div>
+          <div class="slide-index">07 / 30</div>
         </article>
       </section>
 
@@ -709,10 +864,10 @@
         <article class="slide-copy">
           <div class="chapter-mark">03</div>
           <div class="chapter-kicker"><b>Chapter 03</b> / 本節</div>
-          <h2>武器を切った一分だけ、回廊は開く<small>腕の良いパイロットほど、自分の反射と戦う</small></h2>
+          <h2>ヴェガ戦役　静穏海回廊護衛戦<small>腕の良いパイロットほど、自分の反射と戦う</small></h2>
           <p class="lead">アウルのパルスは八十秒ごとに、機雷の判定を一分間だけ鈍らせる。</p>
           <div class="story-detail">
-            <p>実戦は精密な段取りの連続になる。パルスの窓で避難船を通し、隊列から外れた船をクレア・ベネットの救難艇へ引き渡し、追ってくる帝国哨戒機には撃たずに進路を譲る。一発でも撃てば窓は閉じ、眠っていた機雷が一斉に熱源へ向く。「照準が合っても撃たないで」。腕の良いパイロットほど、自分の反射と戦わなければならない。</p>
+            <p>実戦は精密な段取りの連続になる。パルスの窓で避難船を通し、隊列から外れた船を救難艇長ソフィア・ベリーニへ引き渡し、追ってくる帝国哨戒機には撃たずに進路を譲る。一発でも撃てば窓は閉じ、眠っていた機雷が一斉に熱源へ向く。「照準が合っても撃たないで」。腕の良いパイロットほど、自分の反射と戦わなければならない。</p>
             <p>帰還後、アウルは礼を言わない。セレシオンの言語に感謝という語はなく、代わりに次の季節の航路図が届く。静穏海は以後、連邦の補給と避難へ開かれる。同時に、通信翻訳者アクスが非殺傷の判断をキルラシーの誓約語へ置き換え、ヴァークの記録へ送る。「その者は、砲を持ちながら撃たなかった」。この一行が、灰冠回廊でラギティカが決闘を申し込む理由になる。</p>
           </div>
           <ul class="evidence">
@@ -720,12 +875,33 @@
             <li>一発でも撃てば安全窓が閉じ、機雷が動き出す。</li>
             <li>撃たなかった判断は、帝国の誓約語へ翻訳される。</li>
           </ul>
-          <blockquote class="quote">その者は、砲を持ちながら撃たなかった。<cite>Ax / Translation of the Record</cite></blockquote>
+          <blockquote class="quote">その者は、砲を持ちながら撃たなかった。<cite>アクス / セレシオン通信翻訳者</cite></blockquote>
           <dl class="mission-rail">
             <div><dt>Choice</dt><dd>武器を封じて護衛するか、先制攻撃で機雷原を消すか。</dd></div>
             <div><dt>Outcome</dt><dd>非殺傷の記録が、第五章の単機決闘を成立させる。</dd></div>
           </dl>
-          <div class="slide-index">06 / 20</div>
+          <div class="slide-index">08 / 30</div>
+        </article>
+      </section>
+
+      <section class="slide slide-personnel" id="slide-ch03-personnel" data-label="CH3 人物紹介" style="--accent:#74e2b4;--focus:44% center">
+        <figure class="slide-image">
+          <figure class="personnel-portrait" data-person-id="serecion-02"><img src="../../../docs/assets/characters/regenerated_portraits/serecion-02.png" alt="アウルの肖像" loading="lazy"><figcaption class="personnel-caption">アウル<small>Serecion / Convoy</small></figcaption></figure>
+          <figure class="personnel-portrait" data-person-id="confed-30"><img src="../../../docs/assets/characters/regenerated_portraits/confed-30.png" alt="ソフィア・ベリーニの肖像" loading="lazy"><figcaption class="personnel-caption">ソフィア・ベリーニ<small>Confed / Rescue Captain</small></figcaption></figure>
+          <figure class="personnel-portrait" data-person-id="serecion-08"><img src="../../../docs/assets/characters/regenerated_portraits/serecion-08.png" alt="アクスの肖像" loading="lazy"><figcaption class="personnel-caption">アクス<small>Serecion / Translator</small></figcaption></figure>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">03</div>
+          <div class="chapter-kicker"><b>Chapter 03</b> / 人物紹介</div>
+          <h2>ヴェガ戦役　静穏海回廊・主要人物<small>非武装の護衛を成立させる者たち</small></h2>
+          <p class="lead">火器管制を止めなければ開かない避難路で、誰を通し、誰の言葉を残すかを決める三人。</p>
+          <div class="cast-profiles">
+            <article class="cast-profile" data-person-id="serecion-02"><strong>アウル</strong><span>セレシオン 船団指揮者</span><p>静穏海の避難航路を十年間維持し、両陣営の艦を通過させた。中立を「誰も見捨てないための武装」として運用する。</p></article>
+            <article class="cast-profile" data-person-id="confed-30"><strong>ソフィア・ベリーニ</strong><span>救難艇長</span><p>長距離救難で孤立した乗員を連続して救出した。自力航行不能の避難船を、武器を使わず回廊の外へ牽引する。</p></article>
+            <article class="cast-profile" data-person-id="serecion-08"><strong>アクス</strong><span>セレシオン 通信翻訳者</span><p>キルラシーの誓約文を初めて正確に翻訳した。連邦の非殺傷判断を誓約語へ訳し、記録に残す。</p></article>
+          </div>
+          <blockquote class="quote">中立とは、誰も見捨てないための武装だ。<cite>アウル / セレシオン船団指揮者</cite></blockquote>
+          <dl class="mission-rail"><div><dt>Relation</dt><dd>アウルの規則を、ソフィアの救難とアクスの翻訳が支える。</dd></div><div><dt>Key</dt><dd>撃たない選択が、帝国側の公式記録へ届く。</dd></div></dl>
         </article>
       </section>
 
@@ -737,23 +913,23 @@
         <article class="slide-copy">
           <div class="chapter-mark">04</div>
           <div class="chapter-kicker"><b>Chapter 04</b> / 前説</div>
-          <h2>採掘帯は、オルドの記憶そのものだ<small>岩盤が覚えている境界</small></h2>
+          <h2>ヴェガ戦役　深層採掘帯抑留事件<small>岩盤が覚えている境界</small></h2>
           <p class="lead">連邦の契約船は、重力アンカーで無傷のまま空中に縫い止められた。</p>
           <div class="story-detail">
             <p>交渉窓口となる重力戦術官アインは、九十一歳でもオルドの中では若く、人類の短い時間を扱える。彼が告げるのは告発ではなく症状だった。連邦が持ち出した門制御核の断片が、採掘帯の地層記憶を焼いている。オルドにとって地殻は資源ではなく、文明そのものの記憶媒体だ。彼らは補償も謝罪も求めない。「傷が広がる前に、その断片を止めてほしい」とだけ要求する。</p>
-            <p>参謀ニア・ウィリアムズは政治ではなく在庫を読む。契約船の空気は十九時間、採掘記録の掘り出しには十四時間、往復できる燃料は一回分。「全部やる余裕はありません。どれを諦めるか、先に決めてください」。しかも重力アンカーは兵器ではなく境界標であり、撃てば連邦が協定違反の側に立つ。救出の速度と、千年残る記録が同じ計器盤に載せられる。</p>
+            <p>空母戦術官ニア・オコエは政治ではなく在庫を読む。契約船の空気は十九時間、採掘記録の掘り出しには十四時間、往復できる燃料は一回分。「全部やる余裕はありません。どれを諦めるか、先に決めてください」。しかも重力アンカーは兵器ではなく境界標であり、撃てば連邦が協定違反の側に立つ。救出の速度と、千年残る記録が同じ計器盤に載せられる。</p>
           </div>
           <ul class="evidence">
             <li>船内の空気は十九時間。アークの裁定は数十年単位。</li>
             <li>門制御核の断片が、オルドの地層記憶を焼いている。</li>
             <li>彼らが求めるのは補償ではなく、傷の停止だった。</li>
           </ul>
-          <blockquote class="quote">我々は殺していない。ただ、境界で止めている。<cite>Ain / Ordo Gravity Tactician</cite></blockquote>
+          <blockquote class="quote">我々は殺していない。ただ、境界で止めている。<cite>アイン / オルド重力戦術官</cite></blockquote>
           <dl class="mission-rail">
             <div><dt>Conflict</dt><dd>人類の「今」と、千二百年を生きる文明の「即時」は一致しない。</dd></div>
             <div><dt>Resource</dt><dd>燃料が許す往復は一回。救助と証拠回収は両立しない。</dd></div>
           </dl>
-          <div class="slide-index">07 / 20</div>
+          <div class="slide-index">10 / 30</div>
         </article>
       </section>
 
@@ -765,7 +941,7 @@
         <article class="slide-copy">
           <div class="chapter-mark">04</div>
           <div class="chapter-kicker"><b>Chapter 04</b> / 本節</div>
-          <h2>今の救助が、終盤の救助を失わせる<small>短い勝利と、長く残る記録</small></h2>
+          <h2>ヴェガ戦役　深層採掘帯重力戦<small>短い勝利と、長く残る記録</small></h2>
           <p class="lead">アンカーを撃てば乗員は助かる。だが「連邦は境界を撃った」という記憶が残る。</p>
           <div class="story-detail">
             <p>重力井戸では自機の質量が数秒単位で変わり、発射したミサイルが弧を描いて戻ってくる。アインは敵ではないため撃ってこない。ただし彼が局所重力を動かすたび、こちらの機動計算は前提を失う。「照準を信じるなら撃て。私を信じるなら待て」。非破壊で装甲艦の進路を逸らしてきた戦術官との共同作業は、自分の反射と他文明の指示のどちらを信じるかへ収束する。</p>
@@ -776,40 +952,61 @@
             <li>証拠回収を優先するほど、契約船の空気は減る。</li>
             <li>ここで得た信頼だけが、終盤で門を固定する手段になる。</li>
           </ul>
-          <blockquote class="quote">全部やる余裕はありません。どれを諦めるか、先に決めてください。<cite>Nia Williams / Operations Staff</cite></blockquote>
+          <blockquote class="quote">全部やる余裕はありません。どれを諦めるか、先に決めてください。<cite>ニア・オコエ / 空母戦術官</cite></blockquote>
           <dl class="mission-rail">
             <div><dt>Choice</dt><dd>アンカーを破壊するか、採掘停止の証拠を回収するか。</dd></div>
             <div><dt>Outcome</dt><dd>オルドは感謝も報復もせず、選択を地層へ刻む。</dd></div>
           </dl>
-          <div class="slide-index">08 / 20</div>
+          <div class="slide-index">11 / 30</div>
+        </article>
+      </section>
+
+      <section class="slide slide-personnel" id="slide-ch04-personnel" data-label="CH4 人物紹介" style="--accent:#f0c86b;--focus:63% center">
+        <figure class="slide-image">
+          <figure class="personnel-portrait" data-person-id="ordo-03"><img src="../../../docs/assets/characters/regenerated_portraits/ordo-03.png" alt="アインの肖像" loading="lazy"><figcaption class="personnel-caption">アイン<small>Ordo / Gravity</small></figcaption></figure>
+          <figure class="personnel-portrait" data-person-id="ordo-01"><img src="../../../docs/assets/characters/regenerated_portraits/ordo-01.png" alt="アークの肖像" loading="lazy"><figcaption class="personnel-caption">アーク<small>Ordo / Sovereign</small></figcaption></figure>
+          <figure class="personnel-portrait" data-person-id="confed-31"><img src="../../../docs/assets/characters/regenerated_portraits/confed-31.png" alt="ニア・オコエの肖像" loading="lazy"><figcaption class="personnel-caption">ニア・オコエ<small>Confed / Carrier Tactics</small></figcaption></figure>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">04</div>
+          <div class="chapter-kicker"><b>Chapter 04</b> / 人物紹介</div>
+          <h2>ヴェガ戦役　深層採掘帯事件・主要人物<small>人類の時間と地層の時間を仲介する者たち</small></h2>
+          <p class="lead">十九時間で尽きる空気と、千二百年で読まれる地層記録を、同じ判断へ置く三人。</p>
+          <div class="cast-profiles">
+            <article class="cast-profile" data-person-id="ordo-03"><strong>アイン</strong><span>オルド 重力戦術官</span><p>局地重力を変え、装甲艦の進路を非破壊で逸らした。アンカーは兵器ではなく境界標だと説明する。</p></article>
+            <article class="cast-profile" data-person-id="ordo-01"><strong>アーク</strong><span>オルド 合議王・最高権力者</span><p>十種の地層記憶と採掘境界を裁定し、オルドの意思を最終決定する。今回の出撃を地層に刻む一本の線として読む。</p></article>
+            <article class="cast-profile" data-person-id="confed-31"><strong>ニア・オコエ</strong><span>空母戦術官</span><p>航空団の配置を再設計し、艦隊の被害を最小限にした。救助、証拠、燃料のどれを失うかを数値で問い返す。</p></article>
+          </div>
+          <blockquote class="quote">我々は殺していない。ただ、境界で止めている。<cite>アイン / オルド重力戦術官</cite></blockquote>
+          <dl class="mission-rail"><div><dt>Relation</dt><dd>アインの境界とニアの残量計算が、救助を制約する。</dd></div><div><dt>Key</dt><dd>アークの記憶に残る判断が、終盤の援護を変える。</dd></div></dl>
         </article>
       </section>
 
       <section class="slide slide-prelude" id="slide-09" data-label="CH5 前説" style="--accent:#f06a79;--focus:50% center">
         <figure class="slide-image">
-          <img src="assets/vega-emergency-presentation/slide-09.webp" alt="朝倉澪とラギティカが救命艇を挟んで対峙する" width="1536" height="1024" loading="lazy">
+          <img src="assets/vega-emergency-presentation/slide-09.webp" alt="桐谷綾とラギティカが救命艇を挟んで対峙する" width="1536" height="1024" loading="lazy">
           <figcaption class="image-caption"><span>Ash Crown Corridor / Oath Line</span><span>Chapter 05 — Prelude</span></figcaption>
         </figure>
         <article class="slide-copy">
           <div class="chapter-mark">05</div>
           <div class="chapter-kicker"><b>Chapter 05</b> / 前説</div>
-          <h2>決闘士は、戦力より先に名前を問う<small>灰冠の決闘</small></h2>
+          <h2>ヴェガ戦役　灰冠単機決闘<small>灰冠の決闘</small></h2>
           <p class="lead">帝国艦隊は砲門を開いたまま停止した。ラギティカが単機決闘を申し込んだのだ。</p>
           <div class="story-detail">
             <p>決闘は取材でもある。ラギティカが本当に知りたいのは連邦が保有する制御核の所在で、こちらの加速、被弾許容、僚機を庇う癖のすべてが質問になる。名を交換する儀礼を成立させれば、こちらの問いも一つだけ通る。ヴァークは両者の通信を誓約文として記録し、帝国の公式史へ残す。この戦争で初めて、撃墜数以外のものが公的な戦果になる瞬間だった。</p>
-            <p>決闘を断れば艦隊戦が始まり、〈タイガーズ・クロー〉は数で負ける。受ければ、全艦の生死を一機へ預けることになる。帝国艦隊の沈黙を保証する連邦側の条文はない。それでもハートは受諾し、艦内放送へ無線を開いた。「艦の全員に聞かせろ。名を名乗る戦いというものを、うちの若いのは見たことがない」。敵の作法を知ることが、ここでは防御になる。</p>
+            <p>決闘を断れば艦隊戦が始まり、連邦護衛隊は数で負ける。受ければ、全艦の生死を一機へ預けることになる。帝国艦隊の沈黙を保証する連邦側の条文はない。それでもクワメは受諾し、艦内放送へ無線を開いた。「艦の全員に聞かせろ。名を名乗る戦いというものを、うちの若いのは見たことがない」。敵の作法を知ることが、ここでは防御になる。</p>
           </div>
           <ul class="evidence">
             <li>決闘中、帝国の全砲は沈黙。連邦も一機だけを出す。</li>
             <li>彼女は撃墜した相手の名と、その戦い方をすべて記憶する。</li>
             <li>第三章の「撃たなかった記録」が、決闘を申し込む理由になる。</li>
           </ul>
-          <blockquote class="quote">あなたは門を盗んだ者か。それとも、帰す者か。<cite>Ragitika / Blood Oath</cite></blockquote>
+          <blockquote class="quote">あなたは門を盗んだ者か。それとも、帰す者か。<cite>ラギティカ / 決闘士・編隊長</cite></blockquote>
           <dl class="mission-rail">
             <div><dt>Duel</dt><dd>F-44A ラピアーII 対 KF03 グレイハウル。</dd></div>
             <div><dt>Record</dt><dd>名を交換すれば、勝敗以外のものが帝国正史へ残る。</dd></div>
           </dl>
-          <div class="slide-index">09 / 20</div>
+          <div class="slide-index">13 / 30</div>
         </article>
       </section>
 
@@ -821,7 +1018,7 @@
         <article class="slide-copy">
           <div class="chapter-mark">05</div>
           <div class="chapter-kicker"><b>Chapter 05</b> / 本節</div>
-          <h2>誓約を破るのは、敵ではなく身内だった<small>敵味方の線と、誓約の線がずれる</small></h2>
+          <h2>ヴェガ戦役　灰冠回廊会戦<small>敵味方の線と、誓約の線がずれる</small></h2>
           <p class="lead">急進派の分艦隊が決闘空域へ発砲し、ラギティカの機体は片翼を失う。</p>
           <div class="story-detail">
             <p>グレイハウルは加速と旋回で勝り、ラピアーIIは装甲と火力で勝る。だがラギティカは撃墜を急がず、こちらの癖を測ってくる。僚機を庇うか、被弾を許容するか、逃げる敵を追うか。彼女は過去の戦闘記録を無線で引用し、「あなたは以前、救難艇へ向かった。今日は私を追うのか」と問う。前章までの選択が、一対一の機動戦で人物像として突き返される。</p>
@@ -832,12 +1029,33 @@
             <li>ラギティカは位置を隠すため、脱出信号を発しない。</li>
             <li>勝利を優先するか、敵エースを回収するかが問われる。</li>
           </ul>
-          <blockquote class="quote">艦の全員に聞かせろ。名を名乗る戦いというものを。<cite>William Hart / Captain</cite></blockquote>
+          <blockquote class="quote">艦の全員に聞かせろ。名を名乗る戦いというものを。<cite>クワメ・アデイェミ / 連邦艦隊司令</cite></blockquote>
           <dl class="mission-rail">
             <div><dt>Choice</dt><dd>決闘の勝利を取るか、ラギティカを生かして帰すか。</dd></div>
             <div><dt>Outcome</dt><dd>救出すれば帝国側の停戦窓口が開く。撃墜しても戦争は終わらない。</dd></div>
           </dl>
-          <div class="slide-index">10 / 20</div>
+          <div class="slide-index">14 / 30</div>
+        </article>
+      </section>
+
+      <section class="slide slide-personnel" id="slide-ch05-personnel" data-label="CH5 人物紹介" style="--accent:#f06a79;--focus:50% center">
+        <figure class="slide-image">
+          <figure class="personnel-portrait" data-person-id="kilrashi-03"><img src="../../../docs/assets/characters/regenerated_portraits/kilrashi-03.png" alt="ラギティカの肖像" loading="lazy"><figcaption class="personnel-caption">ラギティカ<small>Kilrashi / Duelist</small></figcaption></figure>
+          <figure class="personnel-portrait" data-person-id="kilrashi-07"><img src="../../../docs/assets/characters/regenerated_portraits/kilrashi-07.png" alt="ヴァークの肖像" loading="lazy"><figcaption class="personnel-caption">ヴァーク<small>Kilrashi / Rite</small></figcaption></figure>
+          <figure class="personnel-portrait" data-person-id="confed-05"><img src="../../../docs/assets/characters/regenerated_portraits/confed-05.png" alt="桐谷 綾の肖像" loading="lazy"><figcaption class="personnel-caption">桐谷 綾<small>Confed / Escort Pilot</small></figcaption></figure>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">05</div>
+          <div class="chapter-kicker"><b>Chapter 05</b> / 人物紹介</div>
+          <h2>ヴェガ戦役　灰冠回廊会戦・主要人物<small>名と誓約を戦果より先に置く決闘の当事者</small></h2>
+          <p class="lead">敵味方の線よりも、誓約を守るかどうかが戦局を分ける回廊の三人。</p>
+          <div class="cast-profiles">
+            <article class="cast-profile" data-person-id="kilrashi-03"><strong>ラギティカ</strong><span>キルラシー帝国 決闘士・編隊長</span><p>撃墜した敵の名をすべて記憶し、戦場で一対一の誓約を守る。連邦が門を奪う者か、帰す者かを問い続ける。</p></article>
+            <article class="cast-profile" data-person-id="kilrashi-07"><strong>ヴァーク</strong><span>キルラシー 儀礼通信士</span><p>敵の降伏文を翻訳し、停戦線の誤解を解いた。決闘の会話を誓約文として保存する。</p></article>
+            <article class="cast-profile" data-person-id="confed-05"><strong>桐谷 綾</strong><span>連邦 近接護衛パイロット</span><p>旗艦への接近を許さず、味方編隊の離脱を支えた。誓約の外から撃つ急進派を止め、救出の余地をつくる。</p></article>
+          </div>
+          <blockquote class="quote">あなたは門を盗んだ者か。それとも、帰す者か。<cite>ラギティカ / 決闘士・編隊長</cite></blockquote>
+          <dl class="mission-rail"><div><dt>Relation</dt><dd>ラギティカと桐谷の応答を、ヴァークが公式記録へ変える。</dd></div><div><dt>Key</dt><dd>生き残った決闘士の名前が、停戦窓口になる。</dd></div></dl>
         </article>
       </section>
 
@@ -849,7 +1067,7 @@
         <article class="slide-copy">
           <div class="chapter-mark">06</div>
           <div class="chapter-kicker"><b>Chapter 06</b> / 前説</div>
-          <h2>群体は侵略ではなく、傷口を縫っている<small>接続する群体、切断する恐怖</small></h2>
+          <h2>ヴェガ戦役　巣脈群通信障害事件<small>接続する群体、切断する恐怖</small></h2>
           <p class="lead">ニューロウム中継器を破壊せよ。命令は単純だが、障害と門の異常は同じ時刻に始まっていた。</p>
           <div class="story-detail">
             <p>中継器の中枢で応答した原初核クラウンの説明は、侵略の弁明ではなく工事報告だった。門は閉じかけているのではない。開きかけている。群体は五勢力の航法ログを強制同期させ、ヴェイルに生じた裂け目を縫っていた。同期に同意しない文明のログだけが穴として残り、そこから異常が広がっている。「我々は領域を増やしていない。欠けた場所を埋めている」とクラウンは告げる。</p>
@@ -860,12 +1078,12 @@
             <li>門は閉じかけているのではなく、開きかけている。</li>
             <li>群体は各勢力の航法ログを同期し、裂け目を縫おうとしていた。</li>
           </ul>
-          <blockquote class="quote">壊すのは構いません。ただ、体温計を割っても熱は下がりません。<cite>Ritsu Asahina / Intelligence</cite></blockquote>
+          <blockquote class="quote">壊すのは構いません。ただ、体温計を割っても熱は下がりません。<cite>朝比奈 律 / 情報作戦士官</cite></blockquote>
           <dl class="mission-rail">
             <div><dt>Threat</dt><dd>恐怖も降伏も人質も通じない相手との戦闘。</dd></div>
             <div><dt>Question</dt><dd>中継器は障害の原因か、それとも観測装置か。</dd></div>
           </dl>
-          <div class="slide-index">11 / 20</div>
+          <div class="slide-index">16 / 30</div>
         </article>
       </section>
 
@@ -877,7 +1095,7 @@
         <article class="slide-copy">
           <div class="chapter-mark">06</div>
           <div class="chapter-kicker"><b>Chapter 06</b> / 本節</div>
-          <h2>接続は救難であり、支配でもある<small>この章の敵は「同意」という言葉の重さ</small></h2>
+          <h2>ヴェガ戦役　巣脈群中継器戦<small>この章の敵は「同意」という言葉の重さ</small></h2>
           <p class="lead">限定接続を許せば全航路を同じ画面で見られる。だが連邦の航法も群体へ渡る。</p>
           <div class="story-detail">
             <p>妨害空域では味方位置が三秒遅れ、ドローンは撃たれた数だけ学習して隊形を変える。個体を潰しても群体は痛みを感じず、降伏も人質も成立しない。プレイヤーは、自分の戦術が相手の恐怖や生存本能へどれほど依存していたかを思い知らされる。撃ち続けるほど、敵は強くなるのではない。こちらの戦い方を正確に写す鏡へ近づいていく。</p>
@@ -888,12 +1106,33 @@
             <li>完全遮断なら軍令信用は保てるが、門の内側を測る手段を失う。</li>
             <li>未来の作戦航路がすでに記録され、予測と反射の境界が崩れる。</li>
           </ul>
-          <blockquote class="quote">同意とは、得るものではない。待つものだ。<cite>Crown / Original Core</cite></blockquote>
+          <blockquote class="quote">同意とは、得るものではない。待つものだ。<cite>クラウン / 原初核</cite></blockquote>
           <dl class="mission-rail">
             <div><dt>Choice</dt><dd>共同通信網へ限定接続するか、完全に遮断するか。</dd></div>
             <div><dt>Outcome</dt><dd>接続は視界を広げるが、連邦内部の反発を招く。</dd></div>
           </dl>
-          <div class="slide-index">12 / 20</div>
+          <div class="slide-index">17 / 30</div>
+        </article>
+      </section>
+
+      <section class="slide slide-personnel" id="slide-ch06-personnel" data-label="CH6 人物紹介" style="--accent:#b59af4;--focus:52% center">
+        <figure class="slide-image">
+          <figure class="personnel-portrait" data-person-id="neurowm-01"><img src="../../../docs/assets/characters/regenerated_portraits/neurowm-01.png" alt="クラウンの肖像" loading="lazy"><figcaption class="personnel-caption">クラウン<small>Neurowm / Core</small></figcaption></figure>
+          <figure class="personnel-portrait" data-person-id="confed-12"><img src="../../../docs/assets/characters/regenerated_portraits/confed-12.png" alt="朝比奈 律の肖像" loading="lazy"><figcaption class="personnel-caption">朝比奈 律<small>Confed / Intelligence</small></figcaption></figure>
+          <figure class="personnel-portrait" data-person-id="neurowm-04"><img src="../../../docs/assets/characters/regenerated_portraits/neurowm-04.png" alt="メモリアの肖像" loading="lazy"><figcaption class="personnel-caption">メモリア<small>Neurowm / Communication</small></figcaption></figure>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">06</div>
+          <div class="chapter-kicker"><b>Chapter 06</b> / 人物紹介</div>
+          <h2>ヴェガ戦役　巣脈群中継器戦・主要人物<small>接続の同意と、切断の恐怖を担う者たち</small></h2>
+          <p class="lead">群体を敵として撃つのか、それとも異常を縫う観測者として扱うのかを決める三人。</p>
+          <div class="cast-profiles">
+            <article class="cast-profile" data-person-id="neurowm-01"><strong>クラウン</strong><span>ニューロウム 原初核・群体最高権力者</span><p>全ネットワークの判断を統合し、ニューロウムの接続と進路を最終承認する。急かさず、同意を待つ。</p></article>
+            <article class="cast-profile" data-person-id="confed-12"><strong>朝比奈 律</strong><span>連邦 情報作戦士官</span><p>敵の暗号通信を解析し、攻撃予告を艦隊へ伝えた。中継器が原因ではなく観測装置かもしれないと見抜く。</p></article>
+            <article class="cast-profile" data-person-id="neurowm-04"><strong>メモリア</strong><span>異種通信アンドロイド</span><p>五勢力の通信プロトコルを共通記録層へ接続した。接続が救難と支配を併せ持つことを示す。</p></article>
+          </div>
+          <blockquote class="quote">同意とは、得るものではない。待つものだ。<cite>クラウン / 原初核</cite></blockquote>
+          <dl class="mission-rail"><div><dt>Relation</dt><dd>クラウンの同期を、朝比奈とメモリアが人類の言葉へ翻訳する。</dd></div><div><dt>Key</dt><dd>限定接続の判断が、終盤で見える航路を変える。</dd></div></dl>
         </article>
       </section>
 
@@ -905,10 +1144,10 @@
         <article class="slide-copy">
           <div class="chapter-mark">07</div>
           <div class="chapter-kicker"><b>Chapter 07</b> / 前説</div>
-          <h2>八十三年の戦争は、割られた鍵の後始末だった<small>協定を壊したのは誰か</small></h2>
+          <h2>ヴェガ戦役　第六条項発覚事件<small>協定を壊したのは誰か</small></h2>
           <p class="lead">五者通行協定には、署名されなかった「門制御核の共同管理」という六つ目の条項があった。</p>
           <div class="story-detail">
-            <p>ハートは艦隊への即時報告を命じるが、司令部から返ったのは停止命令だった。空母は「証拠保全」の名目で足止めされ、搬送先のヴェガ門公証中継所は七十二時間後に閉鎖される。ニア・ウィリアムズは残量だけを読み上げる。「行けます。ただし帰りの燃料と、あなたの経歴のどちらかは戻りません」。敵の妨害より、味方の手続きが先に時計を削っていく。</p>
+            <p>朝比奈律は艦隊への即時報告を求めるが、司令部から返ったのは停止命令だった。空母は「証拠保全」の名目で足止めされ、搬送先のヴェガ門公証中継所は七十二時間後に閉鎖される。ニア・オコエは残量だけを読み上げる。「行けます。ただし帰りの燃料と、あなたの経歴のどちらかは戻りません」。敵の妨害より、味方の手続きが先に時計を削っていく。</p>
             <p>第一章の積荷、第二章の帰還者証言、第四章の採掘記録、第六章の同期ログ。四つの記録は同じ製造番号へ収束し、割られた核の片方を連邦軍需企業が、もう片方を帝国の若い軍家が隠してきたと示す。八十三年間、表では戦争を続けながら、両陣営の強硬派だけが同じ資産を守っていた。プレイヤーが敵だと思って撃ってきた壁の背後には、国旗を越えた共犯関係があった。</p>
           </div>
           <ul class="evidence">
@@ -916,12 +1155,12 @@
             <li>第一・二・四・六章の記録が、同じ製造番号へ収束する。</li>
             <li>両陣営の強硬派だけが、同じ資産を八十三年間守っていた。</li>
           </ul>
-          <blockquote class="quote">敵は国旗の外だけにいるんじゃない。命令書の内側にもいる。<cite>William Hart / Captain</cite></blockquote>
+          <blockquote class="quote">敵は国旗の外だけにいるんじゃない。命令書の内側にもいる。<cite>朝比奈 律 / 情報作戦士官</cite></blockquote>
           <dl class="mission-rail">
             <div><dt>Reveal</dt><dd>プレイヤーが撃ってきた敵は、分割された資産を守る壁だった。</dd></div>
             <div><dt>Deadline</dt><dd>公証中継所の閉鎖まで七十二時間。</dd></div>
           </dl>
-          <div class="slide-index">13 / 20</div>
+          <div class="slide-index">19 / 30</div>
         </article>
       </section>
 
@@ -933,23 +1172,44 @@
         <article class="slide-copy">
           <div class="chapter-mark">07</div>
           <div class="chapter-kicker"><b>Chapter 07</b> / 本節</div>
-          <h2>証拠は、正しく届かなければ存在しない<small>正義ではなく、五者が検証できる手続きへ</small></h2>
+          <h2>ヴェガ戦役　公証中継所突破作戦<small>正義ではなく、五者が検証できる手続きへ</small></h2>
           <p class="lead">司令部は停止命令を出す。中継所は正規の書式と期限だけを照合する。</p>
           <div class="story-detail">
             <p>出撃は護衛なし、積荷は一箱、目的地は公証中継所。追うのは帝国だけではない。連邦哨戒機もこちらの識別と回避癖を知り尽くしている。発砲すれば共同設備の保全規約を破り、告発の正当性そのものが失われる。撃たずに航路を読み、双方の追跡を振り切り、期限内に箱を届ける。正義の内容ではなく、敵を含む五者が同じ手順で検証できるかが勝敗を決める。</p>
-            <p>無許可出撃を選べば次章の搭載兵装は減り、司令部の無線は冷たくなる。正式手続を待てば中継所は閉じ、証拠は停戦交渉に間に合わない。ハートは決定を部下へ押しつけず、自分の署名を命令書へ残す。「命令は後で書き直せる。人は書き直せない」。ここで失うのは抽象的な評価ではない。次章の発艦甲板に、誰が味方として並んでくれるかである。</p>
+            <p>無許可出撃を選べば次章の搭載兵装は減り、司令部の無線は冷たくなる。正式手続を待てば中継所は閉じ、証拠は停戦交渉に間に合わない。ニアは決定を部下へ押しつけず、自分の戦術案へ署名を残す。「命令は後で書き直せる。人は書き直せない」。ここで失うのは抽象的な評価ではない。次章の発艦甲板に、誰が味方として並んでくれるかである。</p>
           </div>
           <ul class="evidence">
             <li>護衛なし、積荷は一箱。連邦哨戒機と帝国急進派が追う。</li>
             <li>発砲すれば保全規約を破り、告発の正当性を失う。</li>
             <li>正式手続を待てば、中継所は閉じて証拠が間に合わない。</li>
           </ul>
-          <blockquote class="quote">行けます。ただし帰りの燃料と、あなたの経歴のどちらかは戻りません。<cite>Nia Williams / Operations Staff</cite></blockquote>
+          <blockquote class="quote">行けます。ただし帰りの燃料と、あなたの経歴のどちらかは戻りません。<cite>ニア・オコエ / 空母戦術官</cite></blockquote>
           <dl class="mission-rail">
             <div><dt>Choice</dt><dd>正式手続を守るか、艦長と無許可出撃するか。</dd></div>
             <div><dt>Outcome</dt><dd>失うのは評価ではなく、次章で発艦してくれる味方。</dd></div>
           </dl>
-          <div class="slide-index">14 / 20</div>
+          <div class="slide-index">20 / 30</div>
+        </article>
+      </section>
+
+      <section class="slide slide-personnel" id="slide-ch07-personnel" data-label="CH7 人物紹介" style="--accent:#ff9b6a;--focus:50% center">
+        <figure class="slide-image">
+          <figure class="personnel-portrait" data-person-id="confed-12"><img src="../../../docs/assets/characters/regenerated_portraits/confed-12.png" alt="朝比奈 律の肖像" loading="lazy"><figcaption class="personnel-caption">朝比奈 律<small>Confed / Intelligence</small></figcaption></figure>
+          <figure class="personnel-portrait" data-person-id="confed-31"><img src="../../../docs/assets/characters/regenerated_portraits/confed-31.png" alt="ニア・オコエの肖像" loading="lazy"><figcaption class="personnel-caption">ニア・オコエ<small>Confed / Carrier Tactics</small></figcaption></figure>
+          <figure class="personnel-portrait" data-person-id="kilrashi-07"><img src="../../../docs/assets/characters/regenerated_portraits/kilrashi-07.png" alt="ヴァークの肖像" loading="lazy"><figcaption class="personnel-caption">ヴァーク<small>Kilrashi / Rite</small></figcaption></figure>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">07</div>
+          <div class="chapter-kicker"><b>Chapter 07</b> / 人物紹介</div>
+          <h2>ヴェガ戦役　第六条項事件・主要人物<small>告発を戦場へ運ぶ実務者たち</small></h2>
+          <p class="lead">隠された共同管理条項を、公証可能な記録として届けるために命令系統を越える三人。</p>
+          <div class="cast-profiles">
+            <article class="cast-profile" data-person-id="confed-12"><strong>朝比奈 律</strong><span>連邦 情報作戦士官</span><p>敵の暗号通信を解析し、攻撃予告を艦隊へ伝えた。分割された制御核の記録を照合し、告発可能な形へ整える。</p></article>
+            <article class="cast-profile" data-person-id="confed-31"><strong>ニア・オコエ</strong><span>連邦 空母戦術官</span><p>航空団の配置を再設計して被害を抑えた。帰還燃料、兵装、経歴の損失を明示し、無許可出撃の代償を曖昧にしない。</p></article>
+            <article class="cast-profile" data-person-id="kilrashi-07"><strong>ヴァーク</strong><span>キルラシー 儀礼通信士</span><p>敵の降伏文を翻訳し、停戦線の誤解を解いた。決闘で保存した誓約違反を、国旗を越える告発の根拠へ変える。</p></article>
+          </div>
+          <blockquote class="quote">命令は後で書き直せる。人は書き直せない。<cite>ニア・オコエ / 空母戦術官</cite></blockquote>
+          <dl class="mission-rail"><div><dt>Relation</dt><dd>朝比奈の解析を、ニアの戦術案とヴァークの記録が支える。</dd></div><div><dt>Key</dt><dd>正しい証拠は、正しい書式でなければ存在しない。</dd></div></dl>
         </article>
       </section>
 
@@ -961,11 +1221,11 @@
         <article class="slide-copy">
           <div class="chapter-mark">08</div>
           <div class="chapter-kicker"><b>Chapter 08</b> / 前説</div>
-          <h2>誰も信じていない。それでも五つの署名は揃う<small>停戦の一分間</small></h2>
+          <h2>ヴェガ戦役　五勢力停戦会議<small>停戦の一分間</small></h2>
           <p class="lead">公証中継所は、五勢力の同時承認がなければ証拠を一行も認証しない。</p>
           <div class="story-detail">
             <p>三基の通信灯台は、同じ五者署名を中継する冗長回線だ。一本でも六十秒残れば承認は成立するが、失われた回線の数だけ次章の通信と援護は細る。連邦とキルラシーの砲火の間で、守るべきものは艦でも領土でもなく、全員が同じ文面を同じ時刻に受け取ったという事実になる。停戦は感情的な和解ではなく、消せない共通記録から始まる。</p>
-            <p>ブリーフィング画面に五勢力の代表が初めて並ぶ。ハートは連邦の承認を読み、アウルは季節の言葉で避難回廊を約束し、アークは署名を「千二百年の中の短い線」と呼ぶ。クラウンは同期時間を秒で示し、ラギティカは大牙王代理の誓約としてしか承認を出せないと告げる。通訳はアクスとメモリアが分担する。誰も相手を信じていない。それでも、書式と時計だけは揃った。</p>
+            <p>ブリーフィング画面に五勢力の代表が初めて並ぶ。外交連絡士官の篠原美月が連邦の承認を読み、アウルは季節の言葉で避難回廊を約束し、アークは署名を「千二百年の中の短い線」と呼ぶ。クラウンは同期時間を秒で示し、ラギティカは大牙王への誓約としてしか承認を出せないと告げる。通訳はアクスとメモリアが分担する。誰も相手を信じていない。それでも、書式と時計だけは揃った。</p>
           </div>
           <ul class="evidence">
             <li>連邦は空母、帝国は誓約、セレシオンは避難回廊を差し出す。</li>
@@ -977,7 +1237,7 @@
             <div><dt>Format</dt><dd>誰も相手を信用しないまま、同じ書式だけを共有する。</dd></div>
             <div><dt>Clock</dt><dd>必要時間は六十秒。一本の回線を残せばよい。</dd></div>
           </dl>
-          <div class="slide-index">15 / 20</div>
+          <div class="slide-index">22 / 30</div>
         </article>
       </section>
 
@@ -989,7 +1249,7 @@
         <article class="slide-copy">
           <div class="chapter-mark">08</div>
           <div class="chapter-kicker"><b>Chapter 08</b> / 本節</div>
-          <h2>六十秒が、七章分の選択を援軍に変える<small>過去の判断が、画面上の味方になる</small></h2>
+          <h2>ヴェガ戦役　三灯台防衛戦<small>過去の判断が、画面上の味方になる</small></h2>
           <p class="lead">一機で守れる灯台は二基まで。第三基を誰が支えるかは、これまでの選択で変わる。</p>
           <div class="story-detail">
             <p>灯台三基は互いに離れ、一機では二基までしか間に合わない。静穏海を守っていればセレシオン護衛船が一基を引き受け、オルドの信頼を得ていれば重力固定が被弾を逸らす。ニューロウムとの限定接続があれば、敵味方の軌道が一枚の図へ重なる。過去七章の判断は数値ボーナスではなく、別の文化を持つ援軍の姿として戦場へ現れる。</p>
@@ -1005,7 +1265,28 @@
             <div><dt>Choice</dt><dd>味方艦を守るか、敵の救難信号へ向かうか。</dd></div>
             <div><dt>Outcome</dt><dd>敵を救えば、帝国正史に「名誉ある共同作戦」と記録される。</dd></div>
           </dl>
-          <div class="slide-index">16 / 20</div>
+          <div class="slide-index">23 / 30</div>
+        </article>
+      </section>
+
+      <section class="slide slide-personnel" id="slide-ch08-personnel" data-label="CH8 人物紹介" style="--accent:#69dcf7;--focus:54% center">
+        <figure class="slide-image">
+          <figure class="personnel-portrait" data-person-id="confed-04"><img src="../../../docs/assets/characters/regenerated_portraits/confed-04.png" alt="篠原 美月の肖像" loading="lazy"><figcaption class="personnel-caption">篠原 美月<small>Confed / Diplomatic Liaison</small></figcaption></figure>
+          <figure class="personnel-portrait" data-person-id="serecion-02"><img src="../../../docs/assets/characters/regenerated_portraits/serecion-02.png" alt="アウルの肖像" loading="lazy"><figcaption class="personnel-caption">アウル<small>Serecion / Signatory</small></figcaption></figure>
+          <figure class="personnel-portrait" data-person-id="kilrashi-03"><img src="../../../docs/assets/characters/regenerated_portraits/kilrashi-03.png" alt="ラギティカの肖像" loading="lazy"><figcaption class="personnel-caption">ラギティカ<small>Kilrashi / Signatory</small></figcaption></figure>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">08</div>
+          <div class="chapter-kicker"><b>Chapter 08</b> / 人物紹介</div>
+          <h2>ヴェガ戦役　五勢力停戦会議・主要人物<small>同じ書式へ署名する代表者たち</small></h2>
+          <p class="lead">互いを信用しないまま、六十秒だけ同じ回線を守る五勢力を代表する三人。</p>
+          <div class="cast-profiles">
+            <article class="cast-profile" data-person-id="confed-04"><strong>篠原 美月</strong><span>連邦 外交連絡士官</span><p>停戦交渉の通訳を務め、捕虜交換の合意を成立させた。連邦の軍事語を、五勢力が検証できる署名文へ改める。</p></article>
+            <article class="cast-profile" data-person-id="serecion-02"><strong>アウル</strong><span>セレシオン 船団指揮者</span><p>静穏海の避難航路を十年間維持し、両陣営の艦を通過させた。遅い船を見捨てない規則を署名へ求める。</p></article>
+            <article class="cast-profile" data-person-id="kilrashi-03"><strong>ラギティカ</strong><span>キルラシー 決闘士・編隊長</span><p>撃墜した敵の名をすべて記憶する。誓約の形式でのみ承認を出し、救難の記録を帝国側に残す。</p></article>
+          </div>
+          <blockquote class="quote">一分あれば、艦隊は引き返せる。なければ、門は開く。<cite>Joint Notary Briefing</cite></blockquote>
+          <dl class="mission-rail"><div><dt>Relation</dt><dd>篠原、アウル、ラギティカの言葉を同じ署名欄へ置く。</dd></div><div><dt>Key</dt><dd>三灯台の一本を守れば、五者承認が成立する。</dd></div></dl>
         </article>
       </section>
 
@@ -1017,10 +1298,10 @@
         <article class="slide-copy">
           <div class="chapter-mark">09</div>
           <div class="chapter-kicker"><b>Chapter 09</b> / 前説</div>
-          <h2>門は過去ではなく、選ばれなかった未来を映す<small>九分間の中へ</small></h2>
+          <h2>ヴェガ戦役　ヴェガ門位相崩壊事件<small>九分間の中へ</small></h2>
           <p class="lead">五つ目の署名が入る直前、急進派が制御核を起動。各艦は門へ引き込まれる。</p>
           <div class="story-detail">
-            <p>位相迷路の攻略手段は火力ではなく記憶だ。過去の無線が順序を変え、救難を優先した通信は感謝ではなく告発として、追撃を選んだ通信は戦果ではなく謝罪として返る。ソフィーは自分の声が自分へ反論するのを聞きながら帰投窓を計算する。「一致しない記録が三つあるなら、二つは幻です。問題は、あなたがどれを幻と呼べるかです」。</p>
+            <p>位相迷路の攻略手段は火力ではなく記憶だ。過去の無線が順序を変え、救難を優先した通信は感謝ではなく告発として、追撃を選んだ通信は戦果ではなく謝罪として返る。エレナは自分の声が自分へ反論するのを聞きながら帰投窓を計算する。「一致しない記録が三つあるなら、二つは反射です。問題は、どれを帰還の記録にするかです」。</p>
             <p>迷路の中心にはラギティカとクラウンがいる。決闘士は自分が撃った全員と再会し、原初核は縫おうとしていた裂け目の内側を初めて見る。残されていたのは兵器ではなく、ヴェイル網の航路設計図だった。脱出には現実側の錨が要る。誰も置き去りにはしないが、誰の声を信じて帰るかによって、現実へ持ち帰れる記憶と最終章の無線が変わる。</p>
           </div>
           <ul class="evidence">
@@ -1028,12 +1309,12 @@
             <li>格納庫では、第一章で拾えなかった者が笑っている。</li>
             <li>過去の無線は順序を変え、感謝を告発へ、戦果を謝罪へ変える。</li>
           </ul>
-          <blockquote class="quote">一致しない記録が三つあるなら、二つは幻です。<cite>Sophie Laurent / Navigator</cite></blockquote>
+          <blockquote class="quote">一致しない記録が三つあるなら、二つは反射です。<cite>エレナ・ウォード / 航法主任</cite></blockquote>
           <dl class="mission-rail">
             <div><dt>Phenomenon</dt><dd>門は嘘をつかない。選択と結果の順序だけを変える。</dd></div>
             <div><dt>Anchor</dt><dd>脱出には、現実側で自分を信じる一人の声が要る。</dd></div>
           </dl>
-          <div class="slide-index">17 / 20</div>
+          <div class="slide-index">25 / 30</div>
         </article>
       </section>
 
@@ -1045,7 +1326,7 @@
         <article class="slide-copy">
           <div class="chapter-mark">09</div>
           <div class="chapter-kicker"><b>Chapter 09</b> / 本節</div>
-          <h2>帰還路は、実際に選んだ記録だけが知っている<small>楽な道ほど、選ばなかった未来へ続く</small></h2>
+          <h2>ヴェガ戦役　九分間位相戦<small>楽な道ほど、選ばなかった未来へ続く</small></h2>
           <p class="lead">三つの記録のうち二つは反射。自分の航法ログと一致する判断だけを踏んで進む。</p>
           <div class="story-detail">
             <p>迷路は座標ではなく整合性で進む。幻影の僚機は、プレイヤーが実際に取った選択を反転して語る。追撃した者には救ったはずの民間船が礼を言い、救難した者には逃した敵機が航路を奪った結果を見せる。楽な道はいつも選ばなかった未来へ続き、進むほど帰投窓は遠ざかる。第二章の三人が矛盾した理由を、プレイヤー自身が体験する。</p>
@@ -1056,12 +1337,33 @@
             <li>ラギティカは撃った全員と再会し、クラウンは裂け目の内側を測る。</li>
             <li>持ち帰れるのは航路設計図一枚と、記憶の一部だけ。</li>
           </ul>
-          <blockquote class="quote">問題は、あなたがどれを幻と呼べるかです。<cite>Sophie Laurent / Navigator</cite></blockquote>
+          <blockquote class="quote">問題は、どれを帰還の記録にするかです。<cite>エレナ・ウォード / 航法主任</cite></blockquote>
           <dl class="mission-rail">
             <div><dt>Choice</dt><dd>誰の声を現実側の錨として選ぶか。</dd></div>
             <div><dt>Outcome</dt><dd>残す者はいないが、誰がプレイヤーを信じるかが変わる。</dd></div>
           </dl>
-          <div class="slide-index">18 / 20</div>
+          <div class="slide-index">26 / 30</div>
+        </article>
+      </section>
+
+      <section class="slide slide-personnel" id="slide-ch09-personnel" data-label="CH9 人物紹介" style="--accent:#b59af4;--focus:50% center">
+        <figure class="slide-image">
+          <figure class="personnel-portrait" data-person-id="confed-29"><img src="../../../docs/assets/characters/regenerated_portraits/confed-29.png" alt="エレナ・ウォードの肖像" loading="lazy"><figcaption class="personnel-caption">エレナ・ウォード<small>Confed / Chief Navigator</small></figcaption></figure>
+          <figure class="personnel-portrait" data-person-id="kilrashi-03"><img src="../../../docs/assets/characters/regenerated_portraits/kilrashi-03.png" alt="ラギティカの肖像" loading="lazy"><figcaption class="personnel-caption">ラギティカ<small>Kilrashi / Duelist</small></figcaption></figure>
+          <figure class="personnel-portrait" data-person-id="neurowm-01"><img src="../../../docs/assets/characters/regenerated_portraits/neurowm-01.png" alt="クラウンの肖像" loading="lazy"><figcaption class="personnel-caption">クラウン<small>Neurowm / Core</small></figcaption></figure>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">09</div>
+          <div class="chapter-kicker"><b>Chapter 09</b> / 人物紹介</div>
+          <h2>ヴェガ戦役　九分間位相戦・主要人物<small>現実の錨を探す三人</small></h2>
+          <p class="lead">選ばれなかった未来のなかで、何を現実と呼び、誰の声を帰還の錨にするかを決める三人。</p>
+          <div class="cast-profiles">
+            <article class="cast-profile" data-person-id="confed-29"><strong>エレナ・ウォード</strong><span>連邦 航法主任</span><p>重力嵐の中で避難船団を一隻も失わずに導いた。整合する航法ログだけを頼りに帰投窓を計算する。</p></article>
+            <article class="cast-profile" data-person-id="kilrashi-03"><strong>ラギティカ</strong><span>キルラシー 決闘士・編隊長</span><p>自ら撃った者たちと再会し、名前を現実の外へ持ち帰るために脱出へ加わる。</p></article>
+            <article class="cast-profile" data-person-id="neurowm-01"><strong>クラウン</strong><span>ニューロウム 原初核・群体最高権力者</span><p>全ネットワークの判断を統合する。裂け目の内側を測り終えるため、残留という選択肢を引き受けようとする。</p></article>
+          </div>
+          <blockquote class="quote">問題は、どれを帰還の記録にするかです。<cite>エレナ・ウォード / 航法主任</cite></blockquote>
+          <dl class="mission-rail"><div><dt>Relation</dt><dd>エレナの計算、ラギティカの記憶、クラウンの観測が重なる。</dd></div><div><dt>Key</dt><dd>現実側で信じる声が、帰還の錨になる。</dd></div></dl>
         </article>
       </section>
 
@@ -1073,7 +1375,7 @@
         <article class="slide-copy">
           <div class="chapter-mark">10</div>
           <div class="chapter-kicker"><b>Chapter 10</b> / 前説</div>
-          <h2>五大勢力は、同じ理由ではなく同じ一手に集まる<small>門前の帰還</small></h2>
+          <h2>ヴェガ戦役　ヴェガ門最終会戦<small>門前の帰還</small></h2>
           <p class="lead">統一指揮はない。各勢力が自分の共同体を守った結果だけが、旗艦を止める一手へ重なる。</p>
           <div class="story-detail">
             <p>航路設計図が示す選択は三つ。制御核を破壊すれば門は永久に閉じ、戦争は終わるが辺境居住区も切り捨てられる。核を共鳴させれば物流は再起動するが、開いた扉の管理者はいない。そして五者共同管理――最も遅く、最も脆く、最も多くの署名を必要とする道だけが、まだ協定上は生きている。どの案も誰かを救い、別の誰かへ代償を残す。</p>
@@ -1084,12 +1386,12 @@
             <li>ニューロウムが識別を同期し、ラギティカが護衛を引き離す。</li>
             <li>連邦機は制御核ではなく、急進派旗艦の武器だけを狙う。</li>
           </ul>
-          <blockquote class="quote">理由は違う。結果が噛み合うなら、それでよい。<cite>Ark / Ordo Memory</cite></blockquote>
+          <blockquote class="quote">理由は違う。結果が噛み合うなら、それでよい。<cite>アーク / オルド合議王</cite></blockquote>
           <dl class="mission-rail">
             <div><dt>Options</dt><dd>永久閉鎖／限定開放／五者共同管理。</dd></div>
             <div><dt>Principle</dt><dd>勝つためではなく、次に通る者のために撃つ。</dd></div>
           </dl>
-          <div class="slide-index">19 / 20</div>
+          <div class="slide-index">28 / 30</div>
         </article>
       </section>
 
@@ -1101,10 +1403,10 @@
         <article class="slide-copy">
           <div class="chapter-mark">10</div>
           <div class="chapter-kicker"><b>Chapter 10</b> / 本節</div>
-          <h2>最後の戦績は、帰ってきた名前の数になる<small>勝者ではなく、帰還者を読み上げる</small></h2>
+          <h2>ヴェガ戦役　「開いた手」協定成立<small>勝者ではなく、帰還者を読み上げる</small></h2>
           <p class="lead">旗艦を無力化し、門制御を選んだ瞬間、画面には撃墜数が表示されない。</p>
           <div class="story-detail">
-            <p>最終ブリーフィングでは、誰か一人が演説を独占しない。救難を優先してきた者は名簿を、迎撃を得意とする者は残弾を、訓練生上がりは仲間の帰還を最初に口にする。全員が話し終えるまで待って、ハートが言う。「今日の出撃は、勝ち方を決める出撃だ。負け方はもう決まっている」。勝利条件ではなく、何を失うと理解して飛ぶのかが最後の命令になる。</p>
+            <p>最終ブリーフィングでは、誰か一人が演説を独占しない。救難を優先してきた者は名簿を、迎撃を得意とする者は残弾を、航法士は帰投窓を最初に口にする。全員が話し終えるまで待って、クワメが言う。「今日の出撃は、勝ち方ではなく、誰を帰すかを決める出撃だ」。勝利条件ではなく、何を失うと理解して飛ぶのかが最後の命令になる。</p>
             <p>戦場では九章分の状態が同時に精算される。帰還者の数が僚機の出撃可否を決め、航路信頼がセレシオンとオルドの援護を変え、軍令信用が搭載兵装を決め、ラギティカとの誓約がキルラシー側の参戦規模を決める。難易度が単純に上下するのではない。プレイヤーが残してきた関係によって、同じ空域に現れる顔と声と光景が変わる。</p>
             <p>門を閉じれば戦争は終わり、辺境は静かに枯れる。限定開放なら連邦は生き延びるが、管理者不在の扉が残る。五者共同管理なら、脆い協定の上で明日も交渉が続く。どれも完全な解決ではない。最後の無線が読むのは勝者の名ではなく、第一章で拾った民間人から第五章で救った敵エースまで、帰ってきた者の名前だけだ。</p>
           </div>
@@ -1113,17 +1415,103 @@
             <li>どの結末も完全な解決ではなく、別の共同体へ代償を残す。</li>
             <li>五者共同管理だけが、明日も交渉を続ける余地を残す。</li>
           </ul>
-          <blockquote class="quote">今日の出撃は、勝ち方を決める出撃だ。負け方はもう決まっている。<cite>William Hart / Captain</cite></blockquote>
+          <blockquote class="quote">今日の出撃は、勝ち方ではなく、誰を帰すかを決める出撃だ。<cite>クワメ・アデイェミ / 連邦艦隊司令</cite></blockquote>
           <dl class="mission-rail">
             <div><dt>Final</dt><dd>急進派旗艦を止め、門を誰に委ねるか決める。</dd></div>
             <div><dt>Legacy</dt><dd>最終無線は、艦と勢力を問わず帰還者の名を一人ずつ読む。</dd></div>
           </dl>
-          <div class="slide-index">20 / 20</div>
+          <div class="slide-index">29 / 30</div>
+        </article>
+      </section>
+
+      <section class="slide slide-personnel" id="slide-ch10-personnel" data-label="CH10 人物紹介" style="--accent:#f0c86b;--focus:52% center">
+        <figure class="slide-image">
+          <figure class="personnel-portrait" data-person-id="confed-23"><img src="../../../docs/assets/characters/regenerated_portraits/confed-23.png" alt="クワメ・アデイェミの肖像" loading="lazy"><figcaption class="personnel-caption">クワメ・アデイェミ<small>Confed / Fleet Commander</small></figcaption></figure>
+          <figure class="personnel-portrait" data-person-id="kilrashi-03"><img src="../../../docs/assets/characters/regenerated_portraits/kilrashi-03.png" alt="ラギティカの肖像" loading="lazy"><figcaption class="personnel-caption">ラギティカ<small>Kilrashi / Duelist</small></figcaption></figure>
+          <figure class="personnel-portrait personnel-portrait--trio" data-person-ids="serecion-02 ordo-01 neurowm-01"><img data-person-id="serecion-02" src="../../../docs/assets/characters/regenerated_portraits/serecion-02.png" alt="アウルの肖像" loading="lazy"><img data-person-id="ordo-01" src="../../../docs/assets/characters/regenerated_portraits/ordo-01.png" alt="アークの肖像" loading="lazy"><img data-person-id="neurowm-01" src="../../../docs/assets/characters/regenerated_portraits/neurowm-01.png" alt="クラウンの肖像" loading="lazy"><figcaption class="personnel-caption">アウル ／ アーク ／ クラウン<small>Serecion / Ordo / Neurowm</small></figcaption></figure>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">10</div>
+          <div class="chapter-kicker"><b>Chapter 10</b> / 人物紹介</div>
+          <h2>ヴェガ戦役　最終会戦・主要人物<small>五大勢力の帰還を選ぶ者たち</small></h2>
+          <p class="lead">五者共同管理、限定開放、永久閉鎖──どの結末も誰かに代償を残す最終章の三人。</p>
+          <div class="cast-profiles">
+            <article class="cast-profile" data-person-id="confed-23"><strong>クワメ・アデイェミ</strong><span>連邦艦隊司令・アウレリア連邦最高指揮官</span><p>前進基地の防衛線を組み直し、避難時間を生み出した。最終指揮では、撃墜数でなく帰還者の名簿を戦果に置く。</p></article>
+            <article class="cast-profile" data-person-id="kilrashi-03"><strong>ラギティカ</strong><span>キルラシー 決闘士・編隊長</span><p>撃墜した敵の名をすべて記憶し、旗艦護衛を決闘へ引き離す。勝利よりも誓約の継続を選ぶ。</p></article>
+            <article class="cast-profile" data-person-ids="serecion-02 ordo-01 neurowm-01"><strong>アウル ／ アーク ／ クラウン</strong><span>船団指揮者 / 合議王・最高権力者 / 原初核・群体最高権力者</span><p>避難航路、地層記憶に基づく重力固定、全ネットワークの識別同期を担う三勢力の代表。統一指揮なしに同じ一手を成立させる。</p></article>
+          </div>
+          <blockquote class="quote">今日の出撃は、勝ち方ではなく、誰を帰すかを決める出撃だ。<cite>クワメ・アデイェミ / 連邦艦隊司令</cite></blockquote>
+          <dl class="mission-rail"><div><dt>Relation</dt><dd>異なる共同体が、それぞれの理由で門前に集結する。</dd></div><div><dt>Key</dt><dd>帰還者の名簿が、戦役の最終記録になる。</dd></div></dl>
         </article>
       </section>
     </main>
 
     <script>
+      const personnelDirectory = {
+        'confed-04': { name: '篠原 美月', role: '外交連絡士官' },
+        'confed-05': { name: '桐谷 綾', role: '近接護衛パイロット' },
+        'confed-12': { name: '朝比奈 律', role: '情報作戦士官' },
+        'confed-23': { name: 'クワメ・アデイェミ', role: '連邦艦隊司令・アウレリア連邦最高指揮官' },
+        'confed-29': { name: 'エレナ・ウォード', role: '航法主任' },
+        'confed-30': { name: 'ソフィア・ベリーニ', role: '救難艇長' },
+        'confed-31': { name: 'ニア・オコエ', role: '空母戦術官' },
+        'confed-32': { name: 'アマラ・テスファイ', role: '電子戦士官' },
+        'confed-36': { name: 'ミンソ・カン', role: '基地防衛官' },
+        'kilrashi-03': { name: 'ラギティカ', role: '決闘士・編隊長' },
+        'kilrashi-07': { name: 'ヴァーク', role: '儀礼通信士' },
+        'serecion-02': { name: 'アウル', role: '船団指揮者' },
+        'serecion-08': { name: 'アクス', role: '通信翻訳者' },
+        'ordo-01': { name: 'アーク', role: '合議王・最高権力者' },
+        'ordo-03': { name: 'アイン', role: '重力戦術官' },
+        'neurowm-01': { name: 'クラウン', role: '原初核・群体最高権力者' },
+        'neurowm-04': { name: 'メモリア', role: '異種通信アンドロイド' },
+      };
+
+      const validatePersonnel = () => {
+        const issues = [];
+        document.querySelectorAll('.slide-personnel').forEach((slide) => {
+          const imageIds = [...slide.querySelectorAll('.personnel-portrait[data-person-id]')]
+            .map((portrait) => portrait.dataset.personId);
+          const multiPortrait = slide.querySelector('.personnel-portrait[data-person-ids]');
+          if (multiPortrait) {
+            const ids = multiPortrait.dataset.personIds.split(' ');
+            imageIds.push(...ids);
+            [...multiPortrait.querySelectorAll('img')].forEach((image, index) => {
+              const id = ids[index];
+              const person = personnelDirectory[id];
+              if (!image.src.endsWith(`/regenerated_portraits/${id}.png`)) issues.push(`${slide.id}: ${id} の肖像パスが不正`);
+              if (!image.alt.includes(person?.name ?? '')) issues.push(`${slide.id}: ${id} の肖像名が不正`);
+            });
+          }
+          const cardIds = [...slide.querySelectorAll('.cast-profile[data-person-id]')]
+            .map((card) => card.dataset.personId);
+          const multiCard = slide.querySelector('.cast-profile[data-person-ids]');
+          if (multiCard) cardIds.push(...multiCard.dataset.personIds.split(' '));
+
+          if (imageIds.join('|') !== cardIds.join('|')) issues.push(`${slide.id}: 左右の人物IDが不一致`);
+          [...slide.querySelectorAll('[data-person-id]')].forEach((element) => {
+            const person = personnelDirectory[element.dataset.personId];
+            if (!person) issues.push(`${slide.id}: 未登録ID ${element.dataset.personId}`);
+            if (element.matches('.personnel-portrait')) {
+              const image = element.querySelector('img');
+              if (!image?.src.endsWith(`/regenerated_portraits/${element.dataset.personId}.png`)) issues.push(`${slide.id}: ${element.dataset.personId} の肖像パスが不正`);
+              if (!image?.alt.includes(person?.name ?? '')) issues.push(`${slide.id}: ${element.dataset.personId} の肖像名が不正`);
+            }
+            if (element.matches('.cast-profile') && !element.querySelector('strong')?.textContent.includes(person?.name ?? '')) issues.push(`${slide.id}: ${element.dataset.personId} の人物カード名が不正`);
+            if (element.matches('.cast-profile') && !element.querySelector('span')?.textContent.includes(person?.role ?? '')) issues.push(`${slide.id}: ${element.dataset.personId} の人物カード役職が不正`);
+          });
+          if (multiCard) {
+            multiCard.dataset.personIds.split(' ').forEach((id) => {
+              const person = personnelDirectory[id];
+              if (!multiCard.querySelector('strong')?.textContent.includes(person?.name ?? '')) issues.push(`${slide.id}: ${id} の共同カード名が不正`);
+              if (!multiCard.querySelector('span')?.textContent.includes(person?.role ?? '')) issues.push(`${slide.id}: ${id} の共同カード役職が不正`);
+            });
+          }
+        });
+        document.documentElement.dataset.personnelValidation = issues.length ? 'failed' : 'passed';
+        if (issues.length) console.error('人物名鑑照合エラー', issues);
+      };
+
       const slides = [...document.querySelectorAll('.slide')];
       const output = document.querySelector('.deck-nav output');
       const progress = document.querySelector('.deck-progress');
@@ -1139,6 +1527,8 @@
           .forEach((element) => inner.appendChild(element));
         copy.insertBefore(inner, copy.querySelector('.slide-index'));
       });
+
+      validatePersonnel();
 
       const applyFit = (inner, scale) => {
         inner.style.width = `${100 / scale}%`;

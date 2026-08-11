@@ -2688,6 +2688,34 @@
   min-height: 0;
   overflow: hidden;
 }
+/*
+ * カメラの層。
+ *
+ * 歩きの揺れ（dolly）とパン・ズーム（camera）は**別の要素**にする。
+ * 同じ要素の transform に混ぜると、transition と keyframes が取り合って片方が消える。
+ * 位置は `src/ui/barCamera.ts` が px で計算し、`transform-origin: 0 0` で当てる。
+ */
+.mc-barroom-dolly {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  will-change: transform;
+}
+.mc-barroom-dolly.walking {
+  animation: mc-bar-dolly 600ms ease-in-out;
+}
+.mc-barroom-camera {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  transition: transform 620ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: transform;
+}
+/* 近づいている間だけ短く詰める（歩き出しをきびきび見せる） */
+.mc-barroom-camera[data-phase='walk'] {
+  transition-duration: 380ms;
+}
+
 /* 部屋の絵。立ち絵を前に出すため、背景だけ被写界深度を付けて落とす */
 .mc-barroom-bg {
   position: absolute;
@@ -2699,6 +2727,14 @@
   background-repeat: no-repeat;
   filter: brightness(0.82) saturate(0.8) blur(1.2px);
   transform: scale(1.02);
+  transition: filter 620ms ease;
+}
+/*
+ * 寄ったときは背景をさらに落としてぼかす。
+ * 元絵は 1536px なので拡大すると粗が出る。被写界深度が浅くなったことにして逃がす。
+ */
+.mc-barroom-bg.near {
+  filter: brightness(0.62) saturate(0.7) blur(2.4px);
 }
 /* 上下に暗がりを足して、席札と会話ボックスの文字を読ませる */
 .mc-barroom-stage::before {
@@ -2828,6 +2864,103 @@
   border-left-color: var(--warn);
   border-right-color: var(--warn);
 }
+/*
+ * 寄っている間は名札を消す。
+ * camera の中にあるので拡大で巨大になるうえ、誰が喋っているかは
+ * 会話ボックスの見出しに出ている（本家も寄ったら名札は出さない）。
+ */
+.mc-barroom-fig figcaption {
+  transition: opacity 300ms ease;
+}
+.mc-barroom-camera[data-phase='walk'] .mc-barroom-fig figcaption,
+.mc-barroom-camera[data-phase='talk'] .mc-barroom-fig figcaption {
+  opacity: 0;
+}
+
+/* 見回しで選んでいる立ち絵 */
+.mc-barroom-fig.sel figcaption {
+  border-left-color: #cdefdd;
+  border-right-color: #cdefdd;
+}
+.mc-barroom-fig.sel .mc-barroom-bust {
+  filter: brightness(1.08) !important;
+}
+.mc-barroom-fig[data-pilot] {
+  cursor: pointer;
+}
+
+/* 選択カーソル。camera の外に px で置くので拡大で歪まない */
+.mc-barroom-cursor {
+  position: absolute;
+  z-index: 190;
+  transform: translateX(-50%);
+  font-size: 15px;
+  color: var(--warn);
+  text-shadow: 0 0 10px rgba(255, 209, 102, 0.7);
+  opacity: 0;
+  pointer-events: none;
+  transition: left 260ms ease, top 260ms ease;
+}
+.mc-barroom-cursor.on {
+  opacity: 1;
+  animation: mc-bar-cursor 1.1s ease-in-out infinite;
+}
+
+/* ── 芝居（立ち絵の微動） */
+@keyframes mc-bar-dolly {
+  0% { transform: translateY(0); }
+  30% { transform: translateY(-3px); }
+  65% { transform: translateY(2px); }
+  100% { transform: translateY(0); }
+}
+@keyframes mc-bar-cursor {
+  0%, 100% { opacity: 0.45; transform: translateX(-50%) translateY(0); }
+  50% { opacity: 1; transform: translateX(-50%) translateY(2px); }
+}
+/* 喋っている人はわずかに動く（口が動かせないので、体で「喋っている」を作る） */
+@keyframes mc-bar-speak {
+  from { transform: translateY(0) rotate(0deg); }
+  to { transform: translateY(-1.5px) rotate(0.25deg); }
+}
+.mc-barroom-fig.speaking .mc-barroom-bust {
+  animation: mc-bar-speak 420ms ease-in-out infinite alternate;
+}
+/* 喋っていない人は呼吸する。人物ごとに位相をずらす */
+@keyframes mc-bar-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.006); }
+}
+.mc-barroom-fig:not(.speaking) .mc-barroom-bust {
+  animation: mc-bar-breathe 5.2s ease-in-out infinite;
+}
+.mc-barroom-fig:nth-of-type(2n) .mc-barroom-bust { animation-delay: -1.3s; }
+.mc-barroom-fig:nth-of-type(3n) .mc-barroom-bust { animation-delay: -2.6s; }
+.mc-barroom-fig:nth-of-type(5n) .mc-barroom-bust { animation-delay: -3.9s; }
+/* 聞き手のうなずき。1行出し切った瞬間に1回だけ */
+@keyframes mc-bar-nod {
+  0% { transform: rotate(0deg); }
+  40% { transform: rotate(1.8deg); }
+  100% { transform: rotate(0deg); }
+}
+.mc-barroom-fig.nod .mc-barroom-bust {
+  animation: mc-bar-nod 700ms ease-in-out;
+}
+/* 入退場 */
+@keyframes mc-bar-enter {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes mc-bar-leave {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(6px); }
+}
+.mc-barroom-fig.enter {
+  animation: mc-bar-enter 420ms ease-out both;
+}
+.mc-barroom-fig.leave {
+  animation: mc-bar-leave 380ms ease-in both;
+  pointer-events: none;
+}
 .mc-barroom-fig.speaking figcaption b {
   color: #ffe9c2;
 }
@@ -2941,8 +3074,28 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .mc-barroom-fig {
+  /*
+   * 「情報を運ぶ動き」は残し、「雰囲気の動き」は止める。
+   * 喋り手の微動（`mc-bar-speak`）は口パクの代わりなので残す。
+   * カメラは transition を切って瞬間移動にする（どこを見ているかは保たれる）。
+   */
+  .mc-barroom-fig,
+  .mc-barroom-fig figcaption,
+  .mc-barroom-camera,
+  .mc-barroom-bg,
+  .mc-barroom-cursor {
     transition: none;
+  }
+  .mc-barroom-dolly.walking,
+  .mc-barroom-cursor.on,
+  .mc-barroom-fig:not(.speaking) .mc-barroom-bust,
+  .mc-barroom-fig.nod .mc-barroom-bust,
+  .mc-barroom-fig.enter,
+  .mc-barroom-fig.leave {
+    animation: none;
+  }
+  .mc-barroom-cursor.on {
+    opacity: 1;
   }
 }
 

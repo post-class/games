@@ -67,6 +67,17 @@ export interface AiLevelConfig {
   readonly allowDoubleFlag: boolean;
   readonly allowUniqueOrders: boolean;
   readonly allowSiege: boolean;
+  /**
+   * 見えている敵の建物が「兵の構成比」に足せる重みの上限（棟数）。
+   *
+   * `config.json` の `counterMatrix` は `siege → building: good` と定めているので、
+   * 敵の建物を `building` の役割の重みに足すだけで**攻城の需要がデータから立つ**
+   * （攻城のための特別扱いをコードに書かなくてよい）。
+   * 上限を置くのは、拠点に近づくと建物が 10 棟以上見えて攻城に寄りすぎるため。
+   * 攻城を使わない段階（1〜4。`07§11` の段階表で攻城は段階 5 のみ）でも
+   * 「剣は建物に強い」（`sword → building: good`）が効くので 0 にはしない。
+   */
+  readonly enemyBuildingWeightMax: number;
   readonly allowDecoy: boolean;
   readonly allowAdvanceAge: boolean;
   /**
@@ -125,6 +136,26 @@ export interface AiLevelConfig {
    * 畑と果樹を空にはしない。
    */
   readonly foodWorkerMinPercent: number;
+  /**
+   * 農地の上限を「食料に就いている村人の**何割**か」で表す（百分率。整数）。
+   *
+   * ■ なぜ上限が要るか（実測）
+   * 農地は「木材 60 を食料に変える」建物で、木材のいちばん大きな裁量支出。
+   * 上限を「食料の働き手の数」にしていたら、村人の目標を 32〜36 に上げた段階で
+   * **農地が 12〜21 面（木材 720〜1,260）**建ち、
+   * 攻城工房（木材 200）が最後まで建たなかった（実測で着工試行に一度も出てこない）。
+   * 食料は 400〜800 余っている局面が多いので、木材をここに全部流すのは損。
+   */
+  readonly farmsPerFoodWorkerPercent: number;
+  /**
+   * 市場で交換するときの「余っている／使ってよい」の目安（資源の単位）。
+   *
+   * 実測（段階 5・30 分）で**食料 1,730 が余る一方で木材が 12**になり、
+   * 攻城工房（木材 200）が最後まで建たなかった。拠点のそばの森が尽きたあと
+   * 木材の収入は距離の壁で伸びないので、**余った食料を木材に変える**のが唯一の手。
+   * この値より多く持っている資源を売り、この値より多い金で買う。
+   */
+  readonly marketSurplusUnits: number;
   /**
    * 村人のうち**木材に残す最低割合**（百分率。整数）。
    *
@@ -266,6 +297,7 @@ function buildLevels(): AiLevelConfig[] {
       allowDoubleFlag: a['allowDoubleFlag'] === true,
       allowUniqueOrders: a['allowUniqueOrders'] === true,
       allowSiege: a['allowSiege'] === true,
+      enemyBuildingWeightMax: int(a['enemyBuildingWeightMax'], 0),
       allowDecoy: a['allowDecoy'] === true,
       allowAdvanceAge: a['allowAdvanceAge'] === true,
       houseHeadroomPop: int(a['houseHeadroomPop'], 5),
@@ -273,6 +305,8 @@ function buildLevels(): AiLevelConfig[] {
       producerPlanAhead: int(a['producerPlanAhead'], 1),
       reassignPerDecision: int(a['reassignPerDecision'], 1),
       foodWorkerMinPercent: int(a['foodWorkerMinPercent'], 40),
+      farmsPerFoodWorkerPercent: int(a['farmsPerFoodWorkerPercent'], 100),
+      marketSurplusUnits: int(a['marketSurplusUnits'], 400),
       woodWorkerMinPercent: int(a['woodWorkerMinPercent'], 20),
       ageWorkerMinPercent: int(a['ageWorkerMinPercent'], 0),
       reassignCooldownSec: int(a['reassignCooldownSec'], 20),
@@ -433,6 +467,34 @@ export interface AiMemory {
    * 再利用されても `EntityId` が変わるので「別物」と分かる）。
    */
   readonly siegeTarget: number[];
+  /**
+   * **その建物に最後に生産を命じた tick**（建物の index を添字に。0 = まだ）。
+   *
+   * ■ なぜ必要か（実測。段階 5 が段階 4 より弱かった原因）
+   * `produce` は判断ごとに 1 件出していた。ところが村人は 20 秒（500 tick）かかるので、
+   * その間の判断すべてが**同じ 1 体のために積み増し**になる:
+   * 段階 4（2 秒間隔）なら 10 件、段階 5（1 秒間隔）なら 20 件が待ち行列に入る。
+   * 実測では `villagerTarget` が 22（段階 4）/ 26（段階 5）なのに
+   * **どちらも村人 33〜36 体**になり、超過ぶん（1 体 50 食料）が食料を食べていた。
+   * 段階 5 のほうが積み増しが 2 倍なので内政が細り、
+   * **30 分で黎明の世のまま**の席まで出た（鉄器到達が 4/8 席 ＜ 段階 4 の 7/8 席）。
+   *
+   * 「判断が速い」は**盤面を見直す回数**であって、同じ物を二重に注文することではない
+   * （人間も待ち行列を見て「もう頼んである」と分かる）。
+   * だから**その 1 体ができあがるまで次を頼まない**。
+   * `AiView` に待ち行列が入っていないので、自分が命じた記録で代わりにする
+   * ―― 盤面ではなく自分の操作の記憶なのでズルにならない。
+   */
+  readonly produceTick: number[];
+  /**
+   * **その建物に最後に「兵」の生産を命じた tick**（`produceTick` の兵版）。
+   *
+   * 村人と別に持つ理由: 黎明の世は町の中心が村人と兵の両方を出すので、
+   * 1 つの記録を共有すると**村人の注文が兵に順番を取られる**。
+   * 実測（段階 4）で村人の立ち上がりが遅れ、鉄器到達が 7/8 席 → 4/8 席に落ちた。
+   * 人間も「村人を 1 体頼んだ」と「兵を 1 体頼んだ」は別に覚えている。
+   */
+  readonly armyProduceTick: number[];
   /** 直近に囮を仕込んだ tick（-1 = まだ）。テストと連打防止に使う。 */
   decoyTick: number;
   /** 直近に建設を命じた tick（-1 = まだ）。 */
@@ -466,6 +528,8 @@ function createMemory(): AiMemory {
     dispatchY: [],
     decoy: [],
     siegeTarget: [],
+    produceTick: [],
+    armyProduceTick: [],
     decoyTick: -1,
     buildTick: -1,
   };

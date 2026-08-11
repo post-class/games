@@ -1,5 +1,5 @@
-model_context_window = 1050000
-model_auto_compact_token_limit = 850000
+#model_context_window = 1050000
+#model_auto_compact_token_limit = 850000
 
 [mcp_servers.chrome-devtools-headed]
 command = "npx"
