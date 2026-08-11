@@ -35,9 +35,15 @@ import '@/styles/result.css';
 import '@/styles/net.css';
 import '@/styles/gameMenu.css';
 
-import type { CivId, MapTypeId, PlayerId } from '@/shared/types';
+import type { Age, CivId, MapTypeId, PlayerId } from '@/shared/types';
 import type { Command } from '@/sim/command';
-import { TICK_MS, createMatch, stepWorld } from '@/sim';
+import {
+  TICK_MS,
+  configureMatchRules,
+  createMatch,
+  resetMatchRules,
+  stepWorld,
+} from '@/sim';
 import { FX_ONE } from '@/sim/core/fx';
 import { EntityKind } from '@/shared/types';
 import { spawnEntity } from '@/sim/core/entity';
@@ -82,9 +88,6 @@ import { type NetplaySession, joinMatch, roomFromLocation } from '@/net';
 
 /** 1 フレームで進める tick の上限（手順書 §4.1）。 */
 const MAX_STEPS_PER_FRAME = 5;
-
-/** ゲーム速度（0.5〜1.5。`07§14`。tick レートは変えない）。 */
-const SPEED_MUL = 1;
 
 /** M5 の通し確認で使う対戦カード。 */
 const CIVS: readonly CivId[] = ['yamato', 'mongol'];
@@ -207,6 +210,12 @@ function startMatch(
   // （`advance()` がどちらを回すかだけを吸収する）。
   const missionId = typeof params['missionId'] === 'string' ? params['missionId'] : null;
   const mission = missionId === null ? null : (missionById(missionId) ?? null);
+  const matchPopCap = typeof params['popCap'] === 'number' ? params['popCap'] : undefined;
+  if (mission === null && matchPopCap !== undefined) {
+    // 人口上限は World のハッシュ対象ではなく、初期化と人口集計が参照する試合規則。
+    // 作成前に設定し、画面を離れると stop() で既定値へ戻す。
+    configureMatchRules({ populationCap: matchPopCap });
+  }
   const run = mission === null ? null : createMissionRun(mission);
   const world =
     run !== null
@@ -216,6 +225,13 @@ function startMatch(
           playerCount: typeof params['playerCount'] === 'number' ? params['playerCount'] : 2,
           civs: Array.isArray(params['civs']) ? (params['civs'] as CivId[]) : [...CIVS],
           mapType: typeof params['mapType'] === 'string' ? (params['mapType'] as MapTypeId) : 'plain',
+          ...(Array.isArray(params['teams']) ? { teams: params['teams'] as number[] } : {}),
+          ...(typeof params['startAge'] === 'string'
+            ? { startAge: params['startAge'] as Age }
+            : {}),
+          ...(typeof params['startResources'] === 'string'
+            ? { startResources: params['startResources'] }
+            : {}),
         }).world;
   // 視点は自分の席（キャンペーンはミッションが決める。オンラインでは `welcome.playerId`）。
   const viewer: PlayerId =
@@ -580,6 +596,10 @@ function startMatch(
   let fpsSinceMs = lastMs;
 
   let running = true;
+  const speedMul =
+    typeof params['gameSpeed'] === 'number'
+      ? Math.max(0.5, Math.min(1.5, params['gameSpeed'] as number))
+      : 1;
   const frame = (nowMs: number): void => {
     if (!running) return;
     const frameStart = performance.now();
@@ -606,7 +626,7 @@ function startMatch(
     // hash に入れる必要が出てデシンクの種になる。
     pausedBand.hidden = !gameMenu.isPaused();
     if (gameMenu.isPaused()) acc = 0;
-    else acc += dtMs * SPEED_MUL;
+    else acc += dtMs * speedMul;
     const simStart = performance.now();
     let steps = 0;
     /** 入力が揃わずに待ったか（`07§12`「誰かの回線が遅いと全員が同じだけ待つ」）。 */
@@ -721,6 +741,7 @@ function startMatch(
     frame,
     stop: () => {
       running = false;
+      resetMatchRules();
       window.removeEventListener('resize', resize);
       window.removeEventListener('keydown', onPanelKey, true);
       window.removeEventListener('keyup', onPanelKeyUp, true);

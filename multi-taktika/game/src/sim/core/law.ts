@@ -80,6 +80,8 @@ export interface MatchRuleOverrides {
   readonly startAge?: string;
   /** 開始資源プリセット名。 */
   readonly startResources?: string;
+  /** 人口上限（建物で増える上限の打ち止め）。 */
+  readonly populationCap?: number;
 }
 
 let overrides: MatchRuleOverrides = {};
@@ -186,6 +188,12 @@ export function startAgeOption(): string {
 /** 開始資源プリセット名（`matchOptions.startResources.default`）。 */
 export function startResourcesOption(): string {
   return overrides.startResources ?? cfgStr('matchOptions.startResources.default');
+}
+
+/** 人口上限（`population.defaultCap`。対戦設定で変更可）。 */
+export function populationCapOption(): number {
+  const v = overrides.populationCap ?? cfgInt('population.defaultCap');
+  return v > 0 ? v : cfgInt('population.defaultCap');
 }
 
 // ---------------------------------------------------------------------------

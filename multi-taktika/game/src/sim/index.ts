@@ -98,6 +98,8 @@ export {
 export { createMatch, startResourcesFx } from './setup';
 export type { MatchOptions, MatchSetup } from './setup';
 
+export { configureMatchRules, resetMatchRules } from './core/law';
+
 export { applyCommands } from './command';
 export type { Command, CommandType, CommandOf } from './command';
 export { COMMAND_TYPES } from './command';

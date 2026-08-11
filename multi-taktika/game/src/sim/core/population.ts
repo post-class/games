@@ -15,16 +15,16 @@
 import type { PlayerId } from '@/shared/types';
 import { EntityKind } from '@/shared/types';
 
-import { cfgInt } from './config';
 import type { Entities } from './entity';
 import { PROGRESS_DONE, isAliveIndex } from './entity';
 import { buildingDef, unitDef } from './defs';
 import type { PlayerState, World } from './world';
 import { getPlayer } from './world';
+import { populationCapOption } from './law';
 
 /** 人口上限の上限値（`population.defaultCap` = 200）。 */
 export function populationHardCap(): number {
-  return cfgInt('population.defaultCap');
+  return populationCapOption();
 }
 
 /**
