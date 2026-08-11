@@ -46,6 +46,7 @@ import { Renderer } from '@/render/Renderer';
 import { FallbackSpriteProvider } from '@/render/placeholder';
 import { AtlasSpriteProvider, loadAtlas } from '@/render/atlas';
 import { loadTerrainTextures } from '@/render/terrainTextures';
+import { AudioCues } from '@/audio/cues';
 import { WebAudioSink, sfx } from '@/audio/sfx';
 import { ReplayRecorder } from '@/replay/format';
 import { dataHash } from '@/data/hash';
@@ -428,6 +429,8 @@ function startMatch(
   sfx.attach(audioSink);
   void sfx.preloadAll();
   warnings.onSound = () => sfx.play('warning', performance.now());
+  // 出来事 → 音。`warning` 以外の 9 枠はここから鳴る（結線が無いと無音のままだった）。
+  const cues = new AudioCues();
   // 利用者が最初に触った時点で音を出せるようにする（ブラウザの自動再生制限）。
   const unlockAudio = (): void => audioSink.unlock();
   window.addEventListener('keydown', unlockAudio, { once: true });
@@ -643,6 +646,14 @@ function startMatch(
       waitBand.hidden = !waiting || info !== null;
       if (waiting) waitBand.textContent = '入力待ち — 全員の入力が揃うまで進みません';
     }
+
+    // 効果音（M17）。**World の変化から出来事を割り出して鳴らす**。
+    //
+    // sim 側に「音を鳴らせ」と書かない ―― `sim` は ui/audio を import できないし、
+    // 音の有無が試合結果に混ざる余地を作りたくない（`audio/cues.ts` の冒頭）。
+    // シムを進めた後・描画の前に 1 回だけ見る（1 フレームに複数 tick 進んでも
+    // 音は 1 度でよい ―― 同じ音が 5 連続で鳴っても何が起きたか分からない）。
+    for (const name of cues.step(world, viewer)) sfx.play(name, nowMs);
 
     // 視界は 5 tick ごと（T-M5-05）
     renderer.updateVision(world, viewer);

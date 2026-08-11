@@ -175,9 +175,20 @@ def cmd_pack(args: argparse.Namespace) -> int:
     """
     from PIL import Image
 
-    # 地形は**アトラスに入れない**。`createPattern` で繰り返し塗るには
-    # 1 枚の独立した画像でなければならない（アトラスの一部を繰り返せない）。
-    jobs = [j for j in all_jobs(args.only) if not j.key.startswith("terrain/")]
+    # アトラスに入れないもの:
+    #  - 地形（`terrain/`）… `createPattern` で繰り返し塗るには 1 枚の独立した画像で
+    #    なければならない（アトラスの一部を繰り返せない）。
+    #  - 画面の絵（`scenes` カテゴリ）… CSS の `background-image` と `<img>` で使うので
+    #    アトラスから引かない。**入れると害がある**: 環海図は 1280×853 もあるので
+    #    アトラス 1 枚が肥大し（実測 2,061 KB）、盤面を描くために地図まで読むことになる。
+    #    盤面の描画に要らない画像を同じ 1 枚に詰めてはいけない。
+    NO_ATLAS = ("terrain/",)
+    scene_keys = {j.key for j in all_jobs(["scenes"])}
+    jobs = [
+        j
+        for j in all_jobs(args.only)
+        if not j.key.startswith(NO_ATLAS) and j.key not in scene_keys
+    ]
     items: list[tuple[str, Image.Image]] = []
     for job in jobs:
         p = OUT / f"{job.key}.webp"

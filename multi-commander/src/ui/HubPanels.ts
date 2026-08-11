@@ -132,6 +132,16 @@ export interface HubContext {
   barBanter?: BarBanterView;
   /** 酒保の一言 */
   bartender?: { name: string; line: string };
+  /**
+   * 節目の一幕（`src/content/barScenes.ts`）。酒場に入った時点で
+   * すでに始まっている短い場面。会話中は出さない。
+   * 話し手は解決済みで、`pilotId` が無い行は酒保が喋る。
+   */
+  barMoment?: {
+    id: string;
+    title: string;
+    lines: Array<{ who: string; pilotId?: string; text: string }>;
+  };
   /** 噂（出所ラベル付き） */
   rumors?: Array<{ source: string; text: string }>;
   /** プレイヤーの酒場での行動が、別の隊員の口から出る1行 */

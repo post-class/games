@@ -28,6 +28,26 @@ export interface BriefingPanel {
   slot: BriefingPanelSlot;
 }
 
+/**
+ * 説明のあとに入る質疑（`src/content/briefingQuestions.ts`）。
+ *
+ * 僚機が一つ質問し、プレイヤーが答えると僚機が返す。**数値は動かさない**
+ * （ブリーフィングは開き直せるので、稼げる場所にしない）。
+ */
+export interface BriefingQuestionView {
+  /** 質問する僚機の顔画像 id（パイロット id ではなく人物 id） */
+  speakerId: string;
+  /** 名札に出す呼び名 */
+  speakerName: string;
+  /** 質問文 */
+  text: string;
+  answers: Array<{ id: string; label: string }>;
+  /** 答えを選んだときに返す僚機の一言を作る */
+  replyFor: (answerId: string) => string;
+  /** 答えを選んだ後に呼ばれる（発艦前の一言などに使う） */
+  onAnswer?: (answerId: string) => void;
+}
+
 export interface BriefingSceneOptions {
   /** 顔画像の id (public/art/tex/face-<id>-<expr>.jpg) */
   speakerId: string;
@@ -48,6 +68,8 @@ export interface BriefingSceneOptions {
   statusLabel?: string;
   /** 文面から表情を決められなかったときの既定 (敗戦報告なら grim など) */
   mood?: Expression;
+  /** 説明を読み終えたあとに入る質疑。省略すると質疑なしで終わる */
+  question?: BriefingQuestionView;
 }
 
 /** 1秒あたりの文字数。日本語の読み上げに合う速さにしてある */
@@ -77,6 +99,13 @@ export class BriefingScene {
   /** 今の行の文字送りを始めた時刻 (performance.now) */
   private startedAt?: number;
   private done = false;
+  /** すでに `start()` したか（二重開始の防止） */
+  private started = false;
+  /** 質疑を出したか。読み飛ばしても二度は出さない */
+  private askedQuestion = false;
+  /** 質問を出して答えを待っている間。読み進める操作を止める */
+  private awaitingAnswer = false;
+  private answerEls: HTMLButtonElement[] = [];
   private keyHandler = (ev: KeyboardEvent) => this.onKey(ev);
 
   constructor(o: BriefingSceneOptions) {
@@ -180,8 +209,11 @@ export class BriefingScene {
     wrap.className = 'mc-brief-wrap';
     wrap.appendChild(root);
 
-    // 画面のどこを叩いても話が進む
-    wrap.addEventListener('click', () => this.advance());
+    // 画面のどこを叩いても話が進む（start() 前に叩かれても成立させる）
+    wrap.addEventListener('click', () => {
+      if (!this.started) this.start();
+      else this.advance();
+    });
     this.el = wrap;
   }
 
@@ -191,6 +223,10 @@ export class BriefingScene {
   }
 
   start(): void {
+    // 二重に始めない。画面に載せた直後にクリックで先へ進められた場合、
+    // 遅れて届く start() が読み終わり判定を巻き戻してしまう。
+    if (this.started) return;
+    this.started = true;
     window.addEventListener('keydown', this.keyHandler, true);
     this.nextLine();
     this.tick();
@@ -201,7 +237,7 @@ export class BriefingScene {
    * 1回目は今の行を一気に出し、出し終わっていれば次の行へ移る。
    */
   advance(): void {
-    if (this.done) return;
+    if (this.done || this.awaitingAnswer) return;
     const line = this.lines[this.index];
     if (line && this.chars < line.text.length) {
       this.chars = line.text.length;
@@ -213,9 +249,9 @@ export class BriefingScene {
     this.nextLine();
   }
 
-  /** 残り全部を出して終わらせる */
+  /** 残り全部を出して終わらせる（質疑があるときは質問まで進める） */
   skip(): void {
-    if (this.done) return;
+    if (this.done || this.awaitingAnswer) return;
     this.clearTimer();
     while (this.index < this.lines.length - 1) {
       this.chars = this.lines[this.index]?.text.length ?? 0;
@@ -246,6 +282,26 @@ export class BriefingScene {
       return;
     }
     if (this.done) return;
+    if (this.awaitingAnswer) {
+      // 答えは数字キーで選ぶ
+      const n = Number(ev.code.replace(/^(Digit|Numpad)/, ''));
+      const btn = Number.isInteger(n) ? this.answerEls[n - 1] : undefined;
+      if (btn) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        btn.click();
+        return;
+      }
+      if (ev.code === 'Space') {
+        // 「読み進める」キーは止める。ここで画面のメニューへ渡すと、
+        // 答える前に既定項目（出撃）が選ばれて発艦してしまう。
+        ev.preventDefault();
+        ev.stopPropagation();
+        ev.stopImmediatePropagation();
+      }
+      // Enter / Esc は通す（答えずに出撃・艦内へ戻るを選べるようにしておく）
+      return;
+    }
     switch (ev.code) {
       case 'Space':
       case 'Enter':
@@ -380,8 +436,99 @@ export class BriefingScene {
     panel.classList.remove('preview');
   }
 
+  /**
+   * 質疑を開く。台詞欄の下に僚機の顔と質問を出し、答えを押させる。
+   *
+   * 答えを押すと僚機の返しを足して、そのまま読み終わり（`finish`）へ進む。
+   * 画面を作り直さないので、ここまでの台詞が消えない。
+   */
+  private openQuestion(q: BriefingQuestionView): void {
+    this.awaitingAnswer = true;
+    const wrap = document.createElement('div');
+    wrap.className = 'mc-brief-qa';
+    // 質問が「読み進める」クリックで飛ばされないようにする
+    wrap.addEventListener('click', (ev) => ev.stopPropagation());
+
+    const head = document.createElement('div');
+    head.className = 'mc-brief-qa-head';
+    const face = document.createElement('img');
+    face.src = `${import.meta.env.BASE_URL}art/tex/face-${q.speakerId}-talk.jpg`;
+    face.alt = '';
+    // 顔画像が無い僚機でも枠を崩さない
+    face.addEventListener('error', () => face.remove());
+    const who = document.createElement('div');
+    const name = document.createElement('b');
+    name.textContent = q.speakerName;
+    const text = document.createElement('span');
+    text.textContent = q.text;
+    who.append(name, text);
+    head.append(face, who);
+
+    const list = document.createElement('div');
+    list.className = 'mc-brief-qa-answers';
+    q.answers.forEach((answer, i) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'mc-brief-qa-answer';
+      const key = document.createElement('i');
+      key.textContent = String(i + 1);
+      const label = document.createElement('span');
+      label.textContent = answer.label;
+      btn.append(key, label);
+      btn.addEventListener('click', () => this.answerQuestion(q, answer.id, answer.label, wrap));
+      list.appendChild(btn);
+    });
+
+    const cue = document.createElement('div');
+    cue.className = 'mc-brief-qa-cue';
+    cue.textContent = '1〜3 のキー、またはクリックで答える';
+    wrap.append(head, list, cue);
+    this.logEl.appendChild(wrap);
+    this.logEl.scrollTop = this.logEl.scrollHeight;
+    this.nextEl.classList.remove('on');
+    this.nextEl.textContent = '';
+    this.answerEls = Array.from(list.querySelectorAll('button'));
+  }
+
+  /** 答えを1つ選ぶ。選び直しはできない */
+  private answerQuestion(
+    q: BriefingQuestionView,
+    answerId: string,
+    label: string,
+    wrap: HTMLElement,
+  ): void {
+    if (!this.awaitingAnswer) return;
+    this.awaitingAnswer = false;
+    this.answerEls = [];
+    wrap.querySelector('.mc-brief-qa-answers')?.remove();
+    wrap.querySelector('.mc-brief-qa-cue')?.remove();
+
+    const said = document.createElement('div');
+    said.className = 'mc-brief-qa-said';
+    const me = document.createElement('p');
+    me.className = 'me';
+    me.textContent = label;
+    const them = document.createElement('p');
+    them.className = 'them';
+    them.textContent = q.replyFor(answerId);
+    said.append(me, them);
+    wrap.appendChild(said);
+    this.logEl.scrollTop = this.logEl.scrollHeight;
+
+    q.onAnswer?.(answerId);
+    this.finish();
+  }
+
   private finish(): void {
     if (this.done) return;
+    // 説明を読み終えたら、まず僚機の質問を出す（一度だけ）
+    if (this.o.question && !this.askedQuestion) {
+      this.askedQuestion = true;
+      this.clearTimer();
+      this.stopSpeaking();
+      this.openQuestion(this.o.question);
+      return;
+    }
     this.done = true;
     this.clearTimer();
     this.stopSpeaking();

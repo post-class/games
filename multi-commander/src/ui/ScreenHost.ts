@@ -16,8 +16,12 @@ export interface MenuItem {
 }
 
 export interface ScreenSpec {
-  /** ブリーフィング用の横長レイアウトを使う */
-  variant?: 'briefing';
+  /**
+   * 専用レイアウトを使う。
+   * `briefing` は横長3列、`barroom` は見出しを持たない全面の場面
+   * （`src/ui/BarScene.ts`。空き高さを部屋に渡す）。
+   */
+  variant?: 'briefing' | 'barroom';
   title?: string;
   subtitle?: string;
   /** 本文 (自前生成の HTML のみを渡す) */

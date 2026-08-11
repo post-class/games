@@ -357,6 +357,12 @@ export function sunPosition(hour: number): { x: number; y: number; isMoon: boole
 
 // ---------------------------------------------------------------- 画面
 
+/**
+ * 島と碑の絵（`tools/assets` の `scenes` カテゴリが作る）。
+ * `CivSelect.ts` の `CIV_ASSETS` と同じ流儀の相対パス（`vite` の base に追従させるため）。
+ */
+const TITLE_ISLAND_SRC = 'assets/ui/title_island.webp';
+
 /** タイトル画面。 */
 export const titleScreen: Screen = {
   mount(root, nav) {
@@ -368,12 +374,35 @@ export const titleScreen: Screen = {
     const bg = el('div', 'mt-title-bg');
     const sun = el('div', 'mt-title-sun');
     const sea = el('div', 'mt-title-sea');
+    // 島と碑（`02` の環海の中心）。
+    //
+    // **絵は透過 PNG で、空と海は CSS のまま**にしてある。理由は
+    // `05§2` の「時刻とともに空の色が変わる」演出（`skyPalette`）で、
+    // 空を含む 1 枚絵を敷くとこの仕掛けが死ぬ。だから絵は島だけを切り抜いて重ねる。
+    //
+    // **絵が無くても成立させる。** アセットは後から差し替わる前提なので
+    // （`tools/assets` で作る）、読み込みに失敗したら CSS 図形の島に戻す。
+    // 画像がないと真っ白な画面になる作りにはしない。
     const isle = el('div', 'mt-title-isle');
     const stone = el('div', 'mt-title-stone');
     isle.appendChild(stone);
+    const isleImg = document.createElement('img');
+    isleImg.className = 'mt-title-isle-img';
+    isleImg.src = TITLE_ISLAND_SRC;
+    isleImg.alt = '';
+    isleImg.decoding = 'async';
+    // 読めたら CSS 図形を隠す（読めなければ図形のまま）。
+    isleImg.addEventListener('load', () => {
+      isleImg.classList.add('is-ready');
+      isle.classList.add('is-hidden');
+    });
     bg.appendChild(sun);
     bg.appendChild(sea);
+    // 水平線をなじませる帯（`sea` の上辺に空の色を重ねる）。`sea` の後・島の前に置く。
+    const haze = el('div', 'mt-title-haze');
+    bg.appendChild(haze);
     bg.appendChild(isle);
+    bg.appendChild(isleImg);
     scr.appendChild(bg);
     const clock = el('p', 'mt-title-clock');
     scr.appendChild(clock);
@@ -456,6 +485,9 @@ export const titleScreen: Screen = {
       const p = skyPalette(hour);
       bg.style.background = `linear-gradient(180deg, ${p.top} 0%, ${p.bottom} 62%, ${p.sea} 62%, ${p.sea} 100%)`;
       sea.style.background = `linear-gradient(180deg, ${p.sea} 0%, ${mixHex(p.sea, '#000000', 0.35)} 100%)`;
+      // 水平線の霞。**空の地平の色**を海の上辺に薄く落として境目を消す
+      // （単色の矩形どうしが接すると定規で引いた線になり、島の絵が紙細工に見える）。
+      haze.style.setProperty('--mt-sky-bottom', p.bottom);
       isle.style.background = p.silhouette;
       stone.style.background = mixHex(p.silhouette, p.sun, 0.25);
       stone.style.boxShadow = `0 0 18px ${p.sun}`;

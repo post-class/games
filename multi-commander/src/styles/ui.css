@@ -1170,7 +1170,13 @@
 /* 右列の資料: 飛行計画の下に目標と機体を横並びで置く */
 .mc-brief-side {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  /*
+   * 作戦図の行に下限を与える。以前は `minmax(0, 1fr)` だったため、
+   * 下段（任務目標・機体）の高さが要求ぶん取られて作戦図の行が 0 に潰れ、
+   * 図がまったく見えない状態になっていた。図は要点なので先に高さを確保し、
+   * 下段は入り切らないぶんだけ自分でスクロールさせる。
+   */
+  grid-template-rows: auto minmax(190px, 1.05fr) minmax(0, 1fr);
   gap: 10px;
   min-width: 0;
   min-height: 0;
@@ -1188,6 +1194,19 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* 作戦図に高さを譲るぶん、下段は文字を詰める */
+  font-size: 12px;
+  line-height: 1.5;
+}
+.mc-brief-side-lower ul {
+  padding-left: 15px;
+  margin: 4px 0 0;
+}
+.mc-brief-side-lower li {
+  margin-bottom: 3px;
 }
 .mc-brief-panel {
   opacity: 0;
@@ -2637,4 +2656,657 @@
     width: 44px !important;
     height: 44px !important;
   }
+}
+
+/* ───────── 酒場（一枚絵の場面） ─────────
+ *
+ * 表組みではなく、艦内バーの一枚絵の上に立ち絵を置いて会話させる画面
+ * (`src/ui/BarScene.ts`)。`.mc-screen.barroom` は見出しを持たず、
+ * 部屋（stage）に空き高さを全部渡し、下端の会話ボックスとメニューを重ねる。
+ */
+
+.mc-screen.barroom {
+  justify-content: flex-start;
+  gap: 0;
+  padding: 0;
+}
+.mc-barroom {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.mc-screen.barroom .mc-menu {
+  margin: 8px 0 6px;
+}
+
+/* 部屋。背景は暗く落とさず、そのまま見せる（.mc-screen-bg は使わない） */
+.mc-barroom-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+/* 部屋の絵。立ち絵を前に出すため、背景だけ被写界深度を付けて落とす */
+.mc-barroom-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  /* 床とカウンターを画面に残すため、少し下寄りを切り出す */
+  background-position: center 58%;
+  background-repeat: no-repeat;
+  filter: brightness(0.82) saturate(0.8) blur(1.2px);
+  transform: scale(1.02);
+}
+/* 上下に暗がりを足して、席札と会話ボックスの文字を読ませる */
+.mc-barroom-stage::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgba(3, 6, 8, 0.72) 0%, rgba(3, 6, 8, 0) 22%),
+    linear-gradient(to top, rgba(3, 6, 8, 0.78) 0%, rgba(3, 6, 8, 0) 26%);
+}
+
+.mc-barroom-plate {
+  position: absolute;
+  left: 20px;
+  top: 10px;
+  /* 立ち絵 (10..130) と名札 (40) より前 */
+  z-index: 200;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  letter-spacing: 0.14em;
+}
+.mc-barroom-plate b {
+  font-size: 20px;
+  color: #cdefdd;
+  text-shadow: 0 0 18px rgba(127, 227, 176, 0.5);
+}
+.mc-barroom-plate span {
+  font-size: 11px;
+  color: var(--hud-dim);
+}
+
+/* ── 立ち絵 */
+.mc-barroom-fig {
+  position: absolute;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.65));
+  transition: filter 0.25s ease;
+}
+.mc-barroom-bust {
+  display: block;
+  height: 100%;
+  width: auto;
+  min-height: 0;
+  /*
+   * 立ち絵は腰で切れているので、下端をそのまま出すと空中に浮いて見える。
+   * 下 14% を薄くして、暗がりに溶かす。
+   */
+  -webkit-mask-image: linear-gradient(to bottom, #000 84%, rgba(0, 0, 0, 0) 100%);
+  mask-image: linear-gradient(to bottom, #000 84%, rgba(0, 0, 0, 0) 100%);
+}
+.mc-barroom-fig.wounded .mc-barroom-bust {
+  filter: saturate(0.55) brightness(0.8);
+}
+/* 喋っている人だけ明るくし、それ以外は一段落とす */
+.mc-barroom-fig.speaking {
+  filter: drop-shadow(0 0 26px rgba(231, 195, 154, 0.5)) drop-shadow(0 10px 18px rgba(0, 0, 0, 0.7));
+  z-index: 150 !important;
+}
+.mc-barroom-stage:has(.mc-barroom-fig.active) .mc-barroom-fig:not(.active) .mc-barroom-bust {
+  filter: brightness(0.62) saturate(0.7);
+}
+/* 掛け合いの相方（いま喋っていない側）は落とさず、名札だけ当事者色にする */
+.mc-barroom-fig.active:not(.speaking) figcaption {
+  border-left-color: rgba(231, 195, 154, 0.7);
+  border-right-color: rgba(231, 195, 154, 0.7);
+}
+.mc-barroom-fig.tender .mc-barroom-bust {
+  filter: brightness(0.9);
+}
+/* 立ち絵が無い人物のつなぎ（顔だけを丸く出す） */
+.mc-barroom-bust.fallback {
+  display: grid;
+  place-items: center;
+  height: 100%;
+}
+.mc-barroom-bust.fallback .mc-face,
+.mc-barroom-bust.fallback .mc-portrait {
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+/* 席札。立ち絵の足元に置く */
+.mc-barroom-fig figcaption {
+  position: absolute;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+  white-space: nowrap;
+  padding: 3px 8px;
+  background: linear-gradient(to right, rgba(4, 10, 12, 0.82), rgba(4, 10, 12, 0.35));
+  border-left: 2px solid rgba(127, 227, 176, 0.5);
+  /* 隣の立ち絵より前に出す。立ち絵は z-index 10..30 を使う */
+  z-index: 40;
+}
+.mc-barroom-fig figcaption.left {
+  left: 50%;
+}
+.mc-barroom-fig figcaption.right {
+  right: 50%;
+  text-align: right;
+  border-left: none;
+  border-right: 2px solid rgba(127, 227, 176, 0.5);
+  background: linear-gradient(to left, rgba(4, 10, 12, 0.82), rgba(4, 10, 12, 0.35));
+  align-items: flex-end;
+}
+.mc-barroom-fig figcaption b {
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: #cdefdd;
+}
+.mc-barroom-fig figcaption span {
+  font-size: 10px;
+  color: var(--hud-dim);
+}
+.mc-barroom-fig figcaption .sub {
+  font-size: 9px;
+  opacity: 0.85;
+}
+.mc-barroom-fig.speaking figcaption {
+  border-left-color: var(--warn);
+  border-right-color: var(--warn);
+}
+.mc-barroom-fig.speaking figcaption b {
+  color: #ffe9c2;
+}
+
+/* ── 会話ボックス */
+.mc-barroom-box {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  width: min(1120px, 96vw);
+  margin: -14px auto 0;
+  padding: 10px 16px 10px;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 40;
+  background: rgba(5, 12, 15, 0.9);
+  border: 1px solid rgba(127, 227, 176, 0.28);
+  border-radius: 3px;
+  box-shadow: 0 -8px 26px rgba(0, 0, 0, 0.6);
+  min-height: 108px;
+}
+.mc-barroom-vdu {
+  display: flex;
+  gap: 6px;
+}
+.mc-barroom-who {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.mc-barroom-who b {
+  font-size: 15px;
+  letter-spacing: 0.1em;
+  color: #ffe9c2;
+}
+.mc-barroom-who span {
+  font-size: 11px;
+  color: var(--hud-dim);
+}
+.mc-barroom-who .rel {
+  margin-left: auto;
+  color: var(--warn);
+}
+.mc-barroom-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mc-barroom-turn {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #cfe9dc;
+}
+.mc-barroom-turn .who {
+  display: inline-block;
+  min-width: 3.6em;
+  margin-right: 8px;
+  font-size: 11px;
+  color: var(--hud-dim);
+}
+.mc-barroom-turn.player {
+  color: #9fc7e7;
+}
+/* 直前の発言だけを明るく出す（それ以前は読み返し用に落とす） */
+.mc-barroom-turn:not(.now) {
+  opacity: 0.62;
+  font-size: 13px;
+}
+.mc-barroom-reason {
+  font-size: 11px;
+  color: #e7c39a;
+}
+.mc-barroom-outcome {
+  font-size: 11px;
+  color: var(--warn);
+}
+.mc-barroom-cue {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--hud-dim);
+}
+.mc-barroom-rumors {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 3px;
+}
+.mc-barroom-rumor {
+  font-size: 12px;
+  color: #b9dccb;
+}
+.mc-barroom-rumor span {
+  display: inline-block;
+  min-width: 5.5em;
+  color: var(--hud-dim);
+  font-size: 10px;
+}
+
+@media (max-height: 760px) {
+  .mc-barroom-box {
+    min-height: 96px;
+    padding-block: 8px;
+  }
+  .mc-barroom-turn {
+    font-size: 13px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mc-barroom-fig {
+    transition: none;
+  }
+}
+
+/* ───────── 作戦図 (MISSION FLIGHT PATH) ─────────
+ *
+ * `src/ui/FlightPlan.ts` が描く SVG の見た目。本家の艦内スクリーンに寄せて、
+ * 暗い星図の上に航路を引き、Nav に何が待っているかを添える。
+ */
+
+.mc-flightplan {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/*
+ * 図は縦横比を保って収める（航路の形を崩さない）ので、枠との間に余白が出る。
+ * 枠側を図と同じ色で塗って、額縁として成立させる。
+ */
+.mc-brief-panel.flight-plan > .block {
+  background: #030809;
+  border: 1px solid rgba(127, 227, 176, 0.25);
+  padding: 6px 8px 4px;
+  box-sizing: border-box;
+}
+.mc-brief-panel.flight-plan > .block > h3 {
+  margin-bottom: 4px;
+}
+.mc-fp-bg {
+  fill: #030809;
+}
+.mc-fp-grid line {
+  stroke: rgba(127, 227, 176, 0.09);
+  stroke-width: 0.5;
+}
+/* 航路。開示に合わせて引かれる（アニメーションは .mc-brief-panel.open 側） */
+.mc-flightplan .mc-navpath {
+  fill: none;
+  stroke: rgba(127, 227, 176, 0.75);
+  stroke-width: 1.2;
+  stroke-dasharray: 5 4;
+}
+/* 危険空域 */
+.mc-fp-belt {
+  stroke: rgba(217, 138, 114, 0.22);
+  stroke-linecap: round;
+}
+.mc-fp-zone-ring {
+  fill: rgba(217, 138, 114, 0.08);
+  stroke: rgba(217, 138, 114, 0.4);
+  stroke-width: 0.6;
+  stroke-dasharray: 2 3;
+}
+.mc-fp-zone {
+  fill: #d98a72;
+  font-size: 7px;
+  letter-spacing: 0.08em;
+  text-anchor: middle;
+}
+/* 母艦 */
+.mc-fp-home path {
+  fill: #5fd8ff;
+}
+.mc-fp-home-ring {
+  fill: none;
+  stroke: rgba(95, 216, 255, 0.5);
+  stroke-width: 0.7;
+}
+/* Nav */
+.mc-fp-nav circle:first-child {
+  fill: #7fe3b0;
+}
+.mc-fp-nav-halo {
+  fill: none;
+  stroke: rgba(127, 227, 176, 0.35);
+  stroke-width: 0.6;
+}
+.mc-fp-nav.hostile circle:first-child {
+  fill: var(--warn);
+}
+.mc-fp-nav.hostile .mc-fp-nav-halo {
+  stroke: rgba(231, 195, 154, 0.55);
+}
+.mc-fp-index {
+  fill: #03110c;
+  font-size: 5.5px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+/* 到達判定半径。実際の判定値をそのまま出している */
+.mc-fp-arrive {
+  fill: rgba(127, 227, 176, 0.06);
+  stroke: rgba(127, 227, 176, 0.28);
+  stroke-width: 0.5;
+  stroke-dasharray: 1.5 2.5;
+}
+.mc-fp-name {
+  fill: #cdefdd;
+  font-size: 8px;
+  letter-spacing: 0.04em;
+}
+.mc-fp-name.home {
+  fill: #5fd8ff;
+}
+.mc-fp-tag {
+  fill: #e7c39a;
+  font-size: 7px;
+  letter-spacing: 0.04em;
+}
+.mc-fp-leg {
+  fill: rgba(143, 191, 168, 0.75);
+  font-size: 6.5px;
+  text-anchor: middle;
+}
+.mc-fp-caption {
+  fill: rgba(127, 227, 176, 0.55);
+  font-size: 7px;
+  letter-spacing: 0.16em;
+}
+
+/* ───────── 章の導入カード ─────────
+ *
+ * `src/ui/ChapterCard.ts`。章に初めて入るときだけ出す一幕で、
+ * 左に章の一枚絵、右に本文（2段落ずつ送る）と登場人物を並べる。
+ * 画面は `.mc-screen.barroom` の枠（見出しなし・全面）を借りる。
+ */
+
+.mc-chapter {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 0;
+}
+.mc-chapter-art {
+  position: relative;
+  min-width: 0;
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 22px 24px 18px;
+  box-sizing: border-box;
+}
+/* 絵の上に文字を置くので、上下から暗く落とす */
+.mc-chapter-art::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom, rgba(3, 6, 8, 0.8) 0%, rgba(3, 6, 8, 0.1) 42%, rgba(3, 6, 8, 0.85) 100%),
+    linear-gradient(to right, rgba(3, 6, 8, 0.25), rgba(3, 6, 8, 0.55));
+}
+.mc-chapter-head,
+.mc-chapter-meta {
+  position: relative;
+}
+.mc-chapter-head .no {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: var(--hud-dim);
+}
+.mc-chapter-head h2 {
+  margin: 6px 0 8px;
+  font-size: clamp(22px, 2.6vw, 34px);
+  letter-spacing: 0.1em;
+  color: #cdefdd;
+  text-shadow: 0 0 26px rgba(127, 227, 176, 0.4);
+}
+.mc-chapter-head .tag {
+  margin: 0;
+  font-size: 14px;
+  color: #e7c39a;
+  letter-spacing: 0.06em;
+}
+.mc-chapter-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  font-size: 11px;
+  color: #b9dccb;
+}
+.mc-chapter-meta b {
+  margin-right: 6px;
+  color: var(--hud-dim);
+  font-weight: 400;
+  letter-spacing: 0.14em;
+}
+
+.mc-chapter-text {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 18px 24px 12px;
+  box-sizing: border-box;
+  background: rgba(4, 10, 12, 0.9);
+  border-left: 1px solid rgba(127, 227, 176, 0.2);
+}
+.mc-chapter-cast {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(127, 227, 176, 0.15);
+}
+.mc-chapter-person {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: #cdefdd;
+}
+.mc-chapter-person .mc-face {
+  border: 1px solid rgba(127, 227, 176, 0.35);
+}
+.mc-chapter-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.mc-chapter-body p {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.95;
+  color: #cfe9dc;
+  text-indent: 1em;
+}
+.mc-chapter-pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 11px;
+  color: var(--hud-dim);
+}
+.mc-chapter-pager .cue {
+  color: #e7c39a;
+}
+
+@media (max-height: 760px) {
+  .mc-chapter-body p {
+    font-size: 13px;
+    line-height: 1.8;
+    margin-bottom: 10px;
+  }
+}
+@media (max-width: 860px) {
+  /* 幅が足りないときは絵を上、本文を下にする */
+  .mc-chapter {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(120px, 0.7fr) minmax(0, 1fr);
+  }
+  .mc-chapter-text {
+    border-left: none;
+    border-top: 1px solid rgba(127, 227, 176, 0.2);
+  }
+}
+
+/* ───────── ブリーフィングの質疑 ─────────
+ *
+ * 艦長の説明が終わったあと、僚機が一つ質問する（`src/ui/BriefingScene.ts`）。
+ * 台詞欄の続きに出すので、ここまでの説明が消えない。
+ */
+
+.mc-brief-qa {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(231, 195, 154, 0.4);
+  background: rgba(20, 16, 8, 0.5);
+  animation: mc-brief-qa-in 0.4s ease-out both;
+}
+@keyframes mc-brief-qa-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.mc-brief-qa-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+.mc-brief-qa-head img {
+  width: 46px;
+  height: 46px;
+  object-fit: cover;
+  border: 1px solid rgba(231, 195, 154, 0.5);
+}
+.mc-brief-qa-head b {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: #ffe9c2;
+}
+.mc-brief-qa-head span {
+  display: block;
+  margin-top: 2px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #cfe9dc;
+}
+.mc-brief-qa-answers {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 9px;
+}
+.mc-brief-qa-answer {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 6px 9px;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  color: #cdefdd;
+  background: rgba(6, 14, 18, 0.8);
+  border: 1px solid rgba(127, 227, 176, 0.3);
+  cursor: pointer;
+}
+.mc-brief-qa-answer:hover,
+.mc-brief-qa-answer:focus-visible {
+  background: rgba(127, 227, 176, 0.16);
+  border-color: var(--warn);
+  outline: none;
+}
+.mc-brief-qa-answer i {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  font-style: normal;
+  font-size: 11px;
+  color: var(--hud-dim);
+  border: 1px solid rgba(127, 227, 176, 0.35);
+}
+.mc-brief-qa-said {
+  margin-top: 8px;
+}
+.mc-brief-qa-said p {
+  margin: 0 0 3px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.mc-brief-qa-said .me {
+  color: #9fc7e7;
+}
+.mc-brief-qa-said .them {
+  color: #ffe9c2;
+}
+.mc-debrief-stance {
+  border-left: 2px solid rgba(231, 195, 154, 0.5);
+  padding-left: 8px;
+}
+.mc-debrief-stance div {
+  font-size: 12px;
+  color: #e7c39a;
+}
+.mc-brief-qa-cue {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--hud-dim);
 }

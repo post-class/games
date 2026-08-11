@@ -179,12 +179,30 @@
   border-style: dashed;
 }
 
-/* セーブデータが無いときの無地の紋章（`05§2-1`） */
+/* セーブデータが無いときの無地の紋章（`05§2-1`）
+   ―― ただの黒い四角にすると**壊れているように見える**ので、
+   碑（`02` の中央の石柱）の影を薄く置いて「まだ何も選んでいない枠」だと分かる形にする。
+   文明を選ぶと `emblemEl` の紋章に置き換わる。 */
 .mt-emblem-blank {
+  position: relative;
   width: 64px;
   height: 64px;
-  background: #221c12;
+  background: linear-gradient(#2b2317, #1b1610);
   border-color: #554427;
+}
+
+.mt-emblem-blank::after {
+  /* 碑の影（上が欠けた石柱）。文字を使わないので言語に依存しない */
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 22%;
+  width: 26%;
+  height: 46%;
+  transform: translateX(-50%) skewX(-3deg);
+  border-radius: 2px 3px 0 0;
+  background: #554427;
+  opacity: 0.75;
 }
 
 /* ---------------------------------------------------------------- タイトル */
@@ -213,6 +231,24 @@
   right: 0;
   bottom: 0;
   height: 38%;
+}
+
+/* 水平線をぼかす帯。
+   海を単色の矩形で敷くと**定規で引いたような線**が出て、絵を重ねたときに紙細工に見える。
+   海の上辺に空の色を薄く重ねて、境目を数 px ぶんなじませる。
+   色は `Title.ts` が `--mt-sky-bottom` に流し込む（時刻で変わるため CSS 側に固定値を書かない）。 */
+.mt-title-haze {
+  position: absolute;
+  left: 0;
+  right: 0;
+  /* **線をまたぐように置く。** 最初は `bottom: 38%`（海のちょうど上）に置いたが、
+     それでは帯が空の中に収まってしまい、空の色の上に空の色を重ねるだけで
+     見た目が 1 px も変わらなかった（実機で確認）。海の上辺を覆うように下げる。 */
+  bottom: calc(38% - 26px);
+  height: 52px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, var(--mt-sky-bottom, transparent), transparent);
+  opacity: 0.7;
 }
 
 /* 中央の島（環海の中心）と碑 */
@@ -790,4 +826,35 @@
   margin: 0;
   color: var(--text-dim, #a89b89);
   text-align: center;
+}
+
+/* 島と碑の絵（`tools/assets` の scenes）。
+   **空と海は CSS のまま**なので、絵は島だけを透過で重ねる（`05§2` の時刻演出を殺さないため）。
+   読み込めるまで（あるいは絵が無い環境では）`.mt-title-isle` の図形が出ている。 */
+.mt-title-isle-img {
+  position: absolute;
+  /* **メニューの文字と重ねない。** 中央に置くと「URL を共有して集まる」の行に
+     絵がかぶって読みにくくなった（実機で確認）。右寄せにしてメニューの左側を空ける。
+     幅も画面幅に追従させる（狭い画面ではさらに小さくなる）。 */
+  right: 4%;
+  left: auto;
+  bottom: 26%;
+  width: min(38%, 440px);
+  transform: none;
+  opacity: 0;
+  transition: opacity 0.6s ease-out;
+  pointer-events: none;
+  /* 海面にわずかに影を落として、切り抜きの縁が浮くのを抑える */
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+  /* **下端をぼかす。** 生成した絵の岸はほぼ直線で切れているので、
+     そのまま置くと島が海に「貼ってある」ように見える。下 12% を透過させて水に沈ませる。 */
+  mask-image: linear-gradient(to bottom, #000 84%, transparent 99%);
+}
+
+.mt-title-isle-img.is-ready {
+  opacity: 1;
+}
+
+.mt-title-isle.is-hidden {
+  display: none;
 }

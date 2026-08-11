@@ -253,6 +253,37 @@ export function portraitFace(
   );
 }
 
+// ───────── 立ち絵（酒場の場面用） ─────────
+
+/**
+ * 上半身の立ち絵（`public/art/tex/bust-<人物id>.webp`）を持っている人物。
+ *
+ * 顔画像（`face-<id>-<表情>.jpg`）と同じ人物から起こしてあるので、
+ * 立ち絵と会話ボックスの顔は必ず同じ顔になる。
+ * 用意してあるのは酒場に出る面々（飛行隊8名と酒保）だけで、
+ * 無い人物は `BarScene` 側が顔画像で代替する。
+ */
+export const BUST_ART_IDS: ReadonlySet<string> = new Set([
+  'confed-15', // Vesper / 柊 奏
+  'confed-17', // Sable / 桐谷 綾
+  'confed-18', // Aster / 黒瀬 日和
+  'confed-20', // Nova / 東雲 澪
+  'confed-21', // 酒保 / 七瀬 結衣
+  'confed-23', // Orion / 橘 蒼真
+  'confed-25', // Tempest / 榊 恒一
+  'confed-26', // Raven / 藤堂 悠真
+  'confed-28', // Solace / 久世 朔
+]);
+
+/** 立ち絵がある人物か。引数は人物名簿の id（パイロット id ではない） */
+export function hasBustArt(personId: string): boolean {
+  return BUST_ART_IDS.has(personId);
+}
+
+export function bustUrl(personId: string): string {
+  return `${import.meta.env.BASE_URL}art/tex/bust-${personId}.webp`;
+}
+
 /** 無線の内容から表情を推定する */
 export function expressionFor(text: string, tone?: string): Expression {
   if (tone === 'enemy') return 'grim';

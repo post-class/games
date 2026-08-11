@@ -17,7 +17,7 @@ import {
 } from '../content/campaign';
 import { missionDef } from '../content/missions';
 import { VEIL_ERA } from '../content/veil/world';
-import { resolveVeilChoice, VEIL_CHAPTERS, type VeilChoiceEffects } from '../content/veil/chapters';
+import { resolveVeilChoice, VEIL_CHAPTERS, type VeilChapter, type VeilChoiceEffects } from '../content/veil/chapters';
 import { speakerName } from '../content/veil/missions/shared';
 import { veilPerson } from '../content/veil/people';
 import { dynamicMissionDef, chooseDynamicMission, applyFrontlineOutcome, frontlineSystemName, FRONTLINE_SYSTEM_IDS, type DynamicMissionKind, type FrontlineSystemId } from '../content/frontline';
@@ -33,8 +33,8 @@ import {
   mailHtml,
   hangarHtml,
   killBoardHtml,
-  recRoomHtml,
   frontlineHtml,
+  pilotDisplayName,
   statisticsHtml,
   codexHtml,
   CODEX_PAGES,
@@ -42,7 +42,26 @@ import {
   type HangarSelection,
   type HubContext,
 } from '../ui/HubPanels';
-import { BriefingScene, type BriefingPanel } from '../ui/BriefingScene';
+import { BriefingScene, type BriefingPanel, type BriefingQuestionView } from '../ui/BriefingScene';
+import { BarScene } from '../ui/BarScene';
+import { barSceneFor } from '../content/barScenes';
+import { flightPlanSvg } from '../ui/FlightPlan';
+import { ChapterCard } from '../ui/ChapterCard';
+import {
+  briefingQuestion,
+  briefingReply,
+  type BriefingStance,
+} from '../content/briefingQuestions';
+
+/**
+ * ブリーフィングの質疑で表明した方針を、デブリーフで読み返す文。
+ * 表示だけの対応表で、数値には関与しない（`briefingQuestions.ts` の方針と対）。
+ */
+const STANCE_RECALL: Record<string, string> = {
+  orders: '「命令どおりに飛ぶ。判断は私が持つ。」と答えて出た。',
+  lives: '「拾える者を拾う。数は後で数える。」と答えて出た。',
+  kills: '「落とせる相手は落とす。」と答えて出た。',
+};
 import { portraitFace, type Expression } from '../ui/Portrait';
 import { escapeHtml, ScreenHost, type MenuItem } from '../ui/ScreenHost';
 import { artImg, artUrl, medalArt, rankArt } from '../ui/art';
@@ -82,7 +101,7 @@ import {
   type BarTalkState,
   type BarTalkView,
 } from './barTalk';
-import { banterSeats, seatBondKey, seatPlan, type BarSeat } from './barSeats';
+import { banterSeats, seatBondKey, seatPlan, type BarSeat, type BarSeatPlan } from './barSeats';
 import {
   buildBanter,
   chooseBanterReply,
@@ -233,6 +252,13 @@ export class App {
    */
   private newCampaignMode: CampaignMode = 'veil';
   private barPilotId?: string;
+  /** 酒場の場面（一枚絵＋立ち絵）。画面を作り直すたびに差し替える。 */
+  private barScene?: BarScene;
+  /**
+   * ブリーフィングの質疑で表明した方針。発艦前の一言にだけ使う。
+   * 難易度・搭載兵装・4状態には一切関与しない。
+   */
+  private briefingStance?: BriefingStance;
   /** 酒場の往復会話の進行（T3-⑪）。出撃を挟むとリセットされる。 */
   private barTalk?: BarTalkState;
   /**
@@ -730,15 +756,22 @@ export class App {
         text: r.text,
       })),
       gossip: this.barGossip(talkers),
+      // 節目の一幕。1対1の会話・割り込みを開いている間は出さない
+      barMoment: view || banterView ? undefined : this.barMomentView(plan),
       canBuyDrink: canBuyDrink(roster),
       toasted: barMemory(roster).toasted === true,
     } as HubContext;
 
     const dead = fallen(roster);
+    // 一枚絵の部屋に立ち絵を置いて喋らせる（表組みの `recRoomHtml` は
+    // 席割りを渡さない呼び出しのために残してある）。
+    this.barScene?.dispose();
+    const scene = new BarScene({ background: artUrl('tex/bg-bar', 'jpg'), ctx });
+    this.barScene = scene;
     this.screens.show({
-      background: artUrl('tex/bg-bar', 'jpg'),
-      title: '酒場',
-      bodyHtml: recRoomHtml(ctx),
+      variant: 'barroom',
+      content: scene.el,
+      hint: '▲▼ で選択 / Enter で決定 / Esc で艦内へ戻る',
       items: [
         // 返事・割り込みを先頭に置く（会話中はそれが既定フォーカスになる）
         ...(banterView?.replies ?? []).map((reply) => ({
@@ -772,6 +805,37 @@ export class App {
       ],
       onCancel: () => this.showHub(),
     });
+    // 画面に載せてから文字送りを始める（載せる前だと1行目が出ない）
+    requestAnimationFrame(() => scene.start());
+  }
+
+  /**
+   * 節目の一幕（`src/content/barScenes.ts`）を、いま席にいる隊員へ割り当てる。
+   *
+   * 台本は「役」で書かれているので、ここで実際の人に解決する。
+   * `senior` は付き合いが長い者、`junior` は浅い者、`tender` は酒保。
+   * 隊員が1名以下しかいない帰艦では一幕を出さない（掛け合いにならない）。
+   * **数値は動かさない**（見るだけの場面）。
+   */
+  private barMomentView(plan: BarSeatPlan): HubContext['barMoment'] {
+    const seated = [...plan.seats.flatMap((s) => s.occupants), ...plan.standing];
+    if (seated.length < 2) return undefined;
+    const scene = barSceneFor(this.rumorContext(), this.save.sorties);
+    if (!scene) return undefined;
+    // 付き合いの長さは出撃回数で見る。同数なら名簿の並び順で決める（決定論）
+    const byTenure = [...seated].sort((a, b) => b.sorties - a.sorties);
+    const senior = byTenure[0];
+    const junior = byTenure[byTenure.length - 1];
+    const tenderName = bartenderName();
+    return {
+      id: scene.id,
+      title: scene.title,
+      lines: scene.lines.map((line) => {
+        if (line.role === 'tender') return { who: tenderName, text: line.text };
+        const p = line.role === 'senior' ? senior : junior;
+        return { who: pilotDef(p.id).callsign, pilotId: p.id, text: line.text };
+      }),
+    };
   }
 
   /** 噂の出方を決める文脈（章・4状態・隊の被害）。 */
@@ -1586,11 +1650,64 @@ export class App {
     return extra ? [...lines, extra] : lines;
   }
 
+  /**
+   * ブリーフィングへ入る。
+   *
+   * 十章キャンペーンでは、その章に**初めて**入るときだけ導入カード
+   * （章の一枚絵と本文）を挟む。読み終わり／読み飛ばしのどちらでも
+   * `seenChapters` に記録するので、同じ章で二度は出ない。
+   */
   private showBriefing(): void {
     if (isTerminal(this.save.node)) {
       this.showEnding(this.save.node === VICTORY);
       return;
     }
+    const card = VEIL_CHAPTERS.find((c) => c.id === this.save.node);
+    if (this.save.campaignMode === 'veil' && card && !(this.save.seenChapters ?? []).includes(card.id)) {
+      this.showChapterCard(card);
+      return;
+    }
+    this.showBriefingScreen();
+  }
+
+  /** 章の導入カード。読み終えたらブリーフィングへ送る */
+  private showChapterCard(chapter: VeilChapter): void {
+    const seen = () => {
+      const list = this.save.seenChapters ?? (this.save.seenChapters = []);
+      if (!list.includes(chapter.id)) list.push(chapter.id);
+      writeSave(this.save);
+    };
+    const card = new ChapterCard({
+      chapter,
+      image: artUrl(`tex/story-ch${String(chapter.chapter).padStart(2, '0')}`, 'jpg'),
+      totalChapters: totalChapters(this.save.campaignMode),
+      onFinish: () => {
+        seen();
+        this.showBriefingScreen();
+      },
+    });
+    this.screens.show({
+      variant: 'barroom',
+      content: card.el,
+      items: [
+        { label: '読み進める', onSelect: () => card.next() },
+        {
+          label: 'ブリーフィングへ',
+          onSelect: () => {
+            seen();
+            this.showBriefingScreen();
+          },
+        },
+      ],
+      hint: 'Space / クリックで読み進める　—　Esc で飛ばす',
+      onCancel: () => {
+        seen();
+        this.showBriefingScreen();
+      },
+    });
+  }
+
+  private showBriefingScreen(): void {
     const node = campaignNode(this.save.node, this.save.campaignMode);
     this.game.sound.music.play('briefing');
     const def = this.currentMission();
@@ -1621,16 +1738,20 @@ export class App {
       def.briefing,
       protagonistBriefingLine(this.save.protagonistId),
     );
+    // 僚機の質疑（`src/content/briefingQuestions.ts`）。数値は動かさず、
+    // 答えで僚機の返しと発艦前の一言が変わる。僚機がいない出撃では出さない。
+    const wingPilotId = load.wingman ? this.selection?.wingmanId : undefined;
+    const question = wingPilotId ? this.briefingQuestionView(wingPilotId) : undefined;
     const scene = this.briefingScene(def, briefingLines, [
       { html: `<div class="block"><h3>任務目標</h3><ul>${objectives}</ul></div>`, slot: 'lower-left' },
-      { html: `<div class="block"><h3>飛行計画</h3>${this.navMapSvg(def)}</div>`, slot: 'flight-plan' },
+      { html: `<div class="block"><h3>飛行計画</h3>${flightPlanSvg(def)}</div>`, slot: 'flight-plan' },
       { html: `<div class="block"><h3>機体</h3>` +
         `${escapeHtml(ship.name)}<br><span class="dim">副兵装: ${escapeHtml(missiles || 'なし')}` +
         // 選任した主人公が「誰として飛んでいるか」を出す唯一の場所（T3-⑬）
         `${pilotLabel ? `<br>搭乗: ${escapeHtml(pilotLabel)}` : ''}` +
         `${wing ? `<br>僚機: ${escapeHtml(wing)}` : ''}` +
         `${wing && wingReady ? `<br><span class="mc-wing-ready">「${escapeHtml(wingReady)}」</span>` : ''}</span></div>`, slot: 'lower-right' },
-    ]);
+    ], undefined, undefined, question);
 
     this.screens.show({
       variant: 'briefing',
@@ -1671,6 +1792,41 @@ export class App {
   }
 
   /**
+   * 出撃前に表明した方針を、帰艦の報告で読み返す1行。
+   *
+   * ブリーフィングの質疑（`briefingQuestionView`）で選んだ答えを控えているだけで、
+   * 数値には一切関与しない。答えていない出撃では何も出さない。
+   */
+  private stanceRecallHtml(): string {
+    const label = STANCE_RECALL[this.briefingStance ?? ''] ?? '';
+    if (!label) return '';
+    return `<div class="block mc-debrief-stance"><h3>出撃前の表明</h3><div>${escapeHtml(label)}</div></div>`;
+  }
+
+  /**
+   * 僚機の質疑。
+   *
+   * 質問文と返しは僚機の性格から選ぶ。**数値は一切動かさない**
+   * （ブリーフィングは開き直せるので、稼げる場所にしない）。
+   * 答えは発艦前の一言（`briefingStance`）として保持するだけ。
+   */
+  private briefingQuestionView(pilotId: string): BriefingQuestionView {
+    const def = pilotDef(pilotId);
+    const personality = def.personality;
+    const q = briefingQuestion(personality);
+    return {
+      speakerId: def.personId,
+      speakerName: `${def.callsign}　${pilotDisplayName(def)}`,
+      text: q.text,
+      answers: q.answers.map((a) => ({ id: a.stance, label: a.label })),
+      replyFor: (id) => briefingReply(personality, id as BriefingStance),
+      onAnswer: (id) => {
+        this.briefingStance = id as BriefingStance;
+      },
+    };
+  }
+
+  /**
    * ブリーフィング/デブリーフィングの喋る顔を組み立てる。
    *
    * 音声は使わず、口の動きと文字送りで台詞の進行を見せる。
@@ -1682,6 +1838,7 @@ export class App {
     panels: BriefingPanel[],
     statusLabel?: string,
     mood?: Expression,
+    question?: BriefingQuestionView,
   ): BriefingScene {
     const scene = new BriefingScene({
       speakerId: def.briefingSpeakerId ?? 'halcyon',
@@ -1695,54 +1852,12 @@ export class App {
       panelDelay: 1,
       statusLabel,
       mood,
+      question,
     });
     scene.el.classList.add('mc-panel');
     // ScreenHost が DOM に載せた後に動かす
     requestAnimationFrame(() => scene.start());
     return scene;
-  }
-
-  /** 飛行計画の簡易マップ (XZ 平面を上から見た図) */
-  private navMapSvg(def: MissionDef): string {
-    const pts = [[0, 0, 0] as const, ...def.navs.map((n) => n.pos)];
-    let minX = Infinity;
-    let maxX = -Infinity;
-    let minZ = Infinity;
-    let maxZ = -Infinity;
-    for (const [x, , z] of pts) {
-      minX = Math.min(minX, x);
-      maxX = Math.max(maxX, x);
-      minZ = Math.min(minZ, z);
-      maxZ = Math.max(maxZ, z);
-    }
-    const spanX = Math.max(1, maxX - minX);
-    const spanZ = Math.max(1, maxZ - minZ);
-    const span = Math.max(spanX, spanZ);
-    const map = (x: number, z: number) => {
-      const px = 20 + ((x - (minX + maxX) / 2) / span + 0.5) * 160;
-      const py = 20 + ((z - (minZ + maxZ) / 2) / span + 0.5) * 180;
-      return [px, py] as const;
-    };
-
-    const nodes: string[] = [];
-    const path: string[] = [];
-    pts.forEach((p, i) => {
-      const [px, py] = map(p[0], p[2]);
-      path.push(`${i === 0 ? 'M' : 'L'} ${px.toFixed(1)} ${py.toFixed(1)}`);
-      const label = i === 0 ? '母艦' : def.navs[i - 1].name;
-      nodes.push(
-        `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${i === 0 ? 5 : 3.5}" fill="${i === 0 ? '#5fd8ff' : '#7fe3b0'}"/>` +
-          `<text x="${(px + 7).toFixed(1)}" y="${(py + 3).toFixed(1)}" font-size="7" fill="#8fbfa8">${escapeHtml(label)}</text>`,
-      );
-    });
-
-    return (
-      `<svg viewBox="0 0 200 220" style="width:100%;background:rgba(4,10,12,0.6);border:1px solid rgba(127,227,176,0.25)">` +
-      `<path class="mc-navpath" d="${path.join(' ')}" fill="none" stroke="rgba(127,227,176,0.55)" ` +
-      `stroke-width="1" stroke-dasharray="3 3"/>` +
-      nodes.join('') +
-      `</svg>`
-    );
   }
 
   private launch(withTutorial = false): void {
@@ -2182,7 +2297,7 @@ export class App {
         protagonistDebriefLine(this.save.protagonistId, outcome),
       ),
       [
-        { html: campaignReport + `<div class="block"><h3>戦果</h3><ul>` +
+        { html: campaignReport + this.stanceRecallHtml() + `<div class="block"><h3>戦果</h3><ul>` +
           `<li>撃墜 ${kills} 機</li>` +
           `<li>撃退 ${s?.routed ?? 0} 機</li>` +
           `<li>機体状態 ${Math.round((s?.playerHullRatio ?? 0) * 100)}%　フレア ${this.save.lastSortie?.flares ?? 0}　` +
@@ -2214,7 +2329,8 @@ export class App {
       // 見出しは達成度3段階（T1-①）。全未達で「任務達成」と出さない
       title: MISSION_GRADE_LABEL[grade],
       subtitle: def.title,
-      background: artUrl('tex/bg-briefing', 'jpg'),
+      // 帰艦の報告もその章の景色のなかで受ける（ブリーフィングと同じ背景に揃える）
+      background: this.chapterBackground(),
       content: scene.el,
       items: [
         // 撃墜された出撃だけ「やり直す」を先頭（＝既定フォーカス）にする（案A の救済）。

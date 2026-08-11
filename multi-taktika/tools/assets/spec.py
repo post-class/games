@@ -333,6 +333,127 @@ def terrain_jobs() -> list[Job]:
     return jobs
 
 
+# --------------------------------------------------------------- 画面の絵
+#
+#: タイトル画面と紙の地。**盤面のコマではなく「額縁」**を作るカテゴリ。
+#:
+#: ■ タイトルの空を画像にしない理由
+#: タイトル画面は `05§2` の演出として **時刻とともに空の色が変わる**
+#: （`Title.ts` の `skyPalette(hour)`。`02_世界観.html` の環海の世界観から来ている）。
+#: 空を含んだ 1 枚絵を敷くとこの仕掛けが死ぬので、
+#: **島と碑だけを透過 PNG で作り、空と海は CSS のまま**にして上に重ねる。
+#: `Title.ts` の冒頭に「`.mt-title-bg` に画像を重ねればよい（差し替え口）」と
+#: 書いてあるのがこの想定。
+#:
+#: ■ 羊皮紙を継ぎ目なしにする理由
+#: パネルの大きさは画面幅で変わる（`05` の可変レイアウト）ので、
+#: 1 枚絵を伸ばすと縦横比が崩れる。`repeat` で敷けるように継ぎ目なしで作る。
+SCENES: list[tuple[str, str, int, str, str]] = [
+    (
+        "ui/title_island",
+        # 碑（`02`）= 中央の島に立つ石柱。八文明がその周りの海を囲んでいる。
+        "A single small island seen from across calm water, in the centre a tall weathered "
+        "stone stele covered in faint carved script, its top broken. Low scrubby trees and "
+        "pale rocks on the island, a thin strip of shore at the waterline. "
+        "Painted like an old illustrated chronicle: muted earth colours, soft edges, "
+        "no harsh outlines. Side view at eye level from a distance, the island small in frame. "
+        "Cut out on a fully transparent background: no sky, no sea, no water, no horizon line, "
+        "only the island and the stele. No text, no frame, no border, no watermark.",
+        1024,
+        "1536x1024",
+        "transparent",
+    ),
+    (
+        "ui/map_ringsea",
+        # `05` の「羊皮紙の環海図に、章のメダルが時代順に並びます」で使う地図。
+        # 文面は `02_世界観.html` の図の alt をそのまま英訳した:
+        # 「羊皮紙に描かれた世界地図。中央に大きな内海があり、その中心の小島に黒い石柱が立つ。
+        #   海のまわりを稲田・運河都市・密林の神殿・砂漠のオアシス・草原の天幕などが囲む」
+        #
+        # **文字を入れない。** 地名は UI 側（DOM）で出す。絵に焼き込むと
+        # 日本語・英語の切り替えができず、生成モデルの綴り間違いも直せない。
+        "An antique world map drawn on aged parchment. In the centre a large inland sea, "
+        "and at its centre a tiny island with a single black stone pillar standing on it. "
+        "Around the sea, drawn as small map illustrations: terraced rice paddies, a canal city, "
+        "a jungle temple pyramid, a desert oasis, steppe tents, a rocky northern coast with "
+        "longships, a salt road with camels, and stone aqueducts. "
+        "Hand-inked cartography style: brown sepia ink, fine hatching for hills, "
+        "stylised waves in the sea, a simple compass rose. Muted and low contrast. "
+        "Flat top-down map view, no perspective, no border frame. "
+        "Absolutely no text, no letters, no labels, no numbers, no watermark.",
+        1280,
+        "1536x1024",
+        "opaque",
+    ),
+    (
+        "ui/parchment",
+        "Seamless tileable parchment texture: aged pale vellum with faint fibres, "
+        "very slight mottling and a barely visible warm stain, no folds, no creases, "
+        "no torn edges, no border, no vignette. Flat even lighting, uniform across the whole "
+        "square so the edges tile without a visible seam. Very low contrast so dark text "
+        "stays readable on top. Opaque, fills the entire square. "
+        "No objects, no text, no writing, no drawing, no watermark.",
+        256,
+        "1024x1024",
+        "opaque",
+    ),
+]
+
+
+def scene_jobs() -> list[Job]:
+    return [
+        Job(key=key, prompt=prompt, out_px=out_px, gen_size=gen_size, background=bg)
+        for key, prompt, out_px, gen_size, bg in SCENES
+    ]
+
+
+# --------------------------------------------------------------- 資源ノード
+#
+#: 盤面に置かれる資源（`resources.json` の `gatherFrom` に出てくるノード）。
+#: **キーは `resources/<ノード id>`**（`render/atlas.ts` の `resourceKeyOf` と対応）。
+#:
+#: ■ なぜ後から足したのか
+#: 描画側（`AtlasSpriteProvider.drawResource`）は最初からこのキーを探す作りだったが、
+#: 絵が無かったので**ひし形の色付き図形**が出ていた（実機で確認）。
+#: 森・果樹・羊が全部ひし形なので、盤面を見て何があるのか分からない状態だった。
+#: 資源は盤面でいちばん数が多い要素なので、ここが図形だと絵が入った建物や兵が浮く。
+#:
+#: ■ 大きさ
+#: 1 マス = 村人 1 体の幅（`07§1`）で、`drawResource` は当たり半径の 2.4 倍で描く。
+#: 森は数マスぶんの塊なので少し大きめ、果樹・羊は 1 マス弱。
+RESOURCE_NODES: list[tuple[str, str, int]] = [
+    ("forest", "a cluster of three broadleaf trees with dense green canopy and visible trunks", 160),
+    ("fruit", "a low bush heavy with small red berries, a few ripe clusters visible", 96),
+    ("sheep", "a single standing sheep with thick cream wool, seen from the side", 96),
+    ("hunt", "a single wild deer standing alert, brown coat and small antlers", 112),
+    ("fish", "a shoal of silver fish just under the water surface with faint ripples", 96),
+    ("farm", "a small tilled field plot with young green crop rows in neat furrows", 128),
+    (
+        "stone_quarry",
+        "an outcrop of grey stone blocks, partly quarried with chisel marks and loose rubble",
+        128,
+    ),
+    (
+        "gold_mine",
+        "an outcrop of dark rock veined with glinting gold ore, a few loose nuggets at its base",
+        128,
+    ),
+]
+
+
+def resource_jobs() -> list[Job]:
+    jobs: list[Job] = []
+    for nid, hint, out_px in RESOURCE_NODES:
+        jobs.append(
+            Job(
+                key=f"resources/{nid}",
+                prompt=f"Game sprite of {hint}. {COMMON}",
+                out_px=out_px,
+            )
+        )
+    return jobs
+
+
 #: カテゴリ名 → 作るものリストを返す関数。CLI の `--only` で選ぶ。
 CATEGORIES = {
     "terrain": terrain_jobs,
@@ -341,6 +462,8 @@ CATEGORIES = {
     "emblems": emblem_jobs,
     "orders": order_jobs,
     "portraits": portrait_jobs,
+    "scenes": scene_jobs,
+    "resources": resource_jobs,
 }
 
 

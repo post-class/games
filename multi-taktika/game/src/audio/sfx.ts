@@ -1,10 +1,12 @@
 /**
  * audio/sfx.ts — 効果音の枠（T-M17-07）
  *
- * ■ 何を用意して、何を用意していないのか
- * **鳴らす仕組みと、鳴らす場所の名前（枠）だけ**を用意している。音源ファイルは無い。
- * `public/assets/sfx/<name>.webm` を置けば、コードを 1 行も変えずに鳴りはじめる。
- * 置いていない枠は**静かに無視する**（音が無いことでゲームが止まってはいけない）。
+ * ■ 音はどこから来るのか（順番が大事）
+ *   1. `public/assets/sfx/<name>.webm` があればそれを鳴らす
+ *   2. **無ければ波形を計算して作る**（`audio/synth.ts`）
+ *   3. どちらも無い出力口（テストの偽物など）では**静かに無視する**
+ * 音が無いことでゲームが止まってはいけないので、3 が既定の振る舞い。
+ * 音源ファイルを後から置けば 1 が勝つので、呼び出し側は何も変えなくてよい。
  *
  * ■ なぜ「枠」を先に決めるのか
  * 音を後から足すとき、いちばん面倒なのは「どこで鳴らすか」を探すことで、
@@ -21,6 +23,8 @@
  * `AudioContext` は**最初のキー入力／クリックまで作らない**（作ると suspended
  * 状態のまま溜まる）。`unlock()` を入力の入口から呼ぶ。
  */
+
+import { renderSfxSamples } from './synth';
 
 /**
  * 鳴らす場所の名前。**ここに無い音は鳴らせない**（打ち間違いを型で防ぐ）。
@@ -62,6 +66,16 @@ export interface AudioSink {
   load(url: string): Promise<AudioBuffer | null>;
   /** 鳴らす。 */
   play(buffer: AudioBuffer, volume: number): void;
+  /**
+   * 音源ファイルが無いときに**波形を計算して**作る（`audio/synth.ts`）。任意。
+   *
+   * **順番が大事**: `preload` はまず `load`（ファイル）を試し、無いときだけここに来る。
+   * つまり音源ファイルを置けばそちらが勝つ ―― 合成は「ファイルが無いときの本体」で、
+   * 後からファイルを足しても呼び出し側は何も変えなくてよい。
+   *
+   * 実装しない出力口（テストの偽物など）では今までどおり**静かに無音**になる。
+   */
+  synthesize?(name: SfxName): AudioBuffer | null;
 }
 
 /**
@@ -124,7 +138,13 @@ export class Sfx {
     if (this.sink === null || this.buffers.has(name) || this.loading.has(name)) return;
     this.loading.add(name);
     try {
-      this.buffers.set(name, await this.sink.load(sfxUrl(name)));
+      let buf = await this.sink.load(sfxUrl(name));
+      // ファイルが無ければ合成する（`audio/synth.ts`）。
+      // ファイルが勝つ順番にしてあるので、後から音源を置くだけで差し替わる。
+      if (buf === null && this.sink.synthesize !== undefined) {
+        buf = this.sink.synthesize(name);
+      }
+      this.buffers.set(name, buf);
     } catch {
       this.buffers.set(name, null);
     } finally {
@@ -175,6 +195,30 @@ export class WebAudioSink implements AudioSink {
       const res = await fetch(url);
       if (!res.ok) return null; // 音源がまだ無い枠
       return await ctx.decodeAudioData(await res.arrayBuffer());
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * 波形を計算して `AudioBuffer` に詰める（音源ファイルが無い枠）。
+   *
+   * 合成そのものは `audio/synth.ts` の純関数。ここは**器に移すだけ**にしてある
+   * （Web Audio が無い環境＝テストでも音の設計を検証できるようにするため）。
+   */
+  synthesize(name: SfxName): AudioBuffer | null {
+    const ctx = this.ensure();
+    if (ctx === null) return null;
+    try {
+      const samples = renderSfxSamples(name, ctx.sampleRate);
+      const buf = ctx.createBuffer(1, samples.length, ctx.sampleRate);
+      // `copyToChannel` の型は `Float32Array<ArrayBuffer>` を要求するが、
+      // `renderSfxSamples` の戻り値は `ArrayBufferLike`（SharedArrayBuffer も含む）なので
+      // そのままでは通らない。**器へ 1 要素ずつ写す**方が型の抜け道を作らずに済む
+      // （音は 1 回作ってキャッシュするので、この写しは 1 枠につき 1 度しか走らない）。
+      const dst = buf.getChannelData(0);
+      for (let i = 0; i < samples.length; i++) dst[i] = samples[i]!;
+      return buf;
     } catch {
       return null;
     }

@@ -87,6 +87,13 @@ export interface CampaignSave {
   savedAt: number;
   /** 帰艦直後の機体・兵装状態。次の格納庫判断に残す */
   lastSortie?: LastSortieCondition;
+  /**
+   * すでに見た章の導入カードのノードid（`veil-ch01` 形式）。
+   *
+   * 章カード（`src/ui/ChapterCard.ts`）は章に入った最初の一度だけ出す。
+   * 欠落耐性があるので旧セーブでも読める（未記録＝まだ見ていない扱い）。
+   */
+  seenChapters?: string[];
 }
 
 /**
@@ -131,6 +138,7 @@ export function newCampaignSave(mode: CampaignMode): CampaignSave {
     noEscortLost: true,
     noWingmanLost: true,
     savedAt: Date.now(),
+    seenChapters: [],
   };
 }
 
@@ -179,6 +187,10 @@ function parseSave(raw: string): CampaignSave | undefined {
       noWingmanLost: parsed.noWingmanLost !== false,
       savedAt: parsed.savedAt ?? Date.now(),
       lastSortie: normalizeLastSortie(parsed.lastSortie),
+    // 旧セーブには無い項目。欠落・型違いは空配列にする
+    seenChapters: Array.isArray(parsed.seenChapters)
+      ? parsed.seenChapters.filter((n): n is string => typeof n === 'string')
+      : [],
   };
 }
 
