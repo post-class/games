@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from 'three';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DIFFICULTIES } from '../../src/app/settings';
 import { DeckSequence } from '../../src/app/DeckSequence';
-import { missionDef } from '../../src/content/missions';
+import { TEST_PATROL } from './fixtures/missions';
 import { shipDef } from '../../src/content/ships';
 import { reseed } from '../../src/core/rng';
 import { LAUNCH_SPEED, LAUNCH_THROTTLE, MissionRunner } from '../../src/mission/MissionRunner';
@@ -19,7 +19,7 @@ beforeEach(() => {
 
 /** ミッションを開始して自機を得る（mission.test.ts と同じ組み立て） */
 function start(difficultyId: 'easy' | 'normal' | 'hard') {
-  const def = missionDef('m1-patrol');
+  const def = TEST_PATROL;
   const world = new World();
   const profile = DIFFICULTIES[difficultyId];
   setCombatOptions({

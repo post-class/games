@@ -2,12 +2,10 @@ import {
   campaignNode,
   campaignStart,
   hasCampaignNode,
-  isCampaignMode,
   isTerminal,
   newCampaignProgress,
   resolveCampaignOutcome,
   type CampaignHistoryEntry,
-  type CampaignMode,
   type CampaignNodeId,
   isGateOutcome,
   type CampaignOutcome,
@@ -17,11 +15,11 @@ import { PROTAGONISTS } from '../content/veil/people';
 import { newNarrative, normalizeNarrative, type NarrativeState } from './narrative';
 import { newAceStates, normalizeAceStates, type AceState } from '../content/aces';
 import { newRoster, normalizeRoster, type RosterState } from './roster';
-import { migrateFrontlineSystemId, newFrontlineState, normalizeFrontline, type FrontlineState } from '../content/frontline';
+import { newFrontlineState, normalizeFrontline, type FrontlineState } from '../content/frontline';
 import { newSupplies, normalizeSupplies, type SupplyState } from './supplies';
 import { newStatistics, normalizeStatistics, recordCampaignOutcome, type CampaignStatistics } from './statistics';
 
-export type EndingQuality = 'victory' | 'pyrrhic' | 'draw' | 'defeat';
+export type EndingQuality = 'victory' | 'defeat';
 
 export interface LastSortieCondition {
   outcome: 'win' | 'loss';
@@ -35,8 +33,6 @@ export interface LastSortieCondition {
 export interface CampaignSave {
   /** 現在のキャンペーンノード */
   node: CampaignNodeId;
-  /** canon=Enyo 起点の本家寄せ、expanded=従来の McCaffrey 起点、veil=THE VEIL FRONT 十章 */
-  campaignMode: CampaignMode;
   /** 主人公として選んだ人物id（`confed-01`〜`-05`）。選択前は未定義 */
   protagonistId?: string;
   /** 選択結果で管理する4状態（帰還者／航路信頼／軍令信用／敵エースの誓約） */
@@ -72,7 +68,6 @@ export interface CampaignSave {
   aceStates: AceState[];
   /** 星系ごとの戦況と、次に挿入する動的作戦 */
   frontline: FrontlineState;
-  dynamicMission?: import('../content/frontline').DynamicMissionRef;
   /** 艦内の有限資源 */
   supplies: SupplyState;
   /** 累積プレイ統計 */
@@ -97,28 +92,22 @@ export interface CampaignSave {
 }
 
 /**
- * 保存キーの版は上げない。
+ * 保存キーの版。
  *
- * 追加した `narrative` / `protagonistId` / `gateOutcome` はいずれも欠落耐性がある
- * （`parseSave` が `normalizeNarrative()` で既定値を作り、未知の主人公id・門の結末は
- * `undefined` に落とす）。旧 v3・v2 セーブをそのまま読み続けられるので、
- * 版を上げてプレイヤーの進行を捨てる理由がない。
+ * 戦役を THE VEIL FRONT だけにしたとき v3 → v4 へ上げた。旧 v3・v2 のセーブは
+ * `canon` / `expanded` で進めたものを含み、そのノードは今のグラフに存在しない。
+ * 読み替えても第1章へ戻るだけで進行の意味が残らないので、**読まずに捨てる**
+ * （タイトルの「続きから」に出さない）。
  */
-const KEY = 'multi-commander.campaign.v3';
-const LEGACY_KEY = 'multi-commander.campaign.v2';
+const KEY = 'multi-commander.campaign.v4';
 const SLOT_KEY_PREFIX = 'multi-commander.campaign.slot.v1.';
 export const SAVE_SLOT_COUNT = 8;
 
-export function newSave(mode: CampaignMode = 'expanded'): CampaignSave {
-  return newCampaignSave(mode);
-}
-
-/** 新しい save を明示したモードで作る。既存の newSave() は expanded のまま。 */
-export function newCampaignSave(mode: CampaignMode): CampaignSave {
-  const progress = newCampaignProgress(mode);
+/** 新しい戦役の save を作る。戦役は THE VEIL FRONT だけなので引数は取らない。 */
+export function newCampaignSave(): CampaignSave {
+  const progress = newCampaignProgress();
   return {
     node: progress.currentNode,
-    campaignMode: mode,
     seriesScore: progress.score,
     campaignHistory: [],
     campaignSituation: progress.lastSituation,
@@ -144,7 +133,7 @@ export function newCampaignSave(mode: CampaignMode): CampaignSave {
 
 export function loadSave(): CampaignSave | undefined {
   try {
-    const raw = localStorage.getItem(KEY) ?? localStorage.getItem(LEGACY_KEY);
+    const raw = localStorage.getItem(KEY);
     return raw ? parseSave(raw) : undefined;
   } catch {
     return undefined;
@@ -154,19 +143,17 @@ export function loadSave(): CampaignSave | undefined {
 function parseSave(raw: string): CampaignSave | undefined {
   const parsed = JSON.parse(raw) as Partial<CampaignSave>;
   if (typeof parsed.node !== 'string') return undefined;
-  const campaignMode: CampaignMode = isCampaignMode(parsed.campaignMode) ? parsed.campaignMode : 'expanded';
-  const node = isTerminal(parsed.node) || hasCampaignNode(parsed.node, campaignMode) ? parsed.node : campaignStart(campaignMode);
+  const node = isTerminal(parsed.node) || hasCampaignNode(parsed.node) ? parsed.node : campaignStart();
   return {
     node,
-    campaignMode,
     protagonistId: normalizeProtagonistId(parsed.protagonistId),
     narrative: normalizeNarrative(parsed.narrative),
     gateOutcome: isGateOutcome(parsed.gateOutcome) ? parsed.gateOutcome : undefined,
     seriesScore: finiteNumber(parsed.seriesScore, 0),
-    campaignHistory: normalizeCampaignHistory(parsed.campaignHistory, campaignMode),
+    campaignHistory: normalizeCampaignHistory(parsed.campaignHistory),
     campaignSituation: typeof parsed.campaignSituation === 'string'
       ? parsed.campaignSituation
-      : isTerminal(node) ? '戦役の終端に到達した。' : campaignNode(node, campaignMode).situation,
+      : isTerminal(node) ? '戦役の終端に到達した。' : campaignNode(node).situation,
     totalKills: parsed.totalKills ?? 0,
     sorties: parsed.sorties ?? 0,
     cleared: Array.isArray(parsed.cleared) ? parsed.cleared : [],
@@ -179,7 +166,6 @@ function parseSave(raw: string): CampaignSave | undefined {
       : [],
     aceStates: normalizeAceStates(parsed.aceStates),
     frontline: normalizeFrontline(parsed.frontline),
-    dynamicMission: normalizeDynamicMission(parsed.dynamicMission),
     supplies: normalizeSupplies(parsed.supplies),
     statistics: normalizeStatistics(parsed.statistics),
     ending: normalizeEnding(parsed.ending),
@@ -228,14 +214,14 @@ function finiteNumber(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
-function normalizeCampaignHistory(raw: unknown, mode: CampaignMode): CampaignHistoryEntry[] {
+function normalizeCampaignHistory(raw: unknown): CampaignHistoryEntry[] {
   if (!Array.isArray(raw)) return [];
   return raw.flatMap((entry): CampaignHistoryEntry[] => {
     if (!entry || typeof entry !== 'object') return [];
     const r = entry as Partial<CampaignHistoryEntry>;
-    if (typeof r.node !== 'string' || !hasCampaignNode(r.node, mode)) return [];
+    if (typeof r.node !== 'string' || !hasCampaignNode(r.node)) return [];
     if (r.outcome !== 'win' && r.outcome !== 'loss') return [];
-    if (typeof r.nextNode !== 'string' || (!isTerminal(r.nextNode) && !hasCampaignNode(r.nextNode, mode))) return [];
+    if (typeof r.nextNode !== 'string' || (!isTerminal(r.nextNode) && !hasCampaignNode(r.nextNode))) return [];
     if (r.route !== 'advance' && r.route !== 'hold' && r.route !== 'retreat') return [];
     return [{
       node: r.node,
@@ -247,17 +233,6 @@ function normalizeCampaignHistory(raw: unknown, mode: CampaignMode): CampaignHis
   });
 }
 
-function normalizeDynamicMission(raw: unknown): CampaignSave['dynamicMission'] {
-  if (!raw || typeof raw !== 'object') return undefined;
-  const r = raw as Partial<NonNullable<CampaignSave['dynamicMission']>>;
-  if (typeof r.id !== 'string' || typeof r.returnNode !== 'string' || typeof r.seed !== 'number') return undefined;
-  // 旧セーブの戦域名（McCaffrey / Gimle / Vega）は新戦域idへ移行して残す。
-  // 判別できない値だけ、進行中の動的作戦を捨てる（次回ハブで再選択できる）。
-  const system = migrateFrontlineSystemId(r.system);
-  if (!system) return undefined;
-  if (!['patrol', 'escort', 'strike', 'rescue', 'quiet', 'capital'].includes(String(r.kind))) return undefined;
-  return { id: r.id, system, kind: r.kind!, seed: r.seed, returnNode: r.returnNode };
-}
 
 /** 主人公id。`PROTAGONISTS`（confed-01〜-05）にあるidだけ許可し、未知の値は捨てる */
 function normalizeProtagonistId(raw: unknown): string | undefined {
@@ -266,7 +241,7 @@ function normalizeProtagonistId(raw: unknown): string | undefined {
 }
 
 function normalizeEnding(raw: unknown): CampaignSave['ending'] {
-  return raw === 'victory' || raw === 'pyrrhic' || raw === 'draw' || raw === 'defeat' ? raw : undefined;
+  return raw === 'victory' || raw === 'defeat' ? raw : undefined;
 }
 
 function normalizeLastSortie(raw: unknown): LastSortieCondition | undefined {
@@ -305,7 +280,6 @@ export function writeSave(save: CampaignSave): void {
  */
 export function advanceCampaignSave(save: CampaignSave, outcome: CampaignOutcome) {
   const progress = {
-    mode: save.campaignMode,
     currentNode: save.node,
     score: save.seriesScore,
     history: save.campaignHistory.map((entry) => ({ ...entry })),
@@ -317,7 +291,6 @@ export function advanceCampaignSave(save: CampaignSave, outcome: CampaignOutcome
   save.campaignHistory = progress.history;
   save.campaignSituation = transition.situation;
   recordCampaignOutcome(save.statistics, {
-    mode: save.campaignMode,
     node: transition.node,
     outcome,
     points: transition.points,
@@ -331,7 +304,6 @@ export function advanceCampaignSave(save: CampaignSave, outcome: CampaignOutcome
 export function clearSave(): void {
   try {
     localStorage.removeItem(KEY);
-    localStorage.removeItem(LEGACY_KEY);
     for (let i = 0; i < SAVE_SLOT_COUNT; i++) localStorage.removeItem(slotKey(i));
   } catch {
     /* ignore */

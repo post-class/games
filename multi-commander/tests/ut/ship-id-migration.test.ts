@@ -3,7 +3,7 @@ import { SHIPS, SHIP_ID_ALIASES, shipDef } from '../../src/content/ships';
 import { MISSIONS } from '../../src/content/missions';
 import { EXTRA_MISSIONS } from '../../src/content/extraMissions';
 import { ACES, RADICAL_SQUADRON } from '../../src/content/aces';
-import { chooseDynamicMission, dynamicMissionDef, newFrontlineState, FRONTLINE_SYSTEM_IDS } from '../../src/content/frontline';
+import { DYNAMIC_KINDS, dynamicMissionDef, FRONTLINE_SYSTEM_IDS } from '../../src/content/frontline';
 import type { MissionDef } from '../../src/mission/types';
 
 /**
@@ -27,29 +27,18 @@ function shipIdsOf(m: MissionDef): string[] {
   return ids.filter((id): id is string => typeof id === 'string' && id.length > 0);
 }
 
-/** 動的作戦は生成関数なので、全システム × 全種別を実際に組み立てて走査する。 */
+/**
+ * 動的作戦は生成関数なので、全戦域 × 全種別を実際に組み立てて走査する。
+ * 以前は `chooseDynamicMission()` に選ばせていたが、戦役から動的作戦を挿入する
+ * 経路を削除したので、ここでは全組み合わせを直接列挙する（より網羅的）。
+ */
 function dynamicMissions(): MissionDef[] {
   const out: MissionDef[] = [];
-  const state = newFrontlineState();
-  // 戦況の分岐（logistics 低 / pressure 高 / 通常）をすべて通し、全 kind を生成させる。
-  const variants: Array<(id: string) => void> = [
-    (id) => {
-      state.systems[id as keyof typeof state.systems].logistics = 10;
-      state.systems[id as keyof typeof state.systems].pressure = 40;
-    },
-    (id) => {
-      state.systems[id as keyof typeof state.systems].logistics = 80;
-      state.systems[id as keyof typeof state.systems].pressure = 90;
-    },
-    (id) => {
-      state.systems[id as keyof typeof state.systems].logistics = 80;
-      state.systems[id as keyof typeof state.systems].pressure = 40;
-    },
-  ];
-  for (const apply of variants) {
-    for (const sys of FRONTLINE_SYSTEM_IDS) apply(sys);
-    for (let serial = 0; serial < FRONTLINE_SYSTEM_IDS.length * 6; serial++) {
-      out.push(dynamicMissionDef(chooseDynamicMission(state, 'hangar', serial)));
+  let seed = 0;
+  for (const system of FRONTLINE_SYSTEM_IDS) {
+    for (const kind of DYNAMIC_KINDS) {
+      seed += 1;
+      out.push(dynamicMissionDef({ id: `t-${system}-${kind}`, system, kind, seed, returnNode: 'veil-ch01' }));
     }
   }
   return out;
@@ -57,7 +46,7 @@ function dynamicMissions(): MissionDef[] {
 
 describe('ミッション定義の機体idは新idを直接参照する', () => {
   const cases: Array<[string, MissionDef[]]> = [
-    ['MISSIONS（既存11ミッション）', Object.values(MISSIONS)],
+    ['MISSIONS（外周作戦＋十章）', Object.values(MISSIONS)],
     ['EXTRA_MISSIONS', EXTRA_MISSIONS],
     ['dynamicMissionDef（動的作戦）', dynamicMissions()],
   ];

@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from 'three';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DIFFICULTIES } from '../../src/app/settings';
 import { reseed } from '../../src/core/rng';
-import { missionDef } from '../../src/content/missions';
+import { TEST_DEFEND, TEST_PATROL, TEST_STRIKE } from './fixtures/missions';
 import { shipDef } from '../../src/content/ships';
 import { VEIL_CH04 } from '../../src/content/veil/missions/ch04';
 import { VEIL_CH05 } from '../../src/content/veil/missions/ch05';
@@ -64,7 +64,7 @@ describe('第4章 重力井戸の宣言', () => {
     void runner;
 
     // 別のミッションを開くと必ず捨てられる (前の作戦の重力が残らない)
-    start(missionDef('m1-patrol'));
+    start(TEST_PATROL);
     expect(gravityWellState().wells.length).toBe(0);
   });
 });
@@ -252,8 +252,7 @@ describe('移動する残骸帯', () => {
   });
 
   it('drift を宣言していない既存ミッションの小惑星帯は静的なまま (回帰)', () => {
-    for (const id of ['m1-patrol', 'm3-strike']) {
-      const def = missionDef(id);
+    for (const def of [TEST_PATROL, TEST_STRIKE]) {
       for (const h of def.hazards ?? []) expect(h.drift).toBeUndefined();
       const { world } = start(def);
       if (world.entities.some((e) => e.kind === 'rock')) {
@@ -519,18 +518,18 @@ describe('既存ミッションの回帰', () => {
     // 決闘の宣言が残っている状態で別のミッションを開いても持ち越されない
     configureDuel({ duellistId: 11, opponentId: 12 });
     expect(duelState().rules).toBeDefined();
-    start(missionDef('m5-ace'));
+    start(TEST_DEFEND);
     expect(duelState().rules).toBeUndefined();
     expect(duelActive()).toBe(false);
 
     start(VEIL_CH04);
     expect(gravityWellState().wells.length).toBe(1);
-    start(missionDef('m5-ace'));
+    start(TEST_DEFEND);
     expect(gravityWellState().wells.length).toBe(0);
   });
 
   it('m1-patrol は従来どおり飛べる (実効質量倍率が常に 1)', () => {
-    const { world } = start(missionDef('m1-patrol'));
+    const { world } = start(TEST_PATROL);
     const player = world.player!;
     player.input!.throttle = 1;
     for (let i = 0; i < 600; i++) {
@@ -557,7 +556,7 @@ describe('既存ミッションの回帰', () => {
   });
 
   it('m5-ace はエースを従来どおり出せる (決闘モードに入らない)', () => {
-    const { world, runner } = start(missionDef('m5-ace'));
+    const { world, runner } = start(TEST_DEFEND);
     const player = world.player!;
     for (let i = 0; i < 600; i++) {
       simulateStep(world, DT, { flightMode: 'wc', ai: { maxAttackersOnPlayer: 4 } });
@@ -570,7 +569,7 @@ describe('既存ミッションの回帰', () => {
   });
 
   it('m5-ace ではミサイルも従来どおり使われる (弾道の曲げは掛からない)', () => {
-    const { world } = start(missionDef('m5-ace'));
+    const { world } = start(TEST_DEFEND);
     const missile = spawnMissile(world, {
       missileId: 'heat-seeker',
       pos: new Vector3(0, 0, 0),

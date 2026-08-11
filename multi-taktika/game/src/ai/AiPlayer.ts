@@ -77,6 +77,90 @@ export interface AiLevelConfig {
    */
   readonly villagerBuilderCount: number;
   /**
+   * 人口の余裕がこの人数以下になったら家を建てる（`population.housePop` = 5 より広く取る）。
+   *
+   * ■ なぜ設定値にしたか（実測。段階 4・ローマ 対 ヤマト・30 分）
+   * ```
+   * 15分 時代1 兵9  村26 人口35/40 家6 生産元0 wood10
+   * 30分 時代1 兵12 村26 人口38/40 家6 生産元0 wood11
+   * ```
+   * **家が 6 棟で止まり、人口上限 40 に張り付いた**まま 15 分が過ぎている。
+   * 人口が増えないので村人も兵も増えない。上限に当たってから建て始めると、
+   * 家 1 棟（20 秒前後）のあいだ生産が完全に止まるので、
+   * **余裕がまだあるうちに建て始める**必要がある。段階が上ほど先読みを広く取る。
+   */
+  readonly houseHeadroomPop: number;
+  /**
+   * 資源の不足額を数えるときに見込む家の棟数。
+   *
+   * 家は「建てたいもの」の中でいちばん途切れてはいけないものなので、
+   * 1 棟ぶんだけ見込むと採集の割り当てが家を建てた直後に木材から離れてしまう。
+   * 数棟ぶんを見込んでおくと木材に人が残る。
+   */
+  readonly housePlanAhead: number;
+  /**
+   * 資源の不足額を数えるときに見込む**兵の生産元の棟数**。
+   *
+   * ■ なぜ 1 棟では足りないか（実測）
+   * 木材の必要額に生産元を 1 棟（175）だけ見込むと、それを超えたぶんは
+   * 農地に回る。実測では黎明の世のあいだに**農地が 17 面（木材 1,020）**建ち、
+   * 青銅に上がった時点の木材は 335 しか残っていなかった。
+   * 兵舎（175）と射場（175）で 350 なので、**生産元が 1 棟しか建たない**。
+   * 兵種の相性（`03`）があるので近接と遠隔の 2 系統は欲しい ―― だから 2 棟ぶん見込む。
+   */
+  readonly producerPlanAhead: number;
+  /**
+   * 1 回の判断で配置換えする村人の上限。
+   *
+   * すでに働いている村人も動かすようにしたので、上限が無いと
+   * 全員が同じ資源へ殺到し、`gather` コマンドが毎判断ごとに出て
+   * APM（`07§11` / `tests/balance/apm.test.ts` の 60）を食い潰す。
+   */
+  readonly reassignPerDecision: number;
+  /**
+   * 村人のうち**食料に残す最低割合**（百分率。整数）。
+   *
+   * 不足額に比例して割り当てると、木材が枯れた局面で全員が木材へ動いてしまう。
+   * 食料は村人と兵の元なので、切らすと立て直せない。人間も「木が足りない」ときに
+   * 畑と果樹を空にはしない。
+   */
+  readonly foodWorkerMinPercent: number;
+  /**
+   * 村人のうち**木材に残す最低割合**（百分率。整数）。
+   *
+   * 木材は家と生産元の元。枯らすと人口上限に張り付き、兵舎も建たない
+   * （この改修の発端になった実測: 木材 11・家 6 棟・生産元 0 棟・人口 38/40）。
+   * 下で `ageWorkerMinPercent` に人を回すので、その分ここで底を守る。
+   */
+  readonly woodWorkerMinPercent: number;
+  /**
+   * **次の世にまだ足りない資源**に回す村人の最低割合（百分率。整数）。
+   * 対象が複数なら等分し、端数は資源の添字が小さい方へ。上げない段階は 0。
+   *
+   * ■ なぜ比例配分と別に下限が要るのか（実測）
+   * **時代が上がることの価値は不足額の大きさに比例しない。**
+   * 「あと金 110 で鉄器」のときの金 110 は、木材 610 よりはるかに効く
+   * （時代は兵の質・戦域スロット・研究・攻城兵器のすべての上限）。
+   * 不足額に比例させるだけだと木材（生産元 2 棟 + 搬入点 = 610 前後）が常に勝ち、
+   * 金には人が回らない ―― 実測（段階 4・3 組・30 分）で金が 89〜170 で頭打ちになり、
+   * **3 組すべてが 30 分ずっと青銅の世のまま**だった。
+   */
+  readonly ageWorkerMinPercent: number;
+  /**
+   * 同じ村人を配置換えできる間隔（秒）。
+   *
+   * 配置換えは判断ごとに走るので、間隔を置かないと村人が歩き続けて 1 度も搬入しない
+   * （実測: 食料が 10 分で 423 → 35 に落ちた）。採集 1 往復ぶんは触らないための値。
+   */
+  readonly reassignCooldownSec: number;
+  /**
+   * 資源の不足額を数えるときに見込む兵の体数。
+   *
+   * 兵を作りたいなら、その費用も「詰まっている資源」の判断に入れる必要がある。
+   * 攻めない段階（1）は 0。
+   */
+  readonly unitDemandCount: number;
+  /**
    * 村人を何体まで出すか。**ここで止めて資源を貯める。**
    *
    * これが無いと、AI は入ってきた資源を全部その場で村人に変えてしまい、
@@ -105,6 +189,22 @@ export interface AiLevelConfig {
   readonly ageReserveRatioAfterFirst: number;
   /** 最初の世（黎明 → 青銅）のために取り置く割合（0〜1）。 */
   readonly ageReserveRatioFirst: number;
+  /**
+   * 次の世の費用のうち**すでに手元にある割合**（百分率）がこれを超えたら、
+   * 取り置きを `ageReserveRatioFirst`（全額）に切り替える ―― **上がる直前は貯め切る**。
+   *
+   * ■ なぜ動かす必要があるのか（実測。どちらに固定しても決着しなかった）
+   *  - 割合を 0.5 に固定 → 兵が「取り置きを超えたぶん」を毎回食べるので手持ちが
+   *    取り置きの額に張り付き、食料 400〜520・金 89〜170 で頭打ち。
+   *    鉄器の世（食料 800・金 200）に **3 組すべてが 30 分間届かなかった**。
+   *  - 常に全額取り置き → 鉄器には 20〜25 分で届くが、兵が 30 分で 4〜9 体に細り、
+   *    拠点を殴る手が無くなる（これも決着しない）。
+   *  - 兵の下限（`armyFloorSquads`）を 1 → 5 に上げて補う形も試したが、
+   *    序盤に兵 8〜9 体を抱えて内政が細り、村人が 24 → 16 に減って
+   *    **青銅の世が 15 分 → 20〜30 分に遅れた**。
+   * 人間は「もう少しで上がれる」ところまで来たら兵を止めて貯め切る ―― その形。
+   */
+  readonly ageFinishFromPercent: number;
   /**
    * **取り置きを無視して必ず抱える兵の量**を「戦域 1 本ぶんの何倍か」で表す
    * （`front.spawnMinUnits` の倍数）。0 なら兵を抱えない（＝攻めない段階）。
@@ -168,11 +268,21 @@ function buildLevels(): AiLevelConfig[] {
       allowSiege: a['allowSiege'] === true,
       allowDecoy: a['allowDecoy'] === true,
       allowAdvanceAge: a['allowAdvanceAge'] === true,
+      houseHeadroomPop: int(a['houseHeadroomPop'], 5),
+      housePlanAhead: int(a['housePlanAhead'], 1),
+      producerPlanAhead: int(a['producerPlanAhead'], 1),
+      reassignPerDecision: int(a['reassignPerDecision'], 1),
+      foodWorkerMinPercent: int(a['foodWorkerMinPercent'], 40),
+      woodWorkerMinPercent: int(a['woodWorkerMinPercent'], 20),
+      ageWorkerMinPercent: int(a['ageWorkerMinPercent'], 0),
+      reassignCooldownSec: int(a['reassignCooldownSec'], 20),
+      unitDemandCount: int(a['unitDemandCount'], 0),
       villagerBuilderCount: int(a['villagerBuilderCount'], 2),
       villagerTarget: int(a['villagerTarget'], 18),
       villagerBankFrom: int(a['villagerBankFrom'], 12),
       ageReserveRatioAfterFirst: num(a['ageReserveRatioAfterFirst'], 0.5),
       ageReserveRatioFirst: num(a['ageReserveRatioFirst'], 1),
+      ageFinishFromPercent: int(a['ageFinishFromPercent'], 0),
       armyFloorSquads: int(a['armyFloorSquads'], 2),
       siegeMinSquads: int(a['siegeMinSquads'], 2),
       siegeStageRadiusTiles: int(a['siegeStageRadiusTiles'], 20),
@@ -227,6 +337,33 @@ export interface AiMemory {
   readonly villagerRole: number[];
   /** その建設係が空くと見込まれる tick（建物の `buildTicks` から算出）。 */
   readonly villagerBusyUntil: number[];
+  /**
+   * **その村人に最後に採らせるよう命じた資源**（`RESOURCE_IDS` の添字 + 1。0 = まだ命じていない）。
+   *
+   * ■ なぜ必要か
+   * `AiView` には「その村人がいま何を採っているか」が入っていない
+   * （`carryKind` は盤面側の情報で、視界の構造に載っていない）。
+   * それでも**資源ごとの働き手の数**が分からないと、
+   * 「余っている資源を採り続け、詰まっている資源を採らない」を直せない。
+   * 実測（段階 4・30 分）では村人 26 人の配分が
+   * 「食料 12〜13 / 木材 3〜4 / 金 1〜6」で固定され、食料 1,838・金 907 が余る一方で
+   * **木材 11 で枯れ、家が 6 棟・生産元 0 棟のまま**だった。
+   *
+   * これは盤面ではなく**自分が出した命令の記録**なので、ズルにはならない
+   * （人間も「あの 5 人を森に送った」ことは覚えている）。
+   * 開始時の村人は `setup` が就かせているので 0（未把握）のままで、
+   * 配置換えの最初の候補になる。
+   */
+  readonly villagerResource: number[];
+  /**
+   * その村人に最後に `gather` を命じた tick（0 = まだ）。
+   *
+   * **同じ村人を続けて動かさないため**の記録。配置換えは 2 秒ごとの判断で
+   * 走るので、これが無いと「森へ歩き出す → 次の判断で果樹へ送られる」を
+   * 延々と繰り返し、1 度も搬入しないまま歩き続ける。
+   * 実測（この記録を入れる前）では食料の手持ちが 10 分で 423 → 35 に落ちた。
+   */
+  readonly villagerMoveTick: number[];
   /**
    * 採集先を 4 資源に順番で割り当てるための通し番号（要素 1 個の配列）。
    *
@@ -312,6 +449,8 @@ function createMemory(): AiMemory {
     villagerKnownId: [],
     villagerRole: [],
     villagerBusyUntil: [],
+    villagerResource: [],
+    villagerMoveTick: [],
     gatherAssignSeq: [],
     nodeIds: [],
     nodeResource: [],

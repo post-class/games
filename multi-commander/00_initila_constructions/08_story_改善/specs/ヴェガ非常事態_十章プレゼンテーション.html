@@ -1,0 +1,1247 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#07101a">
+    <meta
+      name="description"
+      content="THE VEIL FRONT 十章作戦記録を、各章の前説と本節による全20スライドで読むプレゼンテーション。"
+    >
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='22' fill='none' stroke='%2369dcf7' stroke-width='6'/%3E%3Ccircle cx='32' cy='32' r='5' fill='%23f0c86b'/%3E%3C/svg%3E">
+    <title>THE VEIL FRONT｜十章プレゼンテーション</title>
+    <style>
+      :root {
+        --ink: #07101a;
+        --ink-2: #0d1621;
+        --paper: #f2eee4;
+        --paper-ink: #15191f;
+        --white: #f6f7f9;
+        --muted: #9cabb9;
+        --accent: #69dcf7;
+        --danger: #f06a79;
+        --gold: #f0c86b;
+        --line: rgba(255, 255, 255, 0.14);
+        --serif: "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif JP", serif;
+        --sans: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+        --mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        background: #03070b;
+        scroll-behavior: smooth;
+        scroll-snap-type: y mandatory;
+      }
+
+      body {
+        margin: 0;
+        overflow-x: hidden;
+        background: #03070b;
+        color: var(--white);
+        font-family: var(--sans);
+      }
+
+      button,
+      a {
+        font: inherit;
+      }
+
+      .deck-header {
+        position: fixed;
+        z-index: 50;
+        top: 18px;
+        left: 22px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        color: rgba(255, 255, 255, 0.82);
+        font: 700 10px/1 var(--mono);
+        letter-spacing: 0.16em;
+        pointer-events: none;
+        text-transform: uppercase;
+      }
+
+      .deck-header::before {
+        width: 26px;
+        height: 2px;
+        background: var(--accent);
+        box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 70%, transparent);
+        content: "";
+      }
+
+      .deck-progress {
+        position: fixed;
+        z-index: 60;
+        top: 0;
+        left: 0;
+        width: 5%;
+        height: 3px;
+        background: linear-gradient(90deg, #69dcf7, #b59af4, #f06a79);
+        box-shadow: 0 0 16px rgba(105, 220, 247, 0.55);
+        transition: width 0.35s ease;
+      }
+
+      .deck-nav {
+        position: fixed;
+        z-index: 55;
+        right: 20px;
+        bottom: 18px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 999px;
+        background: rgba(4, 8, 13, 0.82);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(14px);
+      }
+
+      .deck-nav button,
+      .deck-nav a {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 50%;
+        background: transparent;
+        color: #d9e5ef;
+        cursor: pointer;
+        place-items: center;
+        text-decoration: none;
+      }
+
+      .deck-nav button:hover,
+      .deck-nav button:focus-visible,
+      .deck-nav a:hover,
+      .deck-nav a:focus-visible {
+        border-color: var(--accent);
+        color: #fff;
+        outline: none;
+      }
+
+      .deck-nav output {
+        min-width: 58px;
+        color: #c3d1de;
+        font: 700 10px/1 var(--mono);
+        letter-spacing: 0.1em;
+        text-align: center;
+      }
+
+      .slides {
+        width: 100%;
+      }
+
+      .slide {
+        --accent: #69dcf7;
+        position: relative;
+        display: grid;
+        grid-template-columns: minmax(0, 30%) minmax(0, 70%);
+        width: 100%;
+        height: 100svh;
+        min-height: 100svh;
+        overflow: hidden;
+        background: var(--ink);
+        scroll-snap-align: start;
+        scroll-snap-stop: always;
+      }
+
+      .slide-image {
+        position: relative;
+        height: 100svh;
+        min-height: 100svh;
+        margin: 0;
+        overflow: hidden;
+        background: #02060a;
+      }
+
+      .slide-image img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        min-height: 100svh;
+        object-fit: cover;
+        object-position: var(--focus, center);
+        filter: saturate(0.92) contrast(1.04);
+        transform: scale(1.001);
+      }
+
+      .slide-image::before {
+        position: absolute;
+        z-index: 2;
+        inset: 0;
+        background:
+          linear-gradient(90deg, rgba(3, 7, 11, 0.05) 55%, var(--ink) 100%),
+          linear-gradient(0deg, rgba(3, 7, 11, 0.68), transparent 34%);
+        content: "";
+        pointer-events: none;
+      }
+
+      .slide-image::after {
+        position: absolute;
+        z-index: 3;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--accent), transparent 72%);
+        content: "";
+      }
+
+      .image-caption {
+        position: absolute;
+        z-index: 4;
+        right: 26px;
+        bottom: 24px;
+        left: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        color: rgba(255, 255, 255, 0.76);
+        font: 700 9px/1.5 var(--mono);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .image-caption span:last-child {
+        color: var(--accent);
+        text-align: right;
+      }
+
+      .slide-copy {
+        position: relative;
+        display: block;
+        min-width: 0;
+        height: 100svh;
+        min-height: 0;
+        overflow: hidden;
+        padding: clamp(44px, 5vh, 64px) clamp(34px, 3.5vw, 58px) clamp(44px, 5vh, 64px);
+        background:
+          radial-gradient(circle at 90% 10%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 32%),
+          var(--ink);
+      }
+
+      .slide-copy-inner {
+        display: flow-root;
+        width: 100%;
+        min-width: 0;
+        transform-origin: top left;
+      }
+
+      .slide-main .slide-copy {
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.025), transparent 48%),
+          #10161e;
+      }
+
+      .chapter-kicker {
+        display: flex;
+        min-height: 20px;
+        align-items: center;
+        gap: 12px;
+        margin: 0 0 clamp(18px, 3vh, 28px);
+        color: var(--accent);
+        font: 800 10px/1 var(--mono);
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .chapter-kicker::before {
+        width: 34px;
+        height: 2px;
+        background: currentColor;
+        content: "";
+      }
+
+      .chapter-kicker b {
+        color: #fff;
+      }
+
+      .slide h1,
+      .slide h2 {
+        max-width: 16em;
+        margin: 0;
+        color: #fff;
+        font-family: var(--serif);
+        font-size: clamp(32px, 4.25vw, 58px);
+        font-weight: 800;
+        letter-spacing: -0.055em;
+        line-height: 1.16;
+      }
+
+      .slide h1 small,
+      .slide h2 small {
+        display: block;
+        margin-top: 12px;
+        color: var(--accent);
+        font-family: var(--sans);
+        font-size: 0.28em;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        line-height: 1.5;
+      }
+
+      .lead {
+        max-width: none;
+        margin: clamp(18px, 3vh, 28px) 0 0;
+        color: #c8d4df;
+        font-family: var(--serif);
+        font-size: clamp(14px, 1.45vw, 19px);
+        line-height: 1.85;
+      }
+
+      .story-detail {
+        max-width: none;
+        margin: clamp(20px, 3vh, 30px) 0 0;
+        padding: 17px 0 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.14);
+      }
+
+      .story-detail::before {
+        display: block;
+        margin-bottom: 11px;
+        color: var(--accent);
+        content: "STORY DETAIL / 作戦記録";
+        font: 800 9px/1.3 var(--mono);
+        letter-spacing: 0.14em;
+      }
+
+      .story-detail p {
+        margin: 0;
+        color: #bcc9d5;
+        font-size: 16px;
+        line-height: 1.9;
+      }
+
+      .story-detail p + p {
+        margin-top: 13px;
+      }
+
+      .evidence {
+        display: grid;
+        gap: 10px;
+        margin: clamp(20px, 3.3vh, 32px) 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .evidence li {
+        position: relative;
+        padding: 0 0 0 21px;
+        color: #dce6ee;
+        font-size: clamp(12px, 1.15vw, 15px);
+        line-height: 1.7;
+      }
+
+      .evidence li::before {
+        position: absolute;
+        top: 0.69em;
+        left: 0;
+        width: 8px;
+        height: 2px;
+        background: var(--accent);
+        content: "";
+      }
+
+      .evidence strong {
+        color: #fff;
+      }
+
+      .quote {
+        position: relative;
+        margin: clamp(22px, 3.7vh, 36px) 0 0;
+        padding: 15px 0 0 20px;
+        border-top: 1px solid rgba(255, 255, 255, 0.14);
+        color: #fff;
+        font-family: var(--serif);
+        font-size: clamp(14px, 1.45vw, 19px);
+        font-weight: 700;
+        line-height: 1.75;
+      }
+
+      .quote::before {
+        position: absolute;
+        top: 18px;
+        left: 0;
+        color: var(--accent);
+        content: "“";
+        font: 900 31px/1 var(--serif);
+      }
+
+      .quote cite {
+        display: block;
+        margin-top: 6px;
+        color: var(--muted);
+        font: 700 9px/1.4 var(--mono);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .mission-rail {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 7px;
+        margin-top: clamp(19px, 3vh, 29px);
+        padding-top: 15px;
+        border-top: 1px solid rgba(255, 255, 255, 0.14);
+      }
+
+      .mission-rail div {
+        display: grid;
+        grid-template-columns: 74px 1fr;
+        gap: 12px;
+        align-items: baseline;
+      }
+
+      .mission-rail dt {
+        color: var(--accent);
+        font: 800 9px/1.3 var(--mono);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .mission-rail dd {
+        margin: 0;
+        color: #d8e2eb;
+        font-size: clamp(11px, 1vw, 13px);
+        line-height: 1.55;
+      }
+
+      .slide-index {
+        display: none;
+      }
+
+      .chapter-mark {
+        position: absolute;
+        top: 50%;
+        right: 15px;
+        transform: translateY(-50%);
+        color: rgba(255, 255, 255, 0.045);
+        font: 900 clamp(110px, 16vw, 220px)/1 var(--mono);
+        letter-spacing: -0.12em;
+        pointer-events: none;
+      }
+
+      .slide.is-current .slide-image img {
+        animation: image-breathe 11s ease-out both;
+      }
+
+      @keyframes image-breathe {
+        from { transform: scale(1.035); }
+        to { transform: scale(1.001); }
+      }
+
+      @media (max-width: 820px) {
+        html {
+          scroll-snap-type: none;
+        }
+
+        .deck-header {
+          top: 12px;
+          left: 14px;
+          font-size: 8px;
+        }
+
+        .deck-nav {
+          right: 10px;
+          bottom: 10px;
+        }
+
+        .slide {
+          grid-template-columns: 1fr;
+          height: auto;
+          min-height: auto;
+        }
+
+        .slide-image {
+          height: 46svh;
+          min-height: 46svh;
+        }
+
+        .slide-image img {
+          height: 46svh;
+          min-height: 46svh;
+        }
+
+        .slide-image::before {
+          background:
+            linear-gradient(0deg, var(--ink) 0%, transparent 38%),
+            linear-gradient(90deg, rgba(3, 7, 11, 0.08), rgba(3, 7, 11, 0.14));
+        }
+
+        .image-caption {
+          right: 16px;
+          bottom: 12px;
+          left: 16px;
+          font-size: 7px;
+        }
+
+        .slide-copy {
+          height: auto;
+          min-height: 54svh;
+          overflow: visible;
+          padding: 48px 24px 76px;
+        }
+
+        .slide-copy-inner {
+          width: 100% !important;
+          transform: none !important;
+        }
+
+        .slide h1,
+        .slide h2 {
+          max-width: 13em;
+          font-size: clamp(30px, 9vw, 46px);
+        }
+
+        .lead,
+        .quote {
+          font-size: 15px;
+        }
+
+        .evidence li {
+          font-size: 13px;
+        }
+
+        .story-detail p {
+          font-size: 16px;
+          line-height: 1.85;
+        }
+
+        .chapter-mark {
+          display: none;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+
+        .slide.is-current .slide-image img {
+          animation: none;
+        }
+      }
+
+      @media print {
+        .deck-header,
+        .deck-progress,
+        .deck-nav {
+          display: none;
+        }
+
+        .slide {
+          width: 13.333in;
+          min-height: 7.5in;
+          break-after: page;
+        }
+
+        .slide-image,
+        .slide-image img,
+        .slide-copy {
+          min-height: 7.5in;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="deck-progress" aria-hidden="true"></div>
+    <div class="deck-header">The Veil Front / 10 Chapters / 20 Slides</div>
+    <nav class="deck-nav" aria-label="スライド操作">
+      <button type="button" data-action="prev" aria-label="前のスライド">←</button>
+      <output aria-live="polite">01 / 20</output>
+      <button type="button" data-action="next" aria-label="次のスライド">→</button>
+      <a href="../../../docs/ストーリー_十章作戦記録.html" aria-label="十章作戦記録へ戻る">↗</a>
+    </nav>
+
+    <main class="slides">
+      <section class="slide slide-prelude" id="slide-01" data-label="CH1 前説" style="--accent:#69dcf7;--focus:48% center">
+        <figure class="slide-image">
+          <img src="assets/vega-emergency-presentation/slide-01.webp" alt="赤色警報の作戦室で、ハート艦長が出撃経路を示す" width="1536" height="1024" fetchpriority="high">
+          <figcaption class="image-caption"><span>Orion Port / Briefing Room</span><span>Chapter 01 — Prelude</span></figcaption>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">01</div>
+          <div class="chapter-kicker"><b>Chapter 01</b> / 前説</div>
+          <h1>一隻の救難船が、戦争の前提を崩す<small>火種は救難信号のなかに</small></h1>
+          <p class="lead">避難民輸送を待つ三百隻の外側で、連邦識別を返す輸送船〈アストラ・メイ〉が救難信号を発した。</p>
+          <div class="story-detail">
+            <p>現場で待っていたのは、輸送船に取り付いたキルラシー先遣隊三機と、輸送船側の砲塔が先に火を噴いたという航跡記録だった。両軍はまったく同じ主張をしている――相手が協定を破った、と。しかもラギティカの僚機ヴァークが儀礼周波で読み上げるのは宣戦布告ではなく、五者通行協定第四条の救難義務。キルラシーもまた、この船を拾いに来ていた。</p>
+            <p>ブリーフィング室では基地防衛司令キム・ソヨンが数字で反対する。港内には登録済みの避難民が四万人。哨戒機を四機抜けば、外周の索敵密度は三割落ちる。「輸送船一隻に、区画一つを賭けるんですか」。ハートは短く「賭ける」と答えた。この対立に正解はなく、救った者と守れなかった空域の両方が次章へ持ち越される。</p>
+          </div>
+          <ul class="evidence">
+            <li><strong>港内四万人</strong>を守る哨戒網から、迎撃機を四機抜く。</li>
+            <li>輸送船は機関出力三割。積荷は「民間医療物資」と記録されている。</li>
+            <li>キルラシー先遣隊も同じ船へ接近し、救難義務を読み上げていた。</li>
+          </ul>
+          <blockquote class="quote">撃つ前に、拾える者を拾え。順番を間違えるな。<cite>William Hart / Captain</cite></blockquote>
+          <dl class="mission-rail">
+            <div><dt>Conflict</dt><dd>輸送船一隻のために、港の防衛密度を落とせるか。</dd></div>
+            <div><dt>Cast</dt><dd>ハート／キム・ソヨン／朝倉 澪</dd></div>
+          </dl>
+          <div class="slide-index">01 / 20</div>
+        </article>
+      </section>
+
+      <section class="slide slide-main" id="slide-02" data-label="CH1 本節" style="--accent:#69dcf7;--focus:58% center">
+        <figure class="slide-image">
+          <img src="assets/vega-emergency-presentation/slide-02.webp" alt="オリオン港の救難船と避難ポッドへ向かう連邦戦闘機" width="1536" height="1024" loading="lazy">
+          <figcaption class="image-caption"><span>Operation First Ember</span><span>Chapter 01 — Mission</span></figcaption>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">01</div>
+          <div class="chapter-kicker"><b>Chapter 01</b> / 本節</div>
+          <h2>三つ全部は救えない<small>達成しなかった勝利条件も、記録に残る</small></h2>
+          <p class="lead">戦闘は軽い。難しいのは、同時に減り続ける三本の時間だった。</p>
+          <div class="story-detail">
+            <p>F-54ホーネットで先遣隊を追い散らすだけなら、着任初日でも務まる。だが表示されるのは、輸送船の隔壁が保つ時間、脱出ポッドの生命維持、逃走機が航路情報を持ち帰るまでの時間という三本の時計だ。三つ全部は間に合わない。救難艇へ機首を向けた瞬間、追撃の射程は遠ざかり、敵を追えばポッドの酸素表示が赤へ変わる。</p>
+            <p>帰還後の格納庫で、整備員が焼けた装甲板を剥がす。ハートは戦果表を閉じ、救難ポッドの搭乗者名簿を自分の手で書き写した。「戦果報告は明日でいい。名前を先に確定させろ」。夜、ヴェガ門方向から通信が入る。相手は名乗り、こちらの機体番号を正確に読み上げて告げる。「次は、名を名乗れる戦いにしよう」。</p>
+          </div>
+          <ul class="evidence">
+            <li><strong>隔壁</strong>が破れるまでに輸送船を帰投させる。</li>
+            <li><strong>生命維持</strong>が切れる前に脱出ポッドを回収する。</li>
+            <li><strong>敵機</strong>が航路情報を持ち帰る前に追いつく。</li>
+          </ul>
+          <blockquote class="quote">次は、名を名乗れる戦いにしよう。<cite>Unknown Kilrashi Pilot</cite></blockquote>
+          <dl class="mission-rail">
+            <div><dt>Choice</dt><dd>救難ポッドを回収するか、逃げる敵機を追うか。</dd></div>
+            <div><dt>Outcome</dt><dd>積荷から門制御核の断片と「九分間」の航法ログが見つかる。</dd></div>
+          </dl>
+          <div class="slide-index">02 / 20</div>
+        </article>
+      </section>
+
+      <section class="slide slide-prelude" id="slide-03" data-label="CH2 前説" style="--accent:#b59af4;--focus:46% center">
+        <figure class="slide-image">
+          <img src="assets/vega-emergency-presentation/slide-03.webp" alt="ヴェガ門へ向かう複数勢力の艦隊" width="1536" height="1024" loading="lazy">
+          <figcaption class="image-caption"><span>Vega Gate / Lost Signal</span><span>Chapter 02 — Prelude</span></figcaption>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">02</div>
+          <div class="chapter-kicker"><b>Chapter 02</b> / 前説</div>
+          <h2>同じ九分間から、三つの敵が帰ってきた<small>帰ってきた者の、違う記憶</small></h2>
+          <p class="lead">八十三年前に消えた巡洋艦から、六時間前の時刻を持つ生存者信号が届いた。</p>
+          <div class="story-detail">
+            <p>回収された帰還者は三人。一人は連邦艦隊に撃たれたと言い、一人はキルラシーに撃たれたと言い、最後の一人は「誰も撃っていない。門が引き込んだ」と証言する。三人の生体記録は完全に一致し、誰にも虚偽反応はない。そこへ異種通信アンドロイドのメモリアが現れ、共通記録層への接続を申し出る。繋げば真相へ近づけるかもしれない。ただし、一度繋いだ記憶は二度と完全には切り離せない。</p>
+            <p>司令部は八十三年前に沈んだ船の座標を認めない。ソフィーは任務を「航法演習」と書き換え、三機分の燃料を確保した。ハートは書類を見て一度だけ尋ねる。「演習で、脱出ポッドの回収装備を積むのか」「積みます」。この小さな逸脱が、やがて艦長自身が命令を破る前例になる。連邦の指揮系統は、現場で見た事実によって少しずつ押し曲げられていく。</p>
+          </div>
+          <ul class="evidence">
+            <li>帰還者三人の生体記録は完全に一致している。</li>
+            <li>一人は連邦、一人は帝国、最後の一人は「誰も撃っていない」と証言。</li>
+            <li>矛盾は嘘ではなく、門が返した三つの結果かもしれない。</li>
+          </ul>
+          <blockquote class="quote">観測できるものを観測しないのは、航法ではなく信仰です。<cite>Sophie Laurent / Navigator</cite></blockquote>
+          <dl class="mission-rail">
+            <div><dt>Mystery</dt><dd>門は時間を遅らせたのか、複数の記録を返したのか。</dd></div>
+            <div><dt>Cost</dt><dd>任務は正規命令ではなく「航法演習」として出される。</dd></div>
+          </dl>
+          <div class="slide-index">03 / 20</div>
+        </article>
+      </section>
+
+      <section class="slide slide-main" id="slide-04" data-label="CH2 本節" style="--accent:#b59af4;--focus:56% center">
+        <figure class="slide-image">
+          <img src="assets/vega-emergency-presentation/slide-04.webp" alt="青い門の近くで漂流する旧式巡洋艦と救難艇" width="1536" height="1024" loading="lazy">
+          <figcaption class="image-caption"><span>Operation False Dawn</span><span>Chapter 02 — Mission</span></figcaption>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">02</div>
+          <div class="chapter-kicker"><b>Chapter 02</b> / 本節</div>
+          <h2>撃たないほど、識別は正確になる<small>勝利条件は「誤射ゼロ」</small></h2>
+          <p class="lead">無人機は連邦と帝国、両方の識別を返す。焦って撃つほど、本物の僚機を失う。</p>
+          <div class="story-detail">
+            <p>無人機は双方の識別を返し、ロックオンの応答を二重化する。判別方法は一つだけ。通信が届くまでの遅延を数えることだ。遠くにいる本物の声は必ず遅れ、偽装された声だけが不自然なほど即座に返る。小林直子が「照準より先に耳を使って」と繰り返すなか、プレイヤーは撃墜数ではなく、漂流者を一人も誤射せず回収できたかで評価される。</p>
+            <p>帰還後は、三つの矛盾する証言を公開するか封印するかが問われる。公開すれば避難民は門を恐れ、第三勢力の船へ移り、連邦の輸送計画は崩れる。封印すれば港の秩序は保てるが、同じ空白を抱えるセレシオンとオルドは応答しない。情報は単なる武器ではない。どの勢力がこちらの言葉を検証し、次の航路を開くかを決める通貨として、戦争全体を動かし始める。</p>
+          </div>
+          <ul class="evidence">
+            <li>本物の通信には距離分の遅延があり、偽装された声には遅れがない。</li>
+            <li>撃墜数ではなく、漂流者を誤射せず回収できたかで評価される。</li>
+            <li>帰還後は、矛盾する証言の公開か封印を選ぶ。</li>
+          </ul>
+          <blockquote class="quote">撃つ前に、声の遅延を数えて。<cite>Naoko Kobayashi / Electronic Warfare</cite></blockquote>
+          <dl class="mission-rail">
+            <div><dt>Choice</dt><dd>証言を公表するか、軍の解析室へ封印するか。</dd></div>
+            <div><dt>Outcome</dt><dd>公開は港を不安にするが、中立勢力からの応答を得やすくする。</dd></div>
+          </dl>
+          <div class="slide-index">04 / 20</div>
+        </article>
+      </section>
+
+      <section class="slide slide-prelude" id="slide-05" data-label="CH3 前説" style="--accent:#74e2b4;--focus:44% center">
+        <figure class="slide-image">
+          <img src="assets/vega-emergency-presentation/slide-05.webp" alt="複数勢力の艦が門の周囲へ集まる" width="1536" height="1024" loading="lazy">
+          <figcaption class="image-caption"><span>Quiet Sea / Neutral Corridor</span><span>Chapter 03 — Prelude</span></figcaption>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">03</div>
+          <div class="chapter-kicker"><b>Chapter 03</b> / 前説</div>
+          <h2>中立は、銃を持たないことではない<small>静穏海の避難回廊</small></h2>
+          <p class="lead">船団指揮者アウルが求めたのは増援ではなく、回廊へ入る全艦の武器管制停止だった。</p>
+          <div class="story-detail">
+            <p>回廊を塞ぐニューロウム機雷は、避難船にはまったく反応しない。追うのは軍用推進器の熱紋だけだ。つまり護衛が厚いほど避難路は危険になる。撃墜の腕は役に立たず、アウルの共鳴パルスと呼吸を合わせ、安全な一分間を正しい場所へ作る技量だけが求められる。連邦が砲を止めなければ、キルラシーも砲を止めない。中立は双方へ同じ不自由を課すことで成立していた。</p>
+            <p>艦橋は「避難船十八隻を非武装で護衛するのか」と反発する。ソフィーの試算では、共鳴パルスが働く条件は周囲に稼働中の火器管制がないこと。武装は防御ではなく、回廊を壊す原因として計上されている。アウルは淡々と告げる。「強い船から通すのではない。遅い船が残らない順に通す」。プレイヤーは初めて、自分の火力が場の安全を減らす戦場へ入る。</p>
+          </div>
+          <ul class="evidence">
+            <li>セレシオンに国家はなく、季節ごとに移動する合唱圏がある。</li>
+            <li>回廊の機雷は避難船を無視し、軍用推進器の熱だけを追う。</li>
+            <li>護衛が強いほど、避難路は危険になる。</li>
+          </ul>
+          <blockquote class="quote">中立とは、誰も見捨てないための武装だ。<cite>Aul / Serecion Convoy Conductor</cite></blockquote>
+          <dl class="mission-rail">
+            <div><dt>Rule</dt><dd>武器を動かした瞬間、共鳴パルスの安全窓が閉じる。</dd></div>
+            <div><dt>Cast</dt><dd>アウル／クレア・ベネット／アクス／ヴァーク</dd></div>
+          </dl>
+          <div class="slide-index">05 / 20</div>
+        </article>
+      </section>
+
+      <section class="slide slide-main" id="slide-06" data-label="CH3 本節" style="--accent:#74e2b4;--focus:52% center">
+        <figure class="slide-image">
+          <img src="assets/vega-emergency-presentation/slide-06.webp" alt="セレシオンの緑色の避難回廊を進む護衛船団" width="1536" height="1024" loading="lazy">
+          <figcaption class="image-caption"><span>Operation Quiet Passage</span><span>Chapter 03 — Mission</span></figcaption>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">03</div>
+          <div class="chapter-kicker"><b>Chapter 03</b> / 本節</div>
+          <h2>武器を切った一分だけ、回廊は開く<small>腕の良いパイロットほど、自分の反射と戦う</small></h2>
+          <p class="lead">アウルのパルスは八十秒ごとに、機雷の判定を一分間だけ鈍らせる。</p>
+          <div class="story-detail">
+            <p>実戦は精密な段取りの連続になる。パルスの窓で避難船を通し、隊列から外れた船をクレア・ベネットの救難艇へ引き渡し、追ってくる帝国哨戒機には撃たずに進路を譲る。一発でも撃てば窓は閉じ、眠っていた機雷が一斉に熱源へ向く。「照準が合っても撃たないで」。腕の良いパイロットほど、自分の反射と戦わなければならない。</p>
+            <p>帰還後、アウルは礼を言わない。セレシオンの言語に感謝という語はなく、代わりに次の季節の航路図が届く。静穏海は以後、連邦の補給と避難へ開かれる。同時に、通信翻訳者アクスが非殺傷の判断をキルラシーの誓約語へ置き換え、ヴァークの記録へ送る。「その者は、砲を持ちながら撃たなかった」。この一行が、灰冠回廊でラギティカが決闘を申し込む理由になる。</p>
+          </div>
+          <ul class="evidence">
+            <li>避難船十八隻のうち、六隻は自力航行できない。</li>
+            <li>一発でも撃てば安全窓が閉じ、機雷が動き出す。</li>
+            <li>撃たなかった判断は、帝国の誓約語へ翻訳される。</li>
+          </ul>
+          <blockquote class="quote">その者は、砲を持ちながら撃たなかった。<cite>Ax / Translation of the Record</cite></blockquote>
+          <dl class="mission-rail">
+            <div><dt>Choice</dt><dd>武器を封じて護衛するか、先制攻撃で機雷原を消すか。</dd></div>
+            <div><dt>Outcome</dt><dd>非殺傷の記録が、第五章の単機決闘を成立させる。</dd></div>
+          </dl>
+          <div class="slide-index">06 / 20</div>
+        </article>
+      </section>
+
+      <section class="slide slide-prelude" id="slide-07" data-label="CH4 前説" style="--accent:#f0c86b;--focus:63% center">
+        <figure class="slide-image">
+          <img src="assets/vega-emergency-presentation/slide-07.webp" alt="オルドの巨大な地殻知性体と重力戦場" width="1536" height="1024" loading="lazy">
+          <figcaption class="image-caption"><span>Deep Mining Belt / Ordo Memory</span><span>Chapter 04 — Prelude</span></figcaption>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">04</div>
+          <div class="chapter-kicker"><b>Chapter 04</b> / 前説</div>
+          <h2>採掘帯は、オルドの記憶そのものだ<small>岩盤が覚えている境界</small></h2>
+          <p class="lead">連邦の契約船は、重力アンカーで無傷のまま空中に縫い止められた。</p>
+          <div class="story-detail">
+            <p>交渉窓口となる重力戦術官アインは、九十一歳でもオルドの中では若く、人類の短い時間を扱える。彼が告げるのは告発ではなく症状だった。連邦が持ち出した門制御核の断片が、採掘帯の地層記憶を焼いている。オルドにとって地殻は資源ではなく、文明そのものの記憶媒体だ。彼らは補償も謝罪も求めない。「傷が広がる前に、その断片を止めてほしい」とだけ要求する。</p>
+            <p>参謀ニア・ウィリアムズは政治ではなく在庫を読む。契約船の空気は十九時間、採掘記録の掘り出しには十四時間、往復できる燃料は一回分。「全部やる余裕はありません。どれを諦めるか、先に決めてください」。しかも重力アンカーは兵器ではなく境界標であり、撃てば連邦が協定違反の側に立つ。救出の速度と、千年残る記録が同じ計器盤に載せられる。</p>
+          </div>
+          <ul class="evidence">
+            <li>船内の空気は十九時間。アークの裁定は数十年単位。</li>
+            <li>門制御核の断片が、オルドの地層記憶を焼いている。</li>
+            <li>彼らが求めるのは補償ではなく、傷の停止だった。</li>
+          </ul>
+          <blockquote class="quote">我々は殺していない。ただ、境界で止めている。<cite>Ain / Ordo Gravity Tactician</cite></blockquote>
+          <dl class="mission-rail">
+            <div><dt>Conflict</dt><dd>人類の「今」と、千二百年を生きる文明の「即時」は一致しない。</dd></div>
+            <div><dt>Resource</dt><dd>燃料が許す往復は一回。救助と証拠回収は両立しない。</dd></div>
+          </dl>
+          <div class="slide-index">07 / 20</div>
+        </article>
+      </section>
+
+      <section class="slide slide-main" id="slide-08" data-label="CH4 本節" style="--accent:#f0c86b;--focus:55% center">
+        <figure class="slide-image">
+          <img src="assets/vega-emergency-presentation/slide-08.webp" alt="採掘された岩盤と門の間を航行する戦闘機" width="1536" height="1024" loading="lazy">
+          <figcaption class="image-caption"><span>Operation Deep Measure</span><span>Chapter 04 — Mission</span></figcaption>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">04</div>
+          <div class="chapter-kicker"><b>Chapter 04</b> / 本節</div>
+          <h2>今の救助が、終盤の救助を失わせる<small>短い勝利と、長く残る記録</small></h2>
+          <p class="lead">アンカーを撃てば乗員は助かる。だが「連邦は境界を撃った」という記憶が残る。</p>
+          <div class="story-detail">
+            <p>重力井戸では自機の質量が数秒単位で変わり、発射したミサイルが弧を描いて戻ってくる。アインは敵ではないため撃ってこない。ただし彼が局所重力を動かすたび、こちらの機動計算は前提を失う。「照準を信じるなら撃て。私を信じるなら待て」。非破壊で装甲艦の進路を逸らしてきた戦術官との共同作業は、自分の反射と他文明の指示のどちらを信じるかへ収束する。</p>
+            <p>どちらを選んでも、オルドは記録する。千二百年を生きる合議王アークの裁定はこの章では下らず、今回の出撃は地層に刻まれる細い線にすぎない。だが、その線が第八章で門の位相を固定するかどうかを決める。オルドは感謝も報復もしない。ただ後で刻まれたものを読む。人類の側にとって、その遅い読解こそ最も長く残る戦果になる。</p>
+          </div>
+          <ul class="evidence">
+            <li>重力井戸では機体質量が変わり、ミサイルが弧を描いて戻る。</li>
+            <li>証拠回収を優先するほど、契約船の空気は減る。</li>
+            <li>ここで得た信頼だけが、終盤で門を固定する手段になる。</li>
+          </ul>
+          <blockquote class="quote">全部やる余裕はありません。どれを諦めるか、先に決めてください。<cite>Nia Williams / Operations Staff</cite></blockquote>
+          <dl class="mission-rail">
+            <div><dt>Choice</dt><dd>アンカーを破壊するか、採掘停止の証拠を回収するか。</dd></div>
+            <div><dt>Outcome</dt><dd>オルドは感謝も報復もせず、選択を地層へ刻む。</dd></div>
+          </dl>
+          <div class="slide-index">08 / 20</div>
+        </article>
+      </section>
+
+      <section class="slide slide-prelude" id="slide-09" data-label="CH5 前説" style="--accent:#f06a79;--focus:50% center">
+        <figure class="slide-image">
+          <img src="assets/vega-emergency-presentation/slide-09.webp" alt="朝倉澪とラギティカが救命艇を挟んで対峙する" width="1536" height="1024" loading="lazy">
+          <figcaption class="image-caption"><span>Ash Crown Corridor / Oath Line</span><span>Chapter 05 — Prelude</span></figcaption>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">05</div>
+          <div class="chapter-kicker"><b>Chapter 05</b> / 前説</div>
+          <h2>決闘士は、戦力より先に名前を問う<small>灰冠の決闘</small></h2>
+          <p class="lead">帝国艦隊は砲門を開いたまま停止した。ラギティカが単機決闘を申し込んだのだ。</p>
+          <div class="story-detail">
+            <p>決闘は取材でもある。ラギティカが本当に知りたいのは連邦が保有する制御核の所在で、こちらの加速、被弾許容、僚機を庇う癖のすべてが質問になる。名を交換する儀礼を成立させれば、こちらの問いも一つだけ通る。ヴァークは両者の通信を誓約文として記録し、帝国の公式史へ残す。この戦争で初めて、撃墜数以外のものが公的な戦果になる瞬間だった。</p>
+            <p>決闘を断れば艦隊戦が始まり、〈タイガーズ・クロー〉は数で負ける。受ければ、全艦の生死を一機へ預けることになる。帝国艦隊の沈黙を保証する連邦側の条文はない。それでもハートは受諾し、艦内放送へ無線を開いた。「艦の全員に聞かせろ。名を名乗る戦いというものを、うちの若いのは見たことがない」。敵の作法を知ることが、ここでは防御になる。</p>
+          </div>
+          <ul class="evidence">
+            <li>決闘中、帝国の全砲は沈黙。連邦も一機だけを出す。</li>
+            <li>彼女は撃墜した相手の名と、その戦い方をすべて記憶する。</li>
+            <li>第三章の「撃たなかった記録」が、決闘を申し込む理由になる。</li>
+          </ul>
+          <blockquote class="quote">あなたは門を盗んだ者か。それとも、帰す者か。<cite>Ragitika / Blood Oath</cite></blockquote>
+          <dl class="mission-rail">
+            <div><dt>Duel</dt><dd>F-44A ラピアーII 対 KF03 グレイハウル。</dd></div>
+            <div><dt>Record</dt><dd>名を交換すれば、勝敗以外のものが帝国正史へ残る。</dd></div>
+          </dl>
+          <div class="slide-index">09 / 20</div>
+        </article>
+      </section>
+
+      <section class="slide slide-main" id="slide-10" data-label="CH5 本節" style="--accent:#f06a79;--focus:52% center">
+        <figure class="slide-image">
+          <img src="assets/vega-emergency-presentation/slide-10.webp" alt="灰冠回廊で連邦機と帝国機が決闘する" width="1536" height="1024" loading="lazy">
+          <figcaption class="image-caption"><span>Operation Ash Crown</span><span>Chapter 05 — Mission</span></figcaption>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">05</div>
+          <div class="chapter-kicker"><b>Chapter 05</b> / 本節</div>
+          <h2>誓約を破るのは、敵ではなく身内だった<small>敵味方の線と、誓約の線がずれる</small></h2>
+          <p class="lead">急進派の分艦隊が決闘空域へ発砲し、ラギティカの機体は片翼を失う。</p>
+          <div class="story-detail">
+            <p>グレイハウルは加速と旋回で勝り、ラピアーIIは装甲と火力で勝る。だがラギティカは撃墜を急がず、こちらの癖を測ってくる。僚機を庇うか、被弾を許容するか、逃げる敵を追うか。彼女は過去の戦闘記録を無線で引用し、「あなたは以前、救難艇へ向かった。今日は私を追うのか」と問う。前章までの選択が、一対一の機動戦で人物像として突き返される。</p>
+            <p>急進派の介入で、誓約を守る側と破る側が敵味方の線から外れる。ヴァークは砲火のなかでも通信を切らず、中立の記録者として違反を帝国正史へ刻み続ける。その記録は第七章の告発と第八章の停戦を支える法的根拠になる。ここで最も重い戦果は撃墜ではない。名前を交換した相手が生き、その名前と誓約違反が消せない記録として残ることだ。</p>
+          </div>
+          <ul class="evidence">
+            <li>急進派は連邦機と帝国の決闘士を、まとめて消そうとする。</li>
+            <li>ラギティカは位置を隠すため、脱出信号を発しない。</li>
+            <li>勝利を優先するか、敵エースを回収するかが問われる。</li>
+          </ul>
+          <blockquote class="quote">艦の全員に聞かせろ。名を名乗る戦いというものを。<cite>William Hart / Captain</cite></blockquote>
+          <dl class="mission-rail">
+            <div><dt>Choice</dt><dd>決闘の勝利を取るか、ラギティカを生かして帰すか。</dd></div>
+            <div><dt>Outcome</dt><dd>救出すれば帝国側の停戦窓口が開く。撃墜しても戦争は終わらない。</dd></div>
+          </dl>
+          <div class="slide-index">10 / 20</div>
+        </article>
+      </section>
+
+      <section class="slide slide-prelude" id="slide-11" data-label="CH6 前説" style="--accent:#b59af4;--focus:52% center">
+        <figure class="slide-image">
+          <img src="assets/vega-emergency-presentation/slide-11.webp" alt="ヴェガ門を背に五勢力の人物と艦隊が対峙する" width="1536" height="1024" loading="lazy">
+          <figcaption class="image-caption"><span>Hive Vein / Forced Synchrony</span><span>Chapter 06 — Prelude</span></figcaption>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">06</div>
+          <div class="chapter-kicker"><b>Chapter 06</b> / 前説</div>
+          <h2>群体は侵略ではなく、傷口を縫っている<small>接続する群体、切断する恐怖</small></h2>
+          <p class="lead">ニューロウム中継器を破壊せよ。命令は単純だが、障害と門の異常は同じ時刻に始まっていた。</p>
+          <div class="story-detail">
+            <p>中継器の中枢で応答した原初核クラウンの説明は、侵略の弁明ではなく工事報告だった。門は閉じかけているのではない。開きかけている。群体は五勢力の航法ログを強制同期させ、ヴェイルに生じた裂け目を縫っていた。同期に同意しない文明のログだけが穴として残り、そこから異常が広がっている。「我々は領域を増やしていない。欠けた場所を埋めている」とクラウンは告げる。</p>
+            <p>命令は中継器の破壊と通信障害の解消。だが情報作戦士官の朝比奈律は、障害の発生時刻と門の異常出力が完全に一致していると指摘する。中継器は原因ではなく、異常を測る装置かもしれない。「壊すのは構いません。ただ、体温計を割っても熱は下がりません」。司令部は命令を変えず、正しい対象を撃っているかという責任だけを現場へ落とした。</p>
+          </div>
+          <ul class="evidence">
+            <li>味方位置は三秒遅れ、ドローンは撃たれた数だけ学習する。</li>
+            <li>門は閉じかけているのではなく、開きかけている。</li>
+            <li>群体は各勢力の航法ログを同期し、裂け目を縫おうとしていた。</li>
+          </ul>
+          <blockquote class="quote">壊すのは構いません。ただ、体温計を割っても熱は下がりません。<cite>Ritsu Asahina / Intelligence</cite></blockquote>
+          <dl class="mission-rail">
+            <div><dt>Threat</dt><dd>恐怖も降伏も人質も通じない相手との戦闘。</dd></div>
+            <div><dt>Question</dt><dd>中継器は障害の原因か、それとも観測装置か。</dd></div>
+          </dl>
+          <div class="slide-index">11 / 20</div>
+        </article>
+      </section>
+
+      <section class="slide slide-main" id="slide-12" data-label="CH6 本節" style="--accent:#b59af4;--focus:50% center">
+        <figure class="slide-image">
+          <img src="assets/vega-emergency-presentation/slide-12.webp" alt="紫色の通信網を形成するニューロウム中継艦とドローン" width="1536" height="1024" loading="lazy">
+          <figcaption class="image-caption"><span>Operation Shared Pulse</span><span>Chapter 06 — Mission</span></figcaption>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">06</div>
+          <div class="chapter-kicker"><b>Chapter 06</b> / 本節</div>
+          <h2>接続は救難であり、支配でもある<small>この章の敵は「同意」という言葉の重さ</small></h2>
+          <p class="lead">限定接続を許せば全航路を同じ画面で見られる。だが連邦の航法も群体へ渡る。</p>
+          <div class="story-detail">
+            <p>妨害空域では味方位置が三秒遅れ、ドローンは撃たれた数だけ学習して隊形を変える。個体を潰しても群体は痛みを感じず、降伏も人質も成立しない。プレイヤーは、自分の戦術が相手の恐怖や生存本能へどれほど依存していたかを思い知らされる。撃ち続けるほど、敵は強くなるのではない。こちらの戦い方を正確に写す鏡へ近づいていく。</p>
+            <p>帰還後、艦内の意見は二つに割れる。限定接続なら終盤で敵味方すべての航路を同じ画面に重ねられるが、艦隊の航法を機械へ渡した指揮官として連邦内部の反発を招く。完全遮断なら軍令信用を守れる代わりに、門の内側を測る手段を失う。クラウンは回答を催促しない。「同意とは、得るものではない。待つものだ」。待つという行為そのものが、群体から示された最初の敬意だった。</p>
+          </div>
+          <ul class="evidence">
+            <li>接続すれば、終盤で敵味方すべての航路を同時に把握できる。</li>
+            <li>完全遮断なら軍令信用は保てるが、門の内側を測る手段を失う。</li>
+            <li>未来の作戦航路がすでに記録され、予測と反射の境界が崩れる。</li>
+          </ul>
+          <blockquote class="quote">同意とは、得るものではない。待つものだ。<cite>Crown / Original Core</cite></blockquote>
+          <dl class="mission-rail">
+            <div><dt>Choice</dt><dd>共同通信網へ限定接続するか、完全に遮断するか。</dd></div>
+            <div><dt>Outcome</dt><dd>接続は視界を広げるが、連邦内部の反発を招く。</dd></div>
+          </dl>
+          <div class="slide-index">12 / 20</div>
+        </article>
+      </section>
+
+      <section class="slide slide-prelude" id="slide-13" data-label="CH7 前説" style="--accent:#ff9b6a;--focus:50% center">
+        <figure class="slide-image">
+          <img src="assets/vega-emergency-presentation/slide-13.webp" alt="青と赤に分かれた二つの制御核を見つめる連邦士官たち" width="1536" height="1024" loading="lazy">
+          <figcaption class="image-caption"><span>Hidden Clause / Split Core</span><span>Chapter 07 — Prelude</span></figcaption>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">07</div>
+          <div class="chapter-kicker"><b>Chapter 07</b> / 前説</div>
+          <h2>八十三年の戦争は、割られた鍵の後始末だった<small>協定を壊したのは誰か</small></h2>
+          <p class="lead">五者通行協定には、署名されなかった「門制御核の共同管理」という六つ目の条項があった。</p>
+          <div class="story-detail">
+            <p>ハートは艦隊への即時報告を命じるが、司令部から返ったのは停止命令だった。空母は「証拠保全」の名目で足止めされ、搬送先のヴェガ門公証中継所は七十二時間後に閉鎖される。ニア・ウィリアムズは残量だけを読み上げる。「行けます。ただし帰りの燃料と、あなたの経歴のどちらかは戻りません」。敵の妨害より、味方の手続きが先に時計を削っていく。</p>
+            <p>第一章の積荷、第二章の帰還者証言、第四章の採掘記録、第六章の同期ログ。四つの記録は同じ製造番号へ収束し、割られた核の片方を連邦軍需企業が、もう片方を帝国の若い軍家が隠してきたと示す。八十三年間、表では戦争を続けながら、両陣営の強硬派だけが同じ資産を守っていた。プレイヤーが敵だと思って撃ってきた壁の背後には、国旗を越えた共犯関係があった。</p>
+          </div>
+          <ul class="evidence">
+            <li>連邦軍需企業と帝国急進派が条項を葬り、核を二つに割った。</li>
+            <li>第一・二・四・六章の記録が、同じ製造番号へ収束する。</li>
+            <li>両陣営の強硬派だけが、同じ資産を八十三年間守っていた。</li>
+          </ul>
+          <blockquote class="quote">敵は国旗の外だけにいるんじゃない。命令書の内側にもいる。<cite>William Hart / Captain</cite></blockquote>
+          <dl class="mission-rail">
+            <div><dt>Reveal</dt><dd>プレイヤーが撃ってきた敵は、分割された資産を守る壁だった。</dd></div>
+            <div><dt>Deadline</dt><dd>公証中継所の閉鎖まで七十二時間。</dd></div>
+          </dl>
+          <div class="slide-index">13 / 20</div>
+        </article>
+      </section>
+
+      <section class="slide slide-main" id="slide-14" data-label="CH7 本節" style="--accent:#ff9b6a;--focus:54% center">
+        <figure class="slide-image">
+          <img src="assets/vega-emergency-presentation/slide-14.webp" alt="ヴェガ門公証中継所へ告発データを運ぶ輸送機" width="1536" height="1024" loading="lazy">
+          <figcaption class="image-caption"><span>Operation Sixth Clause</span><span>Chapter 07 — Mission</span></figcaption>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">07</div>
+          <div class="chapter-kicker"><b>Chapter 07</b> / 本節</div>
+          <h2>証拠は、正しく届かなければ存在しない<small>正義ではなく、五者が検証できる手続きへ</small></h2>
+          <p class="lead">司令部は停止命令を出す。中継所は正規の書式と期限だけを照合する。</p>
+          <div class="story-detail">
+            <p>出撃は護衛なし、積荷は一箱、目的地は公証中継所。追うのは帝国だけではない。連邦哨戒機もこちらの識別と回避癖を知り尽くしている。発砲すれば共同設備の保全規約を破り、告発の正当性そのものが失われる。撃たずに航路を読み、双方の追跡を振り切り、期限内に箱を届ける。正義の内容ではなく、敵を含む五者が同じ手順で検証できるかが勝敗を決める。</p>
+            <p>無許可出撃を選べば次章の搭載兵装は減り、司令部の無線は冷たくなる。正式手続を待てば中継所は閉じ、証拠は停戦交渉に間に合わない。ハートは決定を部下へ押しつけず、自分の署名を命令書へ残す。「命令は後で書き直せる。人は書き直せない」。ここで失うのは抽象的な評価ではない。次章の発艦甲板に、誰が味方として並んでくれるかである。</p>
+          </div>
+          <ul class="evidence">
+            <li>護衛なし、積荷は一箱。連邦哨戒機と帝国急進派が追う。</li>
+            <li>発砲すれば保全規約を破り、告発の正当性を失う。</li>
+            <li>正式手続を待てば、中継所は閉じて証拠が間に合わない。</li>
+          </ul>
+          <blockquote class="quote">行けます。ただし帰りの燃料と、あなたの経歴のどちらかは戻りません。<cite>Nia Williams / Operations Staff</cite></blockquote>
+          <dl class="mission-rail">
+            <div><dt>Choice</dt><dd>正式手続を守るか、艦長と無許可出撃するか。</dd></div>
+            <div><dt>Outcome</dt><dd>失うのは評価ではなく、次章で発艦してくれる味方。</dd></div>
+          </dl>
+          <div class="slide-index">14 / 20</div>
+        </article>
+      </section>
+
+      <section class="slide slide-prelude" id="slide-15" data-label="CH8 前説" style="--accent:#69dcf7;--focus:54% center">
+        <figure class="slide-image">
+          <img src="assets/vega-emergency-presentation/slide-15.webp" alt="停戦中の格納庫で五勢力が救難記録を持ち寄る" width="1536" height="1024" loading="lazy">
+          <figcaption class="image-caption"><span>Joint Notary / Five Signatures</span><span>Chapter 08 — Prelude</span></figcaption>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">08</div>
+          <div class="chapter-kicker"><b>Chapter 08</b> / 前説</div>
+          <h2>誰も信じていない。それでも五つの署名は揃う<small>停戦の一分間</small></h2>
+          <p class="lead">公証中継所は、五勢力の同時承認がなければ証拠を一行も認証しない。</p>
+          <div class="story-detail">
+            <p>三基の通信灯台は、同じ五者署名を中継する冗長回線だ。一本でも六十秒残れば承認は成立するが、失われた回線の数だけ次章の通信と援護は細る。連邦とキルラシーの砲火の間で、守るべきものは艦でも領土でもなく、全員が同じ文面を同じ時刻に受け取ったという事実になる。停戦は感情的な和解ではなく、消せない共通記録から始まる。</p>
+            <p>ブリーフィング画面に五勢力の代表が初めて並ぶ。ハートは連邦の承認を読み、アウルは季節の言葉で避難回廊を約束し、アークは署名を「千二百年の中の短い線」と呼ぶ。クラウンは同期時間を秒で示し、ラギティカは大牙王代理の誓約としてしか承認を出せないと告げる。通訳はアクスとメモリアが分担する。誰も相手を信じていない。それでも、書式と時計だけは揃った。</p>
+          </div>
+          <ul class="evidence">
+            <li>連邦は空母、帝国は誓約、セレシオンは避難回廊を差し出す。</li>
+            <li>オルドは重力固定、ニューロウムは通信同期を担当。</li>
+            <li>三基の通信灯台を一本でも六十秒守れば、承認が成立する。</li>
+          </ul>
+          <blockquote class="quote">一分あれば、艦隊は引き返せる。なければ、門は開く。<cite>Joint Notary Briefing</cite></blockquote>
+          <dl class="mission-rail">
+            <div><dt>Format</dt><dd>誰も相手を信用しないまま、同じ書式だけを共有する。</dd></div>
+            <div><dt>Clock</dt><dd>必要時間は六十秒。一本の回線を残せばよい。</dd></div>
+          </dl>
+          <div class="slide-index">15 / 20</div>
+        </article>
+      </section>
+
+      <section class="slide slide-main" id="slide-16" data-label="CH8 本節" style="--accent:#69dcf7;--focus:52% center">
+        <figure class="slide-image">
+          <img src="assets/vega-emergency-presentation/slide-16.webp" alt="通信灯台の光のもとで共同防衛する多勢力艦隊" width="1536" height="1024" loading="lazy">
+          <figcaption class="image-caption"><span>Operation Hold the Breath</span><span>Chapter 08 — Mission</span></figcaption>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">08</div>
+          <div class="chapter-kicker"><b>Chapter 08</b> / 本節</div>
+          <h2>六十秒が、七章分の選択を援軍に変える<small>過去の判断が、画面上の味方になる</small></h2>
+          <p class="lead">一機で守れる灯台は二基まで。第三基を誰が支えるかは、これまでの選択で変わる。</p>
+          <div class="story-detail">
+            <p>灯台三基は互いに離れ、一機では二基までしか間に合わない。静穏海を守っていればセレシオン護衛船が一基を引き受け、オルドの信頼を得ていれば重力固定が被弾を逸らす。ニューロウムとの限定接続があれば、敵味方の軌道が一枚の図へ重なる。過去七章の判断は数値ボーナスではなく、別の文化を持つ援軍の姿として戦場へ現れる。</p>
+            <p>六十秒が終わると、中継所は歓声も演説もなく「認証」または「保留」とだけ返す。認証なら、葬られた六つ目の条項が八十三年遅れで発効する。保留なら審査は数か月先へ送られる。どちらでも門は直後に開き始める。停戦は達成の頂点ではない。敵側の救難信号へ向かったか、どの回線を残せなかったかを数え、次の破局へ持っていくための短い呼吸だった。</p>
+          </div>
+          <ul class="evidence">
+            <li>静穏海を守っていれば、セレシオン護衛船が一基を代行。</li>
+            <li>オルドの信頼があれば、重力固定が被弾を減らす。</li>
+            <li>戦闘中、敵側の被弾艦から救難信号が上がる。</li>
+          </ul>
+          <blockquote class="quote">六十秒ごとに、次の一発を撃たないと決め直せ。<cite>Open Hand Protocol</cite></blockquote>
+          <dl class="mission-rail">
+            <div><dt>Choice</dt><dd>味方艦を守るか、敵の救難信号へ向かうか。</dd></div>
+            <div><dt>Outcome</dt><dd>敵を救えば、帝国正史に「名誉ある共同作戦」と記録される。</dd></div>
+          </dl>
+          <div class="slide-index">16 / 20</div>
+        </article>
+      </section>
+
+      <section class="slide slide-prelude" id="slide-17" data-label="CH9 前説" style="--accent:#b59af4;--focus:50% center">
+        <figure class="slide-image">
+          <img src="assets/vega-emergency-presentation/slide-17.webp" alt="二つの半核が接続し、ヴェガ門が白紫色に崩壊する" width="1536" height="1024" loading="lazy">
+          <figcaption class="image-caption"><span>Veil Interior / Reflected Future</span><span>Chapter 09 — Prelude</span></figcaption>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">09</div>
+          <div class="chapter-kicker"><b>Chapter 09</b> / 前説</div>
+          <h2>門は過去ではなく、選ばれなかった未来を映す<small>九分間の中へ</small></h2>
+          <p class="lead">五つ目の署名が入る直前、急進派が制御核を起動。各艦は門へ引き込まれる。</p>
+          <div class="story-detail">
+            <p>位相迷路の攻略手段は火力ではなく記憶だ。過去の無線が順序を変え、救難を優先した通信は感謝ではなく告発として、追撃を選んだ通信は戦果ではなく謝罪として返る。ソフィーは自分の声が自分へ反論するのを聞きながら帰投窓を計算する。「一致しない記録が三つあるなら、二つは幻です。問題は、あなたがどれを幻と呼べるかです」。</p>
+            <p>迷路の中心にはラギティカとクラウンがいる。決闘士は自分が撃った全員と再会し、原初核は縫おうとしていた裂け目の内側を初めて見る。残されていたのは兵器ではなく、ヴェイル網の航路設計図だった。脱出には現実側の錨が要る。誰も置き去りにはしないが、誰の声を信じて帰るかによって、現実へ持ち帰れる記憶と最終章の無線が変わる。</p>
+          </div>
+          <ul class="evidence">
+            <li>そこには戦争のない裂谷と、避難民のいないオリオン港がある。</li>
+            <li>格納庫では、第一章で拾えなかった者が笑っている。</li>
+            <li>過去の無線は順序を変え、感謝を告発へ、戦果を謝罪へ変える。</li>
+          </ul>
+          <blockquote class="quote">一致しない記録が三つあるなら、二つは幻です。<cite>Sophie Laurent / Navigator</cite></blockquote>
+          <dl class="mission-rail">
+            <div><dt>Phenomenon</dt><dd>門は嘘をつかない。選択と結果の順序だけを変える。</dd></div>
+            <div><dt>Anchor</dt><dd>脱出には、現実側で自分を信じる一人の声が要る。</dd></div>
+          </dl>
+          <div class="slide-index">17 / 20</div>
+        </article>
+      </section>
+
+      <section class="slide slide-main" id="slide-18" data-label="CH9 本節" style="--accent:#b59af4;--focus:50% center">
+        <figure class="slide-image">
+          <img src="assets/vega-emergency-presentation/slide-18.webp" alt="位相迷路の奥へ暖色の航路をたどる戦闘機" width="1536" height="1024" loading="lazy">
+          <figcaption class="image-caption"><span>Operation Nine Minutes</span><span>Chapter 09 — Mission</span></figcaption>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">09</div>
+          <div class="chapter-kicker"><b>Chapter 09</b> / 本節</div>
+          <h2>帰還路は、実際に選んだ記録だけが知っている<small>楽な道ほど、選ばなかった未来へ続く</small></h2>
+          <p class="lead">三つの記録のうち二つは反射。自分の航法ログと一致する判断だけを踏んで進む。</p>
+          <div class="story-detail">
+            <p>迷路は座標ではなく整合性で進む。幻影の僚機は、プレイヤーが実際に取った選択を反転して語る。追撃した者には救ったはずの民間船が礼を言い、救難した者には逃した敵機が航路を奪った結果を見せる。楽な道はいつも選ばなかった未来へ続き、進むほど帰投窓は遠ざかる。第二章の三人が矛盾した理由を、プレイヤー自身が体験する。</p>
+            <p>脱出直前、ラギティカは「名前を外へ持ち帰りたい」と同行を求める。一方のクラウンは、裂け目の計測が終わっていないため残ろうとする。錨に選んだ声を頼りに現実へ戻るとき、持ち出せるのは航路設計図一枚と記憶の一部だけだ。機体は全員分ある。だが、誰の言葉を現実として採用したかは消えない。置いてきたものの輪郭は、第十章の無線で初めて明かされる。</p>
+          </div>
+          <ul class="evidence">
+            <li>幻影の僚機は、プレイヤーが実際に取った選択を反転して語る。</li>
+            <li>ラギティカは撃った全員と再会し、クラウンは裂け目の内側を測る。</li>
+            <li>持ち帰れるのは航路設計図一枚と、記憶の一部だけ。</li>
+          </ul>
+          <blockquote class="quote">問題は、あなたがどれを幻と呼べるかです。<cite>Sophie Laurent / Navigator</cite></blockquote>
+          <dl class="mission-rail">
+            <div><dt>Choice</dt><dd>誰の声を現実側の錨として選ぶか。</dd></div>
+            <div><dt>Outcome</dt><dd>残す者はいないが、誰がプレイヤーを信じるかが変わる。</dd></div>
+          </dl>
+          <div class="slide-index">18 / 20</div>
+        </article>
+      </section>
+
+      <section class="slide slide-prelude" id="slide-19" data-label="CH10 前説" style="--accent:#f0c86b;--focus:52% center">
+        <figure class="slide-image">
+          <img src="assets/vega-emergency-presentation/slide-19.webp" alt="五大勢力の支援を受けて急進派旗艦を攻撃する連邦機と帝国機" width="1536" height="1024" loading="lazy">
+          <figcaption class="image-caption"><span>Vega Gate / Final Alignment</span><span>Chapter 10 — Prelude</span></figcaption>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">10</div>
+          <div class="chapter-kicker"><b>Chapter 10</b> / 前説</div>
+          <h2>五大勢力は、同じ理由ではなく同じ一手に集まる<small>門前の帰還</small></h2>
+          <p class="lead">統一指揮はない。各勢力が自分の共同体を守った結果だけが、旗艦を止める一手へ重なる。</p>
+          <div class="story-detail">
+            <p>航路設計図が示す選択は三つ。制御核を破壊すれば門は永久に閉じ、戦争は終わるが辺境居住区も切り捨てられる。核を共鳴させれば物流は再起動するが、開いた扉の管理者はいない。そして五者共同管理――最も遅く、最も脆く、最も多くの署名を必要とする道だけが、まだ協定上は生きている。どの案も誰かを救い、別の誰かへ代償を残す。</p>
+            <p>決定の前に急進派連合旗艦が突撃する。セレシオンの気嚢船が避難船を後方へ抜き、オルドのアンカーが門の位相を押さえ、ニューロウムが全軍の識別を同期する。ラギティカは旗艦護衛を決闘へ引き離し、連邦機へ射線を渡す。誰も統一指揮を受けていない。それぞれが自分の共同体を守るために動いた結果が、偶然ではなく積み重ねとして同じ一手へ噛み合う。</p>
+          </div>
+          <ul class="evidence">
+            <li>セレシオンが避難船を抜き、オルドが門の位相を固定。</li>
+            <li>ニューロウムが識別を同期し、ラギティカが護衛を引き離す。</li>
+            <li>連邦機は制御核ではなく、急進派旗艦の武器だけを狙う。</li>
+          </ul>
+          <blockquote class="quote">理由は違う。結果が噛み合うなら、それでよい。<cite>Ark / Ordo Memory</cite></blockquote>
+          <dl class="mission-rail">
+            <div><dt>Options</dt><dd>永久閉鎖／限定開放／五者共同管理。</dd></div>
+            <div><dt>Principle</dt><dd>勝つためではなく、次に通る者のために撃つ。</dd></div>
+          </dl>
+          <div class="slide-index">19 / 20</div>
+        </article>
+      </section>
+
+      <section class="slide slide-main" id="slide-20" data-label="CH10 本節" style="--accent:#f0c86b;--focus:54% center">
+        <figure class="slide-image">
+          <img src="assets/vega-emergency-presentation/slide-20.webp" alt="ヴェガ門の前で帰還船団を見守る五勢力の艦隊" width="1536" height="1024" loading="lazy">
+          <figcaption class="image-caption"><span>Operation Open Hand</span><span>Chapter 10 — Mission</span></figcaption>
+        </figure>
+        <article class="slide-copy">
+          <div class="chapter-mark">10</div>
+          <div class="chapter-kicker"><b>Chapter 10</b> / 本節</div>
+          <h2>最後の戦績は、帰ってきた名前の数になる<small>勝者ではなく、帰還者を読み上げる</small></h2>
+          <p class="lead">旗艦を無力化し、門制御を選んだ瞬間、画面には撃墜数が表示されない。</p>
+          <div class="story-detail">
+            <p>最終ブリーフィングでは、誰か一人が演説を独占しない。救難を優先してきた者は名簿を、迎撃を得意とする者は残弾を、訓練生上がりは仲間の帰還を最初に口にする。全員が話し終えるまで待って、ハートが言う。「今日の出撃は、勝ち方を決める出撃だ。負け方はもう決まっている」。勝利条件ではなく、何を失うと理解して飛ぶのかが最後の命令になる。</p>
+            <p>戦場では九章分の状態が同時に精算される。帰還者の数が僚機の出撃可否を決め、航路信頼がセレシオンとオルドの援護を変え、軍令信用が搭載兵装を決め、ラギティカとの誓約がキルラシー側の参戦規模を決める。難易度が単純に上下するのではない。プレイヤーが残してきた関係によって、同じ空域に現れる顔と声と光景が変わる。</p>
+            <p>門を閉じれば戦争は終わり、辺境は静かに枯れる。限定開放なら連邦は生き延びるが、管理者不在の扉が残る。五者共同管理なら、脆い協定の上で明日も交渉が続く。どれも完全な解決ではない。最後の無線が読むのは勝者の名ではなく、第一章で拾った民間人から第五章で救った敵エースまで、帰ってきた者の名前だけだ。</p>
+          </div>
+          <ul class="evidence">
+            <li>第一章で拾った民間人も、第五章で救った敵エースも同じ名簿へ入る。</li>
+            <li>どの結末も完全な解決ではなく、別の共同体へ代償を残す。</li>
+            <li>五者共同管理だけが、明日も交渉を続ける余地を残す。</li>
+          </ul>
+          <blockquote class="quote">今日の出撃は、勝ち方を決める出撃だ。負け方はもう決まっている。<cite>William Hart / Captain</cite></blockquote>
+          <dl class="mission-rail">
+            <div><dt>Final</dt><dd>急進派旗艦を止め、門を誰に委ねるか決める。</dd></div>
+            <div><dt>Legacy</dt><dd>最終無線は、艦と勢力を問わず帰還者の名を一人ずつ読む。</dd></div>
+          </dl>
+          <div class="slide-index">20 / 20</div>
+        </article>
+      </section>
+    </main>
+
+    <script>
+      const slides = [...document.querySelectorAll('.slide')];
+      const output = document.querySelector('.deck-nav output');
+      const progress = document.querySelector('.deck-progress');
+      const mobileLayout = window.matchMedia('(max-width: 820px)');
+      let current = 0;
+
+      slides.forEach((slide) => {
+        const copy = slide.querySelector('.slide-copy');
+        const inner = document.createElement('div');
+        inner.className = 'slide-copy-inner';
+        [...copy.children]
+          .filter((element) => !element.classList.contains('chapter-mark') && !element.classList.contains('slide-index'))
+          .forEach((element) => inner.appendChild(element));
+        copy.insertBefore(inner, copy.querySelector('.slide-index'));
+      });
+
+      const applyFit = (inner, scale) => {
+        inner.style.width = `${100 / scale}%`;
+        inner.style.transform = `scale(${scale})`;
+        inner.dataset.fitScale = scale.toFixed(3);
+      };
+
+      const fitCopy = (copy) => {
+        const inner = copy.querySelector('.slide-copy-inner');
+        inner.style.width = '100%';
+        inner.style.transform = 'none';
+        inner.dataset.fitScale = '1.000';
+
+        if (mobileLayout.matches) return;
+
+        const style = getComputedStyle(copy);
+        const availableHeight = copy.clientHeight
+          - parseFloat(style.paddingTop)
+          - parseFloat(style.paddingBottom);
+
+        if (inner.scrollHeight <= availableHeight) return;
+
+        let lower = 0.52;
+        let upper = 1;
+        let fitted = lower;
+
+        for (let iteration = 0; iteration < 12; iteration += 1) {
+          const scale = (lower + upper) / 2;
+          applyFit(inner, scale);
+          const visualHeight = inner.scrollHeight * scale;
+
+          if (visualHeight <= availableHeight) {
+            fitted = scale;
+            lower = scale;
+          } else {
+            upper = scale;
+          }
+        }
+
+        applyFit(inner, fitted);
+      };
+
+      let fitFrame = 0;
+      const fitAllCopies = () => {
+        cancelAnimationFrame(fitFrame);
+        fitFrame = requestAnimationFrame(() => {
+          slides.forEach((slide) => fitCopy(slide.querySelector('.slide-copy')));
+        });
+      };
+
+      const setCurrent = (index, updateHash = false) => {
+        current = Math.max(0, Math.min(slides.length - 1, index));
+        slides.forEach((slide, i) => slide.classList.toggle('is-current', i === current));
+        output.textContent = `${String(current + 1).padStart(2, '0')} / ${slides.length}`;
+        progress.style.width = `${((current + 1) / slides.length) * 100}%`;
+        document.documentElement.style.setProperty('--accent', getComputedStyle(slides[current]).getPropertyValue('--accent'));
+        if (updateHash) history.replaceState(null, '', `#${slides[current].id}`);
+      };
+
+      const go = (index) => {
+        const target = Math.max(0, Math.min(slides.length - 1, index));
+        slides[target].scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setCurrent(target, true);
+      };
+
+      document.querySelector('[data-action="prev"]').addEventListener('click', () => go(current - 1));
+      document.querySelector('[data-action="next"]').addEventListener('click', () => go(current + 1));
+
+      window.addEventListener('keydown', (event) => {
+        if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(event.key)) {
+          event.preventDefault();
+          go(current + 1);
+        } else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(event.key)) {
+          event.preventDefault();
+          go(current - 1);
+        } else if (event.key === 'Home') {
+          event.preventDefault();
+          go(0);
+        } else if (event.key === 'End') {
+          event.preventDefault();
+          go(slides.length - 1);
+        }
+      });
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          const visible = entries
+            .filter((entry) => entry.isIntersecting)
+            .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+          if (!visible) return;
+          const index = slides.indexOf(visible.target);
+          if (index >= 0) setCurrent(index, true);
+        },
+        { threshold: [0.51, 0.72] },
+      );
+
+      slides.forEach((slide) => observer.observe(slide));
+      window.addEventListener('resize', fitAllCopies, { passive: true });
+      mobileLayout.addEventListener('change', fitAllCopies);
+      document.fonts?.ready.then(fitAllCopies);
+      fitAllCopies();
+      const initial = slides.findIndex((slide) => `#${slide.id}` === location.hash);
+      setCurrent(initial >= 0 ? initial : 0);
+    </script>
+  </body>
+</html>

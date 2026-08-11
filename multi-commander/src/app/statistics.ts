@@ -1,4 +1,4 @@
-import type { CampaignMode, CampaignOutcome, CampaignRoute } from '../content/campaign';
+import type { CampaignOutcome, CampaignRoute } from '../content/campaign';
 import type { ReturneeEntry, ReturneeKind } from './narrative';
 
 export interface CampaignStatistics {
@@ -20,7 +20,6 @@ export interface CampaignStatistics {
   campaignLosses: number;
   advanceCount: number;
   retreatCount: number;
-  campaignModes: Record<CampaignMode, number>;
   campaignNodes: Record<string, { wins: number; losses: number }>;
   /**
    * 帰還者の累計人数（勢力を問わない）。
@@ -51,7 +50,6 @@ export function newStatistics(): CampaignStatistics {
     campaignLosses: 0,
     advanceCount: 0,
     retreatCount: 0,
-    campaignModes: { canon: 0, expanded: 0, veil: 0 },
     campaignNodes: {},
     returneesTotal: 0,
     returneesByKind: { civilian: 0, wingman: 0, 'enemy-ace': 0, 'ally-faction': 0 },
@@ -79,13 +77,6 @@ export function normalizeStatistics(raw: unknown): CampaignStatistics {
       if (typeof value === 'number' && Number.isFinite(value)) fallback.returneesByKind[kind] = Math.max(0, Math.floor(value));
     }
   }
-  if (r.campaignModes && typeof r.campaignModes === 'object') {
-    // veil は後から増えたモード。旧セーブには無いが、キーがあれば復元する。
-    for (const mode of ['canon', 'expanded', 'veil'] as const) {
-      const value = r.campaignModes[mode];
-      if (typeof value === 'number' && Number.isFinite(value)) fallback.campaignModes[mode] = Math.max(0, Math.floor(value));
-    }
-  }
   if (r.campaignNodes && typeof r.campaignNodes === 'object') {
     for (const [id, value] of Object.entries(r.campaignNodes)) {
       if (!value || typeof value !== 'object') continue;
@@ -109,7 +100,6 @@ export function normalizeStatistics(raw: unknown): CampaignStatistics {
 export function recordCampaignOutcome(
   stats: CampaignStatistics,
   result: {
-    mode: CampaignMode;
     node: string;
     outcome: CampaignOutcome;
     points: number;
@@ -122,7 +112,6 @@ export function recordCampaignOutcome(
   else stats.campaignLosses += 1;
   if (result.route === 'advance') stats.advanceCount += 1;
   if (result.route === 'retreat') stats.retreatCount += 1;
-  stats.campaignModes[result.mode] = (stats.campaignModes[result.mode] ?? 0) + 1;
   const node = (stats.campaignNodes[result.node] ??= { wins: 0, losses: 0 });
   if (result.outcome === 'win') node.wins += 1;
   else node.losses += 1;

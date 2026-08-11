@@ -1,19 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { newAceStates, recordAceEscape, recordAceKill } from '../../src/content/aces';
-import { applyFrontlineOutcome, chooseDynamicMission, dynamicMissionDef, newFrontlineState } from '../../src/content/frontline';
+import { dynamicMissionDef } from '../../src/content/frontline';
 import { MISSION_COUNT, missionDef } from '../../src/content/missions';
 import { clampLoadout, consumeLoadout, newSupplies } from '../../src/app/supplies';
-import { advanceCampaignSave, newSave } from '../../src/app/save';
+import { advanceCampaignSave, newCampaignSave } from '../../src/app/save';
 import { newStatistics, recordCampaignOutcome, recordMissionStatistics } from '../../src/app/statistics';
 import {
-  CANON_CAMPAIGN,
-  CANON_CAMPAIGN_START,
-  CAMPAIGN,
+  campaignGraph,
   campaignMap,
   campaignNode,
+  campaignStart,
   advance,
   newCampaignProgress,
   resolveCampaignOutcome,
+  totalChapters,
   VICTORY,
   DEFEAT,
 } from '../../src/content/campaign';
@@ -27,16 +27,6 @@ describe('キャンペーンの名作化システム', () => {
     recordAceEscape(state);
     expect(state.status).toBe('killed');
     expect(state.escaped).toBe(1);
-  });
-
-  it('戦況作戦は最も押されている星系を選び、結果で値を動かす', () => {
-    const frontline = newFrontlineState();
-    const ref = chooseDynamicMission(frontline, 'm2-escort', 0);
-    expect(ref.system).toBe('vega-gate');
-    const before = frontline.systems[ref.system].control;
-    applyFrontlineOutcome(frontline, ref, 'win', { kills: 5, escortLost: false });
-    expect(frontline.systems[ref.system].control).toBeGreaterThan(before);
-    expect(dynamicMissionDef(ref).id).toBe(ref.id);
   });
 
   it('有限補給は搭載上限と消費を守る', () => {
@@ -58,80 +48,75 @@ describe('キャンペーンの名作化システム', () => {
     expect(stats.shipsFlown.rapier).toBe(1);
   });
 
-  it('canon は Enyo 起点で、expanded の McCaffrey ルートと分離されている', () => {
-    const canon = newSave('canon');
-    const expanded = newSave();
-    expect(canon.node).toBe(CANON_CAMPAIGN_START);
-    expect(canon.campaignMode).toBe('canon');
-    expect(expanded.node).toBe('m1-patrol');
-    expect(expanded.campaignMode).toBe('expanded');
-    expect(campaignNode(canon.node, 'canon').system).toBe('Enyo');
-    expect(campaignNode(expanded.node).system).toBe('McCaffrey');
+  /**
+   * 戦役は THE VEIL FRONT の十章だけ（canon / expanded は削除済み）。
+   * 「モードを選べる」ことではなく「十章が一本の順路になっている」ことを守る。
+   */
+  it('新しい戦役は必ず第1章から始まる', () => {
+    const save = newCampaignSave();
+    expect(save.node).toBe(campaignStart());
+    expect(save.node).toBe('veil-ch01');
+    expect(campaignNode(save.node).chapter).toBe(1);
+    expect(totalChapters()).toBe(10);
   });
 
-  it('canon の勝敗は別の次ノード、ルート、シリーズスコアを返す', () => {
-    const win = newCampaignProgress('canon');
+  it('勝敗のどちらでも次章へ進む（敗北ルートを持たない）', () => {
+    const win = newCampaignProgress();
     const winTurn = resolveCampaignOutcome(win, 'win');
-    expect(winTurn.nextNode).toBe('canon-mcauliffe-escort');
+    expect(winTurn.nextNode).toBe('veil-ch02');
     expect(winTurn.route).toBe('advance');
-    expect(win.score).toBe(2);
 
-    const loss = newCampaignProgress('canon');
+    const loss = newCampaignProgress();
     const lossTurn = resolveCampaignOutcome(loss, 'loss');
-    expect(lossTurn.nextNode).toBe('canon-enyo-defense');
-    expect(lossTurn.route).toBe('retreat');
-    expect(loss.score).toBe(-2);
-    expect(lossTurn.nextSituation).toContain('Enyo');
+    // 敗北でも次章。達成しなかった条件は戦況文に記録として残る
+    expect(lossTurn.nextNode).toBe('veil-ch02');
+    expect(lossTurn.route).toBe('hold');
+    expect(lossTurn.situation).toContain('未達');
   });
 
-  it('戦役マップは現在地、到達可能な勝敗分岐、未到達を区別する', () => {
-    const map = campaignMap('canon', CANON_CAMPAIGN_START);
-    expect(map.find((entry) => entry.id === CANON_CAMPAIGN_START)?.status).toBe('current');
-    expect(map.find((entry) => entry.id === 'canon-mcauliffe-escort')?.status).toBe('reachable');
-    expect(map.find((entry) => entry.id === 'canon-enyo-defense')?.status).toBe('reachable');
-    expect(map.find((entry) => entry.id === 'canon-gateway-strike')?.status).toBe('unreached');
+  it('戦役マップは現在地、到達可能な次章、未到達を区別する', () => {
+    const map = campaignMap('veil-ch01');
+    expect(map.find((entry) => entry.id === 'veil-ch01')?.status).toBe('current');
+    expect(map.find((entry) => entry.id === 'veil-ch02')?.status).toBe('reachable');
+    expect(map.find((entry) => entry.id === 'veil-ch05')?.status).toBe('unreached');
   });
 
   it('save 進行は勝敗と統計を同じ結果から更新する', () => {
-    const save = newSave('canon');
+    const save = newCampaignSave();
     const transition = advanceCampaignSave(save, 'loss');
-    expect(save.node).toBe('canon-enyo-defense');
-    expect(save.seriesScore).toBe(-2);
+    expect(save.node).toBe('veil-ch02');
     expect(save.campaignHistory).toHaveLength(1);
     expect(save.statistics.campaignLosses).toBe(1);
-    expect(save.statistics.retreatCount).toBe(1);
     expect(transition.nextNode).toBe(save.node);
   });
 
-  it('canon/expanded の全ノードは勝敗のどちらからも終端へ到達できる', () => {
-    for (const [mode, graph] of [['canon', CANON_CAMPAIGN], ['expanded', CAMPAIGN]] as const) {
-      for (const id of Object.keys(graph)) {
-        for (const outcome of ['win', 'loss'] as const) {
-          let node = id;
-          for (let i = 0; i < 20 && node !== VICTORY && node !== DEFEAT; i++) node = advance(node, outcome, mode);
-          expect(node === VICTORY || node === DEFEAT, `${mode}/${id}/${outcome}`).toBe(true);
-        }
+  it('全ノードは勝敗のどちらからも終端へ到達できる', () => {
+    const graph = campaignGraph();
+    for (const id of Object.keys(graph)) {
+      for (const outcome of ['win', 'loss'] as const) {
+        let node = id;
+        for (let i = 0; i < 20 && node !== VICTORY && node !== DEFEAT; i++) node = advance(node, outcome);
+        expect(node === VICTORY || node === DEFEAT, `${id}/${outcome}`).toBe(true);
       }
     }
   });
 
-  it('シリーズ勝敗統計は route と mode を保持する', () => {
+  it('シリーズ勝敗統計は route とノードを保持する', () => {
     const stats = newStatistics();
-    recordCampaignOutcome(stats, { mode: 'canon', node: CANON_CAMPAIGN_START, outcome: 'win', points: 2, route: 'advance' });
+    recordCampaignOutcome(stats, { node: 'veil-ch01', outcome: 'win', points: 2, route: 'advance' });
     expect(stats.seriesScore).toBe(2);
-    expect(stats.campaignModes.canon).toBe(1);
-    expect(stats.campaignNodes[CANON_CAMPAIGN_START]).toEqual({ wins: 1, losses: 0 });
+    expect(stats.campaignNodes['veil-ch01']).toEqual({ wins: 1, losses: 0 });
   });
 
-  it('常設任務と十章キャンペーンを含めて任務が登録され、多段攻撃が存在する', () => {
-    // 本線9本 + 敗北ルート2本 + 外周作戦9本 = 20本に、veil の十章を加えて 30 本
-    expect(MISSION_COUNT).toBe(30);
+  it('外周作戦と十章キャンペーンが登録されている', () => {
+    // 外周作戦9本 + veil の十章 = 19本（旧11ミッションは削除した）
+    expect(MISSION_COUNT).toBe(19);
     expect(missionDef('m7-quiet-patrol').spawns).toHaveLength(0);
-    expect(missionDef('m6-flagship').capitalStages?.map((s) => s.tag)).toEqual(['escort', 'flagship']);
+    expect(missionDef('veil-ch01').navs.length).toBeGreaterThan(0);
   });
 
   it('戦況の拠点強襲は砲塔→エンジン→魚雷の順に進む', () => {
-    const ref = { id: 'dynamic-1-vega-gate-capital', system: 'vega-gate', kind: 'capital', seed: 1, returnNode: 'm2-escort' } as const;
+    const ref = { id: 'dynamic-1-vega-gate-capital', system: 'vega-gate', kind: 'capital', seed: 1, returnNode: 'veil-ch01' } as const;
     const stages = dynamicMissionDef(ref).capitalStages ?? [];
     expect(stages.map((stage) => stage.subsystem ?? stage.weapon)).toEqual(['turret', 'engine', 'torpedo']);
   });

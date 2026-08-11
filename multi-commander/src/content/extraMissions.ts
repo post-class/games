@@ -25,7 +25,7 @@ export const EXTRA_MISSIONS: MissionDef[] = [
   ['m9-last-convoy', 'vega-gate', 'escort'],
   ['m9-capital-attack', 'vega-gate', 'capital'],
 ].map(([id, system, kind], i) => {
-  const ref = { id, system: system as FrontlineSystemId, kind: kind as DynamicMissionKind, seed: 8000 + i, returnNode: 'm1-patrol' };
+  const ref = { id, system: system as FrontlineSystemId, kind: kind as DynamicMissionKind, seed: 8000 + i, returnNode: 'veil-ch01' };
   const base = dynamicMissionDef(ref);
   return { ...base, title: `外周作戦 ${i + 1} — ${base.title}` };
 });

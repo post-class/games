@@ -3,6 +3,7 @@ import { DIFFICULTIES } from '../../src/app/settings';
 import { MAX_RELAYS, newNarrative, normalizeNarrative, recordRelaysHeld, relaysHeld } from '../../src/app/narrative';
 import { isHostile, resetFactionStances } from '../../src/content/factions';
 import { missionDef } from '../../src/content/missions';
+import { TEST_PATROL } from './fixtures/missions';
 import { reseed } from '../../src/core/rng';
 import { MissionRunner } from '../../src/mission/MissionRunner';
 import type { MissionDef } from '../../src/mission/types';
@@ -68,7 +69,7 @@ describe('第8章 停戦の一分間', () => {
   });
 
   it('宣言を持たないミッションでも dispose で既定へ戻る（漏れ止めが無条件である保証）', () => {
-    const plain = missionDef('m1-patrol');
+    const plain = TEST_PATROL;
     expect(plain.factionStances).toBeUndefined();
     const { runner } = start(plain);
     runner.dispose();

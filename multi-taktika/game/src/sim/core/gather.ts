@@ -38,7 +38,7 @@ import {
   spawnEntity,
 } from './entity';
 import { buildingDef, buildingIndex, roleToIndex, unitDef, unitIndex } from './defs';
-import type { GatherFrom } from './effects';
+import type { GatherFrom, PlayerModifiers } from './effects';
 import { depositMul, farmYieldMul, gatherRateMul, getPlayerModifiers } from './effects';
 import type { Fx } from './fx';
 import { FX_ONE, distSq, fx, fxMul, fxToInt, idiv, isqrt } from './fx';
@@ -272,12 +272,26 @@ const gatherFromByNodeType: readonly GatherFrom[] = RESOURCE_NODE_DEFS.map((n) =
  * 分けて取り出す API は無く、分ける意味も無い（`07§8` の式では積になるだけ）。
  */
 export function gatherMulFx(w: World, p: PlayerId, nodeTypeId: number): Fx {
+  return gatherMulOf(getPlayerModifiers(w, p), nodeTypeId);
+}
+
+/**
+ * 同じもの。**集約結果を先に引いてある**ときはこちらを使う。
+ *
+ * ■ なぜ 2 つあるのか（性能）
+ * 毎 tick・村人ごとに `getPlayerModifiers` を呼んでいたとき、
+ * `economy` が **0.86 ms/tick**（1 tick 1.46 ms のうち 59%）を食っていた。
+ * 集約結果は 1 tick のあいだ変わらないので、`systems/economy.ts` は
+ * 席ごとに 1 回だけ引いてこちらへ渡す。
+ * `gatherMulFx`（World から引く版）はテストと単発の問い合わせ用に残してある。
+ */
+export function gatherMulOf(m: PlayerModifiers, nodeTypeId: number): Fx {
   const def = resourceNodeDef(nodeTypeId);
   const from = gatherFromByNodeType[nodeTypeId];
   if (from === undefined) throw new Error(`gather: 範囲外の資源ノード typeId ${nodeTypeId}`);
   const resource = RESOURCE_IDS[def.resource];
   if (resource === undefined) throw new Error(`gather: 範囲外の resource ${def.resource}`);
-  return gatherRateMul(getPlayerModifiers(w, p), resource, from);
+  return gatherRateMul(m, resource, from);
 }
 
 /**

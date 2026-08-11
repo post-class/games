@@ -65,7 +65,8 @@ export function migrateFrontlineSystemId(raw: unknown): FrontlineSystemId | unde
  */
 const RESCUE_RADIUS = 360;
 
-const DYNAMIC_KINDS: DynamicMissionKind[] = ['patrol', 'escort', 'strike', 'rescue', 'quiet', 'capital'];
+/** 動的作戦の全種別。訓練室・外周作戦・テストの走査でこの並びを唯一の出所にする。 */
+export const DYNAMIC_KINDS: DynamicMissionKind[] = ['patrol', 'escort', 'strike', 'rescue', 'quiet', 'capital'];
 
 export interface FrontlineSystemState {
   /** 0 = 帝国優勢、100 = 連邦優勢 */
@@ -157,62 +158,8 @@ export function normalizeFrontline(raw: unknown): FrontlineState {
   return fallback;
 }
 
-export function applyFrontlineOutcome(
-  state: FrontlineState,
-  ref: DynamicMissionRef,
-  outcome: 'win' | 'loss',
-  summary: { escortLost?: boolean; kills?: number },
-): void {
-  const system = state.systems[ref.system];
-  if (!system) return;
-  const win = outcome === 'win';
-  const kills = Math.max(0, Math.floor(numberOr(summary.kills, 0)));
-  const pressureSwing = win ? -5 : 8;
-  const controlSwing = win
-    ? (ref.kind === 'quiet' ? 2 : 7 + Math.min(3, Math.floor(kills / 4)))
-    : -6;
-  // 補給線を直接扱う任務だけが logistics を大きく動かす。哨戒や強襲の
-  // 成功を補給回復として扱うと、戦況の三つの値が同じ意味になってしまう。
-  const logisticsSwing = win
-    ? ref.kind === 'escort'
-      ? summary.escortLost ? -5 : 8
-      : ref.kind === 'rescue'
-        ? 3
-        : ref.kind === 'capital'
-          ? 4
-          : 0
-    : ref.kind === 'escort' || summary.escortLost ? -7 : -2;
-  system.control = clamp(system.control + controlSwing, 0, 100);
-  system.pressure = clamp(system.pressure + pressureSwing, 0, 100);
-  system.logistics = clamp(system.logistics + logisticsSwing, 0, 100);
-  state.operations += 1;
-  state.lastSystem = ref.system;
-  state.lastKind = ref.kind;
-}
-
-/** 次の補給・哨戒作戦を決める。結果は seed だけで再現できる。 */
-export function chooseDynamicMission(
-  state: FrontlineState,
-  returnNode: string,
-  serial: number,
-): DynamicMissionRef {
-  const systems = Object.keys(state.systems) as FrontlineSystemId[];
-  if (systems.length === 0) throw new Error('frontline has no systems');
-  const safeSerial = Number.isFinite(serial) ? Math.max(0, Math.floor(serial)) : 0;
-  const system = [...systems].sort((a, b) => dangerOf(state.systems[b]) - dangerOf(state.systems[a]))[safeSerial % systems.length];
-  const frontline = state.systems[system];
-  const kinds: DynamicMissionKind[] =
-    frontline.logistics < 35
-      ? ['rescue', 'escort', 'quiet']
-      : frontline.pressure > 72
-        ? ['capital', 'strike', 'patrol']
-        : ['patrol', 'escort', 'strike', 'rescue', 'quiet'];
-  const kind = kinds[safeSerial % kinds.length];
-  return { id: `dynamic-${safeSerial}-${system}-${kind}`, system, kind, seed: safeSerial, returnNode };
-}
-
 /**
- * 固定キャンペーンの隙間に差し込む作戦群。
+ * 訓練室・チュートリアル・外周作戦の土台になる作戦定義。
  * quiet は「何も起きない哨戒」を明示的に実装したものだが、帰投まで
  * の航路と戦況の変化は残るので、単なる待ち時間にはならない。
  */
@@ -340,11 +287,6 @@ export function dynamicMissionDef(ref: DynamicMissionRef): MissionDef {
 
 function numberOr(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
-}
-
-function dangerOf(system: FrontlineSystemState): number {
-  // 制宙度の低さを主軸に、敵圧力と補給余力も選定へ反映する。
-  return (100 - system.control) * 0.5 + system.pressure * 0.3 + (100 - system.logistics) * 0.2;
 }
 
 function clamp(value: number, min: number, max: number): number {

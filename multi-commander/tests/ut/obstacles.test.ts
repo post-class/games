@@ -1,7 +1,7 @@
 import { Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { shipDef } from '../../src/content/ships';
-import { missionDef } from '../../src/content/missions';
+import { TEST_PATROL, TEST_RECON, TEST_RESCUE, TEST_TIME_LIMIT } from './fixtures/missions';
 import { DIFFICULTIES } from '../../src/app/settings';
 import { MissionRunner } from '../../src/mission/MissionRunner';
 import {
@@ -170,7 +170,7 @@ describe('障害物とオートパイロット', () => {
   it('障害物の中では自動航行できない', () => {
     const world = newWorld();
     // Nav が必要なので、ミッションを組んでから岩を置く
-    const def = missionDef('m1-patrol');
+    const def = TEST_PATROL;
     const runner = new MissionRunner(
       world,
       def,
@@ -191,7 +191,7 @@ describe('障害物とオートパイロット', () => {
 describe('新しい目標種別', () => {
   it('救助: ポッドに接近すると回収される', () => {
     const world = newWorld();
-    const def = missionDef('m3b-sar');
+    const def = TEST_RESCUE;
     const runner = new MissionRunner(world, def, { shipId: 'scimitar' }, DIFFICULTIES.easy);
     runner.build();
     // ポッドは NAV 1 到達時に配置される
@@ -215,7 +215,7 @@ describe('新しい目標種別', () => {
 
   it('偵察: 対象を正面に捉え続けると達成する', () => {
     const world = newWorld();
-    const def = missionDef('m2b-recon');
+    const def = TEST_RECON;
     const runner = new MissionRunner(world, def, { shipId: 'hornet' }, DIFFICULTIES.easy);
     runner.build();
     reachNav(world, runner, 1);
@@ -239,7 +239,7 @@ describe('新しい目標種別', () => {
 
   it('制限時間: 超過すると失敗になる', () => {
     const world = newWorld();
-    const def = missionDef('m5b-intercept');
+    const def = TEST_TIME_LIMIT;
     const runner = new MissionRunner(world, def, { shipId: 'rapier' }, DIFFICULTIES.easy);
     runner.build();
     // 4分ぶん進める

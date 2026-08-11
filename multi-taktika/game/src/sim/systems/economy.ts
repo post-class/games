@@ -33,6 +33,7 @@ import { EntityKind, INVALID_ENTITY, RESOURCE_COUNT, RESOURCE_IDS } from '@/shar
 
 import { UnitState, idOfIndex, isAliveIndex, resolveIndex } from '../core/entity';
 import { unitDef } from '../core/defs';
+import type { PlayerModifiers } from '../core/effects';
 import {
   auraGatherMul,
   destroyedSites,
@@ -48,7 +49,7 @@ import {
   depleteNode,
   distanceFx,
   effectiveGatherRatePerSecFx,
-  gatherMulFx,
+  gatherMulOf,
   findNearestDropOffIndex,
   findNearestResourceNodeAnyIndex,
   findNearestResourceNodeIndex,
@@ -83,6 +84,15 @@ interface EconomyTickContext {
   /** 村人の運搬容量（Fx。10 単位）。 */
   readonly carryCap: Fx;
   /**
+   * 採集倍率（文明・研究・建物を畳んだもの）を**席ごとに 1 tick 1 回だけ**引いたもの。
+   *
+   * **性能のために巻き上げてある。** 村人ごとに `getPlayerModifiers` を呼んでいたとき、
+   * `economy` が **0.86 ms/tick**（1 tick 1.46 ms のうち 59%）を占めた。
+   * 集約結果は 1 tick のあいだ変わらない（建物の完成・破壊は tick の境目で起きる）ので、
+   * 村人ごとに引き直す理由が無い。
+   */
+  readonly modsByPlayer: readonly (PlayerModifiers | null)[];
+  /**
    * 座標依存の採集オーラ（地下水路 +15% / 壊された井戸の跡地 0.8）を
    * **この tick で計算する必要があるか**。
    * 誰も持っていなければ全村人ぶんの範囲判定をまるごと省ける（結果は変わらない）。
@@ -108,6 +118,7 @@ export function economy(w: World): void {
     carryCap: carryCapacityFx(),
     gatherAuraActive: auraActive,
     auraMemo: auraActive ? createAuraMemo(w.playerCount) : [],
+    modsByPlayer: modsByPlayer(w),
   };
   for (let i = 0; i < e.highWater; i++) {
     if (!isAliveIndex(e, i) || e.kind[i] !== EntityKind.Unit) continue;
@@ -124,6 +135,23 @@ export function economy(w: World): void {
 
   // 4) 人口の集計（家 +5 / 町の中心 +10 / 既定上限 200）。
   refreshPopulation(w);
+}
+
+/**
+ * 席ごとの集約（`PlayerModifiers`）を 1 tick 1 回だけ作る。
+ * 中立（`playerCount` 以上）は入らない。
+ */
+function modsByPlayer(w: World): (PlayerModifiers | null)[] {
+  const out: (PlayerModifiers | null)[] = [];
+  for (let p = 0; p < w.playerCount; p++) out.push(getPlayerModifiers(w, p as PlayerId));
+  return out;
+}
+
+/** 巻き上げた集約から採集倍率を引く。席が範囲外なら 1.0（倍率なし）。 */
+function gatherMulOfOwner(ctx: EconomyTickContext, owner: PlayerId, nodeTypeId: number): Fx {
+  const m = ctx.modsByPlayer[owner];
+  if (m === undefined || m === null) return FX_ONE;
+  return gatherMulOf(m, nodeTypeId);
 }
 
 // ---------------------------------------------------------------- 戦域維持の収入（令「交易」）
@@ -261,7 +289,9 @@ function gatherTick(w: World, i: number, ctx: EconomyTickContext): void {
   const rate = effectiveGatherRatePerSecFx(
     e.typeId[ni]!,
     oneWay,
-    gatherMulFx(w, owner, e.typeId[ni]!),
+    // 席ごとの集約は 1 tick 1 回だけ引いたものを使う（`ctx.modsByPlayer`）。
+    // 村人ごとに引き直すと `economy` が 1 tick の 59% を食った（`core/gather.ts` の注記）。
+    gatherMulOfOwner(ctx, owner, e.typeId[ni]!),
     gatherAuraMulFor(w, ctx, owner, ni, nodeDef.resource)
   );
 

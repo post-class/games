@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { DIFFICULTIES } from '../../src/app/settings';
-import { missionDef } from '../../src/content/missions';
+import { TEST_ESCORT } from './fixtures/missions';
 import { MissionRunner } from '../../src/mission/MissionRunner';
 import { World } from '../../src/world/world';
 
 function start(difficultyId: 'easy' | 'normal' | 'hard') {
-  const source = missionDef('m2-escort');
+  const source = TEST_ESCORT;
   const def = {
     ...source,
     spawns: source.spawns.map((group) => ({ ...group, atNav: undefined, delay: undefined })),

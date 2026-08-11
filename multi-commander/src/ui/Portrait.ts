@@ -189,18 +189,10 @@ function personFaceIds(faction: string, count: number): string[] {
  * 表情ごとの絵を用意したら、同名ファイルを差し替える（id 集合とテストはそのまま使える）。
  */
 export const FACE_ART_IDS: ReadonlySet<string> = new Set([
-  // ── 旧キャンペーン (既存11ミッション) が参照している暫定 id。
-  // 艦長 (ブリーフィング官)。飛ばないが顔画像は同じ形式で持つ
-  'halcyon',
-  'spirit',
-  'maniac',
-  'angel',
-  'tinman',
-  'cricket',
-  'padre',
-  'slate',
-  'nomad',
-  // ── THE VEIL FRONT 人物名簿の76名。
+  // THE VEIL FRONT 人物名簿の76名。
+  // 旧キャンペーン（canon / expanded）の暫定 id（halcyon / spirit / maniac / angel /
+  // tinman / cricket / padre / slate / nomad）は、戦役を THE VEIL FRONT だけにしたときに
+  // 画像ごと削除した。
   ...personFaceIds('confed', 36),
   ...personFaceIds('kilrashi', 10),
   ...personFaceIds('serecion', 10),

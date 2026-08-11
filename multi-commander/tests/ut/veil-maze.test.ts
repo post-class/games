@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DIFFICULTIES } from '../../src/app/settings';
 import { bus } from '../../src/core/events';
 import { reseed } from '../../src/core/rng';
-import { missionDef } from '../../src/content/missions';
+import { TEST_PATROL, TEST_STRIKE } from './fixtures/missions';
 import { shipDef } from '../../src/content/ships';
 import { VEIL_CH06 } from '../../src/content/veil/missions/ch06';
 import { VEIL_CH09 } from '../../src/content/veil/missions/ch09';
@@ -216,7 +216,7 @@ describe('第6章 通信妨害による味方位置の3秒遅延', () => {
   });
 
   it('遅延を宣言しないミッションの目標 note には遅延が出ない (回帰)', () => {
-    const { runner } = start(missionDef('m1-patrol'));
+    const { runner } = start(TEST_PATROL);
     runner.update(DT);
     expect(runner.commsDelayActive).toBe(false);
     for (const v of runner.objectiveViews()) {
@@ -314,7 +314,7 @@ describe('第6章 学習する群体', () => {
     });
 
     // 既存ミッションを build しても学習は無効
-    const { runner } = start(missionDef('m3-strike'));
+    const { runner } = start(TEST_STRIKE);
     runner.update(DT);
     expect(swarmLearningLevel()).toBe(0);
     runner.dispose();
@@ -458,7 +458,7 @@ describe('第9章 位相迷路の反射経路', () => {
   });
 
   it('反射を宣言しないミッションでは帰投窓が従来どおり (回帰)', () => {
-    const { world, runner } = start(missionDef('m1-patrol'));
+    const { world, runner } = start(TEST_PATROL);
     for (let i = 0; i < 60; i++) runner.update(DT);
     expect(runner.returnWindowPenalty).toBe(0);
     expect(runner.reflectionsStepped).toBe(0);
@@ -515,11 +515,11 @@ describe('第9章 過去章の無線を実際の選択から再生する', () =>
   it('条件を書いていない無線は従来どおり必ず流れる (回帰)', () => {
     const messages: string[] = [];
     const off = bus.on('radio', (m) => messages.push(m.text));
-    const { runner } = start(missionDef('m1-patrol'));
+    const { runner } = start(TEST_PATROL);
     for (let i = 0; i < 60 * 12; i++) runner.update(DT);
     off();
     runner.dispose();
-    const opening = missionDef('m1-patrol').openingRadio ?? [];
+    const opening = TEST_PATROL.openingRadio ?? [];
     expect(opening.length).toBeGreaterThan(0);
     for (const line of opening) expect(messages).toContain(line.text);
   });

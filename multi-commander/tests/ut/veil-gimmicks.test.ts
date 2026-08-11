@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { DIFFICULTIES } from '../../src/app/settings';
 import { bus } from '../../src/core/events';
 import { reseed } from '../../src/core/rng';
-import { missionDef } from '../../src/content/missions';
+import { TEST_STRIKE } from './fixtures/missions';
 import { shipDef } from '../../src/content/ships';
 import { VEIL_CH02 } from '../../src/content/veil/missions/ch02';
 import { VEIL_CH03 } from '../../src/content/veil/missions/ch03';
@@ -271,7 +271,7 @@ describe('共鳴パルスの安全窓', () => {
 
 describe('既存ミッションの機雷 (回帰)', () => {
   it('m3-strike は熱紋設定も安全窓も持たない', () => {
-    const def = missionDef('m3-strike');
+    const def = TEST_STRIKE;
     expect((def.hazards ?? []).some((h) => h.kind === 'minefield')).toBe(true);
     for (const h of def.hazards ?? []) {
       expect(h.thermalOnly).toBeUndefined();
@@ -289,7 +289,7 @@ describe('既存ミッションの機雷 (回帰)', () => {
     veil.runner.dispose();
 
     // 続けて既存ミッションを開始すると規則が既定へ戻る
-    start(missionDef('m3-strike'));
+    start(TEST_STRIKE);
     expect(mineSensorState().thermalOnly).toBe(false);
     expect(mineSensorState().suppressed).toBe(false);
 

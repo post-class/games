@@ -3,13 +3,20 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { DIFFICULTIES } from '../../src/app/settings';
 import {
   advance,
-  CAMPAIGN,
-  CAMPAIGN_START,
+  campaignGraph,
+  campaignStart,
   DEFEAT,
   isTerminal,
   VICTORY,
 } from '../../src/content/campaign';
 import { MISSIONS, missionDef } from '../../src/content/missions';
+import {
+  TEST_DEFEND,
+  TEST_ESCORT,
+  TEST_FLAGSHIP,
+  TEST_PATROL,
+  TEST_STRIKE,
+} from './fixtures/missions';
 import { reseed } from '../../src/core/rng';
 import { bus } from '../../src/core/events';
 import {
@@ -140,43 +147,42 @@ describe('ミッションデータの整合性', () => {
 
 describe('キャンペーン分岐', () => {
   it('全ノードの遷移先が存在する', () => {
-    for (const [id, node] of Object.entries(CAMPAIGN)) {
+    const graph = campaignGraph();
+    for (const [id, node] of Object.entries(graph)) {
       expect(MISSIONS[node.missionId], `${id} のミッション`).toBeDefined();
       for (const next of [node.onWin, node.onLoss]) {
-        if (!isTerminal(next)) expect(CAMPAIGN[next], `${id} → ${next}`).toBeDefined();
+        if (!isTerminal(next)) expect(graph[next], `${id} → ${next}`).toBeDefined();
       }
     }
   });
 
   it('勝ち続けると VICTORY に到達する', () => {
-    let node = CAMPAIGN_START;
+    let node = campaignStart();
     const seen: string[] = [];
     for (let i = 0; i < 20 && !isTerminal(node); i++) {
       seen.push(node);
       node = advance(node, 'win');
     }
     expect(node).toBe(VICTORY);
-    expect(seen).toHaveLength(9);
+    expect(seen).toHaveLength(10);
   });
 
-  it('負け続けると DEFEAT に到達する', () => {
-    let node = CAMPAIGN_START;
-    for (let i = 0; i < 20 && !isTerminal(node); i++) node = advance(node, 'loss');
+  it('負け続けても章は進み、最後に DEFEAT へ落ちる', () => {
+    let node = campaignStart();
+    const seen: string[] = [];
+    for (let i = 0; i < 20 && !isTerminal(node); i++) {
+      seen.push(node);
+      node = advance(node, 'loss');
+    }
+    // 敗北ルートへ分岐せず、そのまま次章へ進む（第10章の敗北だけが DEFEAT）
+    expect(seen).toHaveLength(10);
     expect(node).toBe(DEFEAT);
-  });
-
-  it('敗北ルートで勝てば本線に合流する', () => {
-    const l1 = advance('m1-patrol', 'loss');
-    expect(l1).toBe('l1-retreat');
-    expect(advance(l1, 'win')).toBe('m2b-recon');
-    const l2 = advance('m4-defend', 'loss');
-    expect(advance(l2, 'win')).toBe('m5-ace');
   });
 });
 
 describe('目標評価', () => {
   it('自機が失われると失敗になる', () => {
-    const def = missionDef('m1-patrol');
+    const def = TEST_PATROL;
     const { world, runner } = start(def);
     const player = world.player!;
     destroyEntity(world, player);
@@ -186,7 +192,7 @@ describe('目標評価', () => {
   });
 
   it('護衛対象が破壊されると失敗になる', () => {
-    const def = missionDef('m2-escort');
+    const def = TEST_ESCORT;
     const { world, runner } = start(def);
     // Nav 0 到達で輸送艦が出る
     reachNav(world, runner, def, 0);
@@ -200,7 +206,7 @@ describe('目標評価', () => {
   });
 
   it('destroyTag は対象を全部壊すと達成になる', () => {
-    const def = missionDef('m3-strike');
+    const def = TEST_STRIKE;
     const { world, runner } = start(def);
     reachNav(world, runner, def, 1);
     run(world, runner, 1);
@@ -209,13 +215,13 @@ describe('目標評価', () => {
     for (const s of supplies) destroyEntity(world, s);
     world.compact();
     runner.update(DT);
-    const view = runner.objectiveViews().find((v) => v.text.includes('ドーキア'));
+    const view = runner.objectiveViews().find((v) => v.text.includes('輸送艦'));
     expect(view?.state).toBe('done');
   });
 
   it('survive は指定時間の経過で達成になる', () => {
     const def: MissionDef = {
-      ...missionDef('l1-retreat'),
+      ...TEST_PATROL,
       spawns: [],
       objectives: [
         { id: 's', text: '3 秒耐える', required: true, spec: { kind: 'survive', seconds: 3 } },
@@ -230,7 +236,7 @@ describe('目標評価', () => {
 
   it('reachNav は到達で達成、未到達なら続行', () => {
     const def: MissionDef = {
-      ...missionDef('m1-patrol'),
+      ...TEST_PATROL,
       spawns: [],
       objectives: [
         { id: 'n', text: 'NAV 1 到達', required: true, spec: { kind: 'reachNav', navIndex: 0 } },
@@ -245,7 +251,7 @@ describe('目標評価', () => {
   });
 
   it('destroyAll は未出現のウェーブが残っている間は達成にならない', () => {
-    const def = missionDef('m1-patrol');
+    const def = TEST_PATROL;
     const { world, runner } = start(def);
     // 開始直後は敵ゼロだが、まだ Nav 未到達でウェーブが残っている
     run(world, runner, 1);
@@ -255,7 +261,7 @@ describe('目標評価', () => {
   });
 
   it('旗艦強襲は砲塔→エンジン→魚雷の順で進む', () => {
-    const base = missionDef('m6-flagship');
+    const base = TEST_FLAGSHIP;
     const flagshipSpawn = base.spawns.find((s) => s.tag === 'flagship')!;
     const def: MissionDef = {
       ...base,
@@ -313,13 +319,13 @@ describe('目標評価', () => {
     destroyEntity(world, flagship!, world.player);
     world.compact();
     runner.update(DT);
-    expect(runner.objectiveViews().find((v) => v.text.includes('カクタグ'))?.state).toBe('done');
+    expect(runner.objectiveViews().find((v) => v.text.includes('撃沈'))?.state).toBe('done');
   });
 });
 
 describe('ウェーブ投入', () => {
   it('Nav 到達で紐付いた敵グループが出現する', () => {
-    const def = missionDef('m1-patrol');
+    const def = TEST_PATROL;
     const { world, runner } = start(def);
     expect(world.entities.filter((e) => e.faction === 'kilrathi')).toHaveLength(0);
     reachNav(world, runner, def, 1);
@@ -329,7 +335,7 @@ describe('ウェーブ投入', () => {
   });
 
   it('エース指定のグループには ace フラグ付きの1機が含まれる', () => {
-    const def = missionDef('m4-defend');
+    const def = TEST_DEFEND;
     const { world, runner } = start(def);
     // 出撃時のスロットルが入るようになった (T2-⑤) ため、操縦しない自機は
     // 戦域から離れ続けてしまう。この検証はウェーブ投入が対象なので、その場に留める
@@ -345,11 +351,11 @@ describe('ウェーブ投入', () => {
     run(world, runner, 160 + DIFFICULTIES.normal.waveDelayBonus);
     const aces = world.entities.filter((e) => e.ship?.ace);
     expect(aces.length).toBeGreaterThanOrEqual(1);
-    expect(aces[0].ship!.pilot).toContain('Bhurak');
+    expect(aces[0].ship!.pilot).toContain('ラギティカ');
   });
 
   it('輸送艦は passive で、プレイヤーを攻撃しない', () => {
-    const def = missionDef('m2-escort');
+    const def = TEST_ESCORT;
     const { world, runner } = start(def);
     reachNav(world, runner, def, 0);
     run(world, runner, 1);
@@ -362,7 +368,7 @@ describe('ウェーブ投入', () => {
 describe('逃走した敵の扱い', () => {
   it('遠くまで逃げた敵は戦域から外れ、destroyAll が成立しうる', () => {
     const def: MissionDef = {
-      ...missionDef('m1-patrol'),
+      ...TEST_PATROL,
       navs: [{ name: 'NAV 1', pos: [0, 0, -1000] }],
       spawns: [
         { shipId: 'ke04-mirage', count: 1, faction: 'kilrathi', atNav: 0, delay: 0, offset: [0, 0, -500] },
@@ -395,7 +401,7 @@ describe('難易度の効き方', () => {
   // W1（07_更なる改善）で実初速は難易度に依らず LAUNCH_SPEED になったので、
   // 難易度の差は速度設定（やさしい 50% / それ以外 LAUNCH_THROTTLE）に残る。
   it('出撃時の実初速は LAUNCH_SPEED で、速度設定はやさしいがいちばん高い', () => {
-    const def = missionDef('m1-patrol');
+    const def = TEST_PATROL;
     const easy = start(def, 'easy');
     const normal = start(def, 'normal');
     const hard = start(def, 'hard');
@@ -409,7 +415,7 @@ describe('難易度の効き方', () => {
   });
 
   it('やさしいではウェーブの投入が遅い', () => {
-    const def = missionDef('m1-patrol');
+    const def = TEST_PATROL;
     const easy = start(def, 'easy');
     const hard = start(def, 'hard');
     reachNav(easy.world, easy.runner, def, 1);
@@ -423,7 +429,7 @@ describe('難易度の効き方', () => {
 
 describe('ミッション通しプレイ (AI が自機を操縦)', () => {
   it('AI 操縦の自機でも哨戒ミッションを達成できる', () => {
-    const def = missionDef('m1-patrol');
+    const def = TEST_PATROL;
     const { world, runner } = start(def, 'easy');
     const player = world.player!;
     // 自機に高技量 AI を載せて自動で戦わせる

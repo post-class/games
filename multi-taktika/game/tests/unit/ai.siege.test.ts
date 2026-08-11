@@ -95,6 +95,9 @@ function emptyMemory(): AiMemory {
     villagerKnownId: [],
     villagerRole: [],
     villagerBusyUntil: [],
+    // 村人にどの資源を採らせているかの記録（需要にもとづく割り当てで追加）。
+    villagerResource: [],
+    villagerMoveTick: [],
     gatherAssignSeq: [],
     nodeIds: [],
     nodeResource: [],

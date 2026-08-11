@@ -4,7 +4,6 @@ import {
   loadSave,
   loadSaveSlot,
   newCampaignSave,
-  newSave,
   saveToSlot,
   writeSave,
 } from '../../src/app/save';
@@ -18,6 +17,8 @@ const localStorageMock = {
   removeItem: (key: string) => void storage.delete(key),
 };
 
+const KEY = 'multi-commander.campaign.v4';
+/** 旧版のキー。戦役を THE VEIL FRONT だけにしたとき、読まずに捨てる扱いにした */
 const KEY_V3 = 'multi-commander.campaign.v3';
 const KEY_V2 = 'multi-commander.campaign.v2';
 
@@ -30,67 +31,60 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('newCampaignSave — veil モードと物語状態の初期化', () => {
-  it('veil は veil-ch01 から始まり、narrative が既定値で入る', () => {
-    const save = newCampaignSave('veil');
-    expect(save.campaignMode).toBe('veil');
+describe('newCampaignSave — 物語状態の初期化', () => {
+  it('veil-ch01 から始まり、narrative が既定値で入る', () => {
+    const save = newCampaignSave();
     expect(save.node).toBe('veil-ch01');
     expect(save.narrative).toEqual(newNarrative());
     // 主人公と門の結末は選択前なので未定義
     expect(save.protagonistId).toBeUndefined();
     expect(save.gateOutcome).toBeUndefined();
-  });
-
-  it('既存の newSave() は expanded のまま。narrative は追加されている', () => {
-    const save = newSave();
-    expect(save.campaignMode).toBe('expanded');
-    expect(save.narrative).toEqual(newNarrative());
+    expect(save.seenChapters).toEqual([]);
   });
 });
 
-describe('旧セーブ互換 — 追加フィールドが無いJSONを読める', () => {
-  it('v3 相当（narrative / protagonistId / gateOutcome なし）でも既定値で埋まる', () => {
+/**
+ * 旧版のセーブは読まない。
+ *
+ * v3 / v2 は canon / expanded で進めたものを含み、そのノードは今のグラフに無い。
+ * 読み替えても第1章へ戻るだけで進行の意味が残らないので、キーごと無視して
+ * 「続きから」に出さない（`loadSave()` が undefined を返す）。
+ */
+describe('旧セーブ（v3 / v2）は読まない', () => {
+  it('v3 のセーブは無視される', () => {
     storage.set(KEY_V3, JSON.stringify({
-      node: 'enyo-1',
-      campaignMode: 'canon',
-      seriesScore: 4,
+      node: 'veil-ch04',
+      campaignMode: 'veil',
       totalKills: 12,
-      sorties: 3,
-      cleared: ['m1'],
       savedAt: 1,
     }));
-    const loaded = loadSave();
-    expect(loaded).toBeDefined();
-    expect(loaded!.narrative).toEqual(newNarrative());
-    expect(loaded!.protagonistId).toBeUndefined();
-    expect(loaded!.gateOutcome).toBeUndefined();
-    // 既存の値は失われない
-    expect(loaded!.totalKills).toBe(12);
-    expect(loaded!.seriesScore).toBe(4);
+    expect(loadSave()).toBeUndefined();
   });
 
-  it('v2 相当（レガシーキー・最小フィールド）でも例外にならない', () => {
+  it('v2 のセーブは無視される', () => {
     storage.set(KEY_V2, JSON.stringify({ node: 'mccaffrey-1' }));
-    const loaded = loadSave();
-    expect(loaded).toBeDefined();
-    expect(loaded!.campaignMode).toBe('expanded');
-    expect(loaded!.narrative).toEqual(newNarrative());
+    expect(loadSave()).toBeUndefined();
   });
 
   it('narrative が不正な型でも既定値へ落ちる', () => {
     for (const narrative of ['壊れた文字列', 42, null, [], { routeTrust: 'x', returnees: 3 }]) {
-      storage.set(KEY_V3, JSON.stringify({ node: 'mccaffrey-1', narrative }));
+      storage.set(KEY, JSON.stringify({ node: 'veil-ch01', narrative }));
       const loaded = loadSave();
       expect(loaded!.narrative.routeTrust).toBe(50);
       expect(loaded!.narrative.returnees).toEqual([]);
       expect(loaded!.narrative.choices).toEqual({});
     }
   });
+
+  it('今のグラフに無いノードは第1章へ落とす', () => {
+    storage.set(KEY, JSON.stringify({ node: 'm1-patrol' }));
+    expect(loadSave()!.node).toBe('veil-ch01');
+  });
 });
 
 describe('protagonistId / gateOutcome の正規化', () => {
   function loadWith(fields: Record<string, unknown>) {
-    storage.set(KEY_V3, JSON.stringify({ node: 'veil-ch01', campaignMode: 'veil', ...fields }));
+    storage.set(KEY, JSON.stringify({ node: 'veil-ch01', ...fields }));
     return loadSave()!;
   }
 
@@ -118,7 +112,7 @@ describe('protagonistId / gateOutcome の正規化', () => {
 
 describe('保存と読込の往復', () => {
   it('通常キーの往復で narrative / protagonistId / gateOutcome が残る', () => {
-    const save = newCampaignSave('veil');
+    const save = newCampaignSave();
     save.protagonistId = 'confed-01';
     save.gateOutcome = 'limited-open';
     save.narrative.routeTrust = 71;
@@ -138,7 +132,7 @@ describe('保存と読込の往復', () => {
   });
 
   it('スロット保存・読込を経ても narrative が保持される', () => {
-    const save = newCampaignSave('veil');
+    const save = newCampaignSave();
     save.protagonistId = 'confed-05';
     save.narrative.commandTrust = 12;
     addReturneeEntries(save.narrative, [{ name: '相沢 紗良', chapter: 3, kind: 'wingman', personId: 'confed-13' }]);
@@ -146,7 +140,6 @@ describe('保存と読込の往復', () => {
 
     expect(loadSaveSlot(1)).toBeUndefined();
     const loaded = loadSaveSlot(2)!;
-    expect(loaded.campaignMode).toBe('veil');
     expect(loaded.protagonistId).toBe('confed-05');
     expect(loaded.narrative.commandTrust).toBe(12);
     expect(loaded.narrative.returnees).toEqual(['相沢 紗良']);
@@ -155,10 +148,9 @@ describe('保存と読込の往復', () => {
     ]);
   });
 
-  it('clearSave は通常キー・レガシーキー・スロットを消す', () => {
-    storage.set(KEY_V2, JSON.stringify({ node: 'mccaffrey-1' }));
-    writeSave(newCampaignSave('veil'));
-    saveToSlot(newCampaignSave('veil'), 0);
+  it('clearSave は通常キーとスロットを消す', () => {
+    writeSave(newCampaignSave());
+    saveToSlot(newCampaignSave(), 0);
     clearSave();
     expect(loadSave()).toBeUndefined();
     expect(loadSaveSlot(0)).toBeUndefined();

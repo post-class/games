@@ -43,13 +43,18 @@ describe('顔画像アセット', () => {
       }
     }
     expect(missing).toEqual([]);
-    // 少なくとも旧キャンペーンの9名 + 人物名簿76名ぶんは登録されている
-    expect(FACE_ART_IDS.size).toBeGreaterThanOrEqual(85);
+    // 人物名簿の76名ぶんが登録されている
+    expect(FACE_ART_IDS.size).toBe(76);
   });
 
-  it('旧キャンペーンが参照している暫定 id は消えていない（既存11ミッションの回帰）', () => {
+  /**
+   * 旧キャンペーン（canon / expanded）の暫定 id は、戦役を THE VEIL FRONT だけに
+   * したときに画像ごと削除した。復活させないための回帰。
+   */
+  it('旧キャンペーンの暫定 id は残っていない', () => {
     for (const id of ['halcyon', 'spirit', 'maniac', 'angel', 'tinman', 'cricket', 'padre', 'slate', 'nomad']) {
-      expect(FACE_ART_IDS.has(id)).toBe(true);
+      expect(FACE_ART_IDS.has(id)).toBe(false);
+      expect(hasFaceFile(faceFile(id, 'neutral'))).toBe(false);
     }
   });
 

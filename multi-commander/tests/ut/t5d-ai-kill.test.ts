@@ -27,7 +27,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DIFFICULTIES, type DifficultyProfile } from '../../src/app/settings';
 import { isHostile } from '../../src/content/factions';
-import { missionDef } from '../../src/content/missions';
+import { TEST_PATROL } from './fixtures/missions';
 import { VEIL_CH02 } from '../../src/content/veil/missions/ch02';
 import { reseed } from '../../src/core/rng';
 import { MissionRunner } from '../../src/mission/MissionRunner';
@@ -162,7 +162,7 @@ describe('やさしいで敵機を1機以上撃墜できる (AI が自機を操�
    */
   it.each([0x5eed0003, 0x5eed3039])('哨戒ミッションでも落とせる (seed %#)', (seed) => {
     reseed(seed);
-    const def = missionDef('m1-patrol');
+    const def = TEST_PATROL;
     const { world, runner } = start(def, easy);
     world.player!.ai = newAi(PILOT_SKILL);
 
@@ -203,7 +203,7 @@ describe('やさしいで敵機を1機以上撃墜できる (AI が自機を操�
       opts: ReturnType<typeof stepOptions> | { flightMode: 'wc'; ai: { maxAttackersOnPlayer: number } },
     ) => {
       reseed(0x5eed0003);
-      const def = missionDef('m1-patrol');
+      const def = TEST_PATROL;
       const { world, runner } = start(def, easy);
       const player = world.player!;
       player.input!.firePrimary = true;
