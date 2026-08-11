@@ -41,6 +41,7 @@ export class FakeElement {
         this.className = [...s].join(' ');
       },
       contains: (name: string) => this.classNames().includes(name),
+      toggle: (name: string, force?: boolean) => this.toggle(name, force),
     };
   }
 
@@ -99,6 +100,17 @@ export class FakeElement {
     /* レイアウトを持たないので何もしない */
   }
 
+  /** class の付け外し。`force` を渡すとその値に合わせる（実DOMと同じ） */
+  toggle(name: string, force?: boolean): void {
+    if (force === undefined) {
+      if (this.classNames().includes(name)) this.classList.remove(name);
+      else this.classList.add(name);
+      return;
+    }
+    if (force) this.classList.add(name);
+    else this.classList.remove(name);
+  }
+
   addEventListener(type: string, fn: Listener): void {
     const list = this.listeners.get(type) ?? [];
     list.push(fn);
@@ -132,6 +144,13 @@ export interface FakeDom {
   text(root: FakeElement): string;
   /** window の keydown を発火する。capture 登録の順に呼ぶ */
   key(code: string, ev?: Record<string, unknown>): void;
+  /**
+   * `setTimeout` に積まれた処理を実行する。
+   * 実際には待たないので、演出の「着いた」判定をテストから進めるために使う。
+   */
+  flushTimers(): void;
+  /** 未消化のタイマーの本数（解放漏れの検査に使う） */
+  pendingTimers(): number;
   /** 後片付け */
   restore(): void;
 }
@@ -139,6 +158,21 @@ export interface FakeDom {
 /** `document` / `window` を差し替える。テストの beforeEach から呼ぶ。 */
 export function installFakeDom(): FakeDom {
   const keyListeners: Listener[] = [];
+  /**
+   * `setTimeout` の代わり。実際には待たず、`flushTimers()` で消化する。
+   * 演出の「一定時間後に着く」を、テストから同期的に進めるために持つ。
+   */
+  const timers = new Map<number, () => void>();
+  let nextTimer = 1;
+  const setTimer = (fn: () => void): number => {
+    const id = nextTimer++;
+    timers.set(id, fn);
+    return id;
+  };
+  const clearTimer = (id?: number): void => {
+    if (id !== undefined) timers.delete(id);
+  };
+
   const document = {
     createElement: (tag: string) => new FakeElement(tag),
     body: new FakeElement('body'),
@@ -152,9 +186,17 @@ export function installFakeDom(): FakeDom {
       const i = keyListeners.indexOf(fn);
       if (i >= 0) keyListeners.splice(i, 1);
     },
+    setTimeout: (fn: () => void) => setTimer(fn),
+    clearTimeout: clearTimer,
   };
   vi.stubGlobal('document', document);
   vi.stubGlobal('window', window);
+  vi.stubGlobal('clearTimeout', clearTimer);
+  vi.stubGlobal('setTimeout', (fn: () => void) => setTimer(fn));
+  // rAF は回さない。演出の進行は各シーンの同期 API（`settle()` など）で進める
+  vi.stubGlobal('requestAnimationFrame', () => 1);
+  vi.stubGlobal('cancelAnimationFrame', () => {});
+  vi.stubGlobal('performance', { now: () => 0 });
 
   const walk = (root: FakeElement, visit: (el: FakeElement) => void): void => {
     visit(root);
@@ -194,7 +236,17 @@ export function installFakeDom(): FakeDom {
         fn(event);
       }
     },
+    flushTimers() {
+      // 実行中に積まれたタイマーは次の flush に回す（無限ループを避ける）
+      const due = [...timers.entries()];
+      timers.clear();
+      for (const [, fn] of due) fn();
+    },
+    pendingTimers() {
+      return timers.size;
+    },
     restore() {
+      timers.clear();
       vi.unstubAllGlobals();
     },
   };

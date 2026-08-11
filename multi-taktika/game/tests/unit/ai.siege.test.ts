@@ -100,6 +100,8 @@ function emptyMemory(): AiMemory {
     villagerMoveTick: [],
     produceTick: [],
     armyProduceTick: [],
+    wantBuildCost: [],
+    enemyBuildingIds: [],
     gatherAssignSeq: [],
     nodeIds: [],
     nodeResource: [],

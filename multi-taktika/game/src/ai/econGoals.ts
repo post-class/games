@@ -1112,9 +1112,12 @@ export function wishBuildings(ctx: AiContext): { id: string; count: number }[] {
   const gate = pickAgeGateBuilding(ctx);
   if (gate !== null) out.push({ id: gate, count: 1 });
   // 3) 兵の生産元（兵舎・射場・厩）。無いと青銅以降の兵が 1 体も作れない。
-  const producer = missingProducerBuilding(ctx, own.age);
-  if (producer !== null && producer !== gate) {
-    out.push({ id: producer, count: ctx.cfg.producerPlanAhead });
+  // **`producerPlanAhead` 棟ぶんを「別々の建物」として積む。**
+  // 同じ 1 棟を 2 倍で数えるのではなく、実際に建てたい別々の生産元を数える
+  // （そうしないと攻城工房のように高いものが必要額から漏れる。下の注記）。
+  const producers = missingProducerBuildings(ctx, own.age, ctx.cfg.producerPlanAhead);
+  for (let i = 0; i < producers.length; i++) {
+    if (producers[i]! !== gate) out.push({ id: producers[i]!, count: 1 });
   }
   // 4) **次の世で欲しくなる生産元も、いまから木材を貯める対象に入れる。**
   //
@@ -1127,9 +1130,13 @@ export function wishBuildings(ctx: AiContext): { id: string; count: number }[] {
   // 建てる判断（`pickEconBuildings` / `planMilitaryBuilding`）は世が上がるまで
   // 動かないので、ここで需要だけ先に立てても早く建ててしまうことはない。
   if (ctx.cfg.allowAdvanceAge && own.age + 1 < AGE_IDS.length) {
-    const nextProducer = missingProducerBuilding(ctx, own.age + 1);
-    if (nextProducer !== null && nextProducer !== gate && nextProducer !== producer) {
-      out.push({ id: nextProducer, count: ctx.cfg.producerPlanAhead });
+    const nextProducers = missingProducerBuildings(ctx, own.age + 1, ctx.cfg.producerPlanAhead);
+    for (let i = 0; i < nextProducers.length; i++) {
+      const id = nextProducers[i]!;
+      if (id === gate) continue;
+      let dup = false;
+      for (let k = 0; k < out.length; k++) if (out[k]!.id === id) dup = true;
+      if (!dup) out.push({ id, count: 1 });
     }
   }
   // 5) **採っている資源の搬入点 1 棟ぶん**を常に見込む（伐採所・採掘場）。
@@ -1200,10 +1207,26 @@ function producibleUnitIdsForEcon(ctx: AiContext, age: number): string[] {
  * 城・大天幕は `allowDecoy`。`militaryGoals.planMilitaryBuilding` と同じ条件）。
  */
 function missingProducerBuilding(ctx: AiContext, age: number): string | null {
+  const list = missingProducerBuildings(ctx, age, 1);
+  return list.length === 0 ? null : list[0]!;
+}
+
+/**
+ * まだ持っていない兵の生産元を**安い順に最大 `limit` 件**（同額は ID 昇順。全順序）。
+ *
+ * ■ なぜ 1 件では足りないのか（実測。攻城工房が建たない最後の原因）
+ * 必要額に「いちばん安い生産元 1 棟」だけを積んでいたので、
+ * 鉄器の世では厩（木材 175）だけが数えられ、**攻城工房（木材 200）は数えられなかった**。
+ * すると手持ちが 175 を超えた時点で「木材は足りている」と判断され、
+ * 余った木材が農地（1 面 60）に流れる ―― 実測で 30 分に農地 19 面（木材 1,140）を建て、
+ * 木材の手持ちは 16〜61 のまま、**工房は着工試行にすら一度も出てこなかった**。
+ * 建てたい生産元をすべて数えれば、その間は農地が止まって木材が貯まる
+ * （農地は `deficits[WOOD] === 0` のときだけ建てる作りになっている）。
+ */
+function missingProducerBuildings(ctx: AiContext, age: number, limit: number): string[] {
   const civ = ctx.view.own.civ as CivId;
   const units = producibleUnitIdsForEcon(ctx, age);
-  let bestId: string | null = null;
-  let bestCost = 0;
+  const found: { id: string; cost: number }[] = [];
   for (let i = 0; i < units.length; i++) {
     const udef = unitDefById(units[i]!);
     if (udef.role === 'siege' && !ctx.cfg.allowSiege) continue;
@@ -1213,15 +1236,17 @@ function missingProducerBuilding(ctx: AiContext, age: number): string | null {
     if (bdef.age > age) continue;
     if (bdef.frontSlotBonus > 0 && !ctx.cfg.allowDecoy) continue;
     if (countOwnBuildings(ctx, bdef.index) > 0) continue; // 町の中心もここで外れる
+    let dup = false;
+    for (let k = 0; k < found.length; k++) if (found[k]!.id === src) dup = true;
+    if (dup) continue;
     let total = 0;
     for (let r = 0; r < bdef.cost.length; r++) total += bdef.cost[r]!;
-    // 同額なら ID 昇順（乱数を使わない。§0.3）。
-    if (bestId === null || total < bestCost || (total === bestCost && src < bestId)) {
-      bestId = src;
-      bestCost = total;
-    }
+    found.push({ id: src, cost: total });
   }
-  return bestId;
+  found.sort((a, b) => (a.cost !== b.cost ? a.cost - b.cost : a.id < b.id ? -1 : 1));
+  const out: string[] = [];
+  for (let i = 0; i < found.length && i < limit; i++) out.push(found[i]!.id);
+  return out;
 }
 
 /** いま作れる兵のうちいちばん安いもの（不足額に「兵の費用」を入れるのに使う）。 */
@@ -1279,6 +1304,10 @@ export function resourceDeficits(ctx: AiContext): Int32Array {
     const cost = buildingDefById(wish[i]!.id).cost;
     for (let r = 0; r < n; r++) need[r] = need[r]! + cost[r]! * wish[i]!.count;
   }
+  // **軍が建てたくて待っている 1 棟ぶん**（`AiMemory.wantBuildCost` の注記）。
+  // これを入れないと、内政は「木材は足りている」と見て余りを農地に流してしまい、
+  // 攻城工房（木材 200）が永久に建たない。
+  for (let r = 0; r < n; r++) need[r] = need[r]! + memGet(ctx.memory.wantBuildCost, r);
   const unit = cheapestProducibleUnit(ctx);
   if (unit !== null && ctx.cfg.unitDemandCount > 0) {
     const cost = unitDefById(unit).cost;
@@ -2326,6 +2355,13 @@ export function planMarketTrade(ctx: AiContext): Command | null {
   // 鉄器の世は金 200 を要求するが、以前はここで金を売り続けて
   // 金が 90〜100 に張り付き、永久に届かなかった（実測で交換 133 回）。
   // 貯めている最中に貯めているものを手放すのは、どんな相場でも損。
+  //
+  //
+  // ■ この番を外してみた結果（実測。**外さないこと**）
+  // 「資源ごとに必要額を超えているぶんだけ売る」（下の `resourceDeficits`）で
+  // 足りるはずと考えて、この 1 行を外して測ったら**鉄器到達が 8/8 席 → 7/8 席に落ちた**。
+  // 交換の手数料（`07§8` の相場変動）ぶんだけ実入りが減るので、
+  // 「次の世に上がる」より優先してよい用途はほとんど無い。番は残す。
   if (!canAffordNextAge(ctx)) return null;
 
   // ■ 「余っているもので、詰まっているものを買う」（実測で作り直した）

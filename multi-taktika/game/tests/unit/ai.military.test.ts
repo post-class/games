@@ -100,4 +100,37 @@ describe('軍事 AI（T-M13-03）— 相手の「穴」から兵種を逆算す�
     expect(roleShare(mix, 'spear')).toBe(roleShare(mix, 'ranged'));
     expect(roleShare(mix, 'spear')).toBeGreaterThan(0);
   });
+
+  /**
+   * ■ 敵の建物を数えると攻城の需要が立つ（`counterMatrix` の `siege → building: good`）
+   *
+   * これが無かったために**攻城工房が 1 棟も建たなかった**（実測: 段階 5・4 組・30 分で
+   * 工房 0 棟・攻城兵器 0 体）。`readEnemy` が敵の建物を**文明の推定にしか使っておらず**、
+   * `roleWeight` の `building` が 1 度も立たなかったので、攻城の点数が構造的に 0 だった。
+   *
+   * 直し方は「攻城のための特別扱い」ではなく、**データに任せる**形にしてある:
+   * 敵の建物の棟数（`ai.json` の `enemyBuildingWeightMax` で頭打ち）を
+   * `building` の重みに足すだけ。あとは既存の相性表が攻城を持ち上げる。
+   */
+  it('敵の建物を数えると攻城の割合が上がる（counterMatrix の siege→building がそのまま効く）', () => {
+    const view = viewWithEnemyMelee('roma', 'r-principes');
+    const without = desiredRoleMix(view); // 既定は 0（既存の呼び出しと同じ）
+    const withBuildings = desiredRoleMix(view, 4);
+    expect(roleShare(withBuildings, 'siege')).toBeGreaterThan(roleShare(without, 'siege'));
+    // 建物に弱い役割（槍は building の欄が無い＝等倍）より伸びること。
+    const gainSiege = roleShare(withBuildings, 'siege') - roleShare(without, 'siege');
+    const gainSpear = roleShare(withBuildings, 'spear') - roleShare(without, 'spear');
+    expect(gainSiege).toBeGreaterThan(gainSpear);
+  });
+
+  it('建物の重みは上限で頭打ちになる（拠点で 10 棟見えても攻城に寄りすぎない）', () => {
+    const view = viewWithEnemyMelee('roma', 'r-principes');
+    // 呼び出し側（`militaryGoals.planMilitary`）が `enemyBuildingWeightMax` で
+    // 頭打ちにした値を渡す。ここでは同じ値を 2 回渡して結果が変わらないことを見る。
+    const capped = desiredRoleMix(view, 3);
+    const sameCapped = desiredRoleMix(view, 3);
+    expect(roleShare(capped, 'siege')).toBe(roleShare(sameCapped, 'siege'));
+    // 上限より大きい重みを渡せば当然もっと寄る（上限を置く意味がある）。
+    expect(roleShare(desiredRoleMix(view, 8), 'siege')).toBeGreaterThan(roleShare(capped, 'siege'));
+  });
 });

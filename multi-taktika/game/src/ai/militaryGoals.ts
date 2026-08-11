@@ -23,7 +23,7 @@
  */
 
 import type { CivId, EntityId } from '@/shared/types';
-import { CIV_IDS, EntityKind } from '@/shared/types';
+import { CIV_IDS, EntityKind, RESOURCE_COUNT } from '@/shared/types';
 import type { Command } from '@/sim/command';
 import { TICK_RATE, cfgArray, cfgInt, cfgNum, cfgTiles } from '@/sim/core/config';
 import {
@@ -118,7 +118,8 @@ export interface EnemyRead {
  *
  * 重みの付け方:
  *  - **見えている敵ユニット 1 体につき +1**（今そこにある脅威）
- *  - **見えている敵の建物 1 棟につき `building` の役割へ +1**（`buildingWeightMax` で頭打ち）
+ *  - **`buildingWeight`**（呼び出し側が渡す。**覚えている敵の建物の棟数**を
+ *    `ai.json` の `enemyBuildingWeightMax` で頭打ちにした値）を `building` の役割へ
  *  - **推定できた敵文明が出せる役割 1 つにつき +1**（これから来る脅威）
  * 文明が推定できていなければ 3 つ目は 0 になる ―― つまり
  * **偵察していない AI は相性を読めない**（透視をしないことの裏返し）。
@@ -128,19 +129,27 @@ export interface EnemyRead {
  * データ側は「攻城は建物に効く」と既に言っている。ところがここで敵の建物を
  * **文明の推定にしか使っていなかった**ので、`roleMixFromWeights` に渡る重みには
  * `building` が 1 度も立たず、**攻城の需要が構造的に 0** だった。
- * その結果 `planMilitaryBuilding` は攻城工房を選ばず、
+ * その結果 `pickMilitaryBuilding` は攻城工房を選ばず、
  * 実測（段階 5・4 組・30 分）で**工房 0 棟・攻城兵器 0 体**だった。
  * ここに足せば既存の相性表がそのまま効く ―― 攻城のための特別扱いを書かなくてよい。
  *
- * `buildingWeightMax` の既定が 0 なのは、**既存の呼び出し（テストを含む）を
- * 1 引数のまま動かすため**。段階ごとの値は `ai.json` にある。
+ * 「見えている」ではなく「**覚えている**」棟数で数えるのは、敵の建物が視界に映るのが
+ * 攻め込んでいる数十秒だけで、それでは需要が立たないため
+ * （実測で構成比の攻城が 11〜13% のまま騎兵・遠隔を超えなかった。
+ *  `AiMemory.enemyBuildingIds` の注記）。
+ * `buildingWeight` の既定が 0 なのは、**既存の呼び出し（テストを含む）を
+ * 1 引数のまま動かすため**。段階ごとの上限は `ai.json` にある。
  */
-export function readEnemy(view: AiView, buildingWeightMax = 0): EnemyRead {
+export function readEnemy(view: AiView, buildingWeight = 0): EnemyRead {
   const roleWeight = new Int32Array(ROLE_COUNT);
   const civSeen = new Uint8Array(CIV_DEFS.length);
   let seenUnits = 0;
+  // **敵の建物ぶんの重み**。呼び出し側が「覚えている棟数」を上限つきで渡す
+  // （見えているぶんだけでは需要が立たない ―― `AiMemory.enemyBuildingIds` の注記）。
   const buildingRole = ROLE_IDS.indexOf('building' as never);
-  let buildingWeight = 0;
+  if (buildingRole >= 0 && buildingWeight > 0) {
+    roleWeight[buildingRole] = roleWeight[buildingRole]! + buildingWeight;
+  }
 
   for (let k = 0; k < view.seenEnemies.length; k++) {
     const s = view.seenEnemies[k]!;
@@ -153,13 +162,6 @@ export function readEnemy(view: AiView, buildingWeightMax = 0): EnemyRead {
       const bdef = buildingDef(s.typeId);
       // 固有建物（大天幕・観輪・塩蔵など）も文明を明かす。
       if (bdef.civ !== null) civSeen[civDefById(bdef.civ).index] = 1;
-      // **建物は「壊すべき相手」として数える。**
-      // 1 棟ごとに素朴に足すと、拠点で 10 棟見えた瞬間に攻城へ寄りすぎるので
-      // 上限を置く（`ai.json` の `enemyBuildingWeightMax`）。
-      if (buildingRole >= 0 && buildingWeight < buildingWeightMax) {
-        roleWeight[buildingRole] = roleWeight[buildingRole]! + 1;
-        buildingWeight++;
-      }
     }
   }
 
@@ -172,6 +174,37 @@ export function readEnemy(view: AiView, buildingWeightMax = 0): EnemyRead {
   }
 
   return { civs, roleWeight, seenUnits };
+}
+
+/**
+ * 見えている敵の建物を記憶に足す（`AiMemory.enemyBuildingIds`。**発見順に足すだけ**）。
+ *
+ * 壊れた建物を落とさないのは、「あそこに敵の拠点がある」という判断は残っていて
+ * 構わないため（人間も同じ）。棟数は `enemyBuildingWeightMax` で頭打ちにするので、
+ * 記憶が増え続けても攻城に寄りすぎることはない。
+ */
+function rememberEnemyBuildings(ctx: AiContext): void {
+  const known = ctx.memory.enemyBuildingIds;
+  const seen = ctx.view.seenEnemies;
+  for (let k = 0; k < seen.length; k++) {
+    const s = seen[k]!;
+    if (s.kind !== EntityKind.Building) continue;
+    let found = false;
+    for (let i = 0; i < known.length; i++) {
+      if (known[i] === s.id) {
+        found = true;
+        break;
+      }
+    }
+    if (!found) known.push(s.id);
+  }
+}
+
+/** 覚えている敵の建物の棟数（`ai.json` の `enemyBuildingWeightMax` で頭打ち）。 */
+function enemyBuildingWeight(ctx: AiContext): number {
+  const known = ctx.memory.enemyBuildingIds.length;
+  const cap = ctx.cfg.enemyBuildingWeightMax;
+  return known < cap ? known : cap;
 }
 
 /** その文明が全時代を通じて出せる役割に +1 する（`unitTree` から。**穴は 0 のまま**）。 */
@@ -302,7 +335,8 @@ export function planMilitary(ctx: AiContext): Command[] {
   const cmds: Command[] = [];
   // 敵の建物も「壊すべき相手」として構成比に入れる（`readEnemy` の注記）。
   // これが無いと攻城の需要が構造的に立たず、攻城工房が 1 棟も建たない。
-  const mix = desiredRoleMix(ctx.view, ctx.cfg.enemyBuildingWeightMax);
+  rememberEnemyBuildings(ctx);
+  const mix = desiredRoleMix(ctx.view, enemyBuildingWeight(ctx));
 
   // 0) **内政が立つまで兵を作らない**（`07§2` の「0〜5 分は村人だけを増やす時間」）。
   //
@@ -364,6 +398,12 @@ export function planMilitary(ctx: AiContext): Command[] {
   // （建て終われば取り置きは消える。永久に兵を止めるわけではない）。
   const buildReserve =
     bld === null && wishBuilding !== null ? buildingDefById(wishBuilding).cost : null;
+  // **内政にも「待っている 1 棟」を伝える**（`AiMemory.wantBuildCost`）。
+  // 内政はこれを必要額に足すので、その資源が農地などに流れなくなる。
+  for (let r = 0; r < RESOURCE_COUNT; r++) memSet(ctx.memory.wantBuildCost, r, 0);
+  if (buildReserve !== null) {
+    for (let r = 0; r < buildReserve.length; r++) memSet(ctx.memory.wantBuildCost, r, buildReserve[r]!);
+  }
   pushUnitProduction(ctx, mix, cmds, buildReserve);
 
   // 3) **拠点を落としに行く**（守り手のいない建物を名指しで殴る）。
@@ -381,11 +421,6 @@ export function planMilitary(ctx: AiContext): Command[] {
  * 「作りたい兵（点数順）の生産元をまだ持っていない」ものを上から。
  * 攻城工房は `allowSiege`、城は `allowDecoy`（戦域を広く使う段階）から。
  */
-function planMilitaryBuilding(ctx: AiContext, mix: Int32Array): Command | null {
-  const wish = pickMilitaryBuilding(ctx, mix);
-  return wish === null ? null : placeBuildingCommand(ctx, wish);
-}
-
 /**
  * 建てたい軍事建物の ID を選ぶ（**まだ着工しない**）。
  *
